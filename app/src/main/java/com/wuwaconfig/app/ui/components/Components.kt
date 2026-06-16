@@ -222,7 +222,8 @@ fun GlassOutlinedButton(
                         val next = when (status.method) {
                             AccessMethod.ADB -> "SHIZUKU"
                             AccessMethod.SHIZUKU -> "ROOT"
-                            AccessMethod.ROOT -> "ADB"
+                            AccessMethod.ROOT -> "SAF"
+                            AccessMethod.SAF -> "ADB"
                         }
                         Text(next, fontWeight = FontWeight.Bold)
                     },

@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.BackendStatus
+import com.wuwaconfig.app.backend.SafBackend
 import rikka.shizuku.Shizuku
 import com.wuwaconfig.app.config.ChipsetDetector
 import com.wuwaconfig.app.config.ConfigManager
@@ -121,19 +122,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _backendStatus.value = BackendStatus(method = method)
             addLog("Connecting via ${method.name}...")
 
-            if (method == AccessMethod.SHIZUKU) {
-                try {
-                    if (Shizuku.getVersion() < 0 || Shizuku.checkSelfPermission() != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                        _backendStatus.value = BackendStatus(method = method, errorMessage = "Shizuku not running or permission not granted.")
-                        addLog("ERROR: Shizuku not available")
+            when (method) {
+                AccessMethod.SHIZUKU -> {
+                    try {
+                        if (Shizuku.getVersion() < 0 || Shizuku.checkSelfPermission() != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            _backendStatus.value = BackendStatus(method = method, errorMessage = "Shizuku not running or permission not granted.")
+                            addLog("ERROR: Shizuku not available")
+                            return@launch
+                        }
+                        addLog("Shizuku is ready!")
+                    } catch (_: Exception) {
+                        _backendStatus.value = BackendStatus(method = method, errorMessage = "Shizuku not running. Start Shizuku first.")
+                        addLog("ERROR: Shizuku not running")
                         return@launch
                     }
-                    addLog("Shizuku is ready!")
-                } catch (_: Exception) {
-                    _backendStatus.value = BackendStatus(method = method, errorMessage = "Shizuku not running. Start Shizuku first.")
-                    addLog("ERROR: Shizuku not running")
-                    return@launch
                 }
+                AccessMethod.SAF -> {
+                    val saf = app.backend as? SafBackend
+                    if (saf == null || saf.treeUri == null) {
+                        _backendStatus.value = BackendStatus(method = method, errorMessage = "No SAF directory selected. Tap Pick Directory to choose the game config folder.")
+                        addLog("ERROR: SAF directory not selected")
+                        return@launch
+                    }
+                }
+                else -> {}
             }
 
             val backend = app.backend
@@ -153,6 +165,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 addLog("ERROR: $message")
             }
+        }
+    }
+
+    fun saveSafTreeUri(uri: Uri) {
+        val backend = app.backend
+        if (backend is SafBackend) {
+            backend.saveTreeUri(uri)
+            addLog("SAF directory set. Connecting...")
+            connect()
         }
     }
 
@@ -218,6 +239,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun friendlyBackendError(message: String?): String {
         val raw = message.orEmpty()
         return when {
+            raw.contains("No SAF directory selected", ignoreCase = true) ->
+                "Pick a directory with the game config files."
+            raw.contains("SAF directory no longer", ignoreCase = true) ->
+                "SAF directory access lost. Pick again."
+            raw.contains("Shell commands not available in SAF", ignoreCase = true) ->
+                "Shell commands not supported on SAF. Use another method for this operation."
             raw.contains("Shizuku is not running", ignoreCase = true) ->
                 "Shizuku not running. Start Shizuku app first."
             raw.contains("Shizuku permission", ignoreCase = true) ->
@@ -241,7 +268,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun disconnect() {
         app.backend.disconnect()
-        _backendStatus.value = BackendStatus(method = _backendStatus.value.method)
+        val method = _backendStatus.value.method
+        if (method == AccessMethod.SAF) {
+            val saf = app.backend as? SafBackend
+            saf?.clearTreeUri()
+        }
+        _backendStatus.value = BackendStatus(method = method)
         addLog("Disconnected.")
     }
 
