@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wuwaconfig.app.adb.PortScanner
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.*
@@ -58,6 +59,9 @@ fun HomeScreen(
     var customConfigState by remember { mutableStateOf(CustomConfigState.IDLE) }
     var pickedFiles by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showAdbDialog by remember { mutableStateOf(false) }
+    var adbHost by remember { mutableStateOf(PortScanner.getDeviceIp()) }
+    var adbPort by remember { mutableStateOf("") }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -123,20 +127,38 @@ fun HomeScreen(
                     })
                 }
                 item {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassButton(
-                            onClick = { viewModel.connect() },
-                            modifier = Modifier.weight(1f),
-                            enabled = !backendStatus.connected,
-                            accentColor = NeonCyan,
-                            contentColor = Color.White
-                        ) { Text("Connect", fontWeight = FontWeight.Bold) }
-                        GlassOutlinedButton(
-                            onClick = { viewModel.disconnect() },
-                            modifier = Modifier.weight(1f),
-                            enabled = backendStatus.connected,
-                            accentColor = NeonRed
-                        ) { Text("Disconnect", fontWeight = FontWeight.Bold) }
+                    if (backendStatus.method == AccessMethod.ADB && !backendStatus.connected) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GlassButton(
+                                onClick = { viewModel.connect() },
+                                modifier = Modifier.weight(1f),
+                                enabled = !backendStatus.connected,
+                                accentColor = NeonCyan,
+                                contentColor = Color.White
+                            ) { Text("Connect", fontWeight = FontWeight.Bold) }
+                            GlassOutlinedButton(
+                                onClick = { showAdbDialog = true },
+                                modifier = Modifier.weight(1f),
+                                enabled = !backendStatus.connected,
+                                accentColor = NeonAmber
+                            ) { Icon(Icons.Default.Edit, contentDescription = "Manual", modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Manual") }
+                        }
+                    } else {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GlassButton(
+                                onClick = { viewModel.connect() },
+                                modifier = Modifier.weight(1f),
+                                enabled = !backendStatus.connected,
+                                accentColor = NeonCyan,
+                                contentColor = Color.White
+                            ) { Text("Connect", fontWeight = FontWeight.Bold) }
+                            GlassOutlinedButton(
+                                onClick = { viewModel.disconnect() },
+                                modifier = Modifier.weight(1f),
+                                enabled = backendStatus.connected,
+                                accentColor = NeonRed
+                            ) { Text("Disconnect", fontWeight = FontWeight.Bold) }
+                        }
                     }
                 }
 
@@ -297,6 +319,69 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    // Auto-show ADB dialog when auto-scan fails
+    LaunchedEffect(backendStatus.errorMessage) {
+        if (backendStatus.method == AccessMethod.ADB &&
+            !backendStatus.connected &&
+            backendStatus.errorMessage.contains("ADB port not found", ignoreCase = true)) {
+            showAdbDialog = true
+        }
+    }
+
+    if (showAdbDialog) {
+        AlertDialog(
+            onDismissRequest = { showAdbDialog = false },
+            containerColor = CardSurface,
+            icon = { Icon(Icons.Default.Adb, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(32.dp)) },
+            title = { Text("Wireless Debugging", color = NeonCyan, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Enter the IP:port from Developer Options > Wireless Debugging.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = adbHost,
+                        onValueChange = { adbHost = it },
+                        label = { Text("IP Address") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = NeonCyan,
+                            focusedLabelColor = NeonCyan
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = adbPort,
+                        onValueChange = { adbPort = it },
+                        label = { Text("Port") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = NeonCyan,
+                            focusedLabelColor = NeonCyan
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showAdbDialog = false
+                        viewModel.connectAdbManual(adbHost, adbPort)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonCyan.copy(alpha = 0.15f),
+                        contentColor = NeonCyan
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) { Text("Connect", fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAdbDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showDeleteDialog) {

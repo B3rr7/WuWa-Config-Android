@@ -10,6 +10,7 @@ data class BackendStatus(
     val method: AccessMethod = AccessMethod.ADB,
     val connected: Boolean = false,
     val port: Int = 0,
+    val host: String = "",
     val errorMessage: String = ""
 )
 

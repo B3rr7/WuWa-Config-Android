@@ -1,55 +1,89 @@
 package com.wuwaconfig.app.adb
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
+import java.net.NetworkInterface
 import java.net.Socket
-import java.util.concurrent.atomic.AtomicInteger
 
 object PortScanner {
-    private const val MIN_PORT = 35000
-    private const val MAX_PORT = 46000
-    private const val CONNECT_TIMEOUT = 200
-    private const val MAX_CONCURRENT = 50
+    private const val WELL_KNOWN_ADB = 5555
+    private const val SCAN_START = 36000
+    private const val SCAN_END = 45000
+    private const val CONNECT_TIMEOUT = 500
+    private const val READ_TIMEOUT = 1500
 
-    suspend fun scanForAdb(): Int = withContext(Dispatchers.IO) {
-        val foundPort = AtomicInteger(0)
-        val semaphore = Semaphore(MAX_CONCURRENT)
+    private var cachedIp: String? = null
 
-        coroutineScope {
-            for (port in MIN_PORT..MAX_PORT) {
-                if (foundPort.get() > 0) break
-                launch {
-                    semaphore.withPermit {
-                        if (foundPort.get() > 0) return@withPermit
-                        if (isAdbPort(port)) {
-                            foundPort.compareAndSet(0, port)
+    data class ScanResult(val host: String, val port: Int)
+
+    fun getDeviceIp(): String {
+        cachedIp?.let { return it }
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val intf = interfaces.nextElement()
+                if (intf.isLoopback || !intf.isUp) continue
+                val addrs = intf.inetAddresses
+                while (addrs.hasMoreElements()) {
+                    val addr = addrs.nextElement()
+                    if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
+                        val ip = addr.hostAddress ?: continue
+                        if (ip.startsWith("192.") || ip.startsWith("10.") || ip.startsWith("172.")) {
+                            cachedIp = ip
+                            return ip
                         }
                     }
                 }
             }
-        }
-
-        foundPort.get()
+        } catch (_: Exception) {}
+        return "127.0.0.1"
     }
 
-    private fun isAdbPort(port: Int): Boolean {
+    suspend fun scanForAdb(): ScanResult? = withContext(Dispatchers.IO) {
+        val targets = listOf("127.0.0.1")
+        for (addr in targets) {
+            val port = scanHost(addr)
+            if (port > 0) return@withContext ScanResult(addr, port)
+        }
+        null
+    }
+
+    private suspend fun scanHost(host: String): Int = withContext(Dispatchers.IO) {
+        val wellKnown = tryPort(host, WELL_KNOWN_ADB)
+        if (wellKnown > 0) return@withContext wellKnown
+
+        val range = SCAN_START..SCAN_END
+        val batchSize = 20
+        range.toList().chunked(batchSize).forEach { batch ->
+            val results = coroutineScope {
+                batch.map { port ->
+                    async { tryPort(host, port) }
+                }.awaitAll()
+            }
+            val found = results.firstOrNull { it > 0 }
+            if (found != null) return@withContext found
+        }
+        0
+    }
+
+    private fun tryPort(host: String, port: Int): Int {
         return try {
             Socket().use { socket ->
-                socket.connect(InetSocketAddress("127.0.0.1", port), CONNECT_TIMEOUT)
-                val output = socket.getOutputStream()
-                val input = socket.getInputStream()
+                socket.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT)
+                socket.soTimeout = READ_TIMEOUT
                 val cnxn = AdbProtocol.createConnectionMessage()
-                AdbProtocol.writeMessage(output, cnxn)
-                val response = AdbProtocol.readMessage(input)
-                response != null && (response.command.contentEquals(AdbProtocol.CNXN) || response.command.contentEquals(AdbProtocol.AUTH))
+                AdbProtocol.writeMessage(socket.getOutputStream(), cnxn)
+                val response = AdbProtocol.readMessage(socket.getInputStream())
+                if (response != null && (response.command.contentEquals(AdbProtocol.CNXN) || response.command.contentEquals(AdbProtocol.AUTH))) {
+                    port
+                } else 0
             }
         } catch (_: Exception) {
-            false
+            0
         }
     }
 }

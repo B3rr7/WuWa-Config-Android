@@ -45,7 +45,7 @@ object AdbProtocol {
         val arg0 = buffer.getInt()
         val arg1 = buffer.getInt()
         val dataLength = buffer.getInt()
-        val crc32 = buffer.getInt()
+        buffer.getInt() // crc32 (not checked on Android 11+)
         val magic = buffer.getInt()
 
         val cmdInt = ByteBuffer.wrap(cmd).order(ByteOrder.LITTLE_ENDIAN).int
@@ -62,9 +62,16 @@ object AdbProtocol {
             data
         } else ByteArray(0)
 
-        if (crc32 != calculateCrc32(payload)) return null
+        // CRC32 is not enforced on Android 11+ (daemon may send 0)
+        // Skip the check for compatibility
 
         return AdbMessage(cmd, arg0, arg1, payload)
+    }
+
+    private fun calculateCrc32(data: ByteArray): Int {
+        val crc = CRC32()
+        crc.update(data)
+        return crc.value.toInt()
     }
 
     fun writeMessage(output: OutputStream, message: AdbMessage) {
@@ -117,9 +124,5 @@ object AdbProtocol {
         return AdbMessage(OKAY, localId, remoteId, ByteArray(0))
     }
 
-    private fun calculateCrc32(data: ByteArray): Int {
-        val crc = CRC32()
-        crc.update(data)
-        return crc.value.toInt()
-    }
+
 }

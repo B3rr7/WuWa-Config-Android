@@ -6,9 +6,11 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.wuwaconfig.app.WuWaConfigApp
+import com.wuwaconfig.app.adb.PortScanner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wuwaconfig.app.backend.AccessMethod
+import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.config.ChipsetDetector
 import com.wuwaconfig.app.config.ConfigManager
@@ -120,18 +122,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val backend = app.backend
             val result = backend.connect()
+            val ip = if (method == AccessMethod.ADB) PortScanner.getDeviceIp() else ""
+            val port = _backendStatus.value.port
 
             if (result.isSuccess) {
-                _backendStatus.value = BackendStatus(method = method, connected = true)
+                _backendStatus.value = BackendStatus(method = method, connected = true, host = ip, port = port)
                 addLog("Connected via ${method.name}!")
                 loadBackups()
             } else {
                 val message = friendlyBackendError(result.exceptionOrNull()?.message)
                 _backendStatus.value = BackendStatus(
-                    method = method, connected = false,
+                    method = method, connected = false, host = ip,
                     errorMessage = message
                 )
                 addLog("ERROR: $message")
+            }
+        }
+    }
+
+    fun connectAdbManual(host: String, portText: String) {
+        val port = portText.toIntOrNull()
+        if (port == null || port !in 1..65535) {
+            _backendStatus.value = BackendStatus(
+                method = AccessMethod.ADB, errorMessage = "Invalid port. Enter a number between 1-65535."
+            )
+            return
+        }
+        viewModelScope.launch {
+            _backendStatus.value = BackendStatus(method = AccessMethod.ADB)
+            addLog("Connecting to $host:$port...")
+            val backend = app.backend
+            if (backend is AdbBackend) {
+                val result = backend.connectTo(host, port)
+                if (result.isSuccess) {
+                    _backendStatus.value = BackendStatus(method = AccessMethod.ADB, connected = true, host = host, port = port)
+                    addLog("Connected to $host:$port!")
+                    loadBackups()
+                } else {
+                    val msg = friendlyBackendError(result.exceptionOrNull()?.message)
+                    _backendStatus.value = BackendStatus(method = AccessMethod.ADB, host = host, errorMessage = msg)
+                    addLog("ERROR: $msg")
+                }
             }
         }
     }
@@ -143,8 +174,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 "ADB connection refused. Enable Wireless Debugging and retry."
             raw.contains("timed out", ignoreCase = true) || raw.contains("after 5000ms", ignoreCase = true) ->
                 "ADB connection timed out. Check Wireless Debugging."
-            raw.contains("ADB daemon not found", ignoreCase = true) ->
-                "ADB daemon not found. Enable Wireless Debugging."
+            raw.contains("ADB port not found", ignoreCase = true) ->
+                "ADB not found. Enter IP:port from Developer Options > Wireless Debugging."
+            raw.contains("ADB key not trusted", ignoreCase = true) ->
+                "ADB key not trusted. First connect from a computer via USB, or use ROOT mode."
+            raw.contains("Permission denied", ignoreCase = true) ->
+                "ADB shell can't access game data. Use ROOT mode."
             raw.isBlank() -> "Connection failed"
             else -> raw.take(120)
         }
