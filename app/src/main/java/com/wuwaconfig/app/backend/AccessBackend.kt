@@ -3,7 +3,7 @@ package com.wuwaconfig.app.backend
 import java.io.File
 
 enum class AccessMethod {
-    ADB, ROOT
+    ADB, SHIZUKU, ROOT
 }
 
 data class BackendStatus(

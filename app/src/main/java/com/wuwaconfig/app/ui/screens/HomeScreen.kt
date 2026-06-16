@@ -121,27 +121,41 @@ fun HomeScreen(
                 }
                 item {
                     BackendStatusCard(status = backendStatus, onToggle = {
-                        viewModel.switchTo(
-                            if (backendStatus.method == AccessMethod.ADB) AccessMethod.ROOT else AccessMethod.ADB
-                        )
+                        val next = when (backendStatus.method) {
+                            AccessMethod.ADB -> AccessMethod.SHIZUKU
+                            AccessMethod.SHIZUKU -> AccessMethod.ROOT
+                            AccessMethod.ROOT -> AccessMethod.ADB
+                        }
+                        viewModel.switchTo(next)
                     })
                 }
                 item {
-                    if (backendStatus.method == AccessMethod.ADB && !backendStatus.connected) {
+                    val isShizuku = backendStatus.method == AccessMethod.SHIZUKU
+                    if (!backendStatus.connected) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             GlassButton(
                                 onClick = { viewModel.connect() },
                                 modifier = Modifier.weight(1f),
-                                enabled = !backendStatus.connected,
+                                enabled = true,
                                 accentColor = NeonCyan,
                                 contentColor = Color.White
                             ) { Text("Connect", fontWeight = FontWeight.Bold) }
-                            GlassOutlinedButton(
-                                onClick = { showAdbDialog = true },
-                                modifier = Modifier.weight(1f),
-                                enabled = !backendStatus.connected,
-                                accentColor = NeonAmber
-                            ) { Icon(Icons.Default.Edit, contentDescription = "Manual", modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Manual") }
+                            if (backendStatus.method == AccessMethod.ADB) {
+                                GlassOutlinedButton(
+                                    onClick = { showAdbDialog = true },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = true,
+                                    accentColor = NeonAmber
+                                ) { Icon(Icons.Default.Edit, contentDescription = "Manual", modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Manual") }
+                            }
+                            if (isShizuku) {
+                                GlassOutlinedButton(
+                                    onClick = { viewModel.requestShizukuPermission() },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = true,
+                                    accentColor = NeonAmber
+                                ) { Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Permit") }
+                            }
                         }
                     } else {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -155,7 +169,7 @@ fun HomeScreen(
                             GlassOutlinedButton(
                                 onClick = { viewModel.disconnect() },
                                 modifier = Modifier.weight(1f),
-                                enabled = backendStatus.connected,
+                                enabled = true,
                                 accentColor = NeonRed
                             ) { Text("Disconnect", fontWeight = FontWeight.Bold) }
                         }
@@ -321,7 +335,6 @@ fun HomeScreen(
         }
     }
 
-    // Auto-show ADB dialog when auto-scan fails
     LaunchedEffect(backendStatus.errorMessage) {
         if (backendStatus.method == AccessMethod.ADB &&
             !backendStatus.connected &&

@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.BackendStatus
+import rikka.shizuku.Shizuku
 import com.wuwaconfig.app.config.ChipsetDetector
 import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.model.ConfigBackup
@@ -120,6 +121,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _backendStatus.value = BackendStatus(method = method)
             addLog("Connecting via ${method.name}...")
 
+            if (method == AccessMethod.SHIZUKU) {
+                try {
+                    if (Shizuku.getVersion() < 0 || Shizuku.checkSelfPermission() != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        _backendStatus.value = BackendStatus(method = method, errorMessage = "Shizuku not running or permission not granted.")
+                        addLog("ERROR: Shizuku not available")
+                        return@launch
+                    }
+                    addLog("Shizuku is ready!")
+                } catch (_: Exception) {
+                    _backendStatus.value = BackendStatus(method = method, errorMessage = "Shizuku not running. Start Shizuku first.")
+                    addLog("ERROR: Shizuku not running")
+                    return@launch
+                }
+            }
+
             val backend = app.backend
             val result = backend.connect()
             val ip = if (method == AccessMethod.ADB) PortScanner.getDeviceIp() else ""
@@ -138,6 +154,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 addLog("ERROR: $message")
             }
         }
+    }
+
+    fun requestShizukuPermission() {
+        try {
+            Shizuku.requestPermission(1001)
+        } catch (_: Exception) {}
+    }
+
+    private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
+        if (requestCode == 1001) {
+            if (grantResult == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                addLog("Shizuku permission granted!")
+                connect()
+            } else {
+                _backendStatus.value = _backendStatus.value.copy(errorMessage = "Shizuku permission denied")
+                addLog("ERROR: Shizuku permission denied")
+            }
+        }
+    }
+
+    init {
+        try {
+            Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
+        } catch (_: Exception) {}
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
+        } catch (_: Exception) {}
+        app.backend.disconnect()
     }
 
     fun connectAdbManual(host: String, portText: String) {
@@ -170,6 +218,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun friendlyBackendError(message: String?): String {
         val raw = message.orEmpty()
         return when {
+            raw.contains("Shizuku is not running", ignoreCase = true) ->
+                "Shizuku not running. Start Shizuku app first."
+            raw.contains("Shizuku permission", ignoreCase = true) ->
+                "Shizuku permission not granted."
+            raw.contains("Shizuku not available", ignoreCase = true) ->
+                "Shizuku not installed. Install Shizuku from GitHub."
             raw.contains("ECONNREFUSED", ignoreCase = true) ->
                 "ADB connection refused. Enable Wireless Debugging and retry."
             raw.contains("timed out", ignoreCase = true) || raw.contains("after 5000ms", ignoreCase = true) ->
@@ -179,7 +233,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             raw.contains("ADB key not trusted", ignoreCase = true) ->
                 "ADB key not trusted. First connect from a computer via USB, or use ROOT mode."
             raw.contains("Permission denied", ignoreCase = true) ->
-                "ADB shell can't access game data. Use ROOT mode."
+                "Shell can't access game data. Use ROOT mode."
             raw.isBlank() -> "Connection failed"
             else -> raw.take(120)
         }
@@ -392,8 +446,4 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _logs.value = _logs.value + "[$ts] $message"
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        app.backend.disconnect()
-    }
 }

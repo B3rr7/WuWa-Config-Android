@@ -1,11 +1,12 @@
 package com.wuwaconfig.app
 
 import android.app.Application
+import com.wuwaconfig.app.adb.AdbCrypto
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.RootBackend
-import com.wuwaconfig.app.adb.AdbCrypto
+import com.wuwaconfig.app.backend.ShizukuBackend
 
 class WuWaConfigApp : Application() {
     lateinit var adbCrypto: AdbCrypto
@@ -36,6 +37,7 @@ class WuWaConfigApp : Application() {
     private fun createBackend(method: AccessMethod): AccessBackend {
         return when (method) {
             AccessMethod.ADB -> AdbBackend(adbCrypto)
+            AccessMethod.SHIZUKU -> ShizukuBackend()
             AccessMethod.ROOT -> RootBackend()
         }
     }
