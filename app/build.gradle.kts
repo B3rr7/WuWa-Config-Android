@@ -71,6 +71,8 @@ dependencies {
 
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
+
+    implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("com.google.code.gson:gson:2.10.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

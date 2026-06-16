@@ -6,6 +6,7 @@ import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.RootBackend
+import com.wuwaconfig.app.backend.SafBackend
 import com.wuwaconfig.app.backend.ShizukuBackend
 
 class WuWaConfigApp : Application() {
@@ -39,6 +40,7 @@ class WuWaConfigApp : Application() {
             AccessMethod.ADB -> AdbBackend(adbCrypto)
             AccessMethod.SHIZUKU -> ShizukuBackend()
             AccessMethod.ROOT -> RootBackend()
+            AccessMethod.SAF -> SafBackend(this)
         }
     }
 

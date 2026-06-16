@@ -124,13 +124,19 @@ fun HomeScreen(
                         val next = when (backendStatus.method) {
                             AccessMethod.ADB -> AccessMethod.SHIZUKU
                             AccessMethod.SHIZUKU -> AccessMethod.ROOT
-                            AccessMethod.ROOT -> AccessMethod.ADB
+                            AccessMethod.ROOT -> AccessMethod.SAF
+                            AccessMethod.SAF -> AccessMethod.ADB
                         }
                         viewModel.switchTo(next)
                     })
                 }
                 item {
-                    val isShizuku = backendStatus.method == AccessMethod.SHIZUKU
+                    val safTreeLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocumentTree()
+                    ) { uri: Uri? ->
+                        if (uri != null) viewModel.saveSafTreeUri(uri)
+                    }
+
                     if (!backendStatus.connected) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             GlassButton(
@@ -140,21 +146,26 @@ fun HomeScreen(
                                 accentColor = NeonCyan,
                                 contentColor = Color.White
                             ) { Text("Connect", fontWeight = FontWeight.Bold) }
-                            if (backendStatus.method == AccessMethod.ADB) {
-                                GlassOutlinedButton(
+                            when (backendStatus.method) {
+                                AccessMethod.ADB -> GlassOutlinedButton(
                                     onClick = { showAdbDialog = true },
                                     modifier = Modifier.weight(1f),
                                     enabled = true,
                                     accentColor = NeonAmber
                                 ) { Icon(Icons.Default.Edit, contentDescription = "Manual", modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Manual") }
-                            }
-                            if (isShizuku) {
-                                GlassOutlinedButton(
+                                AccessMethod.SHIZUKU -> GlassOutlinedButton(
                                     onClick = { viewModel.requestShizukuPermission() },
                                     modifier = Modifier.weight(1f),
                                     enabled = true,
                                     accentColor = NeonAmber
                                 ) { Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Permit") }
+                                AccessMethod.SAF -> GlassOutlinedButton(
+                                    onClick = { safTreeLauncher.launch(null) },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = true,
+                                    accentColor = NeonAmber
+                                ) { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Pick Dir") }
+                                else -> {}
                             }
                         }
                     } else {
