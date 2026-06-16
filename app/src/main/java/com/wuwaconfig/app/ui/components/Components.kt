@@ -171,63 +171,70 @@ fun GlassOutlinedButton(
     }
 }
 
-@Composable
-fun BackendStatusCard(status: BackendStatus, onToggle: () -> Unit) {
-    val accentColor by animateColorAsState(
-        targetValue = when {
-            status.connected -> NeonGreen
-            status.errorMessage.isNotBlank() -> NeonRed
-            else -> NeonAmber
-        },
-        label = "accent"
-    )
+    @Composable
+    fun BackendStatusCard(status: BackendStatus, onToggle: () -> Unit) {
+        val accentColor by animateColorAsState(
+            targetValue = when {
+                status.connected -> NeonGreen
+                status.errorMessage.isNotBlank() -> NeonRed
+                else -> NeonAmber
+            },
+            label = "accent"
+        )
 
-    GlassCard(accentColor = accentColor) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        GlassCard(accentColor = accentColor) {
             Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(accentColor)
-                        .border(1.5.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                )
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Access: ${status.method.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        when {
-                            status.connected -> "Connected"
-                            status.errorMessage.isNotBlank() -> status.errorMessage
-                            else -> "Not connected"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = accentColor,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(accentColor)
+                            .border(1.5.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
                     )
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Access: ${status.method.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            when {
+                                status.connected -> "Connected"
+                                status.errorMessage.isNotBlank() -> status.errorMessage
+                                else -> "Not connected"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = accentColor,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
+                Spacer(Modifier.width(8.dp))
+                SuggestionChip(
+                    onClick = onToggle,
+                    label = {
+                        val next = when (status.method) {
+                            AccessMethod.ADB -> "SHIZUKU"
+                            AccessMethod.SHIZUKU -> "ROOT"
+                            AccessMethod.ROOT -> "ADB"
+                        }
+                        Text(next, fontWeight = FontWeight.Bold)
+                    },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = accentColor.copy(alpha = 0.1f),
+                        labelColor = accentColor
+                    ),
+                    border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accentColor.copy(alpha = 0.2f))
+                )
             }
-            Spacer(Modifier.width(8.dp))
-            SuggestionChip(
-                onClick = onToggle,
-                label = { Text(if (status.method == AccessMethod.ADB) "ROOT" else "ADB", fontWeight = FontWeight.Bold) },
-                colors = SuggestionChipDefaults.suggestionChipColors(
-                    containerColor = accentColor.copy(alpha = 0.1f),
-                    labelColor = accentColor
-                ),
-                border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accentColor.copy(alpha = 0.2f))
-            )
         }
     }
-}
 
 @Composable
 fun LogViewer(logs: List<String>, modifier: Modifier = Modifier) {
