@@ -1,0 +1,2 @@
+-keep class com.wuwaconfig.app.** { *; }
+-dontwarn com.wuwaconfig.app.**
