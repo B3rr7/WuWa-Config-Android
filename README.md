@@ -19,7 +19,7 @@ A fan-made Android application for analyzing, generating, and deploying optimize
 - **Forbidden CVar Overrides** — Automatically disables known problematic CVars detected in your log (FSR RCAS, TAA Sharpness, SSAO, VoidGT, Lens Flare).
 - **Thermal-Aware Configs** — Detects thermal throttling events and applies thermal control safeguards automatically.
 - **Backup & Restore** — Automatically backs up existing config files before applying changes.
-- **Dual Backend** — Supports both **ADB Wireless** and **ROOT** access methods.
+- **4 Access Methods** — ROOT, ADB (in-app protocol), Shizuku, and SAF.
 - **Material 3 UI** — Dark-themed glassmorphism design with dynamic theming.
 
 ---
@@ -28,8 +28,7 @@ A fan-made Android application for analyzing, generating, and deploying optimize
 
 - **Android 8.0+** (API 26)
 - **Wuthering Waves** installed on the device
-- **ADB Wireless Debugging** (for ADB mode) or **root access** (for ROOT mode)
-- **Storage permission** — needed to read game config files
+- One of: **root access**, **Wireless Debugging** enabled, **Shizuku** installed, or access via **SAF picker**
 
 ---
 
@@ -38,22 +37,32 @@ A fan-made Android application for analyzing, generating, and deploying optimize
 1. Download the latest APK from the [Releases](https://github.com/Berry7650/WuWap42/releases) page.
 2. Install the APK on your Android device.
 3. Open the app and accept the Terms of Use.
-4. Grant storage permissions when prompted.
-5. Configure your backup directory (default: `/Download/wuwap42/backup`).
-6. Connect via ROOT or ADB Wireless.
+4. Configure your backup directory (default: `/Download/wuwap42/backup`).
+5. Connect via one of the available methods.
 
-> **ADB Wireless Setup:**
-> - Enable Developer Options on your device.
-> - Enable Wireless Debugging.
-> - Pair with the app using the pairing code.
+---
+
+## Access Methods
+
+The app provides four ways to access the game config directory. Tap the chip in the status card to cycle between them.
+
+| Method | How it works | Setup required |
+|--------|-------------|----------------|
+| **ROOT** | Executes commands via `su -c` | Magisk / SuperSU installed |
+| **ADB** | In-app ADB protocol client connects to the device's own ADB daemon at `127.0.0.1:5555` | Enable Developer Options → Wireless Debugging. Tap Connect — accept the RSA fingerprint dialog when it appears (one-time). Manual IP:port entry also available. |
+| **SHIZUKU** | Uses the Shizuku API (v13) to run shell commands as the ADB UID | Install [Shizuku](https://shizuku.rikka.app/), start it, then tap **Permit** to grant permission. |
+| **SAF** | Uses Android's Storage Access Framework tree picker | Tap **Pick Dir** and navigate to the game config folder via the system file picker. |
+
+> **Note:** On Android 11+, SAF cannot browse into `Android/data/` directories. On such devices, use ROOT, ADB, or Shizuku instead.
 
 ---
 
 ## Usage
 
 ### 1. Connect to your device
-- Tap **ROOT** or **ADB** to select your access method.
-- Tap **Connect**. The app will auto-detect the game config directory.
+- Cycle to your preferred method using the method toggle chip.
+- Tap **Connect** (or **Pick Dir** for SAF).
+- The app will auto-detect the game config directory.
 
 ### 2. Analyze your device log
 - Navigate to **Config Generator**.
@@ -79,7 +88,7 @@ A fan-made Android application for analyzing, generating, and deploying optimize
 - **UI:** Jetpack Compose + Material 3
 - **Architecture:** MVVM (ViewModel + StateFlow)
 - **Navigation:** Jetpack Navigation Compose
-- **Backend:** ADB (wireless) / Root (su)
+- **Backend:** ROOT (`su`) / ADB (in-app protocol) / Shizuku API / SAF (DocumentFile)
 - **Min SDK:** 26 | **Target SDK:** 34
 
 ---
@@ -91,8 +100,8 @@ app/
 ├── src/main/java/com/wuwaconfig/app/
 │   ├── MainActivity.kt          # Entry point, navigation, permissions
 │   ├── WuWaConfigApp.kt         # Application class
-│   ├── adb/                     # ADB backend implementation
-│   ├── backend/                 # Backend abstraction (ADB / ROOT)
+│   ├── adb/                     # ADB protocol implementation (PortScanner, AdbClient, AdbCrypto, AdbProtocol)
+│   ├── backend/                 # Backend abstraction (AccessBackend, AdbBackend, RootBackend, ShizukuBackend, SafBackend)
 │   ├── config/                  # Core logic
 │   │   ├── ConfigGenerator.kt   # .ini generation engine
 │   │   ├── ConfigManager.kt     # Read/write config files on device
