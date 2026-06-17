@@ -55,11 +55,29 @@ class AdbCrypto(private val context: Context) {
     fun getPrivateKey(): PrivateKey = keyPair!!.private
 
     fun getAdbFormattedPublicKey(): ByteArray {
-        val publicKey = keyPair!!.public
-        val encoded = publicKey.encoded
-        val base64 = Base64.encodeToString(encoded, Base64.NO_WRAP)
-        val formatted = "$base64 wuwaconfig@android\u0000"
-        return formatted.toByteArray()
+        val rsaPubKey = keyPair!!.public as java.security.interfaces.RSAPublicKey
+        val bos = java.io.ByteArrayOutputStream()
+        val algo = "ssh-rsa".toByteArray(Charsets.UTF_8)
+        writeUint32(bos, algo.size)
+        bos.write(algo)
+        writeMpInt(bos, rsaPubKey.publicExponent.toByteArray())
+        writeMpInt(bos, rsaPubKey.modulus.toByteArray())
+        val b64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP)
+        return "$b64 wuwaconfig@android\u0000".toByteArray()
+    }
+
+    private fun writeUint32(stream: java.io.ByteArrayOutputStream, v: Int) {
+        stream.write((v shr 24) and 0xFF)
+        stream.write((v shr 16) and 0xFF)
+        stream.write((v shr 8) and 0xFF)
+        stream.write(v and 0xFF)
+    }
+
+    private fun writeMpInt(stream: java.io.ByteArrayOutputStream, raw: ByteArray) {
+        var data = raw
+        if (data.size > 1 && data[0] == 0.toByte()) data = data.copyOfRange(1, data.size)
+        writeUint32(stream, data.size)
+        stream.write(data)
     }
 
     fun signToken(token: ByteArray): ByteArray {

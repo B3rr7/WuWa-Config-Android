@@ -11,12 +11,13 @@ import java.net.Socket
 
 object PortScanner {
     private const val WELL_KNOWN_ADB = 5555
-    private const val SCAN_START = 36000
-    private const val SCAN_END = 45000
-    private const val CONNECT_TIMEOUT = 500
-    private const val READ_TIMEOUT = 1500
+    private const val SCAN_START = 37000
+    private const val SCAN_END = 44000
+    private const val CONNECT_TIMEOUT = 200
+    private const val READ_TIMEOUT = 500
 
     private var cachedIp: String? = null
+    private var lastAdbPort: Int? = null
 
     data class ScanResult(val host: String, val port: Int)
 
@@ -44,20 +45,22 @@ object PortScanner {
     }
 
     suspend fun scanForAdb(): ScanResult? = withContext(Dispatchers.IO) {
-        val targets = listOf("127.0.0.1")
-        for (addr in targets) {
-            val port = scanHost(addr)
-            if (port > 0) return@withContext ScanResult(addr, port)
+        val addr = "127.0.0.1"
+        lastAdbPort?.let { port ->
+            if (tryPort(addr, port) > 0) return@withContext ScanResult(addr, port)
+        }
+        if (tryPort(addr, WELL_KNOWN_ADB) > 0) return@withContext ScanResult(addr, WELL_KNOWN_ADB)
+        val port = scanHost(addr)
+        if (port > 0) {
+            lastAdbPort = port
+            return@withContext ScanResult(addr, port)
         }
         null
     }
 
     private suspend fun scanHost(host: String): Int = withContext(Dispatchers.IO) {
-        val wellKnown = tryPort(host, WELL_KNOWN_ADB)
-        if (wellKnown > 0) return@withContext wellKnown
-
         val range = SCAN_START..SCAN_END
-        val batchSize = 20
+        val batchSize = 100
         range.toList().chunked(batchSize).forEach { batch ->
             val results = coroutineScope {
                 batch.map { port ->

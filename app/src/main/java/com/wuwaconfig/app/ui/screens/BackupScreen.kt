@@ -51,9 +51,9 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Default.RestorePage, contentDescription = null, modifier = Modifier.size(64.dp), tint = NeonPink.copy(alpha = 0.4f))
                         Spacer(Modifier.height(12.dp))
-                        Text("No backups yet", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        Text("No backups yet", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                         Spacer(Modifier.height(4.dp))
-                        Text("Connect to get started", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                        Text("Connect to get started", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
                         Spacer(Modifier.height(24.dp))
                         GlassButton(
                             onClick = { showCreateDialog = true },
@@ -71,7 +71,7 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp)
                     ) {
                         item {
-                            Text("${backups.size} backup(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                            Text("${backups.size} backup(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                             Spacer(Modifier.height(4.dp))
                         }
                         items(backups, key = { it.id }) { backup ->
@@ -143,6 +143,7 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BackupManageCard(
     backup: ConfigBackup,
@@ -171,7 +172,7 @@ private fun BackupManageCard(
                         border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accent.copy(alpha = 0.2f))
                     )
                 }
-                Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.height(8.dp))

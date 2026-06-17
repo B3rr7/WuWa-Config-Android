@@ -48,7 +48,7 @@ fun SetupScreen(viewModel: MainViewModel, onComplete: () -> Unit) {
                 GlassCard(accentColor = NeonCyan) {
                     GlassCardHeader("Game Config Location", NeonCyan)
                     Spacer(Modifier.height(4.dp))
-                    Text(viewModel.gameConfigDir, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    Text(viewModel.gameConfigDir, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     Text("Configs are applied to this directory via ADB or Root.", style = MaterialTheme.typography.bodySmall)
                 }
@@ -69,7 +69,7 @@ fun SetupScreen(viewModel: MainViewModel, onComplete: () -> Unit) {
                         )
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text("Backups are stored here with auto-timestamped files.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    Text("Backups are stored here with auto-timestamped files.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 GlassButton(

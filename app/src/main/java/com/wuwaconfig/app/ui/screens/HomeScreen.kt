@@ -48,8 +48,8 @@ private fun matchTarget(displayName: String): String? {
 fun HomeScreen(
     viewModel: MainViewModel,
     onNavigateToBackups: () -> Unit,
-    onNavigateToConfigGen: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToConfigGen: () -> Unit
 ) {
     val backendStatus by viewModel.backendStatus.collectAsState()
     val backups by viewModel.backups.collectAsState()
@@ -86,7 +86,7 @@ fun HomeScreen(
                 TopAppBar(
                     title = {
                         Column {
-                            Text("WuWaP42", fontWeight = FontWeight.Bold)
+                            GlitchText(fontWeight = FontWeight.Bold)
                             Text("Config Toolkit", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     },
@@ -120,15 +120,18 @@ fun HomeScreen(
                     }
                 }
                 item {
-                    BackendStatusCard(status = backendStatus, onToggle = {
-                        val next = when (backendStatus.method) {
-                            AccessMethod.ADB -> AccessMethod.SHIZUKU
-                            AccessMethod.SHIZUKU -> AccessMethod.ROOT
-                            AccessMethod.ROOT -> AccessMethod.SAF
-                            AccessMethod.SAF -> AccessMethod.ADB
+                    BackendStatusCard(
+                        status = backendStatus,
+                        onToggle = {
+                            val next = when (backendStatus.method) {
+                                AccessMethod.ADB -> AccessMethod.SHIZUKU
+                                AccessMethod.SHIZUKU -> AccessMethod.ROOT
+                                AccessMethod.ROOT -> AccessMethod.SAF
+                                AccessMethod.SAF -> AccessMethod.ADB
+                            }
+                            viewModel.switchTo(next)
                         }
-                        viewModel.switchTo(next)
-                    })
+                    )
                 }
                 item {
                     val safTreeLauncher = rememberLauncherForActivityResult(
@@ -165,7 +168,12 @@ fun HomeScreen(
                                     enabled = true,
                                     accentColor = NeonAmber
                                 ) { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Pick Dir") }
-                                else -> {}
+                                AccessMethod.ROOT -> GlassOutlinedButton(
+                                    onClick = { viewModel.connect() },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = true,
+                                    accentColor = NeonAmber
+                                ) { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Test Root") }
                             }
                         }
                     } else {
@@ -173,10 +181,10 @@ fun HomeScreen(
                             GlassButton(
                                 onClick = { viewModel.connect() },
                                 modifier = Modifier.weight(1f),
-                                enabled = !backendStatus.connected,
+                                enabled = true,
                                 accentColor = NeonCyan,
                                 contentColor = Color.White
-                            ) { Text("Connect", fontWeight = FontWeight.Bold) }
+                            ) { Text("Reconnect", fontWeight = FontWeight.Bold) }
                             GlassOutlinedButton(
                                 onClick = { viewModel.disconnect() },
                                 modifier = Modifier.weight(1f),
@@ -189,14 +197,42 @@ fun HomeScreen(
 
                 // --- F2P Tips / Sponsor ---
                 item {
+                    val f2pTips = remember {
+                        listOf(
+                            "Save your Astrites! Do your dailies & events.",
+                            "Weapon banner pity carries over — plan your pulls.",
+                            "Use your Waveplates daily — don't cap at 240.",
+                            "Check the Tower of Adversity reset every 2 weeks.",
+                            "Level one main DPS first before splitting resources.",
+                            "Echo main stats matter more than set bonuses early on.",
+                            "Don't skip exploration — those chests add up.",
+                            "Join a union for extra rewards and support echoes.",
+                            "Save your premium currency for limited banners only.",
+                            "Talent materials have specific farm days — plan ahead.",
+                            "Use the data bank to track which echoes you own.",
+                            "Forgery challenges rotate daily — check what you need.",
+                            "Your rover is actually viable — invest in it.",
+                            "Don't pull on standard banner with Astrites.",
+                            "Co-op lets you farm materials without spending waveplates.",
+                            "Pincer Maneuver events give free 4-star weapons.",
+                            "Level your weapon to max before switching characters.",
+                            "The Crucible gives free battle pass exp every week.",
+                            "Save your crystal solvents for double-drop events.",
+                            "You can preview all echo skills in the data bank."
+                        )
+                    }
                     GlassCard(accentColor = NeonAmber) {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Info, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(10.dp))
                             Column {
                                 Text("F2P Tips", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                Text("Save your Astrites! Do your dailies & events.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Support Player42!", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = CrimsonRed)
+                                GlitchText(
+                                    names = f2pTips,
+                                    intervalMs = 15000L,
+                                    fontWeight = FontWeight.Normal,
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
                             }
                         }
                     }
@@ -239,7 +275,7 @@ fun HomeScreen(
                                         Spacer(Modifier.width(8.dp))
                                         Column {
                                             Text("→ ${f.targetName}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = NeonCyan)
-                                            Text("from ${f.displayName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                            Text("from ${f.displayName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                                         }
                                     }
                                 }
@@ -286,7 +322,7 @@ fun HomeScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             ElevatedButton(
                                 onClick = onNavigateToBackups,
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.elevatedButtonColors(
                                     containerColor = NeonPink.copy(alpha = 0.08f),
@@ -298,13 +334,13 @@ fun HomeScreen(
                                 Spacer(Modifier.width(10.dp))
                                 Text("Backups", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.weight(1f))
-                                Text("${backups.size} saved", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                Text("${backups.size} saved", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
                             }
                             ElevatedButton(
                                 onClick = { viewModel.collectClientLog() },
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
                                 enabled = backendStatus.connected && !isApplying,
+                                shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.elevatedButtonColors(
                                     containerColor = NeonGreen.copy(alpha = 0.08f),
                                     contentColor = NeonGreen
@@ -315,12 +351,12 @@ fun HomeScreen(
                                 Spacer(Modifier.width(10.dp))
                                 Text("Collect Client.log", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.weight(1f))
-                                Text("Device log", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                Text("Device log", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
                             }
                             ElevatedButton(
                                 onClick = onNavigateToConfigGen,
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                enabled = !isApplying,
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                enabled = true,
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.elevatedButtonColors(
                                     containerColor = NeonAmber.copy(alpha = 0.08f),
@@ -328,11 +364,19 @@ fun HomeScreen(
                                 ),
                                 elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
                             ) {
-                                Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Icon(Icons.Default.Construction, contentDescription = null, modifier = Modifier.size(22.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Text("Config Generator", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.weight(1f))
-                                Text("Preset deploy", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                Text("Generate", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
+                            }
+                            if (isApplying) {
+                                GlassOutlinedButton(
+                                    onClick = { viewModel.cancelOperation() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = true,
+                                    accentColor = NeonRed
+                                ) { Text("Cancel", fontWeight = FontWeight.Bold) }
                             }
                         }
                     }
