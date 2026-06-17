@@ -32,6 +32,13 @@ class MainActivity : ComponentActivity() {
         initExternalBackupDir()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing) {
+            WuWaConfigApp.instance.backend.disconnect()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -130,18 +137,18 @@ fun AppNavigation(viewModel: MainViewModel) {
             HomeScreen(
                 viewModel = viewModel,
                 onNavigateToBackups = { navController.navigate("backups") },
-                onNavigateToConfigGen = { navController.navigate("generator") },
-                onNavigateToSettings = { navController.navigate("settings") }
-            )
-        }
-        composable("generator") {
-            ConfigGenScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                onNavigateToSettings = { navController.navigate("settings") },
+                onNavigateToConfigGen = { navController.navigate("configgen") }
             )
         }
         composable("backups") {
             BackupScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("configgen") {
+            ConfigGenScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )

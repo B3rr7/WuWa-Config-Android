@@ -1,5 +1,7 @@
 package com.wuwaconfig.app.config
 
+import com.wuwaconfig.app.model.LogInfo
+
 data class BrainRecommendation(
     val preset: String,
     val confidence: Int,
@@ -9,14 +11,6 @@ data class BrainRecommendation(
 )
 
 object SmartBrain {
-    private val KNOWN_FORBIDDEN = mapOf(
-        "r.FidelityFX.FSR.RCAS.Enabled" to "FSR RCAS causes instability on mobile",
-        "r.TemporalAA.Sharpness" to "Can cause shimmering/artifacts",
-        "r.Mobile.SSAO" to "SSAO causes GPU overhead on mobile",
-        "r.Mobile.EnableVoidGT" to "VoidGT causes driver issues",
-        "r.DefaultFeature.LensFlare" to "Lens flare can cause performance drops"
-    )
-
     fun getGPUTier(gpu: String?): String {
         if (gpu == null) return "unknown"
         val g = gpu.lowercase()
@@ -43,9 +37,26 @@ object SmartBrain {
         return null
     }
 
+    private data class ResInfo(val width: Int, val height: Int?)
+
+    private fun parseResolution(res: String?): ResInfo? {
+        if (res == null) return null
+        val parts = res.trim().split(Regex("\\s*[xX*]\\s*"))
+        val w = parts.firstOrNull()?.toIntOrNull() ?: return null
+        val h = parts.getOrNull(1)?.toIntOrNull()
+        return ResInfo(w, h)
+    }
+
+    private fun hasCvar(cvars: Map<String, String>, key: String): Boolean =
+        cvars.any { it.key.contains(key, ignoreCase = true) }
+
+    private fun cvarValue(cvars: Map<String, String>, key: String): String? =
+        cvars.entries.firstOrNull { it.key.contains(key, ignoreCase = true) }?.value
+
     fun scoreRecommendation(info: LogInfo): BrainRecommendation {
         var score = 50
         val signals = mutableListOf<String>()
+        val warnings = mutableListOf<String>()
 
         val tier = getGPUTier(info.gpu)
         when (tier) {
@@ -67,21 +78,21 @@ object SmartBrain {
 
         if (info.vulkanStatus == "available") { score += 8; signals.add("Vulkan: +8") }
 
-            info.fpsActual?.let { actual ->
-                info.fpsCap?.let { cap ->
-                    if (cap > 0) {
-                        val dropPct = ((cap - actual) / cap) * 100
-                        when {
-                            dropPct > 30 -> { score -= 18; signals.add("FPS drop >30%: -18") }
-                            dropPct > 20 -> { score -= 12; signals.add("FPS drop 20-30%: -12") }
-                            dropPct > 10 -> { score -= 6; signals.add("FPS drop 10-20%: -6") }
-                            actual >= cap * 0.95f -> { score += 5; signals.add("FPS at target: +5") }
-                        }
+        info.fpsActual?.let { actual ->
+            info.fpsCap?.let { cap ->
+                if (cap > 0) {
+                    val dropPct = ((cap - actual) / cap) * 100
+                    when {
+                        dropPct > 30 -> { score -= 18; signals.add("FPS drop >30%: -18") }
+                        dropPct > 20 -> { score -= 12; signals.add("FPS drop 20-30%: -12") }
+                        dropPct > 10 -> { score -= 6; signals.add("FPS drop 10-20%: -6") }
+                        actual >= cap * 0.95f -> { score += 5; signals.add("FPS at target: +5") }
                     }
                 }
-                if (actual < 30) { score -= 15; signals.add("FPS <30: -15") }
-                if (actual in 30f..44f) { score -= 8; signals.add("FPS 30-45: -8") }
             }
+            if (actual < 30) { score -= 15; signals.add("FPS <30: -15") }
+            if (actual in 30f..44f) { score -= 8; signals.add("FPS 30-45: -8") }
+        }
 
         when {
             info.thermalEvents >= 5 -> { score -= 20; signals.add("Thermal throttling x${info.thermalEvents}: -20") }
@@ -112,25 +123,110 @@ object SmartBrain {
             }
         }
 
+        // ── Resolution analysis ────────────────────────────────────
+        val res = parseResolution(info.resolution)
+        val isHighRes = res?.let { it.width >= 1440 || (it.height ?: 0) >= 1440 } == true
+        val is4k = res?.let { it.width >= 2160 || (it.height ?: 0) >= 2160 } == true
+        if (is4k) {
+            score -= 10; signals.add("4K resolution: -10")
+            when (tier) {
+                "mid", "mid_low", "low", "unknown" -> {
+                    score -= 8; signals.add("4K on ${tier} GPU: -8")
+                    warnings.add("4K on mid/low-end GPU — ultra preset not advisable")
+                }
+            }
+        } else if (isHighRes) {
+            score -= 4; signals.add("QHD+ resolution: -4")
+            if (tier == "mid_low" || tier == "low" || tier == "unknown") {
+                score -= 6; signals.add("QHD+ on ${tier} GPU: -6")
+            }
+        }
+
+        // ── Texture errors (VRAM pressure) ─────────────────────────
+        if (info.textureErrors > 0) {
+            val texPenalty = minOf(info.textureErrors, 20)
+            score -= texPenalty; signals.add("Texture errors x${info.textureErrors}: -$texPenalty")
+            if (info.textureErrors >= 5) warnings.add("Frequent texture errors — possible VRAM pressure, lower texture quality")
+        }
+
+        // ── Active CVar analysis ───────────────────────────────────
+        val cvars = info.activeCvars
+        if (cvars.isNotEmpty()) {
+            val shadowQ = cvarValue(cvars, "sg.ShadowQuality")?.toIntOrNull()
+            val texQ = cvarValue(cvars, "sg.TextureQuality")?.toIntOrNull()
+            val resScale = cvarValue(cvars, "r.ScreenPercentage")?.toFloatOrNull()
+            val fpsLimit = cvarValue(cvars, "r.FramePace")?.toIntOrNull()
+            val ssao = hasCvar(cvars, "r.Mobile.SSAO")
+            val fsr = hasCvar(cvars, "r.FidelityFX.FSR.RCAS")
+            val bloom = cvarValue(cvars, "r.BloomQuality")?.toIntOrNull()
+
+            if (shadowQ != null) {
+                when {
+                    shadowQ >= 3 && (tier == "mid_low" || tier == "low") -> {
+                        score -= 6; signals.add("High shadows on low GPU: -6")
+                    }
+                    shadowQ >= 3 && ram < 6000 -> {
+                        score -= 4; signals.add("High shadows + <6GB RAM: -4")
+                    }
+                }
+            }
+            if (texQ != null && texQ >= 3 && ram < 6000) {
+                score -= 5; signals.add("High textures + <6GB RAM: -5")
+                if (info.textureErrors > 0) {
+                    score -= 4; signals.add("High textures + texture errors: -4")
+                }
+            }
+            if (resScale != null && resScale > 100f) {
+                val overScale = ((resScale - 100) / 10).toInt()
+                score -= minOf(overScale, 8); signals.add("Render scale >100%: -${minOf(overScale, 8)}")
+            }
+            if (fpsLimit != null && fpsLimit >= 90 && info.thermalEvents >= 3) {
+                score -= 6; signals.add("High FPS target + thermal: -6")
+                warnings.add("High FPS target (${fpsLimit}fps) on thermally throttled device")
+            }
+            if (fsr) {
+                score -= 8; signals.add("FSR RCAS enabled: -8")
+            }
+            if (ssao && (tier == "mid_low" || tier == "low")) {
+                score -= 5; signals.add("SSAO on low GPU: -5")
+            }
+            if (bloom != null && bloom >= 3 && info.thermalEvents >= 3) {
+                score -= 3; signals.add("High bloom + thermal: -3")
+            }
+        }
+
+        // ── Combined signals ──────────────────────────────────────
+        val isLowRam = ram < 6000
+        if (isLowRam && isHighRes) {
+            score -= 5; signals.add("Low RAM + high res: -5")
+            warnings.add("High resolution on device with <6GB RAM")
+        }
+        if (info.thermalEvents >= 3 && (tier == "mid_low" || tier == "low")) {
+            val extra = info.thermalEvents.coerceAtMost(6)
+            score -= extra; signals.add("Thermal + low GPU combo: -$extra")
+        }
+        if (info.gpuOom > 0 && info.textureErrors > 3) {
+            score -= 5; signals.add("OOM + texture errors: -5")
+        }
+
         score = score.coerceIn(0, 100)
 
-        val warnings = mutableListOf<String>()
         if (info.gpuOom > 0) warnings.add("GPU OOM detected — performance preset recommended")
         if (info.thermalEvents >= 3) warnings.add("Heavy thermal throttling — consider lower preset")
         if (info.forbiddenCvars > 0) warnings.add("${info.forbiddenCvars} forbidden CVars found in log")
 
-        val preset = recommendPreset(score, info)
+        val preset = recommendPreset(score, info, tier, isHighRes)
         return BrainRecommendation(preset, score, score, signals, warnings)
     }
 
-    private fun recommendPreset(score: Int, info: LogInfo): String {
-        val tier = getGPUTier(info.gpu)
+    private fun recommendPreset(score: Int, info: LogInfo, tier: String, isHighRes: Boolean): String {
         return when {
             info.gpuOom > 0 || info.isLowMem == true -> "performance"
-            score >= 80 && info.vulkanStatus == "available" && tier == "flagship" -> "ultra"
+            score >= 80 && info.vulkanStatus == "available" && tier == "flagship" && !isHighRes -> "ultra"
+            score >= 75 && (tier == "flagship" || tier == "high") && info.vulkanStatus == "available" -> "high"
             score >= 70 && (tier == "flagship" || tier == "high") -> "high"
-            score >= 60 -> "balanced"
-            score >= 45 -> "balanced"
+            score >= 55 -> "balanced"
+            score >= 40 -> "balanced"
             else -> "performance"
         }
     }

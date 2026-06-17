@@ -1,7 +1,11 @@
 package com.wuwaconfig.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -9,18 +13,37 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.luminance
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import com.wuwaconfig.app.WuWaConfigApp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlin.random.Random
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.ui.theme.*
@@ -162,8 +185,7 @@ fun GlassOutlinedButton(
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .border(0.5.dp, borderColor, RoundedCornerShape(8.dp)),
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
             content = content
@@ -257,7 +279,7 @@ fun LogViewer(logs: List<String>, modifier: Modifier = Modifier) {
                 .heightIn(min = 120.dp, max = 200.dp)
         ) {
             if (logs.isEmpty()) {
-                Text("No logs yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                Text("No logs yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
             } else {
                 Column(
                     modifier = Modifier
@@ -269,7 +291,7 @@ fun LogViewer(logs: List<String>, modifier: Modifier = Modifier) {
                             log.contains("SUCCESS") -> NeonGreen
                             log.contains("FAILED") || log.contains("ERROR") -> NeonRed
                             log.contains("Applying") || log.contains("Connected") -> NeonCyan
-                            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
                         }
                         Text(log, style = MaterialTheme.typography.labelMedium, color = c, modifier = Modifier.padding(vertical = 1.dp))
                     }
@@ -281,17 +303,196 @@ fun LogViewer(logs: List<String>, modifier: Modifier = Modifier) {
 
 @Composable
 fun GradientBackground(content: @Composable () -> Unit) {
-    val background = MaterialTheme.colorScheme.background
+    val themeBg = MaterialTheme.colorScheme.background
     val surface = MaterialTheme.colorScheme.surface
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(background, surface)
-                )
+    val app = WuWaConfigApp.instance
+    val imageUri by app.backgroundImageUri.collectAsState()
+    val videoUri by app.backgroundVideoUri.collectAsState()
+    val bgAlpha by app.backgroundOpacity.collectAsState()
+
+    val hasVideo = videoUri != null
+    val hasImage = !hasVideo && imageUri != null
+
+    Box(modifier = Modifier.fillMaxSize().background(themeBg)) {
+        if (hasVideo) {
+            VideoBackground(
+                videoUri = videoUri!!,
+                alpha = bgAlpha,
+                modifier = Modifier.fillMaxSize()
             )
-    ) {
-        content()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(themeBg.copy(alpha = 0.15f), surface.copy(alpha = 0.15f))
+                        )
+                    )
+            )
+        } else if (hasImage) {
+            val painter = rememberAsyncImagePainter(
+                ImageRequest.Builder(LocalContext.current)
+                    .data(imageUri)
+                    .crossfade(true)
+                    .build()
+            )
+            Box(modifier = Modifier.fillMaxSize().graphicsLayer(alpha = bgAlpha)) {
+                Image(
+                    painter = painter,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(themeBg.copy(alpha = 0.15f), surface.copy(alpha = 0.15f))
+                        )
+                    )
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(themeBg, surface)
+                        )
+                    )
+            )
+        }
+        Box(modifier = Modifier.fillMaxSize()) { content() }
+    }
+}
+
+@Composable
+private fun VideoBackground(
+    videoUri: String,
+    alpha: Float,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    val player = remember(videoUri) {
+        ExoPlayer.Builder(context)
+            .build()
+            .apply {
+                setMediaItem(MediaItem.fromUri(videoUri))
+                repeatMode = Player.REPEAT_MODE_ALL
+                volume = 0f
+                prepare()
+                playWhenReady = true
+            }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> player.pause()
+                Lifecycle.Event.ON_RESUME -> player.play()
+                Lifecycle.Event.ON_DESTROY -> player.release()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            player.release()
+        }
+    }
+
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                setPlayer(player)
+                useController = false
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            }
+        },
+        modifier = modifier.graphicsLayer(alpha = alpha)
+    )
+}
+
+val GLITCH_NAMES = listOf(
+    "WuWaP42",
+    "Rover's Tool",
+    "Config Forge",
+    "Pulse Engine",
+    "Wave Weaver",
+    "Crystal Core",
+    "Echo Terminal",
+    "Signal Boost",
+    "Resonance Kit",
+    "Tuning Fork"
+)
+
+@Composable
+fun GlitchText(
+    modifier: Modifier = Modifier,
+    fontWeight: FontWeight = FontWeight.Bold,
+    intervalMs: Long = 30000L,
+    names: List<String> = GLITCH_NAMES,
+    style: androidx.compose.ui.text.TextStyle? = null
+) {
+    var currentIndex by remember { mutableStateOf(0) }
+    var displayText by remember { mutableStateOf(names[0]) }
+    var glitchActive by remember { mutableStateOf(false) }
+
+    val glitchLifecycle = LocalLifecycleOwner.current.lifecycle
+
+    LaunchedEffect(names) {
+        currentIndex = 0
+        displayText = names[0]
+        while (isActive) {
+            while (!glitchLifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                delay(500)
+                if (!isActive) return@LaunchedEffect
+            }
+            delay(intervalMs)
+            if (names.size < 2) continue
+            val nextIndex = (currentIndex + 1) % names.size
+            glitchActive = true
+            val target = names[nextIndex]
+
+            val len = maxOf(displayText.length, target.length)
+            val scrambleStart = System.currentTimeMillis()
+            while (System.currentTimeMillis() - scrambleStart < 600) {
+                val sb = StringBuilder()
+                for (i in 0 until len) {
+                    when {
+                        i >= target.length -> sb.append('█')
+                        Random.nextFloat() < 0.3f -> {
+                            val chars = "!@#$%^&*{}[]|\\/~`\"':;?><"
+                            sb.append(chars[Random.nextInt(chars.length)])
+                        }
+                        else -> sb.append(target[i])
+                    }
+                }
+                displayText = sb.toString()
+                delay(50 + Random.nextLong(80))
+            }
+
+            displayText = target
+            currentIndex = nextIndex
+            glitchActive = false
+        }
+    }
+
+    val offsetX by animateFloatAsState(
+        targetValue = if (glitchActive) Random.nextFloat() * 4f - 2f else 0f,
+        animationSpec = if (glitchActive) tween(80) else spring(dampingRatio = 0.3f)
+    )
+
+    val finalMod = modifier.then(
+        if (glitchActive) Modifier.offset(x = offsetX.dp) else Modifier
+    )
+    if (style != null) {
+        Text(text = displayText, fontWeight = fontWeight, style = style, modifier = finalMod)
+    } else {
+        Text(text = displayText, fontWeight = fontWeight, modifier = finalMod)
     }
 }

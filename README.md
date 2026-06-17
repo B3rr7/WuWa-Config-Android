@@ -14,13 +14,18 @@ A fan-made Android application for analyzing, generating, and deploying optimize
 
 - **Device Log Analysis** — Parse encrypted `Client.log` from your device or import one. Detects GPU, RAM, API (Vulkan/OpenGL), Android version, thermal throttling, frame drops, forbidden CVars, and more.
 - **Smart Brain Scoring** — AI-driven preset recommendation based on your device's hardware and detected issues. Scores from 0–100 with detailed signal breakdown.
-- **Config Generator** — Generate tuned `Engine.ini`, `GameUserSettings.ini`, and `DeviceProfiles.ini` with optimized settings for your device tier (flagship / high / mid / low).
-- **Preset Profiles** — Choose from PERFORMANCE, BALANCED, HIGH, or ULTRA presets with fine-grained options (FPS target, VSync, cooling, Vulkan safety CVars, and more).
-- **Forbidden CVar Overrides** — Automatically disables known problematic CVars detected in your log (FSR RCAS, TAA Sharpness, SSAO, VoidGT, Lens Flare).
-- **Thermal-Aware Configs** — Detects thermal throttling events and applies thermal control safeguards automatically.
-- **Backup & Restore** — Automatically backs up existing config files before applying changes.
+- **Config Generator** — Generate tuned `Engine.ini`, `GameUserSettings.ini`, and `DeviceProfiles.ini` with optimized settings for your device tier.
+- **Preset Profiles** — PERFORMANCE (lag-free), BALANCED, HIGH, or ULTRA with fine-grained options.
+- **Game-Mode Presets** — Separate Overworld and Domain/Tower profiles with different CVar sets per mode.
+- **Review & Tune CVars** — After generation, review every CVar across all three INI files. Tap any value to edit inline. Filter by key/value. Redeploy with your custom overrides.
+- **Auto-Tune Wizard** — Iteratively deploys, captures FPS via logcat, adjusts preset/options, and re-benchmarks until your target FPS is stable.
+- **Cyberpunk Glitch Progress** — Animated neon percentage number with glitch jitter during log reading.
+- **Forbidden CVar Overrides** — Automatically disables known problematic CVars detected in your log.
+- **Thermal-Aware Configs** — Thermal throttle detection + thermal control CVar safeguards.
+- **Custom Background** — Set an image (jpg/png/gif) or video (MP4) as the app background. Opacity slider (5–70%). Theme-aware gradient overlay. Coil for images, Media3 ExoPlayer for video.
+- **Backup & Restore** — Automatic backup of existing config files before applying changes.
 - **4 Access Methods** — ROOT, ADB (in-app protocol), Shizuku, and SAF.
-- **Material 3 UI** — Dark-themed glassmorphism design with dynamic theming.
+- **Material 3 UI** — Dark-themed glassmorphism with neon accents and gradient backgrounds.
 
 ---
 
@@ -44,41 +49,48 @@ A fan-made Android application for analyzing, generating, and deploying optimize
 
 ## Access Methods
 
-The app provides four ways to access the game config directory. Tap the chip in the status card to cycle between them.
-
 | Method | How it works | Setup required |
 |--------|-------------|----------------|
 | **ROOT** | Executes commands via `su -c` | Magisk / SuperSU installed |
-| **ADB** | In-app ADB protocol client connects to the device's own ADB daemon at `127.0.0.1:5555` | Enable Developer Options → Wireless Debugging. Tap Connect — accept the RSA fingerprint dialog when it appears (one-time). Manual IP:port entry also available. |
-| **SHIZUKU** | Uses the Shizuku API (v13) to run shell commands as the ADB UID | Install [Shizuku](https://shizuku.rikka.app/), start it, then tap **Permit** to grant permission. |
-| **SAF** | Uses Android's Storage Access Framework tree picker | Tap **Pick Dir** and navigate to the game config folder via the system file picker. |
+| **ADB** | In-app ADB protocol client connects to device's own ADB daemon at `127.0.0.1:5555` | Enable Developer Options → Wireless Debugging. Tap Connect — accept the RSA fingerprint dialog. Manual IP:port entry available. |
+| **SHIZUKU** | Shizuku API (v13) to run shell commands as ADB UID | Install [Shizuku](https://shizuku.rikka.app/), start it, grant permission. |
+| **SAF** | Storage Access Framework tree picker | Tap **Pick Dir** and navigate to the game config folder. |
 
-> **Note:** On Android 11+, SAF cannot browse into `Android/data/` directories. On such devices, use ROOT, ADB, or Shizuku instead.
+> **Note:** On Android 11+, SAF cannot browse `Android/data/`. Use ROOT, ADB, or Shizuku instead.
 
 ---
 
 ## Usage
 
-### 1. Connect to your device
-- Cycle to your preferred method using the method toggle chip.
+### 1. Connect
+- Cycle methods with the status chip.
 - Tap **Connect** (or **Pick Dir** for SAF).
-- The app will auto-detect the game config directory.
+- App auto-detects game config directory.
 
-### 2. Analyze your device log
+### 2. Analyze
 - Navigate to **Config Generator**.
-- Tap **Device Log** to read and parse `Client.log` from your device.
-- Or tap **Import Log** to import a previously saved `.log` file.
-- Review the analysis results: GPU, API, RAM, issues (thermal, frame drops, forbidden CVars, etc.).
+- Tap **Device Log** to read `Client.log` from device (progress shows animated neon % number).
+- Or **Import Log** to load a saved `.log` file.
+- Review GPU, API, RAM, thermal events, frame drops, forbidden CVars, Smart Brain recommendation.
 
-### 3. Generate configs
-- Select a **Preset** (PERFORMANCE / BALANCED / HIGH / ULTRA).
-- Set your target **FPS** (30/45/60/90/120).
-- Toggle **Options** (VSync, Auto cooling, HZB occlusion, fog, etc.).
-- Tap **Deploy** to generate and apply the config files.
+### 3. Configure
+- Select **Game Mode**: Overworld or Domain/Tower.
+- Choose **Preset**: PERFORMANCE (maximum FPS stability), BALANCED, HIGH, ULTRA.
+- Set target **FPS**: 30/45/60/90/120.
+- Toggle **Options**: VSync, cooling, HZB, fog, CA, outline/bloom/radial blur/SSR/auto-exposure toggles.
+- Tap **Deploy** to generate and apply.
 
-### 4. Verify deployment
-- Check the **Log** section for success/failure messages.
-- Config files are backed up with timestamps before overwriting.
+### 4. Review & Tune
+- After deploy, tap **Review & Tune Config**.
+- Browse all CVars across `Engine.ini`, `DeviceProfiles.ini`, and `GameUserSettings.ini` in tabbed view.
+- Tap any value to edit inline. Edited entries highlighted.
+- Use the filter field to search CVars by name or value.
+- Tap **Redeploy** to push your custom overrides.
+
+### 5. Auto-Tune (optional)
+- Tap **Auto-Tune** for iterative benchmarking.
+- App deploys config, captures FPS via logcat (20s), then adjusts preset or disables effects until target FPS is reached.
+- Up to 5 rounds with progress displayed inline.
 
 ---
 
@@ -88,6 +100,8 @@ The app provides four ways to access the game config directory. Tap the chip in 
 - **UI:** Jetpack Compose + Material 3
 - **Architecture:** MVVM (ViewModel + StateFlow)
 - **Navigation:** Jetpack Navigation Compose
+- **Image loading:** Coil (`io.coil-kt:coil-compose`)
+- **Video playback:** Media3 ExoPlayer (`androidx.media3:media3-exoplayer`)
 - **Backend:** ROOT (`su`) / ADB (in-app protocol) / Shizuku API / SAF (DocumentFile)
 - **Min SDK:** 26 | **Target SDK:** 34
 
@@ -97,23 +111,24 @@ The app provides four ways to access the game config directory. Tap the chip in 
 
 ```
 app/
-├── src/main/java/com/wuwaconfig/app/
-│   ├── MainActivity.kt          # Entry point, navigation, permissions
-│   ├── WuWaConfigApp.kt         # Application class
-│   ├── adb/                     # ADB protocol implementation (PortScanner, AdbClient, AdbCrypto, AdbProtocol)
-│   ├── backend/                 # Backend abstraction (AccessBackend, AdbBackend, RootBackend, ShizukuBackend, SafBackend)
-│   ├── config/                  # Core logic
-│   │   ├── ConfigGenerator.kt   # .ini generation engine
-│   │   ├── ConfigManager.kt     # Read/write config files on device
-│   │   ├── LogParser.kt         # Client.log parser + decryption
-│   │   └── SmartBrain.kt        # Device scoring & recommendation
-│   ├── model/                   # Data models
-│   ├── service/                 # Background services
-│   └── ui/
-│       ├── MainViewModel.kt     # Shared ViewModel
-│       ├── components/          # Reusable UI components
-│       ├── screens/             # Screen composables
-│       └── theme/               # Colors, typography, theming
+└── src/main/java/com/wuwaconfig/app/
+    ├── MainActivity.kt          # Entry point, navigation, permissions
+    ├── WuWaConfigApp.kt         # Application class
+    ├── adb/                     # ADB protocol (PortScanner, AdbClient, AdbCrypto, AdbProtocol)
+    ├── backend/                 # Backend abstraction (AccessBackend, AdbBackend, RootBackend, ShizukuBackend, SafBackend)
+    ├── config/                  # Core logic
+    │   ├── BenchmarkTuner.kt    # Auto-tune FPS capture + iterative adjustment
+    │   ├── ConfigGenerator.kt   # .ini generation engine (stateless)
+    │   ├── ConfigManager.kt     # Read/write config files on device
+    │   ├── LogParser.kt         # Client.log decryption + CVar extraction
+    │   └── SmartBrain.kt        # Device scoring & preset recommendation
+    ├── model/                   # Data models (CvarEntry, GameMode, GeneratorOptions, etc.)
+    ├── service/                 # Background services
+    └── ui/
+        ├── MainViewModel.kt     # Shared ViewModel
+        ├── components/          # Reusable UI components (GlitchText, GlassCard, GradientBackground)
+        ├── screens/             # Screen composables (ConfigGenScreen, HomeScreen, SettingsScreen)
+        └── theme/               # Colors, typography
 ```
 
 ---

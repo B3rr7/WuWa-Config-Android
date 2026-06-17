@@ -8,13 +8,22 @@ import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.RootBackend
 import com.wuwaconfig.app.backend.SafBackend
 import com.wuwaconfig.app.backend.ShizukuBackend
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class WuWaConfigApp : Application() {
     lateinit var adbCrypto: AdbCrypto
         private set
 
     private var _backend: AccessBackend? = null
-    val backend: AccessBackend get() = _backend ?: createBackend(currentMethod)
+    private val backendLock = Any()
+    val backend: AccessBackend get() {
+        synchronized(backendLock) {
+            if (_backend == null) {
+                _backend = createBackend(currentMethod)
+            }
+            return _backend!!
+        }
+    }
 
     var currentMethod: AccessMethod = AccessMethod.ADB
         private set
@@ -27,12 +36,14 @@ class WuWaConfigApp : Application() {
     }
 
     fun switchTo(method: AccessMethod): AccessBackend {
-        currentMethod = method
-        _backend?.disconnect()
-        _backend = null
-        val newBackend = createBackend(method)
-        _backend = newBackend
-        return newBackend
+        synchronized(backendLock) {
+            currentMethod = method
+            _backend?.disconnect()
+            _backend = null
+            val newBackend = createBackend(method)
+            _backend = newBackend
+            return newBackend
+        }
     }
 
     private fun createBackend(method: AccessMethod): AccessBackend {
@@ -43,6 +54,10 @@ class WuWaConfigApp : Application() {
             AccessMethod.SAF -> SafBackend(this)
         }
     }
+
+    val backgroundImageUri = MutableStateFlow<String?>(null)
+    val backgroundVideoUri = MutableStateFlow<String?>(null)
+    val backgroundOpacity = MutableStateFlow(0.25f)
 
     companion object {
         lateinit var instance: WuWaConfigApp

@@ -1,7 +1,5 @@
 package com.wuwaconfig.app.backend
 
-import java.io.File
-
 enum class AccessMethod {
     ADB, SHIZUKU, ROOT, SAF
 }

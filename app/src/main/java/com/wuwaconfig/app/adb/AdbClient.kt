@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.adb
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream
@@ -12,13 +13,18 @@ class AdbClient(private val crypto: AdbCrypto) {
     private var socket: Socket? = null
     private var input: InputStream? = null
     private var output: OutputStream? = null
+    @Volatile
     private var connected: Boolean = false
+
     private val localIdCounter = AtomicInteger(100)
+
+    private val instanceId = System.identityHashCode(this)
 
     val isConnected: Boolean get() = connected
 
-    suspend fun connect(port: Int, host: String = "127.0.0.1", readTimeoutMs: Int = 30000): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun connect(port: Int, host: String = "127.0.0.1", readTimeoutMs: Int = 60000): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            Log.d("AdbClient", "connect[$instanceId]: opening socket to $host:$port")
             socket = Socket().apply {
                 connect(InetSocketAddress(host, port), 7000)
                 soTimeout = readTimeoutMs
@@ -26,10 +32,20 @@ class AdbClient(private val crypto: AdbCrypto) {
             }
             input = socket!!.getInputStream()
             output = socket!!.getOutputStream()
+            Log.d("AdbClient", "connect[$instanceId]: socket opened, authenticating")
             val result = authenticate()
-            if (result.isSuccess) connected = true
-            result
+            Log.d("AdbClient", "connect[$instanceId]: auth result = ${result.isSuccess}")
+            if (result.isSuccess) {
+                connected = true
+                Log.d("AdbClient", "connect[$instanceId]: SUCCESS")
+                Result.success(Unit)
+            } else {
+                Log.d("AdbClient", "connect[$instanceId]: auth failed: ${result.exceptionOrNull()?.message}")
+                disconnect()
+                result
+            }
         } catch (e: Exception) {
+            Log.d("AdbClient", "connect[$instanceId]: exception: $e")
             disconnect()
             Result.failure(e)
         }
@@ -47,18 +63,24 @@ class AdbClient(private val crypto: AdbCrypto) {
 
                 when {
                     message.command.contentEquals(AdbProtocol.CNXN) -> {
+                        Log.d("AdbClient", "auth[$instanceId]: received CNXN (authorized)")
                         return Result.success(Unit)
                     }
                     message.command.contentEquals(AdbProtocol.AUTH) -> {
                         if (!triedSignature) {
+                            Log.d("AdbClient", "auth[$instanceId]: AUTH challenge, sending signature")
                             triedSignature = true
                             val signature = crypto.signToken(message.payload)
                             AdbProtocol.writeMessage(output!!, AdbProtocol.createAuthSignatureMessage(signature))
                         } else {
+                            Log.d("AdbClient", "auth[$instanceId]: AUTH retry, sending public key")
                             AdbProtocol.writeMessage(output!!, AdbProtocol.createAuthPublicKeyMessage(crypto.getAdbFormattedPublicKey()))
                         }
                     }
-                    else -> return Result.failure(Exception("Unexpected message: ${String(message.command)}"))
+                    else -> {
+                        Log.d("AdbClient", "auth[$instanceId]: unexpected cmd=${String(message.command)}")
+                        return Result.failure(Exception("Unexpected message: ${String(message.command)}"))
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -68,6 +90,7 @@ class AdbClient(private val crypto: AdbCrypto) {
     }
 
     suspend fun executeShellCommand(command: String): Result<String> = withContext(Dispatchers.IO) {
+        Log.d("AdbClient", "shell[$instanceId]: connected=$connected cmd=$command")
         if (!connected) return@withContext Result.failure(Exception("Not connected to ADB"))
         try {
             val localId = localIdCounter.getAndIncrement()
@@ -75,7 +98,6 @@ class AdbClient(private val crypto: AdbCrypto) {
 
             val response = StringBuilder()
             var remoteId = 0
-            var stderr = StringBuilder()
 
             loop@ while (true) {
                 val message = AdbProtocol.readMessage(input!!) ?: break
@@ -84,30 +106,48 @@ class AdbClient(private val crypto: AdbCrypto) {
                         if (remoteId == 0) remoteId = message.arg0
                     }
                     message.command.contentEquals(AdbProtocol.WRTE) -> {
+                        // Only process messages for our stream
+                        if (remoteId > 0 && message.arg1 != localId) continue@loop
                         if (remoteId == 0) remoteId = message.arg1
-                        val text = String(message.payload, Charsets.UTF_8)
-                        if (text.contains("Permission denied", ignoreCase = true) ||
-                            text.contains("cannot open", ignoreCase = true)) {
-                            stderr.append(text)
-                        }
-                        response.append(text)
+                        response.append(String(message.payload, Charsets.UTF_8))
                         AdbProtocol.writeMessage(output!!, AdbProtocol.createOkMessage(message.arg1, message.arg0))
                     }
                     message.command.contentEquals(AdbProtocol.CLSE) -> {
-                        break@loop
+                        // ADB daemon may send WRTE after CLSE (pipe buffer drain race).
+                        // Only break for our stream, then drain trailing messages.
+                        if (remoteId == 0 || message.arg1 == localId) {
+                            drainTrailingWrte(localId, response)
+                            break@loop
+                        }
                     }
                 }
             }
 
             val result = response.toString()
-            if (stderr.isNotEmpty()) {
-                Result.failure(Exception(stderr.toString().trim()))
-            } else {
-                Result.success(result)
-            }
+            Log.d("AdbClient", "shell[$instanceId]: result='${result.take(200)}'")
+            Result.success(result)
         } catch (e: Exception) {
+            Log.d("AdbClient", "shell[$instanceId]: exception: $e")
             connected = false
             Result.failure(e)
+        }
+    }
+
+    private fun drainTrailingWrte(localId: Int, response: StringBuilder) {
+        val originalTimeout = socket!!.soTimeout
+        try {
+            socket!!.soTimeout = 500
+            while (true) {
+                val msg = AdbProtocol.readMessage(input!!) ?: break
+                if (msg.command.contentEquals(AdbProtocol.WRTE) && msg.arg1 == localId) {
+                    response.append(String(msg.payload, Charsets.UTF_8))
+                    AdbProtocol.writeMessage(output!!, AdbProtocol.createOkMessage(msg.arg1, msg.arg0))
+                } else break
+            }
+        } catch (_: java.net.SocketTimeoutException) {
+            // No more trailing messages — normal
+        } finally {
+            socket!!.soTimeout = originalTimeout
         }
     }
 
@@ -141,6 +181,7 @@ class AdbClient(private val crypto: AdbCrypto) {
     }
 
     fun disconnect() {
+        Log.d("AdbClient", "disconnect[$instanceId]")
         connected = false
         try { socket?.close() } catch (_: Exception) {}
         try { input?.close() } catch (_: Exception) {}

@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.config
 
+import com.wuwaconfig.app.model.LogInfo
 import java.nio.charset.Charset
 
 object LogParser {
@@ -56,83 +57,142 @@ object LogParser {
     }
 
     fun parseLog(text: String): LogInfo {
-        val lower = text.lowercase()
+        var gpu: String? = null
+        var deviceModel: String? = null
+        var socName: String? = null
+        var socCode: String? = null
+        var cpuName: String? = null
+        var ramMb: Int? = null
+        var androidVersion: String? = null
+        var resolution: String? = null
+        var deviceProfile: String? = null
+        var fpsCap: Int? = null
+        var fpsActual: Float? = null
+        var screenPct: Float? = null
+        var shadowQ: Int? = null
+        var qualityMode: String? = null
+        var kuroPostprocess: Int? = null
+        var isLowMem: Boolean? = null
+        var forbiddenCvars: Int? = null
+        var textureErrors = 0
+        var gpuOom = 0
+        var dropFrames = 0
+        var thermalEvents = 0
+        var networkErrors = 0
+        val activeCvars = mutableMapOf<String, String>()
+        var gameApi: String? = null
+        var hasVulkanRhi = false
+        var hasOpenGl = false
+        var hasVulkan = false
+        var hasDirectX = false
+        var hasMetal = false
 
-        fun extract(pattern: Regex): String? =
-            pattern.find(text)?.groupValues?.get(1)?.trim()
+        for (line in text.lineSequence()) {
+            val l = line.lowercase()
 
-        fun extractInt(pattern: Regex): Int? =
-            extract(pattern)?.toIntOrNull()
+            // ── Counting (single pass) ──
+            if ("error pixel format" in l || "non-streamed mips" in l ||
+                "failed to load texture" in l || "out of memory" in l
+            ) textureErrors++
+            if ("out of memory" in l || "gpu oom" in l || "vulkanoom" in l) gpuOom++
+            if ("frame drop" in l || "hitch" in l || "stutter" in l) dropFrames++
+            if ("thermal" in l || Regex("""temp\w*\s*:?\s*\d+""", RegexOption.IGNORE_CASE).containsMatchIn(l)) thermalEvents++
+            if ("timeout" in l || "connection refused" in l || "connection reset" in l ||
+                "unreachable" in l || "dns fail" in l || "dns failure" in l ||
+                "socket error" in l || "network fail" in l || "network failure" in l ||
+                "ping loss" in l
+            ) networkErrors++
 
-        fun extractFloat(pattern: Regex): Float? =
-            extract(pattern)?.toFloatOrNull()
+            // ── Flags ──
+            if ("islowmemorymobile: true" in l) isLowMem = true
+            if ("islowmemorymobile: false" in l) isLowMem = false
+            if ("vulkanrhi" in l) hasVulkanRhi = true
+            if ("opengl" in l || "opengl es" in l) hasOpenGl = true
+            if ("vulkan" in l) hasVulkan = true
+            if ("directx" in l) hasDirectX = true
+            if ("metal" in l) hasMetal = true
 
-        val gpu = extract(Regex("""K#GPUFamily\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE))
-            ?: extract(Regex("""LogInit.*GPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE))
-            ?: extract(Regex("""(adreno\s*\d+|mali-g\d+|mali-\d+|xclipse\s*\d+|maleoon)""", RegexOption.IGNORE_CASE))
+            // ── Field extraction (first match wins) ──
+            if (gpu == null) {
+                Regex("""K#GPUFamily\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let { gpu = it.groupValues[1].trim() }
+                if (gpu == null) Regex("""LogInit.*GPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let { gpu = it.groupValues[1].trim() }
+                if (gpu == null) Regex("""(adreno\s*\d+|mali-g\d+|mali-\d+|xclipse\s*\d+|maleoon)""", RegexOption.IGNORE_CASE).find(line)?.let { gpu = it.groupValues[1].trim() }
+            }
+            if (deviceModel == null) {
+                Regex("""K#DeviceModel\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let { deviceModel = it.groupValues[1].trim() }
+                if (deviceModel == null) Regex("""DeviceModel\s*:\s*([^\r\n,\]]+)""", RegexOption.IGNORE_CASE).find(line)?.let { deviceModel = it.groupValues[1].trim() }
+            }
+            if (socName == null) {
+                Regex("""(snapdragon|dimensity|exynos|kirin|helio)\s*\w*""", RegexOption.IGNORE_CASE).find(line)?.let { socName = it.value }
+            }
+            if (socCode == null) Regex("""rHn:(\w+)""", RegexOption.IGNORE_CASE).find(line)?.let { socCode = it.groupValues[1] }
+            if (cpuName == null) Regex("""LogInit.*CPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let { cpuName = it.groupValues[1].trim() }
+            if (ramMb == null) {
+                Regex("""PhysicalMemoryMB:\s*(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let { ramMb = it.groupValues[1].toIntOrNull() }
+                if (ramMb == null) Regex("""Platform has ~\s*([\d.]+)\s*GB""", RegexOption.IGNORE_CASE).find(line)?.let {
+                    ramMb = (it.groupValues[1].toFloatOrNull()?.times(1024))?.toInt()
+                }
+            }
+            if (androidVersion == null) Regex("""LogInit.*OS:\s*Android\s*\((\d+)\)""", RegexOption.IGNORE_CASE).find(line)?.let { androidVersion = it.groupValues[1] }
+            if (resolution == null) Regex("""ViewportSize\s+([\d.]+),\s*[\d.]+\s+Resolution\s+\d+,\s*\d+""", RegexOption.IGNORE_CASE).find(line)?.let { resolution = it.groupValues[1] }
+            if (deviceProfile == null) Regex("""Selected Device Profile:\s*\[([^\]]+)\]""", RegexOption.IGNORE_CASE).find(line)?.let { deviceProfile = it.groupValues[1] }
+            if (fpsCap == null) Regex("""r\.FramePace\s*:\s*(?:requesting\s+\d+,\s*)?set\s*(?:as\s+)?(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let { fpsCap = it.groupValues[1].toIntOrNull() }
+            if (fpsActual == null) Regex("""AverageFPS\s*[=:]\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(line)?.let { fpsActual = it.groupValues[1].toFloatOrNull() }
+            if (screenPct == null) Regex("""Value remains '(\d+\.?\d*)' .* r\.ScreenPercentage""", RegexOption.IGNORE_CASE).find(line)?.let { screenPct = it.groupValues[1].toFloatOrNull() }
+            if (shadowQ == null) Regex("""Value remains '(\d+)' .* sg\.ShadowQuality""", RegexOption.IGNORE_CASE).find(line)?.let { shadowQ = it.groupValues[1].toIntOrNull() }
+            if (qualityMode == null) Regex("""sg\.KuroRenderQuality\s*=\s*"(.*)"""", RegexOption.IGNORE_CASE).find(line)?.let { qualityMode = it.groupValues[1] }
+            if (kuroPostprocess == null) Regex("""Value remains '(\d+)' .* r\.Mobile\.KuroPostprocess""", RegexOption.IGNORE_CASE).find(line)?.let { kuroPostprocess = it.groupValues[1].toIntOrNull() }
+            if (forbiddenCvars == null) Regex("""contained\s+(\d+)\s+forbidden\s+CVars""", RegexOption.IGNORE_CASE).find(line)?.let { forbiddenCvars = it.groupValues[1].toIntOrNull() }
 
-        val deviceModel = extract(Regex("""K#DeviceModel\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE))
-            ?: extract(Regex("""DeviceModel\s*:\s*([^\r\n,\]]+)""", RegexOption.IGNORE_CASE))
-
-        val socName = extract(Regex("""(snapdragon|dimensity|exynos|kirin|helio)\s*\w*""", RegexOption.IGNORE_CASE))
-        val socCode = extract(Regex("""rHn:(\w+)"""))
-
-        val cpuName = extract(Regex("""LogInit.*CPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE))
-
-        val ramMb = extractInt(Regex("""PhysicalMemoryMB:\s*(\d+)""", RegexOption.IGNORE_CASE))
-            ?: extract(Regex("""Platform has ~\s*([\d.]+)\s*GB""", RegexOption.IGNORE_CASE))?.let {
-                (it.toFloatOrNull()?.times(1024))?.toInt()
+            // ── CVar extraction ──
+            Regex("""Setting CVar \[\[([^:]+):([^\]]+)\]\]""", RegexOption.IGNORE_CASE).find(line)?.let {
+                activeCvars[it.groupValues[1].trim()] = it.groupValues[2].trim()
+            }
+            Regex("""Value remains '([^']+)' .* variable '([^']+)'""", RegexOption.IGNORE_CASE).find(line)?.let {
+                activeCvars[it.groupValues[2].trim()] = it.groupValues[1].trim()
             }
 
-        val androidVersion = extract(Regex("""LogInit.*OS:\s*Android\s*\((\d+)\)""", RegexOption.IGNORE_CASE))
-        val resolution = extract(Regex("""ViewportSize\s+([\d.]+),\s*[\d.]+\s+Resolution\s+\d+,\s*\d+""", RegexOption.IGNORE_CASE))
+            // ── Game API from LogRHI line ──
+            if (gameApi == null) {
+                Regex("""LogRHI:\s*Initializing\s+(\S+(?:\s+\S+)*?)\s*RHI""", RegexOption.IGNORE_CASE).find(line)?.let { m ->
+                    val rhi = m.groupValues[1]
+                    gameApi = when {
+                        "Vulkan" in rhi -> "Vulkan"
+                        "OpenGL" in rhi -> "OpenGL ES"
+                        "DirectX" in rhi -> "DirectX"
+                        "Metal" in rhi -> "Metal"
+                        else -> null
+                    }
+                }
+            }
+        }
 
-        val vulkanStatus = when {
-            lower.contains("vulkanrhi") -> "available"
-            lower.contains("opengl") -> "not_available"
+        // ── Post-loop resolution ──
+        gameApi = gameApi
+            ?: deviceProfile?.let { if (it.endsWith("_GL", ignoreCase = true)) "OpenGL ES" else null }
+            ?: activeCvars["r.RHI"]?.let { cvar ->
+                when {
+                    "Vulkan" in cvar -> "Vulkan"
+                    "OpenGL" in cvar -> "OpenGL ES"
+                    else -> null
+                }
+            }
+
+        val vulkanStatus = when (gameApi) {
+            "Vulkan" -> "available"
+            "OpenGL ES" -> "not_available"
+            else -> when {
+                hasVulkanRhi -> "available"
+                hasOpenGl -> "not_available"
+                else -> null
+            }
+        }
+        val api = gameApi ?: when {
+            hasVulkan -> "Vulkan"
+            hasOpenGl -> "OpenGL ES"
+            hasDirectX -> "DirectX"
+            hasMetal -> "Metal"
             else -> null
-        }
-        val api = when {
-            lower.contains("vulkan") -> "Vulkan"
-            lower.contains("opengl") -> "OpenGL ES"
-            lower.contains("directx") -> "DirectX"
-            else -> null
-        }
-
-        val deviceProfile = extract(Regex("""Selected Device Profile:\s*\[([^\]]+)\]"""))
-        val fpsCap = extractInt(Regex("""r\.FramePace\s*:\s*(?:requesting\s+\d+,\s*)?set\s*(?:as\s+)?(\d+)"""))
-        val fpsActual = extractFloat(Regex("""AverageFPS\s*[=:]\s*([\d.]+)"""))
-
-        val screenPct = extractFloat(Regex("""Value remains '(\d+\.?\d*)' .* r\.ScreenPercentage"""))
-        val shadowQ = extractInt(Regex("""Value remains '(\d+)' .* sg\.ShadowQuality"""))
-        val qualityMode = extract(Regex("""sg\.KuroRenderQuality\s*=\s*"(.*)""""))
-        val kuroPostprocess = extractInt(Regex("""Value remains '(\d+)' .* r\.Mobile\.KuroPostprocess"""))
-        val isLowMem = when {
-            text.contains("IsLowMemoryMobile: True", ignoreCase = true) -> true
-            text.contains("IsLowMemoryMobile: False", ignoreCase = true) -> false
-            else -> null
-        }
-
-        val forbiddenCvars = extractInt(Regex("""contained\s+(\d+)\s+forbidden\s+CVars""")) ?: 0
-        val textureErrors = Regex("""Error pixel format|non-streamed mips|failed to load texture|Out of memory""", RegexOption.IGNORE_CASE)
-            .findAll(text).count()
-        val gpuOom = Regex("""out.?of.?memory|GPU.?OOM|VulkanOOM""", RegexOption.IGNORE_CASE)
-            .findAll(text).count()
-        val dropFrames = Regex("""frame.?drop|hitch|stutter""", RegexOption.IGNORE_CASE)
-            .findAll(text).count()
-        val thermalEvents = Regex("""thermal|temp\w*\s*:?\s*\d+""", RegexOption.IGNORE_CASE)
-            .findAll(text).count()
-        val networkErrors = Regex("""timeout|connection refused|connection reset|unreachable|dns\s*fail|socket.*error|network.*fail|ping.*loss""", RegexOption.IGNORE_CASE)
-            .findAll(text).count()
-
-        val activeCvars = mutableMapOf<String, String>()
-        Regex("""Setting CVar \[\[([^:]+):([^\]]+)\]\]""").findAll(text).forEach {
-            val (k, v) = it.destructured
-            activeCvars[k.trim()] = v.trim()
-        }
-        Regex("""Value remains '([^']+)' .* variable '([^']+)'""").findAll(text).forEach {
-            val (v, k) = it.destructured
-            activeCvars[k.trim()] = v.trim()
         }
 
         return LogInfo(
@@ -144,6 +204,7 @@ object LogParser {
             ramMb = ramMb,
             androidVersion = androidVersion,
             resolution = resolution,
+            gameApi = gameApi,
             api = api,
             vulkanStatus = vulkanStatus,
             deviceProfile = deviceProfile,
@@ -157,7 +218,7 @@ object LogParser {
             textureErrors = textureErrors,
             gpuOom = gpuOom,
             dropFrames = dropFrames,
-            forbiddenCvars = forbiddenCvars,
+            forbiddenCvars = forbiddenCvars ?: 0,
             thermalEvents = thermalEvents,
             networkErrors = networkErrors,
             activeCvars = activeCvars

@@ -2,7 +2,6 @@ package com.wuwaconfig.app.backend
 
 import android.content.Context
 import android.net.Uri
-import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,7 +12,7 @@ import java.io.InputStreamReader
 class SafBackend(private val context: Context) : AccessBackend {
     private var _treeUri: Uri? = null
     private val prefs = context.getSharedPreferences("wuwaconfig", Context.MODE_PRIVATE)
-    private val knownRoot = "/storage/emulated/0/Android/data/com.kurogame.wutheringwaves.global/files/UE4Game/Client/Client/Saved/Config/Android"
+    private val knownRoot = com.wuwaconfig.app.model.GamePaths.TARGET_DIR
 
     val treeUri: Uri?
         get() = _treeUri
@@ -129,10 +128,9 @@ class SafBackend(private val context: Context) : AccessBackend {
     override suspend fun readFile(path: String): Result<String> = withContext(Dispatchers.IO) {
         try {
             val doc = resolveDocument(path) ?: return@withContext Result.failure(Exception("Not found: $path"))
-            val input = context.contentResolver.openInputStream(doc.uri)
+            val text = context.contentResolver.openInputStream(doc.uri)
+                ?.use { BufferedReader(InputStreamReader(it)).readText() }
                 ?: return@withContext Result.failure(Exception("Cannot open: $path"))
-            val text = BufferedReader(InputStreamReader(input)).readText()
-            input.close()
             Result.success(text)
         } catch (e: Exception) {
             Result.failure(e)
@@ -140,18 +138,15 @@ class SafBackend(private val context: Context) : AccessBackend {
     }
 
     private fun readDocumentBytes(doc: DocumentFile): ByteArray {
-        val input = context.contentResolver.openInputStream(doc.uri)
+        return context.contentResolver.openInputStream(doc.uri)
+            ?.use { it.readBytes() }
             ?: throw Exception("Cannot read: ${doc.name}")
-        val bytes = input.readBytes()
-        input.close()
-        return bytes
     }
 
     private fun writeDocument(doc: DocumentFile, data: ByteArray) {
-        val output = context.contentResolver.openOutputStream(doc.uri)
+        context.contentResolver.openOutputStream(doc.uri)
+            ?.use { it.write(data) }
             ?: throw Exception("Cannot write: ${doc.name}")
-        output.write(data)
-        output.close()
     }
 
     private fun resolveDocument(path: String): DocumentFile? {
@@ -159,7 +154,11 @@ class SafBackend(private val context: Context) : AccessBackend {
         val root = DocumentFile.fromTreeUri(context, tree) ?: return null
         val relative = path.removePrefix(knownRoot).trimStart('/')
         if (relative.isEmpty()) return root
-        return root.findFile(relative)
+        var current = root
+        for (part in relative.split("/")) {
+            current = current.findFile(part) ?: return null
+        }
+        return current
     }
 
     private fun resolveOrCreateDocument(path: String): DocumentFile {
