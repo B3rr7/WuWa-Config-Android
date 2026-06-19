@@ -44,13 +44,18 @@ data class GeneratorOptions(
     val texOverride: Int = -1,
     val shadowOverride: Int = -1,
     val mode: GameMode = GameMode.Overworld,
-    val cvarOverrides: Map<String, String> = emptyMap()
+    val cvarOverrides: Map<String, String> = emptyMap(),
+    val generateEngine: Boolean = true,
+    val generateDeviceProfiles: Boolean = true,
+    val generateGameUserSettings: Boolean = true,
+    val generateScalability: Boolean = false
 )
 
 data class GeneratedIni(
     val engine: String = "",
     val deviceProfiles: String = "",
-    val gameUserSettings: String = ""
+    val gameUserSettings: String = "",
+    val scalability: String = ""
 )
 
 data class ModeConfig(

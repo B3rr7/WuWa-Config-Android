@@ -70,11 +70,17 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var disableSSR by remember { mutableStateOf(false) }
     var userChangedPreset by remember { mutableStateOf(false) }
 
+    var generateEngine by remember { mutableStateOf(true) }
+    var generateDeviceProfiles by remember { mutableStateOf(true) }
+    var generateGameUserSettings by remember { mutableStateOf(true) }
+    var generateScalability by remember { mutableStateOf(false) }
+
     var gameMode by remember { mutableStateOf(GameMode.Overworld) }
     var showReview by remember { mutableStateOf(false) }
     var reviewEngineText by remember { mutableStateOf("") }
     var reviewDeviceProfilesText by remember { mutableStateOf("") }
     var reviewGameUserSettingsText by remember { mutableStateOf("") }
+    var reviewScalabilityText by remember { mutableStateOf("") }
     var tunerActive by remember { mutableStateOf(false) }
     var tunerProgress by remember { mutableStateOf("") }
 
@@ -232,6 +238,17 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     }
                 }
 
+                item(key = "file_toggles") {
+                    GlassCard(accentColor = NeonCyan) {
+                        GlassCardHeader("Files to Generate", NeonCyan)
+                        Spacer(Modifier.height(8.dp))
+                        GeneratorSwitch("Engine.ini", generateEngine) { generateEngine = it }
+                        GeneratorSwitch("DeviceProfiles.ini", generateDeviceProfiles) { generateDeviceProfiles = it }
+                        GeneratorSwitch("GameUserSettings.ini", generateGameUserSettings) { generateGameUserSettings = it }
+                        GeneratorSwitch("Scalability.ini", generateScalability) { generateScalability = it }
+                    }
+                }
+
                 item(key = "actions") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -243,26 +260,20 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             GlassButton(
                                 onClick = {
                                     val opts = GeneratorOptions(
-                                        fps = fps,
-                                        unlock120 = unlock120,
-                                        unlockUltra = unlockUltra,
-                                        vsync = vsync,
-                                        cool = cooling,
-                                        vulkan = vulkan,
-                                        hzb = hzb,
-                                        fog = fog,
-                                        ca = ca,
-                                        disableOutline = disableOutline,
-                                        disableRadialBlur = disableRadialBlur,
-                                        disableBloom = disableBloom,
-                                        disableAutoExposure = disableAutoExposure,
-                                        disableSSR = disableSSR,
-                                        mode = gameMode
+                                        fps = fps, unlock120 = unlock120, unlockUltra = unlockUltra,
+                                        vsync = vsync, cool = cooling, vulkan = vulkan, hzb = hzb,
+                                        fog = fog, ca = ca, disableOutline = disableOutline,
+                                        disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
+                                        disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
+                                        mode = gameMode,
+                                        generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
+                                        generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability
                                     )
                                     val generated = ConfigGenerator.generate(selectedPreset, opts)
                                     reviewEngineText = generated.engine
                                     reviewDeviceProfilesText = generated.deviceProfiles
                                     reviewGameUserSettingsText = generated.gameUserSettings
+                                    reviewScalabilityText = generated.scalability
                                     viewModel.deployGeneratedConfigs(generated, opts)
                                     showReview = true
                                 },
@@ -303,15 +314,25 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                             fog = fog, ca = ca, disableOutline = disableOutline,
                                             disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
                                             disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
-                                            mode = gameMode
+                                            mode = gameMode,
+                                            generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
+                                            generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability
                                         )
                                         for (round in 1..5) {
                                             tunerProgress = "Round $round: deploying ${currentPreset}..."
                                             val generated = ConfigGenerator.generate(currentPreset, currentOpts)
                                             viewModel.deployGeneratedConfigs(generated, currentOpts)
-                                            delay(3000)
+                                            var waitMs = 0
+                                            while (viewModel.isApplying.value && waitMs < 30000) {
+                                                delay(200); waitMs += 200
+                                            }
                                             tunerProgress = "Round $round: capturing FPS..."
-                                            val result = BenchmarkTuner.captureFps()
+                                            val logcatResult = viewModel.executeShellCommand("logcat -d -v brief -t 500")
+                                            val result = if (logcatResult.isSuccess) {
+                                                BenchmarkTuner.parseFpsLogcat(logcatResult.getOrThrow())
+                                            } else {
+                                                Result.failure(Exception("logcat via backend failed: ${logcatResult.exceptionOrNull()?.message}"))
+                                            }
                                             if (result.isSuccess) {
                                                 val r = result.getOrThrow()
                                                 tunerProgress = "Round $round: ${r.avgFps.toInt()} FPS (target ${fps})"
@@ -352,8 +373,9 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             engineText = reviewEngineText,
             deviceProfilesText = reviewDeviceProfilesText,
             gameUserSettingsText = reviewGameUserSettingsText,
+            scalabilityText = reviewScalabilityText,
             onDismiss = { showReview = false },
-            onRedeploy = { newEngine, newDevice, newSettings ->
+            onRedeploy = { newEngine, newDevice, newSettings, newScalability ->
                 val overrides = ConfigGenerator.parseCvarEntries(newEngine)
                     .filter { it.isOverridden }
                     .associate { it.key to it.value }
@@ -363,14 +385,17 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     fog = fog, ca = ca, disableOutline = disableOutline,
                     disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
                     disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
-                    mode = gameMode, cvarOverrides = overrides
+                    mode = gameMode, cvarOverrides = overrides,
+                    generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
+                    generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability
                 )
                 val generated = ConfigGenerator.generate(selectedPreset, opts)
                 reviewEngineText = newEngine
                 reviewDeviceProfilesText = newDevice
                 reviewGameUserSettingsText = newSettings
+                reviewScalabilityText = newScalability
                 viewModel.deployGeneratedConfigs(
-                    com.wuwaconfig.app.model.GeneratedIni(engine = newEngine, deviceProfiles = newDevice, gameUserSettings = newSettings),
+                    com.wuwaconfig.app.model.GeneratedIni(engine = newEngine, deviceProfiles = newDevice, gameUserSettings = newSettings, scalability = newScalability),
                     opts
                 )
             }
@@ -477,16 +502,23 @@ private fun IniReviewDialog(
     engineText: String,
     deviceProfilesText: String,
     gameUserSettingsText: String,
+    scalabilityText: String = "",
     onDismiss: () -> Unit,
-    onRedeploy: (engine: String, deviceProfiles: String, gameUserSettings: String) -> Unit
+    onRedeploy: (engine: String, deviceProfiles: String, gameUserSettings: String, scalability: String) -> Unit
 ) {
     val engineEntries = remember(engineText) { ConfigGenerator.parseCvarEntries(engineText) }
     val dpEntries = remember(deviceProfilesText) { ConfigGenerator.parseDeviceProfileEntries(deviceProfilesText) }
     val gusEntries = remember(gameUserSettingsText) { ConfigGenerator.parseGameUserSettingsEntries(gameUserSettingsText) }
 
     var tab by remember { mutableStateOf(0) }
-    val tabs = listOf("Engine.ini (${engineEntries.size})", "DeviceProfiles.ini (${dpEntries.size})", "GameUserSettings.ini (${gusEntries.size})")
-    val accents = listOf(NeonCyan, NeonPurple, NeonGreen)
+    val tabs = mutableListOf(
+        "Engine.ini (${engineEntries.size})",
+        "DeviceProfiles.ini (${dpEntries.size})",
+        "GameUserSettings.ini (${gusEntries.size})"
+    )
+    val slEntries = remember(scalabilityText) { ConfigGenerator.parseGameUserSettingsEntries(scalabilityText) }
+    if (scalabilityText.isNotBlank()) tabs.add("Scalability.ini (${slEntries.size})")
+    val accents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -520,12 +552,13 @@ private fun IniReviewDialog(
                 0 -> IniReviewTab("Engine", engineEntries, NeonCyan)
                 1 -> IniReviewTab("DeviceProfiles", dpEntries, NeonPurple)
                 2 -> IniReviewTab("GameUserSettings", gusEntries, NeonGreen)
+                3 -> IniReviewTab("Scalability", slEntries, NeonAmber)
             }
         },
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onDismiss) { Text("Close") }
-                Button(onClick = { onRedeploy(engineText, deviceProfilesText, gameUserSettingsText) }) {
+                Button(onClick = { onRedeploy(engineText, deviceProfilesText, gameUserSettingsText, scalabilityText) }) {
                     Text("Redeploy", fontWeight = FontWeight.Bold)
                 }
             }

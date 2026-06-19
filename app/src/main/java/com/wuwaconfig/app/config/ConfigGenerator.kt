@@ -138,22 +138,20 @@ object ConfigGenerator {
 
     fun generate(preset: String, opts: GeneratorOptions, existingEngineContent: String? = null,
                  logInfo: LogInfo = this.logInfo, activePreset: String = this.activePreset): GeneratedIni {
-        this.activePreset = preset
         val corePaths = if (existingEngineContent != null) extractCoreSystemPaths(existingEngineContent) else null
-        val result = if (corePaths != null) generateWithCorePaths(preset, opts, corePaths, logInfo, activePreset)
+        return if (corePaths != null) generateWithCorePaths(preset, opts, corePaths, logInfo, activePreset)
         else generateWithCorePaths(preset, opts, DEFAULT_CORE_SYSTEM, logInfo, activePreset)
-        return result
     }
 
     fun generateWithCorePaths(preset: String, opts: GeneratorOptions, corePaths: List<String>,
                               logInfo: LogInfo = this.logInfo, activePreset: String = this.activePreset): GeneratedIni {
         val p = PRESETS[preset]!!
-        this.activePreset = preset
         val engine = applyCvarOverrides(buildAndroidEngineIni(p, opts, corePaths, logInfo, activePreset), opts.cvarOverrides)
         return GeneratedIni(
             engine = engine,
             deviceProfiles = buildAndroidDeviceProfilesIni(p, opts, logInfo, activePreset),
-            gameUserSettings = buildAndroidGameUserSettingsIni(p, opts, logInfo)
+            gameUserSettings = buildAndroidGameUserSettingsIni(p, opts, logInfo),
+            scalability = if (opts.generateScalability) buildAndroidScalabilityIni(p, opts) else ""
         )
     }
 
@@ -241,7 +239,7 @@ object ConfigGenerator {
             add("r.DepthOfFieldQuality=${if (p.detail > 1) 2 else if (p.detail > 0) 1 else 0}")
             add("r.LightShaftQuality=${if (p.detail > 0) 1 else 0}")
             add("r.LensFlareQuality=0")
-            add("r.SceneColorFringeQuality=${if (opts.ca) 0 else 1}")
+            add("r.SceneColorFringeQuality=${if (opts.ca) 1 else 0}")
             add("r.Tonemapper.GrainQuantization=0")
             add("r.DisableDistortion=${if (p.detail > 1) 0 else 1}")
             add("r.AmbientOcclusionLevels=${if (p.detail > 1) 1 else 0}")
@@ -594,6 +592,36 @@ object ConfigGenerator {
         ).joinToString("\n")
     }
 
+    private fun buildAndroidScalabilityIni(p: PresetProfile, opts: GeneratorOptions): String {
+        val resQ = if (p.detail > 1) 100 else if (p.detail > 0) 85 else 50
+        val viewQ = if (p.detail > 1) 3 else if (p.detail > 0) 2 else 1
+        val shadowQ = if (p.shadow >= 4) 3 else if (p.shadow >= 2) 2 else 1
+        val postQ = if (p.detail > 1) 3 else if (p.detail > 0) 2 else 1
+        val texQ = if (p.detail > 1) 3 else if (p.detail > 0) 2 else 1
+        val fxQ = if (p.detail > 1) 2 else if (p.detail > 0) 1 else 0
+        val folQ = if (p.detail > 1) 2 else if (p.detail > 0) 1 else 0
+        val kuroQ = if (p.detail > 1) 3 else 2
+        val aaQ = if (p.detail > 0) 2 else 1
+        val shaQ = if (p.detail > 1) 3 else 2
+
+        return listOf(
+            "; WuWa Scalability.ini — P42 Toolkit",
+            "",
+            "[ScalabilitySettings]",
+            "ResolutionQuality=$resQ.0",
+            "ViewDistanceQuality=$viewQ",
+            "AntiAliasingQuality=$aaQ",
+            "ShadowQuality=$shadowQ",
+            "PostProcessQuality=$postQ",
+            "TextureQuality=$texQ",
+            "EffectsQuality=$fxQ",
+            "FoliageQuality=$folQ",
+            "ShadingQuality=$shaQ",
+            "KuroRenderQuality=$kuroQ",
+            "KuroLocalRenderQuality=0"
+        ).joinToString("\n")
+    }
+
     fun parseDeviceProfileEntries(dpIni: String): List<CvarEntry> {
         val entries = mutableListOf<CvarEntry>()
         for (line in dpIni.lines()) {
@@ -671,7 +699,7 @@ object ConfigGenerator {
                 val eq = trimmed.indexOf('=')
                 val existingVal = trimmed.substring(eq + 1).trim()
                 if (existingVal != newValue) {
-                    lines[idx] = lines[idx].replace(Regex("$existingVal$"), newValue)
+                    lines[idx] = lines[idx].replace(Regex(Regex.escape(existingVal) + "$"), newValue)
                 }
             }
         }

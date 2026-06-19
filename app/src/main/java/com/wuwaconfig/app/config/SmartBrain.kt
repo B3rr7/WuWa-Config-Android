@@ -15,12 +15,12 @@ object SmartBrain {
         if (gpu == null) return "unknown"
         val g = gpu.lowercase()
         return when {
-            Regex("""adreno.*8[3-9]\d|adreno.*8[12]\d""", RegexOption.IGNORE_CASE).containsMatchIn(g) -> "flagship"
-            Regex("""adreno.*7[5-9]\d|adreno.*8[0]\d""", RegexOption.IGNORE_CASE).containsMatchIn(g) -> "high"
-            Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""", RegexOption.IGNORE_CASE).containsMatchIn(g) -> "mid_high"
-            Regex("""adreno.*6[0-4]\d|mali-g[6-7]\d\d|mali-g615""", RegexOption.IGNORE_CASE).containsMatchIn(g) -> "mid"
-            Regex("""adreno.*5\d\d|mali-g5[0-9]\d|mali-g57""", RegexOption.IGNORE_CASE).containsMatchIn(g) -> "mid_low"
-            Regex("""adreno.*[34]\d\d|mali-g[34]""", RegexOption.IGNORE_CASE).containsMatchIn(g) -> "low"
+            Regex("""adreno.*8[3-9]\d|adreno.*8[12]\d""").containsMatchIn(g) -> "flagship"
+            Regex("""adreno.*7[5-9]\d|adreno.*8[0]\d""").containsMatchIn(g) -> "high"
+            Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""").containsMatchIn(g) -> "mid_high"
+            Regex("""adreno.*6[0-4]\d|mali-g[6-7]\d\d|mali-g615""").containsMatchIn(g) -> "mid"
+            Regex("""adreno.*5\d\d|mali-g5[0-9]\d|mali-g57""").containsMatchIn(g) -> "mid_low"
+            Regex("""adreno.*[34]\d\d|mali-g[34]""").containsMatchIn(g) -> "low"
             else -> "unknown"
         }
     }
@@ -125,8 +125,9 @@ object SmartBrain {
 
         // ── Resolution analysis ────────────────────────────────────
         val res = parseResolution(info.resolution)
-        val isHighRes = res?.let { it.width >= 1440 || (it.height ?: 0) >= 1440 } == true
-        val is4k = res?.let { it.width >= 2160 || (it.height ?: 0) >= 2160 } == true
+        val effectiveRes = res?.let { maxOf(it.width, it.height ?: 0) } ?: 0
+        val isHighRes = effectiveRes >= 1440
+        val is4k = effectiveRes >= 2160
         if (is4k) {
             score -= 10; signals.add("4K resolution: -10")
             when (tier) {
@@ -225,7 +226,6 @@ object SmartBrain {
             score >= 80 && info.vulkanStatus == "available" && tier == "flagship" && !isHighRes -> "ultra"
             score >= 75 && (tier == "flagship" || tier == "high") && info.vulkanStatus == "available" -> "high"
             score >= 70 && (tier == "flagship" || tier == "high") -> "high"
-            score >= 55 -> "balanced"
             score >= 40 -> "balanced"
             else -> "performance"
         }

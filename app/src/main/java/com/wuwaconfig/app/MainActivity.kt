@@ -20,8 +20,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.screens.BackupScreen
+import com.wuwaconfig.app.ui.screens.BattleStatsScreen
 import com.wuwaconfig.app.ui.screens.ConfigGenScreen
 import com.wuwaconfig.app.ui.screens.HomeScreen
+import com.wuwaconfig.app.ui.screens.PityScreen
+import com.wuwaconfig.app.ui.screens.ProfileScreen
 import com.wuwaconfig.app.ui.screens.SettingsScreen
 import com.wuwaconfig.app.ui.screens.SetupScreen
 import com.wuwaconfig.app.ui.screens.TermsScreen
@@ -82,6 +85,10 @@ class MainActivity : ComponentActivity() {
         vm.initDownloadBackupDir()
     }
 
+    private val permissionsLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        initExternalBackupDir()
+    }
+
     private fun requestStoragePermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
@@ -103,9 +110,7 @@ class MainActivity : ComponentActivity() {
                 permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
             if (permissions.isNotEmpty()) {
-                registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-                    initExternalBackupDir()
-                }.launch(permissions.toTypedArray())
+                permissionsLauncher.launch(permissions.toTypedArray())
             } else {
                 initExternalBackupDir()
             }
@@ -138,7 +143,10 @@ fun AppNavigation(viewModel: MainViewModel) {
                 viewModel = viewModel,
                 onNavigateToBackups = { navController.navigate("backups") },
                 onNavigateToSettings = { navController.navigate("settings") },
-                onNavigateToConfigGen = { navController.navigate("configgen") }
+                onNavigateToConfigGen = { navController.navigate("configgen") },
+                onNavigateToPity = { navController.navigate("pity") },
+                onNavigateToProfile = { navController.navigate("profile") },
+                onNavigateToBattleStats = { navController.navigate("battlestats") }
             )
         }
         composable("backups") {
@@ -155,6 +163,24 @@ fun AppNavigation(viewModel: MainViewModel) {
         }
         composable("settings") {
             SettingsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("pity") {
+            PityScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("profile") {
+            ProfileScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("battlestats") {
+            BattleStatsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )

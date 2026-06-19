@@ -92,4 +92,8 @@ class AdbCrypto(private val context: Context) {
         md5.update(keyPair!!.public.encoded)
         return md5.digest().joinToString(":") { "%02X".format(it) }
     }
+
+    fun regenerateKeys() {
+        generateNewKeys()
+    }
 }

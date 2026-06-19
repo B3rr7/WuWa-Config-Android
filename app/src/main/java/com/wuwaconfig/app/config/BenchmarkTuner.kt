@@ -2,12 +2,6 @@ package com.wuwaconfig.app.config
 
 import android.util.Log
 import com.wuwaconfig.app.model.GeneratorOptions
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
-import java.io.BufferedReader
-import java.io.InputStreamReader
 
 data class BenchmarkResult(
     val avgFps: Float,
@@ -27,50 +21,35 @@ data class TunerProgress(
 
 object BenchmarkTuner {
     private const val TAG = "BenchmarkTuner"
-    private const val CAPTURE_DURATION_MS = 20000L
     private val FPS_LINE_PATTERN = """(?:FPS|fps|frame.*?rate|avg\s*fps)[:\s]*(\d+\.?\d*)""".toRegex()
 
     val PRESET_ORDER = listOf("ultra", "high", "balanced", "performance")
 
-    suspend fun captureFps(onProgress: (String) -> Unit = {}): Result<BenchmarkResult> =
-        withContext(Dispatchers.IO) {
-            try {
-                val pb = ProcessBuilder("logcat", "-d", "-v", "brief", "-t", "500")
-                pb.redirectErrorStream(true)
-                val process = pb.start()
-                val reader = BufferedReader(InputStreamReader(process.inputStream))
-                val fpsValues = mutableListOf<Float>()
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    val match = FPS_LINE_PATTERN.find(line ?: "")
-                    match?.let { m ->
-                        m.groupValues[1].toFloatOrNull()?.let { fpsValues.add(it) }
-                    }
-                }
-                process.waitFor()
-                reader.close()
-
-                if (fpsValues.isEmpty()) {
-                    return@withContext Result.failure(Exception("No FPS data found in logcat"))
-                }
-
-                val avg = fpsValues.average().toFloat()
-                val min = fpsValues.min()
-                val stable = fpsValues.count { it >= avg * 0.8f }.toFloat() / fpsValues.size * 100f
-                Result.success(
-                    BenchmarkResult(
-                        avgFps = avg, minFps = min,
-                        frameTimeMs = if (avg > 0) 1000f / avg else 0f,
-                        stabilityPct = stable
-                    )
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "captureFps failed: ${e.message}")
-                Result.failure(e)
+    fun parseFpsLogcat(logcatText: String): Result<BenchmarkResult> {
+        val fpsValues = mutableListOf<Float>()
+        for (line in logcatText.lines()) {
+            val match = FPS_LINE_PATTERN.find(line)
+            match?.let { m ->
+                m.groupValues[1].toFloatOrNull()?.let { fpsValues.add(it) }
             }
         }
+        if (fpsValues.isEmpty()) {
+            return Result.failure(Exception("No FPS data found in logcat"))
+        }
+        val avg = fpsValues.average().toFloat()
+        val min = fpsValues.min()
+        val stable = fpsValues.count { it >= avg * 0.8f }.toFloat() / fpsValues.size * 100f
+        return Result.success(
+            BenchmarkResult(
+                avgFps = avg, minFps = min,
+                frameTimeMs = if (avg > 0) 1000f / avg else 0f,
+                stabilityPct = stable
+            )
+        )
+    }
 
     fun pickPresetForFps(currentPreset: String, avgFps: Float, targetFps: Int): String {
+        if (targetFps <= 0) return currentPreset
         val idx = PRESET_ORDER.indexOf(currentPreset)
         if (avgFps >= targetFps && idx > 0) {
             val stepUp = (avgFps - targetFps) / targetFps

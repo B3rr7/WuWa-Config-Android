@@ -51,7 +51,7 @@ class WuWaConfigApp : Application() {
             AccessMethod.ADB -> AdbBackend(adbCrypto)
             AccessMethod.SHIZUKU -> ShizukuBackend()
             AccessMethod.ROOT -> RootBackend()
-            AccessMethod.SAF -> SafBackend(this)
+            AccessMethod.SAF -> SafBackend(this).also { it.restoreTreeUri() }
         }
     }
 

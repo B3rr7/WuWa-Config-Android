@@ -2,6 +2,7 @@ package com.wuwaconfig.app.backend
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 
 class RootBackend : AccessBackend {
     override var isConnected: Boolean = false
@@ -13,7 +14,9 @@ class RootBackend : AccessBackend {
                 .redirectErrorStream(true)
                 .start()
             val output = process.inputStream.bufferedReader().readText().trim()
-            val exitCode = process.waitFor()
+            val exited = process.waitFor(10, TimeUnit.SECONDS)
+            if (!exited) { process.destroyForcibly(); return@withContext Result.failure(Exception("Root check timed out")) }
+            val exitCode = process.exitValue()
             if (exitCode == 0 && output == "ROOT_OK") {
                 isConnected = true
                 Result.success(Unit)
@@ -36,7 +39,9 @@ class RootBackend : AccessBackend {
                 .redirectErrorStream(true)
                 .start()
             val output = process.inputStream.bufferedReader().readText()
-            val exitCode = process.waitFor()
+            val exited = process.waitFor(10, TimeUnit.SECONDS)
+            if (!exited) { process.destroyForcibly(); return@withContext Result.failure(Exception("Command timed out: $command")) }
+            val exitCode = process.exitValue()
             if (exitCode != 0) {
                 Result.failure(Exception(output.trim().ifEmpty { "Command failed with exit code $exitCode" }))
             } else {
