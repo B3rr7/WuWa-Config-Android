@@ -9,6 +9,7 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.InputStream
 import java.io.InputStreamReader
+import java.util.concurrent.TimeUnit
 
 class ShizukuBackend : AccessBackend {
     override val isConnected: Boolean
@@ -37,12 +38,16 @@ class ShizukuBackend : AccessBackend {
 
     override suspend fun executeShellCommand(command: String): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val output = shizukuExec("sh", "-c", command)
-            val filtered = filterPermissionDenied(output)
-            if (filtered != output) {
-                return@withContext Result.failure(Exception(filtered.trim().ifEmpty { "Command failed" }))
+            val result = shizukuExecWithExit("sh", "-c", command)
+            if (result.exitCode != 0) {
+                val stderr = result.stderr.trim()
+                return@withContext Result.failure(Exception(stderr.ifEmpty { "Command failed (exit ${result.exitCode})" }))
             }
-            Result.success(output.trim())
+            val filtered = filterPermissionDenied(result.stdout)
+            if (filtered != result.stdout) {
+                return@withContext Result.failure(Exception(filtered.trim().ifEmpty { "Permission denied" }))
+            }
+            Result.success(result.stdout.trim())
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -111,19 +116,33 @@ class ShizukuBackend : AccessBackend {
         }
     }
 
+    private data class ExecResult(val stdout: String, val stderr: String, val exitCode: Int)
+
+    @Throws(Exception::class)
     private fun shizukuExec(vararg cmd: String): String {
+        val result = shizukuExecWithExit(*cmd)
+        if (result.stderr.isNotBlank()) throw Exception(result.stderr.trim())
+        return result.stdout
+    }
+
+    @Throws(Exception::class)
+    private fun shizukuExecWithExit(vararg cmd: String): ExecResult {
         val clazz = Class.forName("rikka.shizuku.Shizuku")
-        val method = clazz.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-        method.isAccessible = true
-        val remoteProcess = method.invoke(null, cmd, null, null)
+        val method = clazz.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java).apply {
+            try { isAccessible = true } catch (_: Exception) {}
+        }
+        val process = method.invoke(null, cmd, null, null) as java.lang.Process
 
-        val stdout = readStream(remoteProcess.javaClass.getMethod("getInputStream").invoke(remoteProcess) as InputStream)
-        val stderr = readStream(remoteProcess.javaClass.getMethod("getErrorStream").invoke(remoteProcess) as InputStream)
+        val stdout = readStream(process.inputStream)
+        val stderr = readStream(process.errorStream)
 
-        remoteProcess.javaClass.getMethod("waitFor").invoke(remoteProcess)
+        val exited = process.waitFor(15, TimeUnit.SECONDS)
+        if (!exited) {
+            process.destroyForcibly()
+            throw Exception("Command timed out after 15s")
+        }
 
-        if (stderr.isNotBlank()) throw Exception(stderr.trim())
-        return stdout
+        return ExecResult(stdout, stderr, process.exitValue())
     }
 
     private fun readStream(stream: InputStream): String {

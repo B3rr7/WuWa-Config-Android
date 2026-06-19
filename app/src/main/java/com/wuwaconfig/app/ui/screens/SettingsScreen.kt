@@ -239,15 +239,6 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     }
                 }
 
-                GlassCard(accentColor = CrimsonRed) {
-                    GlassCardHeader("F2P Tips", CrimsonRed)
-                    Spacer(Modifier.height(8.dp))
-                    Text("• Do your dailies & events every day", style = MaterialTheme.typography.bodySmall)
-                    Text("• Save Astrites — only pull for chars you love", style = MaterialTheme.typography.bodySmall)
-                    Text("• Build 2-3 strong teams, not every unit", style = MaterialTheme.typography.bodySmall)
-                    Text("• Support Player42!", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = CrimsonRed)
-                }
-
                 GlassCard(accentColor = NeonPurple) {
                     GlassCardHeader("Links", NeonPurple)
                     Spacer(Modifier.height(8.dp))
@@ -352,7 +343,8 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         if (curVideoUri != null) {
                             try { ctx.contentResolver.releasePersistableUriPermission(Uri.parse(curVideoUri), Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
                             viewModel.setBackgroundVideoUri(null)
-                        } else if (curImageUri != null) {
+                        }
+                        if (curImageUri != null) {
                             try { ctx.contentResolver.releasePersistableUriPermission(Uri.parse(curImageUri), Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
                             viewModel.setBackgroundImageUri(null)
                         }

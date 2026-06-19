@@ -152,8 +152,24 @@ class SafBackend(private val context: Context) : AccessBackend {
     private fun resolveDocument(path: String): DocumentFile? {
         val tree = _treeUri ?: return null
         val root = DocumentFile.fromTreeUri(context, tree) ?: return null
-        val relative = path.removePrefix(knownRoot).trimStart('/')
+        val nameOnly = path.substringAfterLast('/')
+
+        val strategies = listOf(
+            { stripAndNavigate(path, root, knownRoot) },
+            { stripAndNavigate(path, root, path.substringBeforeLast("/")) },
+            { root.findFile(nameOnly) }
+        )
+        for (strategy in strategies) {
+            val result = strategy()
+            if (result != null) return result
+        }
+        return null
+    }
+
+    private fun stripAndNavigate(path: String, root: DocumentFile, prefix: String): DocumentFile? {
+        val relative = path.removePrefix(prefix).trimStart('/')
         if (relative.isEmpty()) return root
+        if (!relative.contains("/")) return root.findFile(relative)
         var current = root
         for (part in relative.split("/")) {
             current = current.findFile(part) ?: return null
@@ -164,15 +180,29 @@ class SafBackend(private val context: Context) : AccessBackend {
     private fun resolveOrCreateDocument(path: String): DocumentFile {
         val tree = _treeUri ?: throw Exception("No SAF directory selected")
         val root = DocumentFile.fromTreeUri(context, tree) ?: throw Exception("Cannot access tree")
-        val relative = path.removePrefix(knownRoot).trimStart('/')
-        if (relative.isEmpty()) return root
-        val parts = relative.split("/")
+        val nameOnly = path.substringAfterLast('/')
+
+        val strategies = listOf(
+            { stripAndNavigate(path, root, knownRoot) },
+            { stripAndNavigate(path, root, path.substringBeforeLast("/")) },
+            { root.findFile(nameOnly) }
+        )
+        for (strategy in strategies) {
+            val result = strategy()
+            if (result != null) return result
+        }
+
+        // Create directories if path doesn't exist
+        val parts = path.removePrefix(knownRoot).trimStart('/').split("/").filter { it.isNotBlank() }
+        if (parts.size <= 1) {
+            return root.createDirectory(nameOnly) ?: throw Exception("Cannot create: $nameOnly")
+        }
         var current = root
         for (part in parts) {
             var child = current.findFile(part)
             if (child == null) {
                 child = current.createDirectory(part)
-                    ?: throw Exception("Cannot create: $part")
+                    ?: throw Exception("Cannot create directory: $part")
             }
             current = child
         }

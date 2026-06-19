@@ -56,6 +56,8 @@ class AdbClient(private val crypto: AdbCrypto) {
             val cnxn = AdbProtocol.createConnectionMessage()
             AdbProtocol.writeMessage(output!!, cnxn)
             var triedSignature = false
+            var publicKeySent = false
+            var authAttempts = 0
 
             while (true) {
                 val message = AdbProtocol.readMessage(input!!)
@@ -67,14 +69,22 @@ class AdbClient(private val crypto: AdbCrypto) {
                         return Result.success(Unit)
                     }
                     message.command.contentEquals(AdbProtocol.AUTH) -> {
+                        authAttempts++
                         if (!triedSignature) {
                             Log.d("AdbClient", "auth[$instanceId]: AUTH challenge, sending signature")
                             triedSignature = true
                             val signature = crypto.signToken(message.payload)
                             AdbProtocol.writeMessage(output!!, AdbProtocol.createAuthSignatureMessage(signature))
-                        } else {
-                            Log.d("AdbClient", "auth[$instanceId]: AUTH retry, sending public key")
+                        } else if (!publicKeySent || authAttempts < 5) {
+                            if (!publicKeySent) {
+                                Log.d("AdbClient", "auth[$instanceId]: AUTH retry, sending public key")
+                                publicKeySent = true
+                            } else {
+                                Log.d("AdbClient", "auth[$instanceId]: AUTH attempt $authAttempts, re-sending public key")
+                            }
                             AdbProtocol.writeMessage(output!!, AdbProtocol.createAuthPublicKeyMessage(crypto.getAdbFormattedPublicKey()))
+                        } else {
+                            return Result.failure(Exception("Authorization rejected. Check notification shade and accept the RSA fingerprint dialog."))
                         }
                     }
                     else -> {
@@ -87,6 +97,12 @@ class AdbClient(private val crypto: AdbCrypto) {
             disconnect()
             return Result.failure(Exception("ADB auth failed: ${e.message}"))
         }
+    }
+
+    suspend fun connectWithRegeneratedKeys(port: Int, host: String = "127.0.0.1", readTimeoutMs: Int = 60000): Result<Unit> {
+        Log.d("AdbClient", "connectWithRegeneratedKeys[$instanceId]: regenerating RSA keys")
+        crypto.regenerateKeys()
+        return connect(port, host, readTimeoutMs)
     }
 
     suspend fun executeShellCommand(command: String): Result<String> = withContext(Dispatchers.IO) {
@@ -142,7 +158,10 @@ class AdbClient(private val crypto: AdbCrypto) {
                 if (msg.command.contentEquals(AdbProtocol.WRTE) && msg.arg1 == localId) {
                     response.append(String(msg.payload, Charsets.UTF_8))
                     AdbProtocol.writeMessage(output!!, AdbProtocol.createOkMessage(msg.arg1, msg.arg0))
-                } else break
+                } else {
+                    // Re-queue non-WRTE messages by breaking — caller handles CLSE/OKAY
+                    break
+                }
             }
         } catch (_: java.net.SocketTimeoutException) {
             // No more trailing messages — normal

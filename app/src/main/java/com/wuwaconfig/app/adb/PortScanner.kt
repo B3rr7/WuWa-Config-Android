@@ -17,12 +17,18 @@ object PortScanner {
     private const val READ_TIMEOUT = 500
 
     private var cachedIp: String? = null
-    private var lastAdbPort: Int? = null
+    private var cacheTimestamp: Long = 0
+    private const val CACHE_TTL_MS = 30_000L
+    @JvmStatic var lastAdbPort: Int? = null
+        private set
+
+    fun clearCache() { cachedIp = null; cacheTimestamp = 0 }
 
     data class ScanResult(val host: String, val port: Int)
 
     fun getDeviceIp(): String {
-        cachedIp?.let { return it }
+        if (cachedIp != null && System.currentTimeMillis() - cacheTimestamp < CACHE_TTL_MS) return cachedIp!!
+        cachedIp = null
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
@@ -33,8 +39,10 @@ object PortScanner {
                     val addr = addrs.nextElement()
                     if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
                         val ip = addr.hostAddress ?: continue
-                        if (ip.startsWith("192.") || ip.startsWith("10.") || ip.startsWith("172.")) {
-                            cachedIp = ip
+                        val parts = ip.split(".")
+                        val isPrivate172 = parts.size == 4 && parts[0] == "172" && parts[1].toIntOrNull()?.let { it in 16..31 } == true
+                        if (ip.startsWith("192.") || ip.startsWith("10.") || isPrivate172) {
+                            cachedIp = ip; cacheTimestamp = System.currentTimeMillis()
                             return ip
                         }
                     }
@@ -45,15 +53,17 @@ object PortScanner {
     }
 
     suspend fun scanForAdb(): ScanResult? = withContext(Dispatchers.IO) {
-        val addr = "127.0.0.1"
-        lastAdbPort?.let { port ->
-            if (tryPort(addr, port) > 0) return@withContext ScanResult(addr, port)
-        }
-        if (tryPort(addr, WELL_KNOWN_ADB) > 0) return@withContext ScanResult(addr, WELL_KNOWN_ADB)
-        val port = scanHost(addr)
-        if (port > 0) {
-            lastAdbPort = port
-            return@withContext ScanResult(addr, port)
+        val addrs = listOf("127.0.0.1", getDeviceIp()).distinct()
+        for (addr in addrs) {
+            lastAdbPort?.let { port ->
+                if (tryPort(addr, port) > 0) return@withContext ScanResult(addr, port)
+            }
+            if (tryPort(addr, WELL_KNOWN_ADB) > 0) return@withContext ScanResult(addr, WELL_KNOWN_ADB)
+            val port = scanHost(addr)
+            if (port > 0) {
+                lastAdbPort = port
+                return@withContext ScanResult(addr, port)
+            }
         }
         null
     }

@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.config
 
+import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.LogInfo
 import java.nio.charset.Charset
 
@@ -8,17 +9,24 @@ object LogParser {
     fun decryptWuwaLog(data: ByteArray): ByteArray? {
         if (data.size < 3) return null
         if (data[0] != 0x00.toByte() || data[1] != 0x54.toByte() || data[2] != 0x50.toByte()) return null
-        val lut = ByteArray(256)
-        for (i in 0..255) {
-            lut[i] = (if (i % 2 == 1) (i xor 0xA5) else (i xor 0xEF)).toByte()
-        }
-        val body = data.copyOfRange(3, data.size)
-        for (i in body.indices) {
-            body[i] = lut[body[i].toInt() and 0xFF]
-        }
+        val body = applyXorLut(data.copyOfRange(3, data.size))
         var bom = 0
         if (body.size >= 2 && body[0] == 0xFE.toByte() && body[1] == 0xFF.toByte()) bom = 2
         return body.copyOfRange(bom, body.size)
+    }
+
+    fun applyXorLut(data: ByteArray): ByteArray {
+        val lut = ByteArray(256) { i -> (if (i % 2 == 1) (i xor 0xA5) else (i xor 0xEF)).toByte() }
+        val result = data.copyOf()
+        for (i in result.indices) {
+            result[i] = lut[result[i].toInt() and 0xFF]
+        }
+        return result
+    }
+
+    fun decodeXorBytes(data: ByteArray): Pair<String, Boolean> {
+        val decoded = applyXorLut(data)
+        return decodeLogBytes(decoded).let { it.first to true }
     }
 
     fun decodeLogBytes(data: ByteArray): Pair<String, Boolean> {
@@ -54,6 +62,15 @@ object LogParser {
             if (data[i] == 0.toByte()) zeroes++
         }
         return zeroes > samples / 5
+    }
+
+    private val CONVENE_URL_REGEX = Regex(
+        """https://aki-gm-resources(-oversea)?\.aki-game\.(net|com)/aki/gacha/index\.html#/record[^"\s]*""",
+        RegexOption.IGNORE_CASE
+    )
+
+    fun extractConveneUrl(text: String): String? {
+        return CONVENE_URL_REGEX.find(text)?.value
     }
 
     fun parseLog(text: String): LogInfo {
@@ -134,6 +151,9 @@ object LogParser {
                 }
             }
             if (androidVersion == null) Regex("""LogInit.*OS:\s*Android\s*\((\d+)\)""", RegexOption.IGNORE_CASE).find(line)?.let { androidVersion = it.groupValues[1] }
+            if (resolution == null) Regex("""Resolution\s+(\d+),\s*(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let {
+                resolution = "${it.groupValues[1]}x${it.groupValues[2]}"
+            }
             if (resolution == null) Regex("""ViewportSize\s+([\d.]+),\s*[\d.]+\s+Resolution\s+\d+,\s*\d+""", RegexOption.IGNORE_CASE).find(line)?.let { resolution = it.groupValues[1] }
             if (deviceProfile == null) Regex("""Selected Device Profile:\s*\[([^\]]+)\]""", RegexOption.IGNORE_CASE).find(line)?.let { deviceProfile = it.groupValues[1] }
             if (fpsCap == null) Regex("""r\.FramePace\s*:\s*(?:requesting\s+\d+,\s*)?set\s*(?:as\s+)?(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let { fpsCap = it.groupValues[1].toIntOrNull() }
@@ -222,6 +242,60 @@ object LogParser {
             thermalEvents = thermalEvents,
             networkErrors = networkErrors,
             activeCvars = activeCvars
+        )
+    }
+
+    fun parseBattleStats(text: String): BattleStats {
+        var battles = 0
+        var echoesCollected = 0
+        var dodgeForward = 0
+        var dodgeBack = 0
+        var dodgeCounter = 0
+        var deaths = 0
+        var roleChanges = 0
+        var teleports = 0
+        var staggers = 0
+        var staminaUsed = 0
+        var echoSkillsUsed = 0
+        var echoTransformUsed = 0
+        var monthCards = 0
+
+        for (line in text.lines()) {
+            when {
+                "切换玩家状态: 进入战斗造成伤害" in line -> battles++
+                "初次幻象收服" in line || "初次幻象捕捉" in line -> echoesCollected++
+                "极限闪避前闪" in line -> dodgeForward++
+                "极限闪避后闪" in line -> dodgeBack++
+                "极限闪避反击" in line -> dodgeCounter++
+                "前台角色死亡进行切人" in line -> deaths++
+                "角色下场" in line && "立即隐藏" in line -> roleChanges++
+                "传送:完成" in line -> teleports++
+                "进入倒地状态" in line -> staggers++
+                line.contains("当前体力数据") && "UPs:" in line -> {
+                    val m = Regex("UPs:(\\d+)").find(line)
+                    if (m != null) staminaUsed += m.groupValues[1].toIntOrNull() ?: 0
+                }
+                "召唤系幻象的出生特效" in line -> echoSkillsUsed++
+                "变身幻象" in line -> echoTransformUsed++
+                "月卡每日奖励" in line -> monthCards++
+            }
+        }
+
+        return BattleStats(
+            battles = battles,
+            echoesCollected = echoesCollected,
+            dodgeForward = dodgeForward,
+            dodgeBack = dodgeBack,
+            dodgeCounter = dodgeCounter,
+            deaths = deaths,
+            roleChanges = roleChanges,
+            teleports = teleports,
+            staggers = staggers,
+            staminaUsed = staminaUsed,
+            echoSkillsUsed = echoSkillsUsed,
+            echoTransformUsed = echoTransformUsed,
+            monthCards = monthCards,
+            logSizeBytes = text.length.toLong(),
         )
     }
 }

@@ -3,8 +3,11 @@ package com.wuwaconfig.app.ui.screens
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,6 +15,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,7 +38,7 @@ private enum class CustomConfigState {
     IDLE, REVIEW
 }
 
-private val TARGET_NAMES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini")
+private val TARGET_NAMES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini")
 
 private fun matchTarget(displayName: String): String? {
     val name = displayName.lowercase().replace(" ", "")
@@ -39,6 +46,7 @@ private fun matchTarget(displayName: String): String? {
         "engine" in name -> "Engine.ini"
         "deviceprofile" in name -> "DeviceProfiles.ini"
         "gameusersetting" in name -> "GameUserSettings.ini"
+        "scalability" in name -> "Scalability.ini"
         else -> null
     }
 }
@@ -49,12 +57,16 @@ fun HomeScreen(
     viewModel: MainViewModel,
     onNavigateToBackups: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToConfigGen: () -> Unit
+    onNavigateToConfigGen: () -> Unit,
+    onNavigateToPity: () -> Unit,
+    onNavigateToProfile: () -> Unit,
+    onNavigateToBattleStats: () -> Unit
 ) {
     val backendStatus by viewModel.backendStatus.collectAsState()
     val backups by viewModel.backups.collectAsState()
     val logs by viewModel.logs.collectAsState()
     val isApplying by viewModel.isApplying.collectAsState()
+
 
     var customConfigState by remember { mutableStateOf(CustomConfigState.IDLE) }
     var pickedFiles by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
@@ -91,8 +103,22 @@ fun HomeScreen(
                         }
                     },
                     actions = {
+                        val infiniteTransition = rememberInfiniteTransition()
+                        val rotation by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 360f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(2000, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart,
+                            ),
+                        )
                         IconButton(onClick = onNavigateToSettings) {
-                            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = NeonPurple)
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = NeonPurple,
+                                modifier = Modifier.rotate(rotation)
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -291,7 +317,8 @@ fun HomeScreen(
                                             val engine = pickedFiles.firstOrNull { it.targetName == "Engine.ini" }?.content
                                             val device = pickedFiles.firstOrNull { it.targetName == "DeviceProfiles.ini" }?.content
                                             val gus = pickedFiles.firstOrNull { it.targetName == "GameUserSettings.ini" }?.content
-                                            viewModel.applyCustomFiles(engine, device, gus)
+                                            val scalability = pickedFiles.firstOrNull { it.targetName == "Scalability.ini" }?.content
+                                            viewModel.applyCustomFiles(engine, device, gus, scalability)
                                             customConfigState = CustomConfigState.IDLE
                                             pickedFiles = emptyList()
                                         },
@@ -369,6 +396,57 @@ fun HomeScreen(
                                 Text("Config Generator", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.weight(1f))
                                 Text("Generate", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
+                            }
+                            ElevatedButton(
+                                onClick = onNavigateToPity,
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                enabled = true,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.elevatedButtonColors(
+                                    containerColor = NeonPurple.copy(alpha = 0.08f),
+                                    contentColor = NeonPurple
+                                ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
+                            ) {
+                                Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Pity Tracker", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text("Import", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
+                            }
+                            ElevatedButton(
+                                onClick = onNavigateToProfile,
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                enabled = true,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.elevatedButtonColors(
+                                    containerColor = NeonGreen.copy(alpha = 0.08f),
+                                    contentColor = NeonGreen
+                                ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
+                            ) {
+                                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Profile", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text("View", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
+                            }
+                            ElevatedButton(
+                                onClick = onNavigateToBattleStats,
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                enabled = true,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.elevatedButtonColors(
+                                    containerColor = NeonRed.copy(alpha = 0.08f),
+                                    contentColor = NeonRed
+                                ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
+                            ) {
+                                Icon(Icons.Default.SportsEsports, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Battle Stats", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text("Stats", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
                             }
                             if (isApplying) {
                                 GlassOutlinedButton(
@@ -479,4 +557,5 @@ fun HomeScreen(
             }
         )
     }
+
 }

@@ -241,13 +241,14 @@ fun GlassOutlinedButton(
                 SuggestionChip(
                     onClick = onToggle,
                     label = {
-                        val next = when (status.method) {
+                        val text = if (status.connected) "Switch"
+                        else when (status.method) {
                             AccessMethod.ADB -> "SHIZUKU"
                             AccessMethod.SHIZUKU -> "ROOT"
                             AccessMethod.ROOT -> "SAF"
                             AccessMethod.SAF -> "ADB"
                         }
-                        Text(next, fontWeight = FontWeight.Bold)
+                        Text(text, fontWeight = FontWeight.Bold)
                     },
                     colors = SuggestionChipDefaults.suggestionChipColors(
                         containerColor = accentColor.copy(alpha = 0.1f),
@@ -441,6 +442,7 @@ fun GlitchText(
     var currentIndex by remember { mutableStateOf(0) }
     var displayText by remember { mutableStateOf(names[0]) }
     var glitchActive by remember { mutableStateOf(false) }
+    var shakeOffsetX by remember { mutableStateOf(0f) }
 
     val glitchLifecycle = LocalLifecycleOwner.current.lifecycle
 
@@ -456,6 +458,7 @@ fun GlitchText(
             if (names.size < 2) continue
             val nextIndex = (currentIndex + 1) % names.size
             glitchActive = true
+            shakeOffsetX = Random.nextFloat() * 4f - 2f
             val target = names[nextIndex]
 
             val len = maxOf(displayText.length, target.length)
@@ -483,7 +486,7 @@ fun GlitchText(
     }
 
     val offsetX by animateFloatAsState(
-        targetValue = if (glitchActive) Random.nextFloat() * 4f - 2f else 0f,
+        targetValue = if (glitchActive) shakeOffsetX else 0f,
         animationSpec = if (glitchActive) tween(80) else spring(dampingRatio = 0.3f)
     )
 

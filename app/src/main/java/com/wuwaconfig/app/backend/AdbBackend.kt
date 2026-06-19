@@ -19,11 +19,23 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         if (scan == null) {
             return Result.failure(Exception("ADB port not found. Enable Wireless Debugging and tap Connect, or enter IP:port manually."))
         }
-        return client.connect(scan.port, scan.host)
+        val first = client.connect(scan.port, scan.host)
+        if (first.isSuccess) return first
+        val msg = first.exceptionOrNull()?.message ?: ""
+        if (msg.contains("Authorization") || msg.contains("auth")) {
+            return client.connectWithRegeneratedKeys(scan.port, scan.host)
+        }
+        return first
     }
 
     suspend fun connectTo(host: String, port: Int): Result<Unit> {
-        return client.connect(port, host)
+        val first = client.connect(port, host)
+        if (first.isSuccess) return first
+        val msg = first.exceptionOrNull()?.message ?: ""
+        if (msg.contains("Authorization") || msg.contains("auth")) {
+            return client.connectWithRegeneratedKeys(port, host)
+        }
+        return first
     }
 
     override fun disconnect() = client.disconnect()
