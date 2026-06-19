@@ -1,5 +1,7 @@
 # WuWaConfig — Wuthering Waves Config Toolkit
 
+[![Release](https://img.shields.io/github/v/release/Berry7650/WuWap42?label=Download&color=purple)](https://github.com/Berry7650/WuWap42/releases)
+
 A fan-made Android application for analyzing, generating, and deploying optimized configuration files (`.ini`) for **Wuthering Waves** on mobile devices. Includes Pity Tracker, Battle Stats, Player Profile, and SmartBrain log analysis.
 
 > **⚠️ DISCLAIMER**
@@ -30,7 +32,7 @@ A fan-made Android application for analyzing, generating, and deploying optimize
 
 ## Installation & First Run
 
-1. **Download** the latest APK from Releases.
+1. **Download** the latest APK from [Releases](https://github.com/Berry7650/WuWap42/releases).
 2. **Install** on your Android device (enable "Install from unknown sources").
 3. **Open** the app — accept Terms of Use.
 4. **Grant storage permission** when prompted (for backups).
