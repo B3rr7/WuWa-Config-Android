@@ -512,8 +512,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _readingProgress.value = 95
                     val (text, decrypted) = result.getOrThrow()
                     addLog(if (decrypted) "Encrypted log detected; decrypted successfully." else "Plain log detected.")
-                    analyzeLogText(text)
-                    return@launch
+                    doAnalyzeLogText(text)
                 } else {
                     addLog("FAILED: ${result.exceptionOrNull()?.message}")
                 }
@@ -537,8 +536,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val (text, decrypted) = com.wuwaconfig.app.config.LogParser.decodeLogBytes(bytes)
                 addLog(if (decrypted) "Encrypted imported log decrypted successfully." else "Imported plain log.")
                 _readingProgress.value = 95
-                analyzeLogText(text)
-                return@launch
+                doAnalyzeLogText(text)
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "analyzeClientLogBytes crashed", e)
@@ -546,6 +544,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _readingProgress.value = 0
                 _isApplying.value = false
             }
+        }
+    }
+
+    private suspend fun doAnalyzeLogText(text: String) {
+        try {
+            addLog("Parsing log...")
+            val info = withContext(Dispatchers.Default) {
+                com.wuwaconfig.app.config.LogParser.parseLog(text)
+            }
+            com.wuwaconfig.app.config.ConfigGenerator.logInfo = info
+            _logAnalysis.value = info
+            addLog("GPU: ${info.gpu ?: "unknown"}, RAM: ${info.ramMb ?: "?"}MB")
+            _readingProgress.value = 98
+            val brain = withContext(Dispatchers.Default) {
+                com.wuwaconfig.app.config.SmartBrain.scoreRecommendation(info)
+            }
+            _brainRecommendation.value = brain
+            addLog("Brain recommends: ${brain.preset} (score: ${brain.score})")
+        } catch (e: Exception) {
+            addLog("CRASH: ${e.message}")
+            Log.e("WuWaConfig", "doAnalyzeLogText crashed", e)
         }
     }
 
@@ -698,31 +717,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun analyzeLogText(text: String) {
-        viewModelScope.launch {
-            try {
-                addLog("Parsing log...")
-                val info = withContext(Dispatchers.Default) {
-                    com.wuwaconfig.app.config.LogParser.parseLog(text)
-                }
-                com.wuwaconfig.app.config.ConfigGenerator.logInfo = info
-                _logAnalysis.value = info
-                addLog("GPU: ${info.gpu ?: "unknown"}, RAM: ${info.ramMb ?: "?"}MB")
-                val brain = withContext(Dispatchers.Default) {
-                    com.wuwaconfig.app.config.SmartBrain.scoreRecommendation(info)
-                }
-                _brainRecommendation.value = brain
-                addLog("Brain recommends: ${brain.preset} (score: ${brain.score})")
-            } catch (e: Exception) {
-                addLog("CRASH: ${e.message}")
-                Log.e("WuWaConfig", "analyzeLogText crashed", e)
-            } finally {
-                _readingProgress.value = 0
-                _isApplying.value = false
-            }
-        }
-    }
-
     fun deployGeneratedConfigs(
         ini: com.wuwaconfig.app.model.GeneratedIni,
         opts: com.wuwaconfig.app.model.GeneratorOptions = com.wuwaconfig.app.model.GeneratorOptions()
@@ -757,11 +751,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     corePaths
                 ).engine
 
+                val dp = if (!opts.allowRestrictedCvars) com.wuwaconfig.app.config.ForbiddenCvars.stripForbiddenCvars(ini.deviceProfiles) else ini.deviceProfiles
+                val gus = if (!opts.allowRestrictedCvars) com.wuwaconfig.app.config.ForbiddenCvars.stripForbiddenCvars(ini.gameUserSettings) else ini.gameUserSettings
+                val sc = if (!opts.allowRestrictedCvars && ini.scalability.isNotBlank()) com.wuwaconfig.app.config.ForbiddenCvars.stripForbiddenCvars(ini.scalability) else ini.scalability
                 val result = configManager.applyCustomConfigs(
                     engineIni = if (opts.generateEngine) engineWithPaths else null,
-                    deviceProfilesIni = if (opts.generateDeviceProfiles) ini.deviceProfiles else null,
-                    gameUserSettingsIni = if (opts.generateGameUserSettings) ini.gameUserSettings else null,
-                    scalabilityIni = if (opts.generateScalability && ini.scalability.isNotBlank()) ini.scalability else null,
+                    deviceProfilesIni = if (opts.generateDeviceProfiles) dp else null,
+                    gameUserSettingsIni = if (opts.generateGameUserSettings) gus else null,
+                    scalabilityIni = if (opts.generateScalability && sc.isNotBlank()) sc else null,
                 ) { msg -> addLog(msg) }
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
@@ -781,7 +778,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun applyCustomFiles(engineIni: String?, deviceProfilesIni: String?, gameUserSettingsIni: String?, scalabilityIni: String? = null) {
+    fun applyCustomFiles(engineIni: String?, deviceProfilesIni: String?, gameUserSettingsIni: String?, scalabilityIni: String? = null, hardwareIni: String? = null) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
             _isApplying.value = true
@@ -804,6 +801,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     deviceProfilesIni = deviceProfilesIni,
                     gameUserSettingsIni = gameUserSettingsIni,
                     scalabilityIni = scalabilityIni,
+                    hardwareIni = hardwareIni,
                 ) { msg -> addLog(msg) }
 
                 if (result.isSuccess) {

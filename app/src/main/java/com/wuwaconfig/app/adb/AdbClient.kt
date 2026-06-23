@@ -132,7 +132,7 @@ class AdbClient(private val crypto: AdbCrypto) {
                         // ADB daemon may send WRTE after CLSE (pipe buffer drain race).
                         // Only break for our stream, then drain trailing messages.
                         if (remoteId == 0 || message.arg1 == localId) {
-                            drainTrailingWrte(localId, response)
+                            drainTrailingWrite(localId, response)
                             break@loop
                         }
                     }
@@ -149,7 +149,7 @@ class AdbClient(private val crypto: AdbCrypto) {
         }
     }
 
-    private fun drainTrailingWrte(localId: Int, response: StringBuilder) {
+    private fun drainTrailingWrite(localId: Int, response: StringBuilder) {
         val originalTimeout = socket!!.soTimeout
         try {
             socket!!.soTimeout = 500

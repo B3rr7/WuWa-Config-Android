@@ -26,6 +26,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         deviceProfilesIni: String?,
         gameUserSettingsIni: String?,
         scalabilityIni: String? = null,
+        hardwareIni: String? = null,
         onProgress: (String) -> Unit
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
@@ -36,7 +37,8 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                 engineIni?.takeIf { it.isNotBlank() }?.let { "Engine.ini" to it },
                 deviceProfilesIni?.takeIf { it.isNotBlank() }?.let { "DeviceProfiles.ini" to it },
                 gameUserSettingsIni?.takeIf { it.isNotBlank() }?.let { "GameUserSettings.ini" to it },
-                scalabilityIni?.takeIf { it.isNotBlank() }?.let { "Scalability.ini" to it }
+                scalabilityIni?.takeIf { it.isNotBlank() }?.let { "Scalability.ini" to it },
+                hardwareIni?.takeIf { it.isNotBlank() }?.let { "Hardware.ini" to it }
             )
 
             if (iniFiles.isEmpty()) {
@@ -108,7 +110,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             Log.d("ConfigManager", "createBackup: listing ${GamePaths.TARGET_DIR}")
             val files = backend.listDirectory(GamePaths.TARGET_DIR).getOrThrow()
             Log.d("ConfigManager", "createBackup: listed ${files.size} files: $files")
-            val iniNames = setOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini")
+            val iniNames = setOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
             val configFiles = files.filter { it in iniNames }.map { fileName ->
                 Log.d("ConfigManager", "createBackup: reading $fileName")
                 val content = backend.readFile("${GamePaths.TARGET_DIR}/$fileName").getOrDefault("")
@@ -181,9 +183,17 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         onProgress(5)
         val sizeResult = backend.executeShellCommand("wc -c < \"$path\" 2>/dev/null")
         val fileSize = sizeResult.getOrNull()?.trim()?.toLongOrNull() ?: 0L
-        onProgress(10)
         val CHUNK = 500_000L
         val LARGE_THRESHOLD = 500_000L
+
+        val numChunks = when {
+            fileSize <= LARGE_THRESHOLD -> 1
+            fileSize <= CHUNK * 3 -> 2
+            else -> 3
+        }
+        val workStart = 10
+        val workRange = 75
+        fun progressForChunk(done: Int) = workStart + (done * workRange / numChunks)
 
         fun decodeB64(output: String): ByteArray? {
             val clean = output.lines()
@@ -199,11 +209,10 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         }
 
         if (fileSize > LARGE_THRESHOLD) {
-            onProgress(25)
+            onProgress(progressForChunk(0))
             val headB64 = backend.executeShellCommand("head -c $CHUNK \"$path\" | base64 2>/dev/null")
-            onProgress(45)
+            onProgress(progressForChunk(1))
             val tailB64 = backend.executeShellCommand("tail -c $CHUNK \"$path\" | base64 2>/dev/null")
-            onProgress(60)
             val head = decodeChunk(headB64.getOrNull())
             val wasEncrypted = head?.second == true
 
@@ -218,25 +227,25 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             val chunks = mutableListOf<String>()
             head?.first?.let { chunks.add(it) }
             if (fileSize > CHUNK * 3) {
-                onProgress(65)
+                onProgress(progressForChunk(2))
                 val midOff = maxOf(0, fileSize / 2 - CHUNK / 2)
                 val midB64 = backend.executeShellCommand("dd if=\"$path\" bs=1 skip=$midOff count=$CHUNK 2>/dev/null | base64")
                 midB64.getOrNull()?.let { decodeChunkX(it) }?.first?.let { chunks.add(it) }
             }
-            onProgress(80)
+            onProgress(workStart + workRange)
             decodeChunkX(tailB64.getOrNull())?.first?.let { chunks.add(it) }
             val text = chunks.joinToString("\n")
-            onProgress(90)
+            onProgress(workStart + workRange + 5)
             if (text.isNotBlank()) return Result.success(text to wasEncrypted)
         } else {
-            onProgress(25)
+            onProgress(progressForChunk(0))
             val full = backend.executeShellCommand("base64 \"$path\" 2>/dev/null")
-            onProgress(70)
+            onProgress(workStart + workRange)
             val result = full.getOrNull()?.let { decodeChunk(it) }
-            onProgress(90)
+            onProgress(workStart + workRange + 5)
             if (result != null) return Result.success(result)
         }
-        onProgress(85)
+        onProgress(workStart + workRange + 5)
         return backend.readFile(path).map { text ->
             LogParser.decodeLogBytes(text.toByteArray(Charsets.ISO_8859_1))
         }
@@ -248,7 +257,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
 
     suspend fun deleteConfigFiles(onProgress: (String) -> Unit): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val targets = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini")
+            val targets = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
             var deleted = 0
             for (name in targets) {
                 val path = "${GamePaths.TARGET_DIR}/$name"
@@ -353,16 +362,75 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         }
     }
 
+    private var cachedBattleStats: BattleStats? = null
+    private var cachedFileSize: Long = -1L
+
     suspend fun readBattleStats(): Result<BattleStats> {
-        return try {
-            val result = readRemoteLogText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
-            if (result.isFailure) return Result.failure(result.exceptionOrNull() ?: Exception("Failed to read log"))
-            val (text, _) = result.getOrThrow()
-            val stats = LogParser.parseBattleStats(text)
-            Result.success(stats)
+        val path = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
+        try {
+            val sizeRaw = backend.executeShellCommand("wc -c < \"$path\" 2>/dev/null").getOrDefault("0")
+            val fileSize = sizeRaw.trim().toLongOrNull() ?: 0L
+
+            if (fileSize == cachedFileSize && cachedBattleStats != null) {
+                return Result.success(cachedBattleStats!!)
+            }
+
+            val CHUNK = 2_000_000L
+            val NUM_SAMPLES = 8
+            val rawChunks = mutableListOf<ByteArray>()
+
+            fun decompress(data: ByteArray): ByteArray {
+                return try {
+                    java.io.ByteArrayOutputStream().use { out ->
+                        java.util.zip.GZIPInputStream(data.inputStream()).use { it.copyTo(out) }
+                        out.toByteArray()
+                    }
+                } catch (_: Exception) { data }
+            }
+
+            suspend fun pullChunk(offset: Long, count: Long): ByteArray? {
+                val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$count 2>/dev/null | gzip -c | base64"
+                val out = backend.executeShellCommand(cmd).getOrNull() ?: return null
+                val clean = out.lines()
+                    .filterNot { it.startsWith("base64:", ignoreCase = true) }
+                    .joinToString("").trim()
+                if (clean.isBlank()) return null
+                val b64decoded = try { Base64.decode(clean, Base64.DEFAULT) } catch (_: Exception) { return null }
+                return decompress(b64decoded)
+            }
+
+            if (fileSize <= CHUNK) {
+                pullChunk(0, fileSize)?.let { rawChunks.add(it) }
+            } else {
+                pullChunk(0, CHUNK)?.let { rawChunks.add(it) }
+                val step = maxOf(1, fileSize / NUM_SAMPLES)
+                for (i in 1 until NUM_SAMPLES) {
+                    val offset = (step * i).coerceAtMost(fileSize - CHUNK)
+                    pullChunk(offset, CHUNK)?.let { rawChunks.add(it) }
+                }
+            }
+
+            if (rawChunks.isEmpty()) return Result.failure(Exception("No data read from log"))
+
+            var wasEncrypted = false
+            val texts = mutableListOf<String>()
+            for ((i, raw) in rawChunks.withIndex()) {
+                val (text, enc) = if (i == 0) LogParser.decodeLogBytes(raw) else {
+                    if (wasEncrypted) LogParser.decodeXorBytes(raw)
+                    else LogParser.decodeLogBytes(raw)
+                }
+                if (i == 0) wasEncrypted = enc
+                texts.add(text)
+            }
+
+            val combined = texts.joinToString("\n")
+            val stats = LogParser.parseBattleStats(combined).copy(logSizeBytes = fileSize)
+            cachedBattleStats = stats
+            cachedFileSize = fileSize
+            return Result.success(stats)
         } catch (e: Exception) {
             Log.w("ConfigManager", "readBattleStats failed: ${e.message}")
-            Result.failure(e)
+            return Result.failure(e)
         }
     }
 
