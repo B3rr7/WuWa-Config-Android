@@ -112,8 +112,8 @@ object LogParser {
                 "failed to load texture" in l || "out of memory" in l
             ) textureErrors++
             if ("out of memory" in l || "gpu oom" in l || "vulkanoom" in l) gpuOom++
-            if ("frame drop" in l || "hitch" in l || "stutter" in l) dropFrames++
-            if ("thermal" in l || Regex("""temp\w*\s*:?\s*\d+""", RegexOption.IGNORE_CASE).containsMatchIn(l)) thermalEvents++
+            if (Regex("""frame\s*drop|hitch\s*detected|stutter\s*detected""", RegexOption.IGNORE_CASE).containsMatchIn(line)) dropFrames++
+            if (Regex("""thermal\s*(?:throttle|limit|event|warning)""", RegexOption.IGNORE_CASE).containsMatchIn(line)) thermalEvents++
             if ("timeout" in l || "connection refused" in l || "connection reset" in l ||
                 "unreachable" in l || "dns fail" in l || "dns failure" in l ||
                 "socket error" in l || "network fail" in l || "network failure" in l ||

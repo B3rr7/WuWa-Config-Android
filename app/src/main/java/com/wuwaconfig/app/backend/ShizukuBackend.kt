@@ -54,18 +54,25 @@ class ShizukuBackend : AccessBackend {
     }
 
     override suspend fun pushFile(sourcePath: String, targetPath: String): Result<String> = withContext(Dispatchers.IO) {
+        val encodedPath = "/data/local/tmp/wuwaconfig_${System.currentTimeMillis()}_${(0..9999).random()}.b64"
         try {
             val bytes = File(sourcePath).readBytes()
             val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-            val encodedPath = "$targetPath.wuwap42.b64"
             val parent = File(targetPath).parent ?: return@withContext Result.failure(Exception("Invalid target path"))
             shizukuExec("mkdir", "-p", parent)
-            encoded.chunked(4096).forEach { chunk ->
-                shizukuExec("sh", "-c", "printf '%s' '${chunk.replace("'", "'\\''")}' >> '${encodedPath.replace("'", "'\\''")}'")
+            val escapedPath = encodedPath.replace("'", "'\\''")
+            for (chunk in encoded.chunked(4096)) {
+                try {
+                    shizukuExec("sh", "-c", "printf '%s' '${chunk.replace("'", "'\\''")}' >> '$escapedPath'")
+                } catch (e: Exception) {
+                    shizukuExec("sh", "-c", "rm -f '$escapedPath'")
+                    return@withContext Result.failure(e)
+                }
             }
-            shizukuExec("sh", "-c", "base64 -d '${encodedPath.replace("'", "'\\''")}' > '${targetPath.replace("'", "'\\''")}' && rm -f '${encodedPath.replace("'", "'\\''")}'")
+            shizukuExec("sh", "-c", "base64 -d '$escapedPath' > '${targetPath.replace("'", "'\\''")}'; rm -f '$escapedPath'")
             Result.success("Pushed to $targetPath")
         } catch (e: Exception) {
+            shizukuExec("sh", "-c", "rm -f '$encodedPath'")
             Result.failure(e)
         }
     }
@@ -128,9 +135,8 @@ class ShizukuBackend : AccessBackend {
     @Throws(Exception::class)
     private fun shizukuExecWithExit(vararg cmd: String): ExecResult {
         val clazz = Class.forName("rikka.shizuku.Shizuku")
-        val method = clazz.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java).apply {
-            try { isAccessible = true } catch (_: Exception) {}
-        }
+        val method = clazz.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+        try { method.isAccessible = true } catch (_: Exception) {}
         val process = method.invoke(null, cmd, null, null) as java.lang.Process
 
         val stdout = readStream(process.inputStream)

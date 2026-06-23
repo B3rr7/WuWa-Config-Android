@@ -16,10 +16,30 @@ object SmartBrain {
         val g = gpu.lowercase()
         return when {
             Regex("""adreno.*8[3-9]\d|adreno.*8[12]\d""").containsMatchIn(g) -> "flagship"
+            Regex("""tensor\s*g[34]""").containsMatchIn(g) -> "flagship"
+            Regex("""dimensity\s*9[3-9]\d\d?""").containsMatchIn(g) -> "flagship"
+
             Regex("""adreno.*7[5-9]\d|adreno.*8[0]\d""").containsMatchIn(g) -> "high"
+            Regex("""tensor\s*g[12]""").containsMatchIn(g) -> "high"
+            Regex("""dimensity\s*(9[0-2]\d|8[5-9]\d)""").containsMatchIn(g) -> "high"
+            Regex("""exynos\s*2200""").containsMatchIn(g) -> "high"
+            Regex("""kirin\s*9000""").containsMatchIn(g) -> "high"
+            Regex("""mali-g[78]\d\d|mali-g9""").containsMatchIn(g) -> "high"
+
             Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""").containsMatchIn(g) -> "mid_high"
+            Regex("""dimensity\s*(8[0-4]\d|7[3-9]\d)""").containsMatchIn(g) -> "mid_high"
+            Regex("""tensor""").containsMatchIn(g) -> "mid_high"
+            Regex("""exynos\s*2[1-3]00""").containsMatchIn(g) -> "mid_high"
+            Regex("""kirin\s*9[1-9]\d\d?""").containsMatchIn(g) -> "mid_high"
+            Regex("""xclipse""").containsMatchIn(g) -> "mid_high"
+
             Regex("""adreno.*6[0-4]\d|mali-g[6-7]\d\d|mali-g615""").containsMatchIn(g) -> "mid"
+            Regex("""dimensity\s*[0-9]{3}""").containsMatchIn(g) -> "mid"
+            Regex("""exynos\s*[0-9]{4}""").containsMatchIn(g) -> "mid"
+            Regex("""kirin\s*[0-9]{4}""").containsMatchIn(g) -> "mid"
+
             Regex("""adreno.*5\d\d|mali-g5[0-9]\d|mali-g57""").containsMatchIn(g) -> "mid_low"
+
             Regex("""adreno.*[34]\d\d|mali-g[34]""").containsMatchIn(g) -> "low"
             else -> "unknown"
         }
@@ -34,6 +54,10 @@ object SmartBrain {
         if (mali != null) return "Mali_G${mali.groupValues[1]}xx"
         if (g.contains("xclipse")) return "Xclipse"
         if (g.contains("power")) return "PowerVR"
+        if (g.contains("tensor")) return "Tensor"
+        if (g.contains("exynos")) return "Exynos"
+        if (g.contains("dimensity")) return "Dimensity"
+        if (g.contains("kirin")) return "Kirin"
         return null
     }
 
@@ -109,7 +133,11 @@ object SmartBrain {
             info.dropFrames >= 5 -> { score -= 5; signals.add("Frame drops x${info.dropFrames}: -5") }
         }
         if (info.isLowMem == true) { score -= 15; signals.add("Low memory device: -15") }
-        if (info.forbiddenCvars > 0) { score -= info.forbiddenCvars * 5; signals.add("Forbidden CVars x${info.forbiddenCvars}: -5 each") }
+        if (info.forbiddenCvars > 0) {
+            if (!com.wuwaconfig.app.config.ConfigGenerator.allowRestrictedCvars) {
+                score -= info.forbiddenCvars * 5; signals.add("Forbidden CVars x${info.forbiddenCvars}: -5 each")
+            }
+        }
         when {
             info.networkErrors >= 10 -> { score -= 10; signals.add("Network issues x${info.networkErrors}: -10") }
             info.networkErrors >= 5 -> { score -= 5; signals.add("Network issues x${info.networkErrors}: -5") }
@@ -125,7 +153,7 @@ object SmartBrain {
 
         // ── Resolution analysis ────────────────────────────────────
         val res = parseResolution(info.resolution)
-        val effectiveRes = res?.let { maxOf(it.width, it.height ?: 0) } ?: 0
+        val effectiveRes = res?.let { minOf(it.width, it.height ?: 0) } ?: 0
         val isHighRes = effectiveRes >= 1440
         val is4k = effectiveRes >= 2160
         if (is4k) {
@@ -214,7 +242,9 @@ object SmartBrain {
 
         if (info.gpuOom > 0) warnings.add("GPU OOM detected — performance preset recommended")
         if (info.thermalEvents >= 3) warnings.add("Heavy thermal throttling — consider lower preset")
-        if (info.forbiddenCvars > 0) warnings.add("${info.forbiddenCvars} forbidden CVars found in log")
+        if (info.forbiddenCvars > 0 && !com.wuwaconfig.app.config.ConfigGenerator.allowRestrictedCvars) {
+            warnings.add("${info.forbiddenCvars} forbidden CVars found in log")
+        }
 
         val preset = recommendPreset(score, info, tier, isHighRes)
         return BrainRecommendation(preset, score, score, signals, warnings)
@@ -222,7 +252,7 @@ object SmartBrain {
 
     private fun recommendPreset(score: Int, info: LogInfo, tier: String, isHighRes: Boolean): String {
         return when {
-            info.gpuOom > 0 || info.isLowMem == true -> "performance"
+            info.isLowMem == true || info.gpuOom >= 2 -> "performance"
             score >= 80 && info.vulkanStatus == "available" && tier == "flagship" && !isHighRes -> "ultra"
             score >= 75 && (tier == "flagship" || tier == "high") && info.vulkanStatus == "available" -> "high"
             score >= 70 && (tier == "flagship" || tier == "high") -> "high"

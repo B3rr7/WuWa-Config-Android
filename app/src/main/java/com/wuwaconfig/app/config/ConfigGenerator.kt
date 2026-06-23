@@ -24,6 +24,7 @@ val PRESETS = mutableMapOf(
 object ConfigGenerator {
     var activePreset = "balanced"
     var logInfo = LogInfo()
+    var allowRestrictedCvars = true
 
     val DEFAULT_CORE_SYSTEM = listOf(
         "[Core.System]",
@@ -147,12 +148,19 @@ object ConfigGenerator {
                               logInfo: LogInfo = this.logInfo, activePreset: String = this.activePreset): GeneratedIni {
         val p = PRESETS[preset]!!
         val engine = applyCvarOverrides(buildAndroidEngineIni(p, opts, corePaths, logInfo, activePreset), opts.cvarOverrides)
-        return GeneratedIni(
-            engine = engine,
-            deviceProfiles = buildAndroidDeviceProfilesIni(p, opts, logInfo, activePreset),
-            gameUserSettings = buildAndroidGameUserSettingsIni(p, opts, logInfo),
-            scalability = if (opts.generateScalability) buildAndroidScalabilityIni(p, opts) else ""
-        )
+        val dp = buildAndroidDeviceProfilesIni(p, opts, logInfo, activePreset)
+        val gus = buildAndroidGameUserSettingsIni(p, opts, logInfo)
+        val sc = if (opts.generateScalability) buildAndroidScalabilityIni(p, opts) else ""
+        return if (opts.allowRestrictedCvars) {
+            GeneratedIni(engine = engine, deviceProfiles = dp, gameUserSettings = gus, scalability = sc)
+        } else {
+            GeneratedIni(
+                engine = ForbiddenCvars.stripForbiddenCvars(engine),
+                deviceProfiles = ForbiddenCvars.stripForbiddenCvars(dp),
+                gameUserSettings = ForbiddenCvars.stripForbiddenCvars(gus),
+                scalability = ForbiddenCvars.stripForbiddenCvars(sc)
+            )
+        }
     }
 
     private data class DeviceTier(
@@ -695,11 +703,13 @@ object ConfigGenerator {
                 eq > 0 && trimmed.substring(0, eq).trim() == key
             }
             if (idx >= 0) {
-                val trimmed = lines[idx].trim()
+                val raw = lines[idx]
+                val trimmed = raw.trim()
                 val eq = trimmed.indexOf('=')
                 val existingVal = trimmed.substring(eq + 1).trim()
                 if (existingVal != newValue) {
-                    lines[idx] = lines[idx].replace(Regex(Regex.escape(existingVal) + "$"), newValue)
+                    val rawEq = raw.indexOf('=')
+                    lines[idx] = raw.substring(0, rawEq + 1) + " " + newValue
                 }
             }
         }
