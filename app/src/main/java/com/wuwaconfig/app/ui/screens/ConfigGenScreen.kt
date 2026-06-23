@@ -6,7 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wuwaconfig.app.config.BenchmarkTuner
 import com.wuwaconfig.app.config.ConfigGenerator
-import com.wuwaconfig.app.model.CvarEntry
 import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.ui.MainViewModel
@@ -74,6 +72,13 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var generateDeviceProfiles by remember { mutableStateOf(true) }
     var generateGameUserSettings by remember { mutableStateOf(true) }
     var generateScalability by remember { mutableStateOf(false) }
+    var generateHardware by remember { mutableStateOf(false) }
+
+    var allowRestrictedCvars by remember { mutableStateOf(true) }
+
+    LaunchedEffect(allowRestrictedCvars) {
+        com.wuwaconfig.app.config.ConfigGenerator.allowRestrictedCvars = allowRestrictedCvars
+    }
 
     var gameMode by remember { mutableStateOf(GameMode.Overworld) }
     var showReview by remember { mutableStateOf(false) }
@@ -149,6 +154,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         readingProgress = readingProgress,
                         logInfo = logInfo,
                         brain = brain,
+                        allowRestrictedCvars = allowRestrictedCvars,
                         onAnalyzeDevice = { viewModel.analyzeClientLog() },
                         onImportLog = { logPickerLauncher.launch(arrayOf("*/*")) }
                     )
@@ -214,6 +220,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         GeneratorSwitch("Disable bloom", disableBloom) { disableBloom = it }
                         GeneratorSwitch("Disable auto exposure", disableAutoExposure) { disableAutoExposure = it }
                         GeneratorSwitch("Disable SSR/reflections", disableSSR) { disableSSR = it }
+                        GeneratorSwitch("Allow restricted CVars", allowRestrictedCvars) { allowRestrictedCvars = it }
                     }
                 }
 
@@ -246,6 +253,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         GeneratorSwitch("DeviceProfiles.ini", generateDeviceProfiles) { generateDeviceProfiles = it }
                         GeneratorSwitch("GameUserSettings.ini", generateGameUserSettings) { generateGameUserSettings = it }
                         GeneratorSwitch("Scalability.ini", generateScalability) { generateScalability = it }
+                        GeneratorSwitch("Hardware.ini", generateHardware) { generateHardware = it }
                     }
                 }
 
@@ -267,33 +275,25 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                         disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
                                         mode = gameMode,
                                         generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
-                                        generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability
+                                        generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
+                                        allowRestrictedCvars = allowRestrictedCvars
                                     )
                                     val generated = ConfigGenerator.generate(selectedPreset, opts)
                                     reviewEngineText = generated.engine
                                     reviewDeviceProfilesText = generated.deviceProfiles
                                     reviewGameUserSettingsText = generated.gameUserSettings
                                     reviewScalabilityText = generated.scalability
-                                    viewModel.deployGeneratedConfigs(generated, opts)
                                     showReview = true
                                 },
-                                enabled = backendStatus.connected && !isApplying,
+                                enabled = !isApplying,
                                 accentColor = NeonCyan,
                                 contentColor = Color.White,
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Deploy", fontWeight = FontWeight.Bold)
+                                Text("Generate", fontWeight = FontWeight.Bold)
                             }
-                        }
-                        if (reviewEngineText.isNotEmpty()) {
-                            GlassOutlinedButton(
-                                onClick = { showReview = true },
-                                enabled = !isApplying,
-                                accentColor = NeonAmber,
-                                modifier = Modifier.fillMaxWidth()
-                            ) { Text("Review & Tune Config", fontWeight = FontWeight.Bold) }
                         }
                         if (tunerActive) {
                             GlassOutlinedButton(
@@ -316,7 +316,8 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                             disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
                                             mode = gameMode,
                                             generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
-                                            generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability
+                                            generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
+                                            allowRestrictedCvars = allowRestrictedCvars
                                         )
                                         for (round in 1..5) {
                                             tunerProgress = "Round $round: deploying ${currentPreset}..."
@@ -387,9 +388,9 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
                     mode = gameMode, cvarOverrides = overrides,
                     generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
-                    generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability
+                    generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
+                    allowRestrictedCvars = allowRestrictedCvars
                 )
-                val generated = ConfigGenerator.generate(selectedPreset, opts)
                 reviewEngineText = newEngine
                 reviewDeviceProfilesText = newDevice
                 reviewGameUserSettingsText = newSettings
@@ -403,99 +404,6 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     }
 }
 
-@Composable
-private fun IniReviewTab(
-    label: String,
-    entries: List<CvarEntry>,
-    accent: Color,
-    modifier: Modifier = Modifier
-) {
-    var edited by remember(entries) { mutableStateOf(entries.map { it.copy() }) }
-    var filter by remember { mutableStateOf("") }
-
-    Column(modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = filter,
-                onValueChange = { filter = it },
-                placeholder = { Text("Filter...", style = MaterialTheme.typography.bodySmall) },
-                singleLine = true,
-                modifier = Modifier.weight(1f).height(44.dp),
-                textStyle = MaterialTheme.typography.bodySmall,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent.copy(alpha = 0.4f))
-            )
-            Text(
-                "${edited.count { it.isOverridden }} edited",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (edited.any { it.isOverridden }) NeonAmber else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
-            val displayEntries = if (filter.isBlank()) edited
-                else edited.filter { it.key.contains(filter, ignoreCase = true) || it.value.contains(filter, ignoreCase = true) }
-            itemsIndexed(displayEntries) { i, entry ->
-                val realIdx = edited.indexOfFirst { it.key == entry.key && it.category == entry.category }
-                val isOverridden = realIdx >= 0 && edited[realIdx].isOverridden
-                var editing by remember { mutableStateOf(false) }
-                var editVal by remember(entry.value) { mutableStateOf(entry.value) }
-                Surface(
-                    onClick = { editing = true; editVal = edited[realIdx].value },
-                    color = if (isOverridden) accent.copy(alpha = 0.06f) else Color.Transparent,
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    if (editing) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 2.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedTextField(
-                                value = editVal,
-                                onValueChange = { editVal = it },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f).height(40.dp),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = NeonCyan.copy(alpha = 0.4f))
-                            )
-                            IconButton(onClick = {
-                                edited = edited.toMutableList().also { list ->
-                                    list[realIdx] = list[realIdx].copy(value = editVal, isOverridden = editVal != list[realIdx].originalValue)
-                                }
-                                editing = false
-                            }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.Check, contentDescription = "Set", tint = NeonGreen, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                entry.key,
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = if (isOverridden) accent else MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "= ${entry.value}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isOverridden) accent else NeonGreen
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IniReviewDialog(
@@ -506,18 +414,14 @@ private fun IniReviewDialog(
     onDismiss: () -> Unit,
     onRedeploy: (engine: String, deviceProfiles: String, gameUserSettings: String, scalability: String) -> Unit
 ) {
-    val engineEntries = remember(engineText) { ConfigGenerator.parseCvarEntries(engineText) }
-    val dpEntries = remember(deviceProfilesText) { ConfigGenerator.parseDeviceProfileEntries(deviceProfilesText) }
-    val gusEntries = remember(gameUserSettingsText) { ConfigGenerator.parseGameUserSettingsEntries(gameUserSettingsText) }
+    var engineSrc by remember(engineText) { mutableStateOf(engineText) }
+    var dpSrc by remember(deviceProfilesText) { mutableStateOf(deviceProfilesText) }
+    var gusSrc by remember(gameUserSettingsText) { mutableStateOf(gameUserSettingsText) }
+    var slSrc by remember(scalabilityText) { mutableStateOf(scalabilityText) }
 
     var tab by remember { mutableStateOf(0) }
-    val tabs = mutableListOf(
-        "Engine.ini (${engineEntries.size})",
-        "DeviceProfiles.ini (${dpEntries.size})",
-        "GameUserSettings.ini (${gusEntries.size})"
-    )
-    val slEntries = remember(scalabilityText) { ConfigGenerator.parseGameUserSettingsEntries(scalabilityText) }
-    if (scalabilityText.isNotBlank()) tabs.add("Scalability.ini (${slEntries.size})")
+    val tabs = mutableListOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini")
+    if (scalabilityText.isNotBlank()) tabs.add("Scalability.ini")
     val accents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber)
 
     AlertDialog(
@@ -548,18 +452,33 @@ private fun IniReviewDialog(
             }
         },
         text = {
-            when (tab) {
-                0 -> IniReviewTab("Engine", engineEntries, NeonCyan)
-                1 -> IniReviewTab("DeviceProfiles", dpEntries, NeonPurple)
-                2 -> IniReviewTab("GameUserSettings", gusEntries, NeonGreen)
-                3 -> IniReviewTab("Scalability", slEntries, NeonAmber)
+            val src = when (tab) {
+                0 -> engineSrc; 1 -> dpSrc; 2 -> gusSrc; else -> slSrc
             }
+            val onEdit: (String) -> Unit = when (tab) {
+                0 -> { v -> engineSrc = v }; 1 -> { v -> dpSrc = v }
+                2 -> { v -> gusSrc = v }; else -> { v -> slSrc = v }
+            }
+            val accent = accents[tab.coerceAtMost(accents.lastIndex)]
+            OutlinedTextField(
+                value = src,
+                onValueChange = onEdit,
+                modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp),
+                textStyle = LocalTextStyle.current.copy(
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    fontSize = 11.sp
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = accent.copy(alpha = 0.4f),
+                    unfocusedBorderColor = accent.copy(alpha = 0.15f)
+                )
+            )
         },
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onDismiss) { Text("Close") }
-                Button(onClick = { onRedeploy(engineText, deviceProfilesText, gameUserSettingsText, scalabilityText) }) {
-                    Text("Redeploy", fontWeight = FontWeight.Bold)
+                Button(onClick = { onRedeploy(engineSrc, dpSrc, gusSrc, slSrc) }) {
+                    Text("Deploy", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -638,6 +557,7 @@ private fun AnalysisPanel(
     readingProgress: Int,
     logInfo: com.wuwaconfig.app.model.LogInfo?,
     brain: com.wuwaconfig.app.config.BrainRecommendation?,
+    allowRestrictedCvars: Boolean = true,
     onAnalyzeDevice: () -> Unit,
     onImportLog: () -> Unit
 ) {
@@ -680,14 +600,12 @@ private fun AnalysisPanel(
                 }
                 Text(
                     "${readingProgress}%",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontWeight = FontWeight.Black, letterSpacing = 4.sp
-                    ),
+                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 4.sp),
                     color = glitchColors[colorIndex],
                     modifier = Modifier.offset(x = glitchX.dp, y = glitchY.dp)
                 )
             }
-        }
+            }
 
         if (logInfo != null && !isApplying) {
             val info = logInfo
@@ -702,13 +620,12 @@ private fun AnalysisPanel(
 
             val issues = mutableListOf<Pair<String, Int>>()
             if (info.thermalEvents > 0) issues.add("Thermal" to info.thermalEvents)
-            if (info.dropFrames > 0) issues.add("Drops" to info.dropFrames)
-            if (info.forbiddenCvars > 0) issues.add("CVars" to info.forbiddenCvars)
-            if (info.textureErrors > 0) issues.add("TexErr" to info.textureErrors)
-            if (info.gpuOom > 0) issues.add("OOM" to info.gpuOom)
+            if (info.dropFrames > 0) issues.add("Frame Drops" to info.dropFrames)
+            if (info.forbiddenCvars > 0 && !allowRestrictedCvars) issues.add("Restricted CVars" to info.forbiddenCvars)
+            if (info.textureErrors > 0) issues.add("Tex Errors" to info.textureErrors)
+            if (info.gpuOom > 0) issues.add("GPU OOM" to info.gpuOom)
             if (info.networkErrors > 0) issues.add("Network" to info.networkErrors)
-            if (info.isLowMem == true) issues.add("LowMem" to 1)
-
+            if (info.isLowMem == true) issues.add("Low Memory" to 1)
             if (issues.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 FlowRow(
@@ -718,8 +635,8 @@ private fun AnalysisPanel(
                 ) {
                     issues.forEach { (label, count) ->
                         IssueBadge(label, count, when (label) {
-                            "OOM", "LowMem" -> NeonRed
-                            "CVars" -> if (count > 0) NeonRed else NeonGreen
+                            "GPU OOM", "Low Memory" -> NeonRed
+                            "Restricted CVars" -> if (count > 0) NeonRed else NeonGreen
                             "Network" -> NeonAmber
                             else -> if (count > 10) NeonPink else NeonAmber
                         })
@@ -731,18 +648,43 @@ private fun AnalysisPanel(
                 Spacer(Modifier.height(10.dp))
                 Box(Modifier.fillMaxWidth().height(1.dp).background(NeonCyan.copy(alpha = 0.12f)))
                 Spacer(Modifier.height(8.dp))
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Smart Brain", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = NeonPurple)
                     Spacer(Modifier.width(8.dp))
-                    Text(rec.preset.uppercase(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = NeonGreen)
-                    Text(" (score: ${rec.score})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(rec.preset.uppercase(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = presetColor(rec.preset))
+                    Spacer(Modifier.width(6.dp))
+                    Text("(${rec.score}/100)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                Spacer(Modifier.height(6.dp))
+
+                val barColor = presetColor(rec.preset)
+                val barWidth = (rec.score.coerceIn(0, 100) / 100f)
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(barColor.copy(alpha = 0.12f))
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(barWidth).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(barColor)
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+
                 rec.signals.takeIf { it.isNotEmpty() }?.let { sigs ->
-                    Spacer(Modifier.height(2.dp))
-                    Text(sigs.joinToString(" • "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        sigs.forEach { sig ->
+                            val isPositive = sig.contains("+")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (isPositive) "+" else "−", style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold, color = if (isPositive) NeonGreen else NeonRed)
+                                Spacer(Modifier.width(4.dp))
+                                Text(sig.removePrefix("+").removePrefix("-"), style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
                 }
                 rec.warnings.takeIf { it.isNotEmpty() }?.let { warnings ->
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                     warnings.forEach { warning ->
                         Row(verticalAlignment = Alignment.Top) {
                             Text("⚠", style = MaterialTheme.typography.bodySmall)
@@ -775,6 +717,14 @@ private fun IssueBadge(label: String, count: Int, color: Color) {
         Box(Modifier.size(6.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(4.dp))
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(" $count", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
+        Text(" ×$count", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
     }
+}
+
+private fun presetColor(preset: String): Color = when (preset) {
+    "performance" -> NeonRed
+    "balanced" -> NeonAmber
+    "high" -> NeonGreen
+    "ultra" -> NeonPurple
+    else -> NeonCyan
 }

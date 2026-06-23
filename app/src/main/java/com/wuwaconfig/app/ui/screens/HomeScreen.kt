@@ -38,7 +38,7 @@ private enum class CustomConfigState {
     IDLE, REVIEW
 }
 
-private val TARGET_NAMES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini")
+private val TARGET_NAMES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
 
 private fun matchTarget(displayName: String): String? {
     val name = displayName.lowercase().replace(" ", "")
@@ -47,6 +47,7 @@ private fun matchTarget(displayName: String): String? {
         "deviceprofile" in name -> "DeviceProfiles.ini"
         "gameusersetting" in name -> "GameUserSettings.ini"
         "scalability" in name -> "Scalability.ini"
+        "hardware" in name -> "Hardware.ini"
         else -> null
     }
 }
@@ -271,7 +272,7 @@ fun HomeScreen(
                         Spacer(Modifier.height(8.dp))
                         when (customConfigState) {
                             CustomConfigState.IDLE -> {
-                                Text("Select 1-3 .ini files to replace. Matching Engine, DeviceProfiles, or GameUserSettings will be backed up and applied.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Select .ini files to replace. Files matching Engine, DeviceProfiles, GameUserSettings, Scalability, or Hardware will be backed up and applied.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.height(8.dp))
                                 GlassButton(
                                     onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
@@ -318,7 +319,8 @@ fun HomeScreen(
                                             val device = pickedFiles.firstOrNull { it.targetName == "DeviceProfiles.ini" }?.content
                                             val gus = pickedFiles.firstOrNull { it.targetName == "GameUserSettings.ini" }?.content
                                             val scalability = pickedFiles.firstOrNull { it.targetName == "Scalability.ini" }?.content
-                                            viewModel.applyCustomFiles(engine, device, gus, scalability)
+                                            val hardware = pickedFiles.firstOrNull { it.targetName == "Hardware.ini" }?.content
+                                            viewModel.applyCustomFiles(engine, device, gus, scalability, hardware)
                                             customConfigState = CustomConfigState.IDLE
                                             pickedFiles = emptyList()
                                         },
@@ -537,7 +539,7 @@ fun HomeScreen(
             icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = NeonRed, modifier = Modifier.size(32.dp)) },
             title = { Text("Delete Config Files", color = NeonRed, fontWeight = FontWeight.Bold) },
             text = {
-                Text("Engine.ini, DeviceProfiles.ini, and GameUserSettings.ini will be deleted from the game directory. This cannot be undone.", style = MaterialTheme.typography.bodyMedium)
+                Text("Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, and Hardware.ini will be deleted from the game directory. This cannot be undone.", style = MaterialTheme.typography.bodyMedium)
             },
             confirmButton = {
                 Button(

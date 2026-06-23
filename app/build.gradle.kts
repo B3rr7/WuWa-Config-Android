@@ -15,12 +15,25 @@ android {
         versionName = "1.0.2"
     }
 
+    val keystoreProps = rootProject.file("keystore.properties").let { f ->
+        if (!f.exists()) emptyMap()
+        else f.readLines().mapNotNull { line ->
+            val trimmed = line.trim()
+            if (trimmed.startsWith("#") || trimmed.isEmpty()) null
+            else {
+                val eq = trimmed.indexOf('=')
+                if (eq > 0) trimmed.substring(0, eq).trim() to trimmed.substring(eq + 1).trim()
+                else null
+            }
+        }.toMap()
+    }
+
     signingConfigs {
         create("release") {
-            storeFile = rootProject.file("release.jks")
-            storePassword = "WuWaKhabona@1234"
-            keyAlias = "R@ni"
-            keyPassword = "WuWaKhabona@1234"
+            storeFile = rootProject.file(keystoreProps.getOrElse("storeFile") { "release.jks" })
+            storePassword = keystoreProps.getOrElse("storePassword") { System.getenv("STORE_PASSWORD") ?: "" }
+            keyAlias = keystoreProps.getOrElse("keyAlias") { System.getenv("KEY_ALIAS") ?: "" }
+            keyPassword = keystoreProps.getOrElse("keyPassword") { System.getenv("KEY_PASSWORD") ?: "" }
         }
     }
 

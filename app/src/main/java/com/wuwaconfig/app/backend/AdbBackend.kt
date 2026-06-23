@@ -50,25 +50,29 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
     }
 
     override suspend fun pushFile(sourcePath: String, targetPath: String): Result<String> {
+        val encodedPath = "/data/local/tmp/wuwaconfig_${System.currentTimeMillis()}_${(0..9999).random()}.b64"
         return try {
             val bytes = File(sourcePath).readBytes()
             val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-            val encodedPath = "$targetPath.wuwap42.b64"
             val parent = File(targetPath).parent ?: return Result.failure(Exception("Invalid target path"))
-            val writeCmd = "mkdir -p ${shQuote(parent)} && : > ${shQuote(encodedPath)}"
-            val mkdirResult = client.executeShellCommand(writeCmd)
+            val mkdirCmd = "mkdir -p ${shQuote(parent)}"
+            val mkdirResult = client.executeShellCommand(mkdirCmd)
             if (mkdirResult.isFailure) {
-                val alt = client.executeShellCommandWithRunAs(GAME_PKG, writeCmd)
-                if (alt.isFailure) return Result.failure(Exception("Cannot write to game directory via ADB. Use ROOT mode."))
+                client.executeShellCommandWithRunAs(GAME_PKG, mkdirCmd)
             }
             encoded.chunked(4096).forEach { chunk ->
                 val appendCmd = "printf '%s' ${shQuote(chunk)} >> ${shQuote(encodedPath)}"
-                client.executeShellCommand(appendCmd).getOrThrow()
+                val r = client.executeShellCommand(appendCmd)
+                if (r.isFailure) {
+                    client.executeShellCommand("rm -f ${shQuote(encodedPath)}")
+                    return r
+                }
             }
             client.executeShellCommand(
-                "base64 -d ${shQuote(encodedPath)} > ${shQuote(targetPath)} && rm -f ${shQuote(encodedPath)}"
+                "base64 -d ${shQuote(encodedPath)} > ${shQuote(targetPath)}; rm -f ${shQuote(encodedPath)}"
             )
         } catch (e: Exception) {
+            client.executeShellCommand("rm -f ${shQuote(encodedPath)}")
             Result.failure(e)
         }
     }
