@@ -85,8 +85,8 @@ The app needs to read/write game config files in `Android/data/com.kurogame.wuth
 
 - **Backend Status** — current access method, connection state. Tap chip to cycle methods.
 - **Manual ADB** — enter IP:port for Wireless Debugging
-- **Custom Config** — pick `.ini` files to apply (Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini). Auto-backup before applying.
-- **Delete Config Files** — removes all 4 config files from game directory
+- **Custom Config** — pick `.ini` files to apply (Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini). Auto-backup before applying.
+- **Delete Config Files** — removes all 5 config files from game directory
 - **Quick Actions** — Backups, Collect Client.log, Config Generator, Cancel
 - **Real-time log viewer** with color-coded messages
 
@@ -109,7 +109,7 @@ Algorithm evaluates device from 0-100:
 | Thermal throttling | -5 to -20 |
 | GPU OOM | -12 to -30 |
 | Frame drops | -5 to -10 |
-| Forbidden CVars | -5 each |
+| Forbidden CVars | -5 each (can toggle off) |
 | Combined signals | -5 to -6 |
 
 **Recommendations:** Ultra (80+), High (75+ / 70+), Balanced (55+ / 40+), Performance (<40)
@@ -123,19 +123,19 @@ Algorithm evaluates device from 0-100:
 | ULTRA | 100% | 5 | 4 | 3.0 | 3.0 |
 
 #### 4. Options
-120 FPS unlock, Ultra quality unlock, VSync, Auto cooling, Force Vulkan safety, HZB occlusion, Disable fog/CA/outlines/blur/bloom/auto-exposure/SSR
+120 FPS unlock, Ultra quality unlock, VSync, Auto cooling, Force Vulkan safety, HZB occlusion, Disable fog/CA/outlines/blur/bloom/auto-exposure/SSR, Allow restricted CVars
 
 #### 5. Game Mode
 Overworld / Domain & Tower
 
 #### 6. Files to Generate
-Toggle each: Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini
+Toggle each: Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini
 
-#### 7. Deploy
-Reads device Engine.ini for `[Core.System]` paths, generates all selected INIs, pushes to device, refreshes KuroConfigMonitor hashes.
+#### 7. Generate
+Single button — generates configs, shows review dialog with monospace text editor. Edit CVars inline, then deploy from dialog or close without deploying.
 
-#### 8. Review & Tune CVars
-Browse all generated CVars across 4 tabs. Filter, edit inline, redeploy.
+#### 8. Deploy
+Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes.
 
 #### 9. Auto-Tune Wizard
 Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via logcat → adjusts preset/options → redeploys until target FPS reached.
@@ -206,6 +206,7 @@ app/
     │   ├── ConfigManager.kt      # Device I/O, backups, logs, profiles, battle stats, hashes
     │   ├── LogParser.kt          # XOR decryption, Convene URL extract, battle stat parse
     │   ├── SmartBrain.kt         # Scoring engine, recommendation
+    │   ├── ForbiddenCvars.kt    # 30 known Kuro restricted CVars + strip/filter helpers
     │   ├── BenchmarkTuner.kt     # Auto-tune: FPS capture, preset adjustment
     │   ├── GachaApi.kt           # Gacha API client (HTTP POST, pity calc, predictions)
     │   ├── GachaHistoryStore.kt  # Local gacha history persistence (12hr TTL)
@@ -216,7 +217,7 @@ app/
     │   ├── PlayerProfile.kt      # Profile data class
     │   ├── BattleStats.kt        # BattleStats data class
     │   ├── LogInfo.kt            # Parsed log data
-    │   ├── PresetModels.kt       # CvarEntry, GameMode, GeneratorOptions (4 toggles), GeneratedIni
+    │   ├── PresetModels.kt       # CvarEntry, GameMode, GeneratorOptions (5 file toggles + allowRestrictedCvars), GeneratedIni
     │   ├── GamePaths.kt          # Directory paths, hash monitor config
     │   └── ConfigPreset.kt       # ConfigFile, ConfigBackup
     ├── service/
