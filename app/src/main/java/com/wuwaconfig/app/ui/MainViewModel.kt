@@ -1,9 +1,9 @@
 package com.wuwaconfig.app.ui
 
 import android.app.Application
+import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
@@ -31,6 +31,7 @@ import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.LogInfo
+import com.wuwaconfig.app.service.AdbConnectionService
 import com.wuwaconfig.app.service.GachaPollService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,13 +64,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _deployResult = MutableStateFlow<String?>(null)
     val deployResult: StateFlow<String?> = _deployResult.asStateFlow()
 
+    private val _verificationReport = MutableStateFlow<com.wuwaconfig.app.model.VerificationReport?>(null)
+    val verificationReport: StateFlow<com.wuwaconfig.app.model.VerificationReport?> = _verificationReport.asStateFlow()
+
     private val _isApplying = MutableStateFlow(false)
     val isApplying: StateFlow<Boolean> = _isApplying.asStateFlow()
 
     private val _readingProgress = MutableStateFlow(0)
     val readingProgress: StateFlow<Int> = _readingProgress.asStateFlow()
 
-    fun clearDeployResult() { _deployResult.value = null }
+    fun clearDeployResult() { _deployResult.value = null; _verificationReport.value = null }
     fun clearConveneUrl() { _conveneUrl.value = null; _gachaData.value = null }
 
     private val _gachaHistory = MutableStateFlow<GachaHistoryEntry?>(null)
@@ -128,11 +132,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isSetupDone: Boolean
         get() = prefs.getBoolean("setup_done", false)
 
+    companion object {
+        private const val TERMS_VERSION = 1
+    }
+
     val termsAccepted: Boolean
         get() = prefs.getBoolean("terms_accepted", false)
 
+    val termsVersionAccepted: Int
+        get() = prefs.getInt("terms_version", 0)
+
+    fun needsTermsAccept(): Boolean =
+        !termsAccepted || termsVersionAccepted < TERMS_VERSION
+
     fun acceptTerms() {
-        prefs.edit().putBoolean("terms_accepted", true).apply()
+        prefs.edit().putBoolean("terms_accepted", true).putInt("terms_version", TERMS_VERSION).apply()
+    }
+
+    fun postAcceptInit() {
+        loadBackups()
+        try {
+            val filter = IntentFilter("com.wuwaconfig.app.GACHA_DATA_READY")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getApplication<Application>().registerReceiver(gachaReceiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                getApplication<Application>().registerReceiver(gachaReceiver, filter)
+            }
+        } catch (_: Exception) { }
+        _gachaHistory.value = GachaHistoryStore.load(getApplication())
+        val cached = ProfileStore.load(getApplication())
+        if (cached != null) {
+            _playerProfile.value = cached
+            addLog("Cached profile loaded")
+        }
     }
 
     private val gachaReceiver = object : BroadcastReceiver() {
@@ -153,20 +185,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
-        loadBackups()
-        try {
-            val filter = IntentFilter("com.wuwaconfig.app.GACHA_DATA_READY")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                getApplication<Application>().registerReceiver(gachaReceiver, filter, Context.RECEIVER_EXPORTED)
-            } else {
-                getApplication<Application>().registerReceiver(gachaReceiver, filter)
-            }
-        } catch (_: Exception) { }
-        _gachaHistory.value = GachaHistoryStore.load(getApplication())
-        val cached = ProfileStore.load(getApplication())
-        if (cached != null) {
-            _playerProfile.value = cached
-            addLog("Cached profile loaded")
+        if (prefs.getBoolean("terms_accepted", false)) {
+            postAcceptInit()
         }
     }
 
@@ -266,6 +286,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _backendStatus.value = BackendStatus(method = method, connected = true, host = ip, port = port)
                 addLog("Connected via ${method.name}!")
                 if (method == AccessMethod.ADB) {
+                    try {
+                        getApplication<Application>().startForegroundService(Intent(getApplication(), AdbConnectionService::class.java))
+                    } catch (_: Exception) {}
                     val testAccess = backend.fileExists("$gameConfigDir/Engine.ini")
                     if (testAccess.isSuccess) {
                         addLog(if (testAccess.getOrThrow()) "Game config directory accessible." else "Config files not found (first run?).")
@@ -344,6 +367,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (result.isSuccess) {
                     _backendStatus.value = BackendStatus(method = AccessMethod.ADB, connected = true, host = host, port = port)
                     addLog("Connected to $host:$port!")
+                    try {
+                        getApplication<Application>().startForegroundService(Intent(getApplication(), AdbConnectionService::class.java))
+                    } catch (_: Exception) {}
                     loadBackups()
                 } else {
                     val msg = friendlyBackendError(result.exceptionOrNull()?.message)
@@ -397,6 +423,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (method == AccessMethod.SAF) {
             val saf = app.backend as? SafBackend
             saf?.clearTreeUri()
+        }
+        if (method == AccessMethod.ADB) {
+            try {
+                getApplication<Application>().stopService(Intent(getApplication(), AdbConnectionService::class.java))
+            } catch (_: Exception) {}
         }
         _backendStatus.value = BackendStatus(method = method)
         _isApplying.value = false
@@ -751,19 +782,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     corePaths
                 ).engine
 
-                val dp = if (!opts.allowRestrictedCvars) com.wuwaconfig.app.config.ForbiddenCvars.stripForbiddenCvars(ini.deviceProfiles) else ini.deviceProfiles
-                val gus = if (!opts.allowRestrictedCvars) com.wuwaconfig.app.config.ForbiddenCvars.stripForbiddenCvars(ini.gameUserSettings) else ini.gameUserSettings
-                val sc = if (!opts.allowRestrictedCvars && ini.scalability.isNotBlank()) com.wuwaconfig.app.config.ForbiddenCvars.stripForbiddenCvars(ini.scalability) else ini.scalability
                 val result = configManager.applyCustomConfigs(
                     engineIni = if (opts.generateEngine) engineWithPaths else null,
-                    deviceProfilesIni = if (opts.generateDeviceProfiles) dp else null,
-                    gameUserSettingsIni = if (opts.generateGameUserSettings) gus else null,
-                    scalabilityIni = if (opts.generateScalability && sc.isNotBlank()) sc else null,
+                    deviceProfilesIni = if (opts.generateDeviceProfiles) ini.deviceProfiles else null,
+                    gameUserSettingsIni = if (opts.generateGameUserSettings) ini.gameUserSettings else null,
+                    scalabilityIni = if (opts.generateScalability && ini.scalability.isNotBlank()) ini.scalability else null,
+                    hardwareIni = if (opts.generateHardware && ini.hardware.isNotBlank()) ini.hardware else null,
                 ) { msg -> addLog(msg) }
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     _deployResult.value = result.getOrThrow()
                     configManager.refreshConfigHashes().onSuccess { addLog(it) }
+                    addLog("Verifying deployed CVars against ConfigMonitor...")
+                    _readingProgress.value = 50
+                    configManager.verifyDeployedCvars(com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars).onSuccess { report ->
+                        _verificationReport.value = report
+                        _readingProgress.value = 100
+                        addLog("VERIFY: ${report.recognizedCount}/${report.totalCount} CVars accepted by engine")
+                        if (report.rejected.isNotEmpty()) {
+                            val sample = report.rejected.take(5).joinToString(", ")
+                            addLog("Unrecognized (sample): $sample${if (report.rejected.size > 5) "..." else ""}")
+                        }
+                    }.onFailure { e ->
+                        addLog("Verify skipped: ${e.message}")
+                    }
+                    _readingProgress.value = 0
                 } else {
                     val err = result.exceptionOrNull()?.message ?: "Unknown error"
                     addLog("FAILED: $err")

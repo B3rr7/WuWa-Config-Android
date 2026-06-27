@@ -24,6 +24,7 @@ object ForbiddenCvars {
         "r.KuroMaterialQualityLevel",
         "r.ViewDistanceScale",
         "Kuro.CppEffectsSystem.UseLowMemoryPlayerEffectLruCapacity",
+        "Kuro.CppEffectSystem.UseLowMemoryPlayerEffectLruCapacity",
         "r.AsyncComputePSO",
         "r.Streamline.DLSSG.RetainResourcesWhenOff",
         "r.MobileContentScaleFactor",

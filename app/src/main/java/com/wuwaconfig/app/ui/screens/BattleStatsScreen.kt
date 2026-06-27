@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -183,8 +184,8 @@ private fun BattleStatsContent(stats: BattleStats) {
 
     SectionCard("DODGE", NeonCyan) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatCell(Icons.Default.ArrowForward, "Forward", "${stats.dodgeForward}", NeonCyan, Modifier.weight(1f))
-            StatCell(Icons.Default.ArrowBack, "Back", "${stats.dodgeBack}", NeonCyan.copy(alpha = 0.7f), Modifier.weight(1f))
+            StatCell(Icons.AutoMirrored.Filled.ArrowForward, "Forward", "${stats.dodgeForward}", NeonCyan, Modifier.weight(1f))
+            StatCell(Icons.AutoMirrored.Filled.ArrowBack, "Back", "${stats.dodgeBack}", NeonCyan.copy(alpha = 0.7f), Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         StatCell(Icons.Default.SwapHoriz, "Counter", "${stats.dodgeCounter}", NeonCyan, Modifier.fillMaxWidth())

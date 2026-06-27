@@ -2,7 +2,7 @@
 
 [![Release](https://img.shields.io/github/v/release/Berry7650/WuWap42?label=Download&color=purple)](https://github.com/Berry7650/WuWap42/releases)
 
-A fan-made Android application for analyzing, generating, and deploying optimized configuration files (`.ini`) for **Wuthering Waves** on mobile devices. Includes Pity Tracker, Battle Stats, Player Profile, and SmartBrain log analysis.
+A fan-made Android application for analyzing, generating, and deploying optimized configuration files (`.ini`) for **Wuthering Waves (WuWa)** on mobile devices — Engine.ini tweaks, FPS boost, graphics optimization, CVar tuning, and low-end device performance fixes. Includes Pity Tracker (gacha pity calculator), Battle Stats, Player Profile, and SmartBrain log analysis.
 
 > **⚠️ DISCLAIMER**
 > This project is **NOT affiliated with Kuro Games or Wuthering Waves**.
@@ -45,7 +45,7 @@ A fan-made Android application for analyzing, generating, and deploying optimize
 The app needs to read/write game config files in `Android/data/com.kurogame.wutheringwaves.global/`.
 
 ### 🔧 ADB (In-App Wireless Debugging)
-**Best for:** Non-rooted users. App implements ADB wire protocol directly — connects to localhost ADB daemon.
+**Best for:** Non-rooted users. App implements ADB wire protocol directly — connects to localhost ADB daemon. (maybe broken yeat)
 
 **Setup:**
 - Enable **Wireless Debugging** in Developer Options
@@ -112,18 +112,19 @@ Algorithm evaluates device from 0-100:
 | Forbidden CVars | -5 each (can toggle off) |
 | Combined signals | -5 to -6 |
 
-**Recommendations:** Ultra (80+), High (75+ / 70+), Balanced (55+ / 40+), Performance (<40)
+**Recommendations:** Ultra (80+), High (75+ / 70+), Balanced (55+ / 40+), Performance (<40), Potato (≤20 or OOM ≥2)
 
 #### 3. Presets
 | Preset | Screen % | Shadow | SSR | View Dist | Foliage LOD |
 |--------|----------|--------|-----|-----------|-------------|
+| POTATO | 50% | 0 (128) | 0 | 0.3 | 0.4 |
 | PERFORMANCE | 60% | 0 | 0 | 0.5 | 0.7 |
 | BALANCED | 100% | 2 | 1 | 1.5 | 2.0 |
 | HIGH | 100% | 4 | 2 | 2.0 | 2.5 |
 | ULTRA | 100% | 5 | 4 | 3.0 | 3.0 |
 
 #### 4. Options
-120 FPS unlock, Ultra quality unlock, VSync, Auto cooling, Force Vulkan safety, HZB occlusion, Disable fog/CA/outlines/blur/bloom/auto-exposure/SSR, Allow restricted CVars
+120 FPS unlock, Ultra quality unlock, VSync, Auto cooling, Force Vulkan safety, HZB occlusion, Disable fog/CA/outlines/blur/bloom/auto-exposure/SSR, Allow restricted CVars, Hardware.ini generation with device-tier CVars
 
 #### 5. Game Mode
 Overworld / Domain & Tower
@@ -135,7 +136,7 @@ Toggle each: Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.i
 Single button — generates configs, shows review dialog with monospace text editor. Edit CVars inline, then deploy from dialog or close without deploying.
 
 #### 8. Deploy
-Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes.
+Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge for each CVar.
 
 #### 9. Auto-Tune Wizard
 Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via logcat → adjusts preset/options → redeploys until target FPS reached.
@@ -145,7 +146,7 @@ Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via l
 - **Fetch Gacha History** — reads Client.log for Convene URL, auto-retries up to 6 times (10s apart). Parses URL and fetches full pull history from Kuro's gacha API.
 - **Summary**: total pulls, ★5/★4 counts, avg pity per rarity
 - **Per-pool breakdown**: pulls per banner type, ★5/★4 counts per pool
-- **Pity Prediction**: per-banner 50/50 or Guaranteed status, last ★5 details, estimated next ★5 pity
+- **Pity Prediction**: per-banner 50/50 or Guaranteed status, last ★5 details, estimated next ★5 pity, soft pity detection (≥66 ★5 / ≥57 ★4), hard pity countdown, 4★ tracking
 - **Result History**: last fetch result saved locally with 12-hour auto-expiry. Load or clear from the history banner.
 - **Background Polling**: start foreground service to keep polling while app is minimized. Posts notification when URL found.
 
@@ -206,7 +207,7 @@ app/
     │   ├── ConfigManager.kt      # Device I/O, backups, logs, profiles, battle stats, hashes
     │   ├── LogParser.kt          # XOR decryption, Convene URL extract, battle stat parse
     │   ├── SmartBrain.kt         # Scoring engine, recommendation
-    │   ├── ForbiddenCvars.kt    # 30 known Kuro restricted CVars + strip/filter helpers
+    │   ├── ForbiddenCvars.kt    # 31 known Kuro restricted CVars + strip/filter helpers
     │   ├── BenchmarkTuner.kt     # Auto-tune: FPS capture, preset adjustment
     │   ├── GachaApi.kt           # Gacha API client (HTTP POST, pity calc, predictions)
     │   ├── GachaHistoryStore.kt  # Local gacha history persistence (12hr TTL)
@@ -219,7 +220,8 @@ app/
     │   ├── LogInfo.kt            # Parsed log data
     │   ├── PresetModels.kt       # CvarEntry, GameMode, GeneratorOptions (5 file toggles + allowRestrictedCvars), GeneratedIni
     │   ├── GamePaths.kt          # Directory paths, hash monitor config
-    │   └── ConfigPreset.kt       # ConfigFile, ConfigBackup
+    │   ├── ConfigPreset.kt       # ConfigFile, ConfigBackup
+    │   └── VerificationReport.kt # Deploy verification: accepted/rejected CVars from ConfigMonitor
     ├── service/
     │   ├── AdbConnectionService.kt  # ADB foreground service
     │   └── GachaPollService.kt      # Background gacha polling service

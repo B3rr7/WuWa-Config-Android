@@ -22,7 +22,7 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         val first = client.connect(scan.port, scan.host)
         if (first.isSuccess) return first
         val msg = first.exceptionOrNull()?.message ?: ""
-        if (msg.contains("Authorization") || msg.contains("auth")) {
+        if (msg.contains("rejected", ignoreCase = true) || msg.contains("denied", ignoreCase = true)) {
             return client.connectWithRegeneratedKeys(scan.port, scan.host)
         }
         return first
@@ -32,7 +32,7 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         val first = client.connect(port, host)
         if (first.isSuccess) return first
         val msg = first.exceptionOrNull()?.message ?: ""
-        if (msg.contains("Authorization") || msg.contains("auth")) {
+        if (msg.contains("rejected", ignoreCase = true) || msg.contains("denied", ignoreCase = true)) {
             return client.connectWithRegeneratedKeys(port, host)
         }
         return first
