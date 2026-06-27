@@ -50,6 +50,12 @@ data class PityPrediction(
     val lastFiveStarTime: String,
     val pullsSinceLastFive: Int,
     val estimatedNextFive: Int,
+    val hardPity: Int = 80,
+    val softPityThreshold: Int = 66,
+    val isInSoftPity: Boolean = false,
+    val pullsUntilHardPity: Int = 80,
+    val pullsSinceLastFourStar: Int = 0,
+    val estimatedNextFourStar: Int = 10,
 )
 
 data class GachaApiResponse(

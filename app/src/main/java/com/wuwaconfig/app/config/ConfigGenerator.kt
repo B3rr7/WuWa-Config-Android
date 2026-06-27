@@ -15,7 +15,8 @@ data class PresetProfile(
 )
 
 val PRESETS = mutableMapOf(
-    "performance" to PresetProfile(60, 0, 256, 0, 2, 0.8, 0.5, 0.7, 0, 3, 5000),
+    "potato"      to PresetProfile(50, 0, 128, 0, 3, 0.3, 0.3, 0.4, 0, 5, 1500),
+    "performance" to PresetProfile(60, 0, 256, 0, 3, 0.5, 0.5, 0.6, 0, 3, 4500),
     "balanced"    to PresetProfile(100, 2, 1024, 1, 0, 2.0, 1.5, 2.0, 1, 0, 15000),
     "high"        to PresetProfile(100, 4, 2048, 2, 0, 3.0, 2.0, 2.5, 2, 0, 20000),
     "ultra"       to PresetProfile(100, 5, 2048, 4, -1, 4.0, 3.0, 3.0, 2, -1, 30000)
@@ -25,6 +26,12 @@ object ConfigGenerator {
     var activePreset = "balanced"
     var logInfo = LogInfo()
     var allowRestrictedCvars = true
+    var lastGeneratedCvars: Set<String> = emptySet()
+
+    private val cvarPattern = Regex("""^([\w.]+)=""", RegexOption.MULTILINE)
+
+    private fun extractCvarNames(iniText: String): Set<String> =
+        cvarPattern.findAll(iniText).map { it.groupValues[1] }.toSet()
 
     val DEFAULT_CORE_SYSTEM = listOf(
         "[Core.System]",
@@ -146,21 +153,14 @@ object ConfigGenerator {
 
     fun generateWithCorePaths(preset: String, opts: GeneratorOptions, corePaths: List<String>,
                               logInfo: LogInfo = this.logInfo, activePreset: String = this.activePreset): GeneratedIni {
-        val p = PRESETS[preset]!!
+        val p = PRESETS[preset] ?: error("Unknown preset: $preset")
         val engine = applyCvarOverrides(buildAndroidEngineIni(p, opts, corePaths, logInfo, activePreset), opts.cvarOverrides)
         val dp = buildAndroidDeviceProfilesIni(p, opts, logInfo, activePreset)
         val gus = buildAndroidGameUserSettingsIni(p, opts, logInfo)
         val sc = if (opts.generateScalability) buildAndroidScalabilityIni(p, opts) else ""
-        return if (opts.allowRestrictedCvars) {
-            GeneratedIni(engine = engine, deviceProfiles = dp, gameUserSettings = gus, scalability = sc)
-        } else {
-            GeneratedIni(
-                engine = ForbiddenCvars.stripForbiddenCvars(engine),
-                deviceProfiles = ForbiddenCvars.stripForbiddenCvars(dp),
-                gameUserSettings = ForbiddenCvars.stripForbiddenCvars(gus),
-                scalability = ForbiddenCvars.stripForbiddenCvars(sc)
-            )
-        }
+        val hw = if (opts.generateHardware) buildAndroidHardwareIni(p, opts, logInfo) else ""
+        lastGeneratedCvars = extractCvarNames(engine)
+        return GeneratedIni(engine = engine, deviceProfiles = dp, gameUserSettings = gus, scalability = sc, hardware = hw)
     }
 
     private data class DeviceTier(
@@ -221,6 +221,7 @@ object ConfigGenerator {
             add("r.Mobile.OutlineScale=${if (opts.disableOutline) "0" else if (p.detail > 1) "1.3" else if (p.detail > 0) "1.2" else "1.1"}")
             add("r.Kuro.AutoExposure=${if (opts.disableAutoExposure) "0" else "1"}")
             add("r.Kuro.RadialBlur.MobileIntensityScalar=${if (opts.disableRadialBlur) "0" else if (p.detail > 1) "0.9" else if (p.detail > 0) "0.75" else "0.6"}")
+            add("Kuro.Blueprint.EnableGameBudget=0")
             add("r.Mobile.TreeRimLight=1")
             add("r.Kuro.LandscapeCapture=1")
             add("r.Kuro.LandscapeCaptureDistance=${dt.landscapeCaptureDist}")
@@ -238,6 +239,13 @@ object ConfigGenerator {
             add("; ── ANTI-ALIASING ────────────────────────────────────")
             add("r.PostProcessAAQuality=6")
             add("r.TemporalAA.Upsampling=1")
+            add("r.TemporalAA.Algorithm=1")
+            add("r.TemporalAACatmullRom=1")
+            add("r.TemporalAACurrentFrameWeight=0.25")
+            add("r.TemporalAAFilterSize=0.5")
+            add("r.TemporalAAPauseCorrect=1")
+            add("r.TemporalAA.MobileFrameWeight=${if (p.detail > 1) 0.08 else 0.12}")
+            add("r.TemporalAA.MobileStaticFrameWeight=${if (p.detail > 1) 0.3 else 0.5}")
             add("r.DefaultFeature.AntiAliasing=2")
             add("")
             add("; ── POST PROCESSING ──────────────────────────────────")
@@ -253,6 +261,12 @@ object ConfigGenerator {
             add("r.AmbientOcclusionLevels=${if (p.detail > 1) 1 else 0}")
             add("r.KuroTonemapping=3")
             add("r.Kuro.KuroBloomEnable=${if (opts.disableBloom) 0 else 1}")
+            add("r.Kuro.KuroEnableFFTBloom=${if (opts.disableBloom) 0 else if (p.detail > 1) 1 else 0}")
+            add("r.Kuro.KuroEnableToonFFTBloom=0")
+            add("r.Kuro.KuroBloomStreak=${if (p.detail > 1) 1 else 0}")
+            add("r.LightShaftDownSampleFactor=${if (p.detail > 1) 2 else 4}")
+            add("r.Tonemapper.Quality=4")
+            add("r.Upscale.Quality=3")
             add("")
             add("; ── SHADOW ───────────────────────────────────────────")
             add("r.Shadow.KuroEnablePointLightShadow=${if (p.shadow >= 3) 1 else 0}")
@@ -261,17 +275,43 @@ object ConfigGenerator {
             add("r.Shadow.UnbuiltPreviewInGame=1")
             add("r.Kuro.GlobalLightQuality_PC=${if (p.shadow >= 4) 4 else if (p.shadow >= 2) 3 else 2}")
             add("r.Kuro.GlobalLightShadowQuality_PC=${if (p.shadow >= 4) 4 else if (p.shadow >= 2) 3 else 2}")
+            add("r.Shadow.RadiusThreshold=${if (p.shadow >= 3) 0.06 else 0.12}")
+            add("r.Shadow.PerObjectResolutionMax=${if (p.shadow >= 3) 2048 else if (p.shadow >= 2) 1024 else 512}")
+            add("r.Shadow.MaxResolution=${if (p.shadow >= 3) 2048 else if (p.shadow >= 2) 1024 else 512}")
+            add("r.Shadow.RadiusThresholdOverrideEnable=0")
+            add("r.Shadow.PerObjectResolutionMin=64")
+            add("r.MobileNumDynamicPointLights=2")
+            add("r.Shadow.SinglePass=1")
+            add("r.Shadow.DirectLightCacheMaxKeepFrameInterval=1")
+            add("r.Shadow.ForceSerialSingleRenderPass=0")
             add("")
             add("; ── TEXTURE STREAMING ────────────────────────────────")
             add("r.TextureStreaming=1")
-            add("r.Streaming.PoolSize=${dt.streamPool}")
-            add("r.Streaming.Boost=${if (p.detail > 1) "1.2" else if (p.detail > 0) "1.0" else "0.85"}")
-            add("r.Streaming.MipBias=${if (p.detail > 1) "0" else "1"}")
+            add("r.Streaming.MipBias=${if (p.mipbias < 0) 0 else p.mipbias}")
             add("r.Streaming.LODBias=0")
             add("r.MaxAnisotropy=${dt.maxAniso}")
             add("r.streaming.TexturePoolSizeMode=1")
             add("r.Streaming.KuroMinFOVFactorForStreaming=0.2")
             add("r.Streaming.GroupBoost.MediumNpcTextureFactor=${if (p.detail > 0) "1.5" else "1.2"}")
+            add("r.Streaming.PoolSizeForMeshes=${(dt.streamPool * 0.3).toInt()}")
+            add("r.Streaming.UsingKuroStreamingPriority=2")
+            add("r.Streaming.AmortizeCPUToGPUCopy=1")
+            add("r.Streaming.HiddenTextureEviction=1")
+            add("r.Streaming.DefragDynamicBounds=1")
+            add("r.Streaming.bCheckBuildStatus=0")
+            add("r.Streaming.bUseAllMips=${if (p.mipbias > 1) 0 else 1}")
+            add("")
+            add("; ── MOBILE RENDERING ─────────────────────────────────")
+            add("r.Mobile.ShadingPath=1")
+            add("r.Mobile.UseFSRUpscale=${if (p.detail > 1) 0 else 1}")
+            add("r.MobileMSAA=0")
+            add("r.Mobile.HBAO=${if (p.detail > 0) 1 else 0}")
+            add("r.Mobile.HBAO.BlurType=1")
+            add("r.Mobile.HBAO.LargeAOFactor=0.5")
+            add("r.Mobile.HBAO.SmallAOFactor=1.0")
+            add("r.Mobile.PixelProjectedReflectionQuality=${if (p.detail > 1) 1 else 0}")
+            add("r.Mobile.EnableStaticAndCSMShadowReceivers=1")
+            add("r.vrs.enable=0")
             add("")
             add("; ── EFFECTS / PARTICLES ──────────────────────────────")
             add("; ⚠ CRASH FIX March 2026 — MANDATORY")
@@ -279,6 +319,8 @@ object ConfigGenerator {
             add("Niagara.GPUDrawIndirectArgsBufferSlack=4096")
             add("fx.Niagara.QualityLevel=$niagQ")
             add("r.EmitterSpawnRateScale=${if (p.detail > 1) "1.0" else if (p.detail > 0) "0.8" else "0.6"}")
+            add("FX.MaxCPUParticlesPerEmitter=${if (p.detail > 1) 100 else 50}")
+            add("FX.MaxGPUParticlesSpawnedPerFrame=${if (p.detail > 1) 4096 else 2048}")
             add("")
             add("; ── WATER / REFLECTION ───────────────────────────────")
             if (opts.disableSSR) {
@@ -292,13 +334,31 @@ object ConfigGenerator {
                 add("r.Mobile.SSR=${if (dt.isHighEnd && p.detail > 0) 1 else 0}")
                 add("r.Mobile.SceneObjMobileSSR=${if (dt.isHighEnd && p.detail > 1) 1 else 0}")
                 add("r.Kuro.EnablePlanarReflection=${if (dt.isHighEnd && p.detail > 1) 1 else 0}")
+                add("r.SSR.HalfRes=${if (p.detail > 1) 0 else 1}")
+                add("r.SSR.MaxRoughness=${if (p.detail > 1) 1.0 else 0.6}")
+                add("r.SSR.HalfResSceneColor=1")
             }
             add("r.DistanceFieldAO=0")
+            add("")
+            add("; ── SCREEN-SPACE EFFECTS ────────────────────────────")
+            add("r.SSGI.Enable=${if (p.detail > 1) 1 else 0}")
+            add("r.SubsurfaceScattering=${if (p.detail > 1) 1 else 0}")
+            add("r.SSFS.HighQuality=${if (p.detail > 1) 1 else 0}")
+            add("r.SSFS.FullPrecision=${if (p.detail > 1) 1 else 0}")
+            add("r.SSS.HalfRes=${if (p.detail > 1) 0 else 1}")
+            add("r.SSS.Quality=${if (p.detail > 1) 2 else 1}")
+            add("foliage.DitheredLOD=1")
+            add("r.Shadow.MinResolution=64")
+            add("r.Shadow.FadeResolution=128")
+            add("r.Shadow.TexelsPerPixel=${if (p.detail > 2) 2.0 else if (p.detail > 0) 1.5 else 1.0}")
             add("")
             add("; ── ENVIRONMENT ──────────────────────────────────────")
             if (opts.fog) { add("r.Fog=0"); add("r.KuroVolumeCloudEnable=0") } else add("r.Fog=1")
             add("r.Kuro.SuperFarFogGlobalDistanceScale=${if (p.detail > 1) 1 else 0}")
+            add("r.LightFunctionQuality=1")
             add("r.Kuro.LightFunction=1")
+            add("r.FogVisibilityCulling.Enable=1")
+            add("r.FogVisibilityCulling.Opacity=${if (p.detail > 1) "0.8" else "0.5"}")
             add("foliage.LODOptimize=1")
             add("r.EnableAggressivePVS=1")
             add("r.Kuro.MobileISMDecideDistance=${dt.ismDist}.0")
@@ -309,6 +369,9 @@ object ConfigGenerator {
             add("r.Kuro.Foliage.MobileMiddleCullDistanceMax=${(dt.grassCull * 2.2).toInt()}")
             add("r.Kuro.Foliage.MobileFarCullDistanceMin=${(dt.grassCull * 2.8).toInt()}")
             add("r.Kuro.Foliage.MobileFarCullDistanceMax=${(dt.grassCull * 3.2).toInt()}")
+            add("foliage.DensityScale=${if (dt.isHighEnd && p.detail > 1) 1.5 else if (p.detail > 0) 1.0 else 0.6}")
+            add("grass.DensityScale=${if (dt.isHighEnd && p.detail > 1) 1.5 else if (p.detail > 0) 1.0 else 0.6}")
+            add("foliage.LODDistanceScale=${if (p.detail > 1) 1.2 else if (p.detail > 0) 1.0 else 0.7}")
             add("")
             add("; ── NPC & WORLD ──────────────────────────────────────")
             add("r.Kuro.NpcDisappearDistance=${dt.npcDist}")
@@ -318,9 +381,32 @@ object ConfigGenerator {
             add("r.MDCFallback.EnabledLOD=1")
             add("r.BBM.LODBias=${if (p.detail > 1) 0 else 1}")
             add("lod.TemporalLag=1")
-            add("r.RenderTargetPoolMin=${if (p.detail > 0) 100 else 50}")
+            add("r.RenderTargetPoolMin=${if (p.detail > 1) 150 else if (p.detail > 0) 80 else 32}")
+            add("r.Streaming.FullyLoadUsedTextures=${if (p.detail > 0) 1 else 0}")
             add("r.AllowPrecomputedVisibility=1")
             add("r.HZBOcclusion=${if (opts.hzb) 1 else 0}")
+            add("r.EnableMeshPassProcessorsCache=1")
+            add("r.EnableGetDynElemsCache=1")
+            add("r.MorphTarget.EnableSplit=1")
+            add("r.MorphTarget.UnloadDelayTime=${if (p.detail > 1) 30 else 10}")
+            add("")
+            add("; ── ADVANCED LOD / CULLING ──────────────────────────")
+            add("r.CullDistanceVolume.Enable=1")
+            add("r.UseClusteredDeferredShading=1")
+            add("r.AllowOcclusionQueries=1")
+            add("r.MinScreenRadiusPercentage=${if (p.detail > 1) 0.002 else 0.008}")
+            add("r.MaxScreenRadiusPercentage=1.0")
+            add("foliage.MinScreenRadiusPercentage=${if (p.detail > 1) 0.001 else 0.004}")
+            add("foliage.MaxScreenRadiusPercentage=1.0")
+            add("r.StaticMeshLODDistanceScale=${if (p.detail > 1) 1.0 else if (p.detail > 0) 0.85 else 0.7}")
+            add("r.ScreenSizeCullRatioFactor=${if (p.detail > 1) 0.5 else 3.0}")
+            add("r.ParallelFrustumCull=1")
+            add("wp.Runtime.PlannedLoadingRangeScale=${if (p.detail > 1) 5 else if (p.detail > 0) 3 else 2}")
+            add("")
+            add("; ── ANIMATION & BLUEPRINT ───────────────────────────")
+            add("a.URO.Enable=1")
+            add("a.URO.ForceAnimRate=${if (p.detail > 1) 1 else 0}")
+            add("a.URO.ForceInterpolation=1")
             add("")
             add("; ── FRAME & DISPLAY ──────────────────────────────────")
             add("r.MobileHDR=1")
@@ -332,6 +418,17 @@ object ConfigGenerator {
             add("r.ShaderPipelineCache.BatchSize=128")
             add("r.PSO.CompilationMode=0")
             add("r.kuro.LGUIBlurTexture.save=0")
+            add("r.KuroFI.Enable=${if (p.detail > 1) 1 else 0}")
+            add("r.FinishCurrentFrame=0")
+            add("r.DontLimitOnBattery=1")
+            add("")
+            add("; ── PIPELINE / RHI ───────────────────────────────────")
+            add("r.PSO.CacheEvictScheme=1")
+            add("r.pso.evictiontime=20")
+            add("r.RHICmdBypass=1")
+            add("r.RHICmdUseParallelAlgorithms=1")
+            add("r.RHICmdUseThread=1")
+            add("r.RHICmdAsyncRHIThreadDispatch=1")
             add("")
             add("; ── THERMAL & STABILITY ──────────────────────────────")
             add("r.Kuro.AutoCoolEnable=${if (opts.cool) 1 else 0}")
@@ -352,22 +449,34 @@ object ConfigGenerator {
             add("r.Mobile.EnableVoidGT=0")
             add("r.DefaultFeature.LensFlare=0")
             add("")
-            if (activePreset == "performance") {
-                add("; ── LAG-FREE FORCE OVERRIDES ──────────────────────────")
-                add("; Max FPS stability — prioritise frame pacing over quality")
-                add("r.FramePace=${opts.fps}")
-                add("r.VSync=0")
-                add("r.HZBOcclusion=0")
+            if (activePreset == "potato" || activePreset == "performance") {
+                add("; ── PERFORMANCE TWEAKS ───────────────────────────")
+                add("; HZB occlusion — skip rendering hidden objects (saves GPU)")
+                add("r.HZBOcclusion=1")
                 add("r.DisableDistortion=1")
                 add("r.EyeAdaptationQuality=0")
-                add("r.DefaultFeature.AntiAliasing=1")
-                add("r.PostProcessAAQuality=0")
-                add("r.TemporalAA.Upsampling=0")
                 add("r.MotionBlurQuality=0")
-                add("r.SceneColorFringeQuality=0")
                 add("r.LandscapeLOD0ScreenSizeScale=3")
                 add("r.Kuro.AutoCoolEnable=1")
                 add("r.Kuro.ThermalControlMode=1")
+                add("r.MinScreenRadiusPercentage=0.015")
+                add("foliage.MinScreenRadiusPercentage=0.008")
+                add("r.Shadow.TexelsPerPixel=0.5")
+                add("r.SSGI.Enable=0")
+                add("r.SubsurfaceScattering=0")
+                add("r.SSR.HalfRes=1")
+                add("r.SSR.MaxRoughness=0.4")
+                add("r.StaticMeshLODDistanceScale=0.6")
+                add("r.ScreenSizeCullRatioFactor=5.0")
+                add("r.Shadow.RadiusThreshold=0.2")
+                add("r.Shadow.PerObjectResolutionMax=256")
+                add("foliage.DensityScale=0.5")
+                add("grass.DensityScale=0.4")
+                add("foliage.LODDistanceScale=0.6")
+                add("r.Kuro.KuroEnableFFTBloom=0")
+                add("r.Kuro.KuroBloomStreak=0")
+                add("r.LightShaftDownSampleFactor=8")
+                add("a.URO.ForceAnimRate=0")
                 add("")
             }
             add("[/Script/Engine.StreamingSettings]")
@@ -426,6 +535,7 @@ object ConfigGenerator {
         val detectedProfile = sanitizeProfileName(logInfo.deviceProfile)
         val chipsetProfile = profileFromChipset()
         val presetBaseProfile = when (activePreset) {
+            "potato" -> "Android_Low"
             "performance" -> "Android_Low"
             "balanced" -> "Android_Mid"
             "high" -> "Android_VeryHigh"
@@ -434,6 +544,7 @@ object ConfigGenerator {
         }
 
         fun universalProfilesForPreset(): List<String> = when (activePreset) {
+            "potato" -> listOf("Android_Low")
             "performance" -> listOf("Android_Low")
             "high" -> listOf("Android_VeryHigh")
             "ultra" -> listOf("Android_Ultra")
@@ -443,9 +554,8 @@ object ConfigGenerator {
         fun profileCVarLines(): List<String> {
             val lines = mutableListOf(
                 "; Device tier — follows selected preset, not forced high",
-                "+CVars=r.Mobile.DeviceEvaluation=${if (activePreset == "performance") 1 else if (activePreset == "balanced") 2 else 3}",
-                "+CVars=r.MobileContentScaleFactor=0.0",
-                "+CVars=r.SecondaryScreenPercentage.GameViewport=100",
+                "+CVars=r.Mobile.DeviceEvaluation=${if (activePreset == "potato") 0 else if (activePreset == "performance") 1 else if (activePreset == "balanced") 2 else 3}",
+
                 "",
                 "; Texture LOD",
                 "+CVars=r.streaming.QualityExtraLODBiasSetting=$texBias",
@@ -601,7 +711,7 @@ object ConfigGenerator {
     }
 
     private fun buildAndroidScalabilityIni(p: PresetProfile, opts: GeneratorOptions): String {
-        val resQ = if (p.detail > 1) 100 else if (p.detail > 0) 85 else 50
+        val resQ = if (p.detail > 1) 100 else if (p.detail > 0) 85 else 70
         val viewQ = if (p.detail > 1) 3 else if (p.detail > 0) 2 else 1
         val shadowQ = if (p.shadow >= 4) 3 else if (p.shadow >= 2) 2 else 1
         val postQ = if (p.detail > 1) 3 else if (p.detail > 0) 2 else 1
@@ -627,6 +737,38 @@ object ConfigGenerator {
             "ShadingQuality=$shaQ",
             "KuroRenderQuality=$kuroQ",
             "KuroLocalRenderQuality=0"
+        ).joinToString("\n")
+    }
+
+    private fun buildAndroidHardwareIni(p: PresetProfile, opts: GeneratorOptions, logInfo: LogInfo = this.logInfo): String {
+        val dt = computeDeviceTier(logInfo)
+        val presetLabel = when (activePreset) {
+            "potato" -> "Low"
+            "performance" -> "Low"
+            "balanced" -> "Mid"
+            "high" -> "High"
+            "ultra" -> "Ultra"
+            else -> "Mid"
+        }
+        return listOf(
+            "; WuWa Hardware.ini — P42 Toolkit",
+            "; Generated for ${logInfo.deviceModel ?: "Android device"}",
+            "",
+            "[DeviceProfile]",
+            "DeviceProfileName=Android_$presetLabel",
+            "DeviceType=Android",
+            "",
+            "; FPS cap based on preset",
+            "FramePace=${opts.fps}",
+            "",
+            "; Anisotropic filtering",
+            "+CVars=r.MaxAnisotropy=${dt.maxAniso}",
+            "",
+            "; LOD bias",
+            "+CVars=r.Streaming.MipBias=${if (p.detail > 1) 0 else 1}",
+            "",
+            "; Foliage LOD",
+            "+CVars=foliage.LODDistanceScale=${"%.1f".format(p.flod)}"
         ).joinToString("\n")
     }
 

@@ -13,7 +13,7 @@ object PortScanner {
     private const val WELL_KNOWN_ADB = 5555
     private const val SCAN_START = 37000
     private const val SCAN_END = 44000
-    private const val CONNECT_TIMEOUT = 200
+    private const val CONNECT_TIMEOUT = 300
     private const val READ_TIMEOUT = 500
 
     private var cachedIp: String? = null
@@ -70,7 +70,7 @@ object PortScanner {
 
     private suspend fun scanHost(host: String): Int = withContext(Dispatchers.IO) {
         val range = SCAN_START..SCAN_END
-        val batchSize = 100
+        val batchSize = 50
         range.toList().chunked(batchSize).forEach { batch ->
             val results = coroutineScope {
                 batch.map { port ->

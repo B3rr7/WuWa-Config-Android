@@ -33,6 +33,7 @@ import com.wuwaconfig.app.config.BenchmarkTuner
 import com.wuwaconfig.app.config.ConfigGenerator
 import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratorOptions
+import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
@@ -50,6 +51,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val logInfo by viewModel.logAnalysis.collectAsState()
     val brain by viewModel.brainRecommendation.collectAsState()
     val deployResult by viewModel.deployResult.collectAsState()
+    val verificationReport by viewModel.verificationReport.collectAsState()
 
     var selectedPreset by remember { mutableStateOf(brain?.preset ?: "balanced") }
     var fps by remember { mutableStateOf(60) }
@@ -86,6 +88,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var reviewDeviceProfilesText by remember { mutableStateOf("") }
     var reviewGameUserSettingsText by remember { mutableStateOf("") }
     var reviewScalabilityText by remember { mutableStateOf("") }
+    var reviewHardwareText by remember { mutableStateOf("") }
     var tunerActive by remember { mutableStateOf(false) }
     var tunerProgress by remember { mutableStateOf("") }
 
@@ -160,12 +163,19 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     )
                 }
 
+                verificationReport?.let { report ->
+                    item(key = "verification") {
+                        VerificationBadge(report)
+                    }
+                }
+
                 item(key = "preset") {
                     GlassCard(accentColor = NeonPurple) {
                         GlassCardHeader("Preset", NeonPurple)
                         Spacer(Modifier.height(10.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
+                                "potato" to "Dead low-end",
                                 "performance" to "Stability first",
                                 "balanced" to "Daily default",
                                 "high" to "Sharper visuals",
@@ -276,13 +286,14 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                         mode = gameMode,
                                         generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
                                         generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-                                        allowRestrictedCvars = allowRestrictedCvars
+                                        generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars
                                     )
                                     val generated = ConfigGenerator.generate(selectedPreset, opts)
                                     reviewEngineText = generated.engine
                                     reviewDeviceProfilesText = generated.deviceProfiles
                                     reviewGameUserSettingsText = generated.gameUserSettings
                                     reviewScalabilityText = generated.scalability
+                                    reviewHardwareText = generated.hardware
                                     showReview = true
                                 },
                                 enabled = !isApplying,
@@ -317,7 +328,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                             mode = gameMode,
                                             generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
                                             generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-                                            allowRestrictedCvars = allowRestrictedCvars
+                                            generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars
                                         )
                                         for (round in 1..5) {
                                             tunerProgress = "Round $round: deploying ${currentPreset}..."
@@ -375,8 +386,9 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             deviceProfilesText = reviewDeviceProfilesText,
             gameUserSettingsText = reviewGameUserSettingsText,
             scalabilityText = reviewScalabilityText,
+            hardwareText = reviewHardwareText,
             onDismiss = { showReview = false },
-            onRedeploy = { newEngine, newDevice, newSettings, newScalability ->
+            onRedeploy = { newEngine, newDevice, newSettings, newScalability, newHardware ->
                 val overrides = ConfigGenerator.parseCvarEntries(newEngine)
                     .filter { it.isOverridden }
                     .associate { it.key to it.value }
@@ -389,14 +401,15 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     mode = gameMode, cvarOverrides = overrides,
                     generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
                     generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-                    allowRestrictedCvars = allowRestrictedCvars
+                    generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars
                 )
                 reviewEngineText = newEngine
                 reviewDeviceProfilesText = newDevice
                 reviewGameUserSettingsText = newSettings
                 reviewScalabilityText = newScalability
+                reviewHardwareText = newHardware
                 viewModel.deployGeneratedConfigs(
-                    com.wuwaconfig.app.model.GeneratedIni(engine = newEngine, deviceProfiles = newDevice, gameUserSettings = newSettings, scalability = newScalability),
+                    com.wuwaconfig.app.model.GeneratedIni(engine = newEngine, deviceProfiles = newDevice, gameUserSettings = newSettings, scalability = newScalability, hardware = newHardware),
                     opts
                 )
             }
@@ -411,18 +424,21 @@ private fun IniReviewDialog(
     deviceProfilesText: String,
     gameUserSettingsText: String,
     scalabilityText: String = "",
+    hardwareText: String = "",
     onDismiss: () -> Unit,
-    onRedeploy: (engine: String, deviceProfiles: String, gameUserSettings: String, scalability: String) -> Unit
+    onRedeploy: (engine: String, deviceProfiles: String, gameUserSettings: String, scalability: String, hardware: String) -> Unit
 ) {
     var engineSrc by remember(engineText) { mutableStateOf(engineText) }
     var dpSrc by remember(deviceProfilesText) { mutableStateOf(deviceProfilesText) }
     var gusSrc by remember(gameUserSettingsText) { mutableStateOf(gameUserSettingsText) }
     var slSrc by remember(scalabilityText) { mutableStateOf(scalabilityText) }
+    var hwSrc by remember(hardwareText) { mutableStateOf(hardwareText) }
 
     var tab by remember { mutableStateOf(0) }
     val tabs = mutableListOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini")
     if (scalabilityText.isNotBlank()) tabs.add("Scalability.ini")
-    val accents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber)
+    if (hardwareText.isNotBlank()) tabs.add("Hardware.ini")
+    val accents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber, NeonCyan)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -453,11 +469,15 @@ private fun IniReviewDialog(
         },
         text = {
             val src = when (tab) {
-                0 -> engineSrc; 1 -> dpSrc; 2 -> gusSrc; else -> slSrc
+                0 -> engineSrc; 1 -> dpSrc; 2 -> gusSrc
+                tabs.indexOf("Scalability.ini") -> slSrc
+                else -> hwSrc
             }
             val onEdit: (String) -> Unit = when (tab) {
                 0 -> { v -> engineSrc = v }; 1 -> { v -> dpSrc = v }
-                2 -> { v -> gusSrc = v }; else -> { v -> slSrc = v }
+                2 -> { v -> gusSrc = v }
+                tabs.indexOf("Scalability.ini") -> { v -> slSrc = v }
+                else -> { v -> hwSrc = v }
             }
             val accent = accents[tab.coerceAtMost(accents.lastIndex)]
             OutlinedTextField(
@@ -477,7 +497,7 @@ private fun IniReviewDialog(
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onDismiss) { Text("Close") }
-                Button(onClick = { onRedeploy(engineSrc, dpSrc, gusSrc, slSrc) }) {
+                Button(onClick = { onRedeploy(engineSrc, dpSrc, gusSrc, slSrc, hwSrc) }) {
                     Text("Deploy", fontWeight = FontWeight.Bold)
                 }
             }
@@ -721,7 +741,43 @@ private fun IssueBadge(label: String, count: Int, color: Color) {
     }
 }
 
+@Composable
+private fun VerificationBadge(report: VerificationReport) {
+    val color = if (report.acceptedRatio >= 0.8f) NeonGreen else if (report.acceptedRatio >= 0.5f) NeonAmber else NeonRed
+    GlassCard(accentColor = color) {
+        GlassCardHeader("Deploy Verification", color)
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "${report.recognizedCount}/${report.totalCount} CVars accepted by engine",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+        }
+        if (report.rejected.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            val sample = report.rejected.take(8).joinToString(", ")
+            Text(
+                "Rejected (${report.rejected.size}): $sample",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (report.rejected.size > 8) {
+                Text(
+                    "...and ${report.rejected.size - 8} more",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
+        }
+    }
+}
+
 private fun presetColor(preset: String): Color = when (preset) {
+    "potato" -> Color(0xFF8B4513)
     "performance" -> NeonRed
     "balanced" -> NeonAmber
     "high" -> NeonGreen

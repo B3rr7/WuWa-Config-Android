@@ -10,11 +10,15 @@ import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.model.ConfigFile
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.PlayerProfile
+import com.wuwaconfig.app.model.VerificationReport
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class ConfigManager(private val context: Context, private val backend: AccessBackend, backupDirPath: String? = null) {
     private val gson = Gson()
@@ -85,6 +89,26 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         try {
             val logFilePath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
             readRemoteLogText(logFilePath, onProgress)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun verifyDeployedCvars(generatedCvars: Set<String>): Result<VerificationReport> = withContext(Dispatchers.IO) {
+        try {
+            val logResult = readRemoteLogText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
+            if (logResult.isFailure) return@withContext Result.failure(logResult.exceptionOrNull()!!)
+            val (text, _) = logResult.getOrThrow()
+            val info = LogParser.parseLog(text)
+            val recognized = info.activeCvars.keys
+            val accepted = generatedCvars.filter { it in recognized }.toSet()
+            val rejected = generatedCvars - recognized
+            Result.success(VerificationReport(
+                accepted = accepted,
+                rejected = rejected,
+                recognizedCount = accepted.size,
+                totalCount = generatedCvars.size
+            ))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -281,15 +305,30 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         try {
             val md5 = MessageDigest.getInstance("MD5")
             val lines = mutableListOf<String>()
+            val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+
+            val existingHashContent = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
+            val existingCounts = mutableMapOf<String, Int>()
+            var currentSection = ""
+            for (line in existingHashContent.lines()) {
+                val trimmed = line.trim()
+                if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                    currentSection = trimmed
+                } else if (trimmed.startsWith("ModifyCount=")) {
+                    val count = trimmed.removePrefix("ModifyCount=").toIntOrNull()
+                    if (count != null) existingCounts[currentSection] = count
+                }
+            }
 
             for (name in GamePaths.MONITORED_FILES) {
                 val path = "${GamePaths.TARGET_DIR}/$name"
                 val content = backend.readFile(path).getOrDefault("")
                 val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+                val prevCount = existingCounts["[$name]"] ?: 0
                 lines.add("[$name]")
                 lines.add("Hash=$hash")
-                lines.add("ModifyCount=1")
-                lines.add("LastModifiedTime=2026-06-19 12:00:00")
+                lines.add("ModifyCount=${prevCount + 1}")
+                lines.add("LastModifiedTime=$now")
                 lines.add("")
             }
 
@@ -298,8 +337,21 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             tempFile.writeText(newContent)
             backend.pushFile(tempFile.absolutePath, GamePaths.HASH_MONITOR_PATH).getOrThrow()
             tempFile.delete()
-            Log.d("ConfigManager", "Config hashes refreshed successfully")
-            Result.success("Config hashes synced")
+
+            val verifyResult = backend.readFile(GamePaths.HASH_MONITOR_PATH)
+            if (verifyResult.isSuccess) {
+                val stored = verifyResult.getOrThrow().trim()
+                if (stored == newContent.trim()) {
+                    Log.d("ConfigManager", "Config hashes refreshed and verified successfully")
+                    Result.success("Config hashes synced & verified")
+                } else {
+                    Log.w("ConfigManager", "Hash file read-back mismatch")
+                    Result.success("Config hashes synced (verify mismatch)")
+                }
+            } else {
+                Log.w("ConfigManager", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
+                Result.success("Config hashes synced (verify skipped)")
+            }
         } catch (e: Exception) {
             Log.w("ConfigManager", "Failed to refresh hashes: ${e.message}")
             Result.failure(e)
