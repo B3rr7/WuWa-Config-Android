@@ -337,14 +337,12 @@ fun GradientBackground(content: @Composable () -> Unit) {
                     .crossfade(true)
                     .build()
             )
-            Box(modifier = Modifier.fillMaxSize().graphicsLayer(alpha = bgAlpha)) {
-                Image(
-                    painter = painter,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
+            Image(
+                painter = painter,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().graphicsLayer(alpha = bgAlpha),
+                contentScale = ContentScale.Crop
+            )
             Box(
                 modifier = Modifier
                     .fillMaxSize()

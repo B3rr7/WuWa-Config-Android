@@ -9,6 +9,11 @@
 .externalNativeBuild
 .cxx
 /app/build
+/app/release
 release.jks
 keystore.properties
 *.log
+epic_ue4_docs.txt
+ue4_commands.txt
+*.md5
+*.b64

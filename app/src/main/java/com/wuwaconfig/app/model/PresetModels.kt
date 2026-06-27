@@ -49,6 +49,7 @@ data class GeneratorOptions(
     val generateDeviceProfiles: Boolean = true,
     val generateGameUserSettings: Boolean = true,
     val generateScalability: Boolean = false,
+    val generateHardware: Boolean = false,
     val allowRestrictedCvars: Boolean = true
 )
 
@@ -56,7 +57,8 @@ data class GeneratedIni(
     val engine: String = "",
     val deviceProfiles: String = "",
     val gameUserSettings: String = "",
-    val scalability: String = ""
+    val scalability: String = "",
+    val hardware: String = ""
 )
 
 data class ModeConfig(

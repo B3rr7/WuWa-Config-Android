@@ -48,13 +48,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             val viewModel: MainViewModel = viewModel()
             val themeMode by viewModel.themeMode.collectAsState()
-            var showTerms by remember { mutableStateOf(!viewModel.termsAccepted) }
+            var showTerms by remember { mutableStateOf(viewModel.needsTermsAccept()) }
 
             WuWaConfigTheme(themeMode = themeMode) {
                 if (showTerms) {
                     TermsScreen(
                         onAccept = {
                             viewModel.acceptTerms()
+                            viewModel.postAcceptInit()
                             showTerms = false
                             this@MainActivity.requestStoragePermissions()
                             this@MainActivity.initExternalBackupDir()
@@ -66,12 +67,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        if (getSharedPreferences("wuwaconfig", MODE_PRIVATE)
-                .getBoolean("terms_accepted", false)
-        ) {
-            requestStoragePermissions()
-            initExternalBackupDir()
-        }
     }
 
     override fun onResume() {

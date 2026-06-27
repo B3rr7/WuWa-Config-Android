@@ -23,7 +23,7 @@ object BenchmarkTuner {
     private const val TAG = "BenchmarkTuner"
     private val FPS_LINE_PATTERN = """(?:FPS|fps|frame.*?rate|avg\s*fps)[:\s]*(\d+\.?\d*)""".toRegex()
 
-    val PRESET_ORDER = listOf("ultra", "high", "balanced", "performance")
+    val PRESET_ORDER = listOf("ultra", "high", "balanced", "performance", "potato")
 
     fun parseFpsLogcat(logcatText: String): Result<BenchmarkResult> {
         val fpsValues = mutableListOf<Float>()

@@ -30,8 +30,8 @@ class WuWaConfigApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        instance = this
         adbCrypto = AdbCrypto(this)
+        instance = this
         _backend = null
     }
 

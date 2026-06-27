@@ -2,6 +2,7 @@ package com.wuwaconfig.app.adb
 
 import android.content.Context
 import android.util.Base64
+import android.util.Log
 import java.io.File
 import java.security.KeyFactory
 import java.security.KeyPair
@@ -14,6 +15,10 @@ import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 
 class AdbCrypto(private val context: Context) {
+    companion object {
+        private const val TAG = "AdbCrypto"
+    }
+
     private var keyPair: KeyPair? = null
     private val publicKeyFile: File
         get() = File(context.filesDir, "adbkey.pub")
@@ -33,15 +38,17 @@ class AdbCrypto(private val context: Context) {
                 val privateKey = keyFactory.generatePrivate(PKCS8EncodedKeySpec(privateBytes))
                 val publicKey = keyFactory.generatePublic(X509EncodedKeySpec(publicBytes))
                 keyPair = KeyPair(publicKey, privateKey)
+                Log.d(TAG, "Keys loaded from ${privateKeyFile.absolutePath}")
                 return
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Failed to load existing keys, generating new ones", e)
             }
         }
         generateNewKeys()
     }
 
     private fun generateNewKeys() {
+        Log.d(TAG, "Generating new 2048-bit RSA key pair")
         val generator = KeyPairGenerator.getInstance("RSA")
         generator.initialize(2048)
         keyPair = generator.generateKeyPair()
@@ -49,6 +56,7 @@ class AdbCrypto(private val context: Context) {
         privateKeyFile.parentFile?.mkdirs()
         privateKeyFile.writeBytes(keyPair!!.private.encoded)
         publicKeyFile.writeBytes(keyPair!!.public.encoded)
+        Log.d(TAG, "Keys saved to ${privateKeyFile.parentFile?.absolutePath}")
     }
 
     fun getPublicKey(): PublicKey = keyPair!!.public
@@ -81,19 +89,26 @@ class AdbCrypto(private val context: Context) {
     }
 
     fun signToken(token: ByteArray): ByteArray {
+        Log.d(TAG, "Signing ${token.size}B token with SHA1withRSA")
         val signature = Signature.getInstance("SHA1withRSA")
         signature.initSign(keyPair!!.private)
         signature.update(token)
-        return signature.sign()
+        val sig = signature.sign()
+        Log.d(TAG, "Signature: ${sig.size}B")
+        return sig
     }
 
     fun getPublicKeyMd5(): String {
         val md5 = MessageDigest.getInstance("MD5")
         md5.update(keyPair!!.public.encoded)
-        return md5.digest().joinToString(":") { "%02X".format(it) }
+        val digest = md5.digest()
+        val hex = digest.joinToString(":") { "%02X".format(it) }
+        Log.d(TAG, "Public key MD5: $hex")
+        return hex
     }
 
     fun regenerateKeys() {
+        Log.d(TAG, "Regenerating RSA keys")
         generateNewKeys()
     }
 }

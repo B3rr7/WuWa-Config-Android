@@ -16,6 +16,8 @@ object LogParser {
     }
 
     fun applyXorLut(data: ByteArray): ByteArray {
+        // LUT is NOT self-inverse: LUT(LUT(b)) = b xor 0x4A for ALL b.
+        // The game stores plaintext as LUT(plaintext xor 0x4A) so a single pass restores it.
         val lut = ByteArray(256) { i -> (if (i % 2 == 1) (i xor 0xA5) else (i xor 0xEF)).toByte() }
         val result = data.copyOf()
         for (i in result.indices) {
@@ -151,10 +153,14 @@ object LogParser {
                 }
             }
             if (androidVersion == null) Regex("""LogInit.*OS:\s*Android\s*\((\d+)\)""", RegexOption.IGNORE_CASE).find(line)?.let { androidVersion = it.groupValues[1] }
-            if (resolution == null) Regex("""Resolution\s+(\d+),\s*(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let {
+            if (resolution == null) Regex("""Resolution\s+(\d+)\s*[,xX×]?\s*(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let {
                 resolution = "${it.groupValues[1]}x${it.groupValues[2]}"
             }
-            if (resolution == null) Regex("""ViewportSize\s+([\d.]+),\s*[\d.]+\s+Resolution\s+\d+,\s*\d+""", RegexOption.IGNORE_CASE).find(line)?.let { resolution = it.groupValues[1] }
+            if (resolution == null) Regex("""ViewportSize\s+([\d.]+),\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(line)?.let {
+                val w = it.groupValues[1].toFloatOrNull()?.toInt()?.toString() ?: it.groupValues[1]
+                val h = it.groupValues[2].toFloatOrNull()?.toInt()?.toString() ?: it.groupValues[2]
+                resolution = "${w}x${h}"
+            }
             if (deviceProfile == null) Regex("""Selected Device Profile:\s*\[([^\]]+)\]""", RegexOption.IGNORE_CASE).find(line)?.let { deviceProfile = it.groupValues[1] }
             if (fpsCap == null) Regex("""r\.FramePace\s*:\s*(?:requesting\s+\d+,\s*)?set\s*(?:as\s+)?(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let { fpsCap = it.groupValues[1].toIntOrNull() }
             if (fpsActual == null) Regex("""AverageFPS\s*[=:]\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(line)?.let { fpsActual = it.groupValues[1].toFloatOrNull() }
@@ -162,7 +168,6 @@ object LogParser {
             if (shadowQ == null) Regex("""Value remains '(\d+)' .* sg\.ShadowQuality""", RegexOption.IGNORE_CASE).find(line)?.let { shadowQ = it.groupValues[1].toIntOrNull() }
             if (qualityMode == null) Regex("""sg\.KuroRenderQuality\s*=\s*"(.*)"""", RegexOption.IGNORE_CASE).find(line)?.let { qualityMode = it.groupValues[1] }
             if (kuroPostprocess == null) Regex("""Value remains '(\d+)' .* r\.Mobile\.KuroPostprocess""", RegexOption.IGNORE_CASE).find(line)?.let { kuroPostprocess = it.groupValues[1].toIntOrNull() }
-            if (forbiddenCvars == null) Regex("""contained\s+(\d+)\s+forbidden\s+CVars""", RegexOption.IGNORE_CASE).find(line)?.let { forbiddenCvars = it.groupValues[1].toIntOrNull() }
 
             // ── CVar extraction ──
             Regex("""Setting CVar \[\[([^:]+):([^\]]+)\]\]""", RegexOption.IGNORE_CASE).find(line)?.let {
@@ -185,6 +190,11 @@ object LogParser {
                     }
                 }
             }
+        }
+
+        // ── Count forbidden CVars from extracted activeCvars ──
+        if (forbiddenCvars == null) {
+            forbiddenCvars = activeCvars.keys.count { ForbiddenCvars.isForbidden(it) }
         }
 
         // ── Post-loop resolution ──

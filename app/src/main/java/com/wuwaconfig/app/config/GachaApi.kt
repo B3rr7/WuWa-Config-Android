@@ -192,7 +192,16 @@ object GachaApi {
         }
     }
 
+    private fun calcPullsSinceLastFourStar(records: List<GachaRecord>): Int {
+        val sorted = records.sortedBy { it.time }
+        val lastFourIndex = sorted.indexOfLast { it.qualityLevel == 4 || it.qualityLevel == 5 }
+        if (lastFourIndex < 0) return sorted.size.coerceAtMost(10)
+        return sorted.size - lastFourIndex - 1
+    }
+
     private fun calcCharacterPrediction(records: List<GachaRecord>, pool: GachaPool): PityPrediction {
+        val HARD_PITY = 80
+        val SOFT_PITY_START = 66
         val sorted = records.sortedBy { it.time }
         val fiveStarRecords = sorted.filter { it.qualityLevel == 5 }
 
@@ -206,7 +215,6 @@ object GachaApi {
             lastFiveName = lastFive.name
             lastFiveTime = lastFive.time
             isLastFiveStandard = isStandardFive(lastFiveName, lastFive.resourceType)
-
             val lastFiveIndex = sorted.indexOfLast { it.qualityLevel == 5 }
             pullsSinceLastFive = sorted.size - lastFiveIndex - 1
         } else {
@@ -233,10 +241,19 @@ object GachaApi {
                     cnt = 0
                 }
             }
-            if (pityGroups.isNotEmpty()) pityGroups.average().toInt() else 80
-        } else 80
+            if (pityGroups.isNotEmpty()) pityGroups.average().toInt() else HARD_PITY
+        } else HARD_PITY
 
-        val estimated = maxOf(avgCharPity - pullsSinceLastFive, 1)
+        val isInSoftPity = pullsSinceLastFive >= SOFT_PITY_START
+        val pullsUntilHardPity = maxOf(HARD_PITY - pullsSinceLastFive, 0)
+
+        val estimated = if (isInSoftPity) {
+            maxOf(SOFT_PITY_START - pullsSinceLastFive + 4, 1) + 6
+        } else {
+            maxOf(avgCharPity - pullsSinceLastFive, 1)
+        }
+
+        val pulls4 = calcPullsSinceLastFourStar(sorted)
 
         return PityPrediction(
             poolType = pool.type,
@@ -246,10 +263,18 @@ object GachaApi {
             lastFiveStarTime = lastFiveTime,
             pullsSinceLastFive = pullsSinceLastFive,
             estimatedNextFive = estimated,
+            hardPity = HARD_PITY,
+            softPityThreshold = SOFT_PITY_START,
+            isInSoftPity = isInSoftPity,
+            pullsUntilHardPity = pullsUntilHardPity,
+            pullsSinceLastFourStar = pulls4,
+            estimatedNextFourStar = maxOf(10 - pulls4, 1),
         )
     }
 
     private fun calcWeaponPrediction(records: List<GachaRecord>, pool: GachaPool): PityPrediction {
+        val HARD_PITY = 70
+        val SOFT_PITY_START = 57
         val sorted = records.sortedBy { it.time }
         val fiveStarRecords = sorted.filter { it.qualityLevel == 5 }
 
@@ -269,6 +294,16 @@ object GachaApi {
             pullsSinceLastFive = sorted.size
         }
 
+        val isInSoftPity = pullsSinceLastFive >= SOFT_PITY_START
+        val pullsUntilHardPity = maxOf(HARD_PITY - pullsSinceLastFive, 0)
+        val estimated = if (isInSoftPity) {
+            maxOf(SOFT_PITY_START - pullsSinceLastFive + 4, 1) + 4
+        } else {
+            maxOf(65 - pullsSinceLastFive, 1)
+        }
+
+        val pulls4 = calcPullsSinceLastFourStar(sorted)
+
         return PityPrediction(
             poolType = pool.type,
             poolLabel = pool.label,
@@ -276,7 +311,13 @@ object GachaApi {
             lastFiveStarName = lastFiveName,
             lastFiveStarTime = lastFiveTime,
             pullsSinceLastFive = pullsSinceLastFive,
-            estimatedNextFive = maxOf(60 - pullsSinceLastFive, 1),
+            estimatedNextFive = estimated,
+            hardPity = HARD_PITY,
+            softPityThreshold = SOFT_PITY_START,
+            isInSoftPity = isInSoftPity,
+            pullsUntilHardPity = pullsUntilHardPity,
+            pullsSinceLastFourStar = pulls4,
+            estimatedNextFourStar = maxOf(10 - pulls4, 1),
         )
     }
 }

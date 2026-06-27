@@ -252,12 +252,14 @@ object SmartBrain {
 
     private fun recommendPreset(score: Int, info: LogInfo, tier: String, isHighRes: Boolean): String {
         return when {
-            info.isLowMem == true || info.gpuOom >= 2 -> "performance"
+            info.gpuOom >= 2 -> "potato"
+            info.isLowMem == true || score <= 20 -> "potato"
             score >= 80 && info.vulkanStatus == "available" && tier == "flagship" && !isHighRes -> "ultra"
             score >= 75 && (tier == "flagship" || tier == "high") && info.vulkanStatus == "available" -> "high"
             score >= 70 && (tier == "flagship" || tier == "high") -> "high"
             score >= 40 -> "balanced"
-            else -> "performance"
+            score >= 20 -> "performance"
+            else -> "potato"
         }
     }
 }

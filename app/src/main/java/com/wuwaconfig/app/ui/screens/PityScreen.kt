@@ -229,6 +229,15 @@ private fun PredictionSection(predictions: List<PityPrediction>, @Suppress("UNUS
                 }
                 Text(statusLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = accent)
             }
+
+            if (pred.isInSoftPity) {
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("⚠ In soft pity (pull ${pred.pullsSinceLastFive}/${pred.hardPity})", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = NeonAmber)
+                }
+            }
             Spacer(Modifier.height(4.dp))
 
             if (pred.status != "75/25" && pred.lastFiveStarName.isNotEmpty()) {
@@ -241,8 +250,7 @@ private fun PredictionSection(predictions: List<PityPrediction>, @Suppress("UNUS
                 Spacer(Modifier.height(4.dp))
 
                 if (pred.status == "Guaranteed") {
-                    val lostToName = pred.lastFiveStarName
-                    Text("You lost 50/50 to $lostToName. Next ★5 is guaranteed!", style = MaterialTheme.typography.bodySmall, color = NeonGold)
+                    Text("You lost 50/50 to ${pred.lastFiveStarName}. Next ★5 is guaranteed!", style = MaterialTheme.typography.bodySmall, color = NeonGold)
                 } else if (pred.status == "50/50") {
                     Text("You won 50/50 on ${pred.lastFiveStarName}. Next ★5 is 50/50.", style = MaterialTheme.typography.bodySmall, color = NeonAmber)
                 }
@@ -251,7 +259,14 @@ private fun PredictionSection(predictions: List<PityPrediction>, @Suppress("UNUS
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 StatItem("${pred.pullsSinceLastFive}", "Pulls Since ★5", accent)
+                StatItem("${pred.pullsUntilHardPity}", "To Hard Pity", if (pred.isInSoftPity) NeonAmber else NeonCyan)
                 StatItem("~${pred.estimatedNextFive}", "Est. Next ★5", NeonGold)
+            }
+
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                StatItem("${pred.pullsSinceLastFourStar}", "Since ★4", MaterialTheme.colorScheme.onSurfaceVariant)
+                StatItem("~${pred.estimatedNextFourStar}", "Est. Next ★4", MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             if (pred.status == "50/50") {
