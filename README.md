@@ -2,7 +2,7 @@
 
 [![Release](https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
 
-A fan-made Android application for analyzing, generating, and deploying optimized configuration files (`.ini`) for **Wuthering Waves (WuWa)** on mobile devices — Engine.ini tweaks, FPS boost, graphics optimization, CVar tuning, and low-end device performance fixes. Includes Pity Tracker (gacha pity calculator), Battle Stats, Player Profile, and SmartBrain log analysis.
+Android app for **Wuthering Waves (WuWa) performance optimization** — analyzes your device log, generates optimized Engine.ini configs for FPS boost and graphics tuning, and deploys them via ADB/Shizuku/Root. Includes CVar tuning, SmartBrain scoring, Pity Tracker, Battle Stats, and Player Profile. Designed for low-end to flagship Android devices.
 
 > **⚠️ DISCLAIMER**
 > This project is **NOT affiliated with Kuro Games or Wuthering Waves**.
@@ -180,7 +180,7 @@ Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via l
 
 - **Theme**: System / Light / Dark
 - **Custom Background**: Image (jpg/png/gif) or Video (MP4). Opacity slider 5-70%. 15% gradient overlay. Persistent URI.
-- **Backup Directory** changer
+- **Backup Directory** changer (also mirrored to `Downloads/WuWaConfig/`)
 - **Device info**: Chipset, RAM, API level
 - **App version**, Links (GitHub, YouTube, Telegram, Discord)
 
@@ -269,6 +269,12 @@ app/
 - [YouTube (@Player42_g)](https://www.youtube.com/@Player42_g)
 - [Telegram](https://t.me/Yt_Player42)
 - [Discord](https://discord.gg/5WP9nN2e2s)
+
+---
+
+## Topics
+
+Set these topics on the repo for better search visibility: `wuthering-waves`, `wuwa`, `android`, `fps-boost`, `engine-ini`, `config-optimizer`, `gacha-tracker`, `pity-calculator`, `kuro-games`, `mobile-gaming`, `performance`, `android-optimization`, `ue4`, `unreal-engine-4`, `adb`, `shizuku`, `gaming-tool`
 
 ---
 
