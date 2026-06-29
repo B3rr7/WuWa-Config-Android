@@ -1,6 +1,6 @@
 # WuWaConfig — Wuthering Waves Config Toolkit
 
-[![Release](https://img.shields.io/github/v/release/Berry7650/WuWap42?label=Download&color=purple)](https://github.com/Berry7650/WuWap42/releases)
+[![Release](https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
 
 A fan-made Android application for analyzing, generating, and deploying optimized configuration files (`.ini`) for **Wuthering Waves (WuWa)** on mobile devices — Engine.ini tweaks, FPS boost, graphics optimization, CVar tuning, and low-end device performance fixes. Includes Pity Tracker (gacha pity calculator), Battle Stats, Player Profile, and SmartBrain log analysis.
 
@@ -32,7 +32,7 @@ A fan-made Android application for analyzing, generating, and deploying optimize
 
 ## Installation & First Run
 
-1. **Download** the latest APK from [Releases](https://github.com/Berry7650/WuWap42/releases).
+1. **Download** the latest APK from [Releases](https://github.com/B3rr7/WuWa-Config-Android/releases).
 2. **Install** on your Android device (enable "Install from unknown sources").
 3. **Open** the app — accept Terms of Use.
 4. **Grant storage permission** when prompted (for backups).
@@ -265,7 +265,7 @@ app/
 
 ## Links
 
-- [GitHub](https://github.com/Berry7650/WuWap42)
+- [GitHub](https://github.com/B3rr7/WuWa-Config-Android)
 - [YouTube (@Player42_g)](https://www.youtube.com/@Player42_g)
 - [Telegram](https://t.me/Yt_Player42)
 - [Discord](https://discord.gg/5WP9nN2e2s)

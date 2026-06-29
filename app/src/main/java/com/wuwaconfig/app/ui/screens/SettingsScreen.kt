@@ -246,7 +246,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             LinkButton(
                                 icon = Icons.Default.Code,
                                 label = "GitHub",
-                                url = "https://github.com/Berry7650/WuWap42",
+                                url = "https://github.com/B3rr7/WuWa-Config-Android",
                                 color = NeonCyan,
                                 modifier = Modifier.weight(1f),
                                 context = ctx
