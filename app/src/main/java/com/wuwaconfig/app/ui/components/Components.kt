@@ -40,12 +40,16 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Save
 import com.wuwaconfig.app.WuWaConfigApp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.random.Random
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
+import com.wuwaconfig.app.model.LogEntry
+import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.ui.theme.*
 
 @Composable
@@ -261,7 +265,7 @@ fun GlassOutlinedButton(
     }
 
 @Composable
-fun LogViewer(logs: List<String>, modifier: Modifier = Modifier) {
+fun LogViewer(logs: List<LogEntry>, modifier: Modifier = Modifier, onSave: (() -> Unit)? = null) {
     GlassCard(modifier = modifier, accentColor = NeonCyan) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -272,6 +276,12 @@ fun LogViewer(logs: List<String>, modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.width(8.dp))
             Text("Log", style = MaterialTheme.typography.titleSmall, color = NeonCyan, fontWeight = FontWeight.Bold)
+            if (onSave != null) {
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onSave, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Save, contentDescription = "Save log", tint = NeonCyan, modifier = Modifier.size(18.dp))
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
         Box(
@@ -288,16 +298,34 @@ fun LogViewer(logs: List<String>, modifier: Modifier = Modifier) {
                         .verticalScroll(rememberScrollState())
                 ) {
                     logs.reversed().forEach { log ->
-                        val c = when {
-                            log.contains("SUCCESS") -> NeonGreen
-                            log.contains("FAILED") || log.contains("ERROR") -> NeonRed
-                            log.contains("Applying") || log.contains("Connected") -> NeonCyan
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        val c = when (log.level) {
+                            LogLevel.SUCCESS -> NeonGreen
+                            LogLevel.ERROR -> NeonRed
+                            LogLevel.WARNING -> NeonAmber
+                            LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
                         }
-                        Text(log, style = MaterialTheme.typography.labelMedium, color = c, modifier = Modifier.padding(vertical = 1.dp))
+                        Text("[${log.timestamp}] ${log.message}", style = MaterialTheme.typography.labelMedium, color = c, modifier = Modifier.padding(vertical = 1.dp))
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun MiniLogViewer(logs: List<LogEntry>, modifier: Modifier = Modifier) {
+    if (logs.isEmpty()) return
+    GlassCard(modifier = modifier, accentColor = NeonAmber) {
+        Text("Status", style = MaterialTheme.typography.labelMedium, color = NeonAmber.copy(alpha = 0.7f))
+        Spacer(Modifier.height(6.dp))
+        logs.takeLast(5).forEach { log ->
+            val c = when (log.level) {
+                LogLevel.SUCCESS -> NeonGreen
+                LogLevel.ERROR -> NeonRed
+                LogLevel.WARNING -> NeonAmber
+                LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+            }
+            Text("[${log.timestamp}] ${log.message}", style = MaterialTheme.typography.bodySmall, color = c)
         }
     }
 }

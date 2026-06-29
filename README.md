@@ -88,7 +88,9 @@ The app needs to read/write game config files in `Android/data/com.kurogame.wuth
 - **Custom Config** — pick `.ini` files to apply (Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini). Auto-backup before applying.
 - **Delete Config Files** — removes all 5 config files from game directory
 - **Quick Actions** — Backups, Collect Client.log, Config Generator, Cancel
-- **Real-time log viewer** with color-coded messages
+- **Real-time log viewer** with color-coded messages, save icon to export to `Downloads/WuWaConfig/`
+
+> All user-facing files (saved logs, collected Client.log, config backups) are stored in `Downloads/WuWaConfig/` — accessible from any file manager.
 
 ### Config Generator
 
@@ -172,7 +174,7 @@ Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via l
 - **Manual backup** — named backups from Backups screen
 - **Restore** — push saved files back to device
 - **Delete** — remove old backups
-- Stored as JSON in configured backup directory
+- Also saved as `.ini` files in `Downloads/WuWaConfig/Backups/{name}/` for browsing
 
 ### Settings
 

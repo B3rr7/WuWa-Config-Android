@@ -287,7 +287,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     if (showBackupDirDialog) {
         AlertDialog(
             onDismissRequest = { showBackupDirDialog = false },
-            containerColor = CardSurface,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             title = { Text("Backup Directory", color = NeonCyan, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
@@ -330,7 +330,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     if (showRemoveBgDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveBgDialog = false },
-            containerColor = CardSurface,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             title = { Text("Remove Background", color = NeonRed, fontWeight = FontWeight.Bold) },
             text = { Text("Remove the custom background image/video and revert to the default gradient?") },
             confirmButton = {
