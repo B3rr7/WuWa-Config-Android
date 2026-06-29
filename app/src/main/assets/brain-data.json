@@ -1,7 +1,7 @@
 {
   "_info": "Smart Brain Database - Compiled from GitHub, Reddit, YouTube, Community + Game DeviceProfiles",
   "_version": "2026.05.18",
-  "_sources": ["AlteriaX/WuWa-Configs", "Arglax/Mobile-WuWa-Config", "Geilan63lan/Wuwa-Mobile-Config", "r/WutheringWaves", "YouTube guides", "WuWa Game DeviceProfiles"],
+  "_sources": ["PC config community", "Arglax/Mobile-WuWa-Config", "Geilan63lan/Wuwa-Mobile-Config", "r/WutheringWaves", "YouTube guides", "WuWa Game DeviceProfiles"],
   "_last_updated": "2026-05-18",
   "gpu_profiles": {
     "android": {
@@ -778,7 +778,7 @@
       "r.FidelityFX.FSR.RCAS.Enabled": {
         "reason": "Causes visual artifacts + crash on some GPUs",
         "fix": "Remove entirely - game uses its own upscaler",
-        "source": "AlteriaX/WuWa-Configs"
+        "source": "PC config community"
       },
       "r.TemporalAA.Sharpness": {
         "reason": "Causes visual artifacts",
@@ -826,7 +826,7 @@
       {"issue": "Frame generation stutter", "fix": "r.KuroFI.Enable=1 after first launch", "source": "YouTube guides"}
     ],
     "2026-03": [
-      {"issue": "Vulkan init failure", "fix": "r.Vulkan.RobustBufferAccess=1", "source": "AlteriaX"},
+      {"issue": "Vulkan init failure", "fix": "r.Vulkan.RobustBufferAccess=1", "source": "PC config community"},
       {"issue": "Thermal throttling", "fix": "r.Kuro.AutoCoolEnable=1", "source": "Arglax"}
     ],
     "2026-02": [
