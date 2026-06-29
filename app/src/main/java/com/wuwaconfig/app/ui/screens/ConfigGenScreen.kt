@@ -755,6 +755,25 @@ private fun VerificationBadge(report: VerificationReport) {
                 color = color
             )
         }
+        if (report.cvarDetails.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val redundant = report.redundantCount
+                val unknown = report.unknownCount
+                val monitored = report.monitoredCount
+                if (redundant > 0) {
+                    TagChip("$redundant redundant", NeonGreen.copy(alpha = 0.6f))
+                    Spacer(Modifier.width(4.dp))
+                }
+                if (unknown > 0) {
+                    TagChip("$unknown unknown", NeonAmber.copy(alpha = 0.6f))
+                    Spacer(Modifier.width(4.dp))
+                }
+                if (monitored > 0) {
+                    TagChip("$monitored monitored", NeonBlue.copy(alpha = 0.6f))
+                }
+            }
+        }
         if (report.rejected.isNotEmpty()) {
             Spacer(Modifier.height(4.dp))
             val sample = report.rejected.take(8).joinToString(", ")
@@ -773,6 +792,21 @@ private fun VerificationBadge(report: VerificationReport) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun TagChip(text: String, color: Color) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = color.copy(alpha = 0.15f)
+    ) {
+        Text(
+            text,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = color
+        )
     }
 }
 
