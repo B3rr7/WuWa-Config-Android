@@ -181,6 +181,19 @@ object SmartBrain {
         // ── Active CVar analysis ───────────────────────────────────
         val cvars = info.activeCvars
         if (cvars.isNotEmpty()) {
+            val known = cvars.keys.count { com.wuwaconfig.app.config.CvarDatabase.isKnown(it) }
+            val unknown = cvars.keys.size - known
+            val monitored = cvars.keys.count { com.wuwaconfig.app.config.CvarDatabase.isMonitored(it) }
+            val differFromDefault = cvars.count { (k, v) ->
+                com.wuwaconfig.app.config.CvarDatabase.differsFromDefault(k, v)
+            }
+            if (unknown > 5) { score -= 5; signals.add("$unknown unknown CVars in log: -5") }
+            if (monitored > 10) { score += 3; signals.add("$monitored monitored CVars tracked: +3") }
+            if (differFromDefault > 20) { score += 5; signals.add("$differFromDefault CVars differ from defaults (optimized): +5") }
+            if (differFromDefault < 5 && cvars.size > 10) { score -= 8; signals.add("Most CVars match game defaults (room to optimize): -8") }
+        }
+
+        if (cvars.isNotEmpty()) {
             val shadowQ = cvarValue(cvars, "sg.ShadowQuality")?.toIntOrNull()
             val texQ = cvarValue(cvars, "sg.TextureQuality")?.toIntOrNull()
             val resScale = cvarValue(cvars, "r.ScreenPercentage")?.toFloatOrNull()

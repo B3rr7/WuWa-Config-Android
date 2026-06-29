@@ -1,3 +1,4 @@
+<!-- wuthering waves config, wuwa fps boost, engine.ini optimization, unreal engine 4 mobile config, kuro games optimization, android game booster, mobile game config editor, gacha pity tracker, battle stats analyzer, fps unlock 120fps, graphics tuning, device profile config, scalability ini, hardware ini, gameusersettings ini, config generator android, wuthering waves android optimization, wuwa mobile config, wuwa lag fix android, wuthering waves stuttering fix, client log decryptor, wuwa engine ini tweak, deviceprofiles ini tutorial, increase wuwa fps, mobile gaming performance, vulkan shader cache optimization, wuthering waves 120fps, fps drop fix mobile, thermal throttling solution, kurogames config tool, snapdragon gaming optimization, adreno gpu tuning, mali gpu optimization, low end device booster, smartbrain scoring, configmonitor hash, cvar editor android, auto tune wizard, battle statistics, wuthering waves benchmark, wuwa config generator, android game booster wuwa, wuthering waves android optimization, wuthering waves 3.4 cyberpunk, wuwa version 3.4 config, kuro config monitor, wuwa graphics preset, mobile unreal engine tweaks, wuthering waves performance 2026, android data folder access, shizuku game config, adb wireless debugging game, wuwa startup config, engine ini mobile, gameusersettings fps unlock, wuthering waves low memory fix, wuwa texture streaming, cvar optimization android, wuwa config for poco, wuwa config for redmi, wuwa config for xiaomi, wuwa config for samsung, wuwa config for oneplus, wuwa config for realme, wuwa config for vivo, wuwa config for oppo, wuwa config for honor, wuwa config for huawei, wuwa config for nothing phone, wuwa config for motorola, wuwa config for asus rog, wuwa config for lenovo, wuwa poco x6 pro config, wuwa poco x5 pro config, wuwa poco f5 config, wuwa poco f6 config, wuwa redmi note 12 config, wuwa redmi note 13 config, wuwa samsung s23 config, wuwa samsung s24 config, wuwa oneplus 12 config, wuwa realme gt config, wuwa vivo x100 config, poco wuthering waves optimization, redmi wuthering waves performance, xiaomi wuwa fps boost, samsung galaxy wuwa config, galaxy s24 wuthering waves settings, poco f5 wuthering waves engine ini, poco f6 wuthering waves graphics, redmi note 13 wuthering waves lag fix, wuwa optimization snapdragon 8 gen 2, wuwa optimization snapdragon 8 gen 3, wuwa optimization dimensity 8300, wuwa optimization dimensity 9200, wuwa optimization kirin 9000 -->
 # WuWaConfig — Wuthering Waves Config Toolkit
 
 [![Release](https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
@@ -112,6 +113,8 @@ Algorithm evaluates device from 0-100:
 | GPU OOM | -12 to -30 |
 | Frame drops | -5 to -10 |
 | Forbidden CVars | -5 each (can toggle off) |
+| Unknown CVars | -5 if >5 in log |
+| Active CVars differ from game defaults | +5 if well-optimized, -8 if room to improve |
 | Combined signals | -5 to -6 |
 
 **Recommendations:** Ultra (80+), High (75+ / 70+), Balanced (55+ / 40+), Performance (<40), Potato (≤20 or OOM ≥2)
@@ -135,10 +138,10 @@ Overworld / Domain & Tower
 Toggle each: Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini
 
 #### 7. Generate
-Single button — generates configs, shows review dialog with monospace text editor. Edit CVars inline, then deploy from dialog or close without deploying.
+Single button — generates configs with automatic CVar optimization: redundant lines matching game defaults are commented out (`; REDUNDANT`), and unknown CVars not in the UE4 binary dump are flagged (`; UNKNOWN CVar`). Shows review dialog with monospace text editor. Edit CVars inline, then deploy from dialog or close without deploying.
 
 #### 8. Deploy
-Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge for each CVar.
+Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge with color-coded tag chips: **N redundant** (matches game defaults), **N unknown** (not in UE4 binary dump), **N monitored** (ConfigMonitor-tracked).
 
 #### 9. Auto-Tune Wizard
 Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via logcat → adjusts preset/options → redeploys until target FPS reached.
@@ -205,7 +208,8 @@ app/
     │   ├── ShizukuBackend.kt     # Shizuku API (reflection), 15s timeout
     │   └── SafBackend.kt         # DocumentFile, empty-path filter, 3-strategy fallback
     ├── config/
-    │   ├── ConfigGenerator.kt    # INI generation, CVar overrides, Scalability.ini
+    │   ├── ConfigGenerator.kt    # INI generation, CVar overrides, CvarDatabase optimization, Scalability.ini
+    │   ├── CvarDatabase.kt       # Loads 3 CVar files from assets (libUE4_cvars.txt, config_monitor_cvars.txt, config_monitor_values.txt), lookup + optimization + SmartBrain scoring
     │   ├── ConfigManager.kt      # Device I/O, backups, logs, profiles, battle stats, hashes
     │   ├── LogParser.kt          # XOR decryption, Convene URL extract, battle stat parse
     │   ├── SmartBrain.kt         # Scoring engine, recommendation
@@ -223,7 +227,7 @@ app/
     │   ├── PresetModels.kt       # CvarEntry, GameMode, GeneratorOptions (5 file toggles + allowRestrictedCvars), GeneratedIni
     │   ├── GamePaths.kt          # Directory paths, hash monitor config
     │   ├── ConfigPreset.kt       # ConfigFile, ConfigBackup
-    │   └── VerificationReport.kt # Deploy verification: accepted/rejected CVars from ConfigMonitor
+    │   └── VerificationReport.kt # Deploy verification: accepted/rejected CVars + CvarDetail (isKnown, isMonitored, gameDefault, matchesDefault)
     ├── service/
     │   ├── AdbConnectionService.kt  # ADB foreground service
     │   └── GachaPollService.kt      # Background gacha polling service
@@ -275,6 +279,8 @@ app/
 ## Topics
 
 Set these topics on the repo for better search visibility: `wuthering-waves`, `wuwa`, `android`, `fps-boost`, `engine-ini`, `config-optimizer`, `gacha-tracker`, `pity-calculator`, `kuro-games`, `mobile-gaming`, `performance`, `android-optimization`, `ue4`, `unreal-engine-4`, `adb`, `shizuku`, `gaming-tool`
+
+Additional keywords: `game-config-tool`, `fps-unlock`, `graphics-tuning`, `cvars-editor`, `client-log-analyzer`, `wuthering-waves-android`, `smart-brain-scoring`, `config-monitor`, `kuro-config`, `mobile-game-booster`, `gacha-history`, `genshin-alternative`, `open-world-mobile`, `wuwa-mobile-config`, `wuthering-waves-optimization`, `engine-ini-tweak`, `deviceprofiles-ini`, `vulkan-optimization`, `thermal-fix`, `low-end-booster`, `auto-tune-wizard`, `fps-benchmark`, `snapdragon-gaming`, `adreno-tuning`, `mali-gpu-config`, `shizuku-tool`, `adb-config-deploy`, `kuro-monitor-hash`, `cvar-database`
 
 ---
 
