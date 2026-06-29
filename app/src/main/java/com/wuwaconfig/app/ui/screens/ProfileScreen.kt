@@ -27,6 +27,7 @@ import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GradientBackground
+import com.wuwaconfig.app.ui.components.MiniLogViewer
 import com.wuwaconfig.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,15 +129,7 @@ fun ProfileScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     }
                 }
 
-                if (logs.isNotEmpty()) {
-                    GlassCard(accentColor = NeonAmber) {
-                        Text("Status", style = MaterialTheme.typography.labelMedium, color = NeonAmber.copy(alpha = 0.7f))
-                        Spacer(Modifier.height(6.dp))
-                        logs.takeLast(5).forEach { line ->
-                            Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
+                MiniLogViewer(logs)
 
                 Spacer(Modifier.height(16.dp))
             }

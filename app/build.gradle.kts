@@ -11,8 +11,8 @@ android {
         applicationId = "com.wuwaconfig.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
     }
 
     val keystoreProps = rootProject.file("keystore.properties").let { f ->
@@ -60,6 +60,15 @@ android {
 
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
+    }
+
+    applicationVariants.configureEach {
+        val vName = name
+        val vVersion = versionName
+        outputs.configureEach {
+            val apkName = if (vName == "release") "WuWap42-v${vVersion}-release.apk" else "WuWap42-debug.apk"
+            (this as com.android.build.gradle.internal.api.ApkVariantOutputImpl).outputFileName = apkName
+        }
     }
 
     packaging {
