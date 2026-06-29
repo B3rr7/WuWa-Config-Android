@@ -2,6 +2,7 @@ package com.wuwaconfig.app.config
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.os.Environment
 import android.util.Base64
 import android.util.Log
 import com.wuwaconfig.app.backend.AccessBackend
@@ -24,6 +25,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
     private val gson = Gson()
 
     private val backupDir: File = File(backupDirPath ?: File(context.filesDir, "backups").absolutePath).also { it.mkdirs() }
+    private val publicDir: File = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WuWaConfig").also { it.mkdirs() }
 
     suspend fun applyCustomConfigs(
         engineIni: String?,
@@ -122,7 +124,10 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             backupDir.mkdirs()
             val savedFile = File(backupDir, "Client.log")
             savedFile.writeText(content)
+            val publicFile = File(publicDir, "Client.log")
+            publicFile.writeText(content)
             onProgress("Saved to ${savedFile.absolutePath}")
+            onProgress("Also saved to ${publicFile.absolutePath} (public)")
             Result.success(savedFile.absolutePath)
         } catch (e: Exception) {
             Result.failure(e)
@@ -144,6 +149,8 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             Log.d("ConfigManager", "createBackup: saving backup to $backupDir")
             val backup = ConfigBackup(name = name, files = configFiles, type = type)
             File(backupDir, "${backup.id}.json").writeText(gson.toJson(backup))
+            val publicBackupDir = File(File(publicDir, "Backups"), sanitizeDirName(name)).also { it.mkdirs() }
+            configFiles.forEach { f -> File(publicBackupDir, f.name).writeText(f.content) }
             Log.d("ConfigManager", "createBackup: SUCCESS")
             Result.success(backup)
         } catch (e: Exception) {
@@ -163,9 +170,14 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             ?: emptyList()
     }
 
+    private fun sanitizeDirName(name: String): String =
+        name.replace(Regex("""[<>:"/\\|?*]"""), "_").take(100)
+
     fun deleteLocalBackup(backup: ConfigBackup) {
         val file = File(backupDir, "${backup.id}.json")
         if (file.exists()) file.delete()
+        val pubDir = File(File(publicDir, "Backups"), sanitizeDirName(backup.name))
+        if (pubDir.exists()) pubDir.deleteRecursively()
     }
 
     suspend fun restoreBackup(backup: ConfigBackup, onProgress: (String) -> Unit): Result<String> {

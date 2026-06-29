@@ -464,7 +464,7 @@ fun HomeScreen(
 
                 // --- Log ---
                 item {
-                    LogViewer(logs)
+                    LogViewer(logs, onSave = { viewModel.saveLogs() })
                 }
             }
         }
@@ -481,7 +481,7 @@ fun HomeScreen(
     if (showAdbDialog) {
         AlertDialog(
             onDismissRequest = { showAdbDialog = false },
-            containerColor = CardSurface,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             icon = { Icon(Icons.Default.Adb, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(32.dp)) },
             title = { Text("Wireless Debugging", color = NeonCyan, fontWeight = FontWeight.Bold) },
             text = {
@@ -535,7 +535,7 @@ fun HomeScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            containerColor = CardSurface,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = NeonRed, modifier = Modifier.size(32.dp)) },
             title = { Text("Delete Config Files", color = NeonRed, fontWeight = FontWeight.Bold) },
             text = {

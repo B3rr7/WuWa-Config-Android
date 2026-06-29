@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -30,7 +31,9 @@ import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
+import com.wuwaconfig.app.model.LogEntry
 import com.wuwaconfig.app.model.LogInfo
+import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.service.AdbConnectionService
 import com.wuwaconfig.app.service.GachaPollService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +41,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -58,8 +62,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _backups = MutableStateFlow<List<ConfigBackup>>(emptyList())
     val backups: StateFlow<List<ConfigBackup>> = _backups.asStateFlow()
 
-    private val _logs = MutableStateFlow<List<String>>(emptyList())
-    val logs: StateFlow<List<String>> = _logs.asStateFlow()
+    private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
+    val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
 
     private val _deployResult = MutableStateFlow<String?>(null)
     val deployResult: StateFlow<String?> = _deployResult.asStateFlow()
@@ -926,9 +930,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _backups.value = configManager.getLocalBackups()
     }
 
-    fun addLog(message: String) {
+    fun addLog(message: String, level: LogLevel = detectLevel(message)) {
         val ts = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
-        _logs.value = (_logs.value + "[$ts] $message").takeLast(200)
+        _logs.value = (_logs.value + LogEntry(message, ts, level)).takeLast(200)
+    }
+
+    fun clearLogs() {
+        _logs.value = emptyList()
+    }
+
+    fun saveLogs() {
+        viewModelScope.launch {
+            val entries = _logs.value
+            if (entries.isEmpty()) {
+                addLog("No logs to save.", level = LogLevel.WARNING)
+                return@launch
+            }
+            val content = entries.joinToString("\n") { "[${it.timestamp}] ${it.message}" }
+            try {
+                val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WuWaConfig").also { it.mkdirs() }
+                val fileName = "WuWaConfig_${SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())}.txt"
+                val file = File(dir, fileName)
+                file.writeText(content)
+                addLog("Log saved: ${file.absolutePath}", level = LogLevel.SUCCESS)
+            } catch (e: Exception) {
+                addLog("Failed to save log: ${e.message}", level = LogLevel.ERROR)
+            }
+        }
+    }
+
+    private fun detectLevel(message: String): LogLevel = when {
+        message.startsWith("SUCCESS:") || message.startsWith("SUCCESS ") -> LogLevel.SUCCESS
+        message.startsWith("WARNING:") -> LogLevel.WARNING
+        message.startsWith("ERROR:") || message.startsWith("FAILED:") || message.startsWith("CRASH:") -> LogLevel.ERROR
+        else -> LogLevel.INFO
     }
 
 }

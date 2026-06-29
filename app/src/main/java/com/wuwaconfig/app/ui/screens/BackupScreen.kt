@@ -102,7 +102,7 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         if (showCreateDialog) {
             AlertDialog(
                 onDismissRequest = { showCreateDialog = false; backupName = "" },
-                containerColor = CardSurface,
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 titleContentColor = NeonPink,
                 textContentColor = MaterialTheme.colorScheme.onSurface,
                 title = { Text("Create Backup", color = NeonPink, fontWeight = FontWeight.Bold) },
