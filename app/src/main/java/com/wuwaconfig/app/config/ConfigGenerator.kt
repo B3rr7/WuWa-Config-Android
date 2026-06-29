@@ -315,6 +315,10 @@ object ConfigGenerator {
             add("r.Mobile.PixelProjectedReflectionQuality=${if (p.detail > 1) 1 else 0}")
             add("r.Mobile.EnableStaticAndCSMShadowReceivers=1")
             add("")
+            add("; ── VRS (Variable Rate Shading) ───────────────────────")
+            add("r.VRS.EnableMaterial=1")
+            add("r.VRS.EnableMesh=1")
+            add("")
             add("; ── EFFECTS / PARTICLES ──────────────────────────────")
             add("; ⚠ CRASH FIX March 2026 — MANDATORY")
             add("fx.KuroUseGPUParticles=0")
@@ -355,7 +359,7 @@ object ConfigGenerator {
             add("r.Shadow.TexelsPerPixel=${if (p.detail > 2) 2.0 else if (p.detail > 0) 1.5 else 1.0}")
             add("")
             add("; ── ENVIRONMENT ──────────────────────────────────────")
-            if (opts.fog) { add("r.Fog=0"); add("r.KuroVolumeCloudEnable=0") } else add("r.Fog=1")
+            if (opts.fog) { add("r.Fog=0"); add("r.KuroVolumeCloudEnable=0") } else { add("r.Fog=1"); add("r.KuroVolumeCloudEnable=1") }
             add("r.Kuro.SuperFarFogGlobalDistanceScale=${if (p.detail > 1) 1 else 0}")
             add("r.LightFunctionQuality=1")
             add("r.Kuro.LightFunction=1")
@@ -441,6 +445,7 @@ object ConfigGenerator {
             if (hasVulkan || opts.vulkan) {
                 add("r.Vulkan.RobustBufferAccess=1")
                 add("r.Vulkan.DescriptorSetLayoutMode=2")
+                add("r.Vulkan.PipelineLRUCapactiy=128")
             } else add("; Vulkan not detected")
             add("")
             add("; ── FORBIDDEN CVAR OVERRIDES ──────────────────────────")
