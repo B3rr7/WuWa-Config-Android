@@ -800,9 +800,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     addLog("Verifying deployed CVars against ConfigMonitor...")
                     _readingProgress.value = 50
                     configManager.verifyDeployedCvars(com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars).onSuccess { report ->
-                        _verificationReport.value = report
+                        val cvarValues = com.wuwaconfig.app.config.CvarDatabase.extractCvarValues(engineWithPaths)
+                        val details = com.wuwaconfig.app.config.CvarDatabase.buildCvarDetails(
+                            com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars,
+                            cvarValues
+                        )
+                        _verificationReport.value = report.copy(cvarDetails = details)
                         _readingProgress.value = 100
                         addLog("VERIFY: ${report.recognizedCount}/${report.totalCount} CVars accepted by engine")
+                        if (details.values.count { it.matchesDefault } > 0) {
+                            addLog("CVar DB: ${details.values.count { it.matchesDefault }} redundant CVars (match game defaults)")
+                        }
                         if (report.rejected.isNotEmpty()) {
                             val sample = report.rejected.take(5).joinToString(", ")
                             addLog("Unrecognized (sample): $sample${if (report.rejected.size > 5) "..." else ""}")
