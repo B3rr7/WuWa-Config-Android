@@ -77,7 +77,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _readingProgress = MutableStateFlow(0)
     val readingProgress: StateFlow<Int> = _readingProgress.asStateFlow()
 
-    fun clearDeployResult() { _deployResult.value = null; _verificationReport.value = null }
+    fun clearDeployResult() { _deployResult.value = null }
     fun clearConveneUrl() { _conveneUrl.value = null; _gachaData.value = null }
 
     private val _gachaHistory = MutableStateFlow<GachaHistoryEntry?>(null)
@@ -760,6 +760,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isApplying.value = true
             try {
+                _verificationReport.value = null
                 addLog("Deploying generated configs...")
 
                 val existingResult = configManager.readCurrentConfig("Engine.ini")
@@ -780,11 +781,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-                val engineWithPaths = com.wuwaconfig.app.config.ConfigGenerator.generateWithCorePaths(
-                    com.wuwaconfig.app.config.ConfigGenerator.activePreset,
-                    opts,
-                    corePaths
-                ).engine
+                val engineWithPaths = if (opts.generateEngine) {
+                    val sourceEngine = ini.engine.ifBlank {
+                        com.wuwaconfig.app.config.ConfigGenerator.generateWithCorePaths(
+                            com.wuwaconfig.app.config.ConfigGenerator.activePreset,
+                            opts,
+                            corePaths
+                        ).engine
+                    }
+                    com.wuwaconfig.app.config.ConfigGenerator.replaceCoreSystemPaths(sourceEngine, corePaths)
+                        .also { com.wuwaconfig.app.config.ConfigGenerator.rememberGeneratedCvars(it) }
+                } else {
+                    ""
+                }
 
                 val result = configManager.applyCustomConfigs(
                     engineIni = if (opts.generateEngine) engineWithPaths else null,
@@ -797,26 +806,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     _deployResult.value = result.getOrThrow()
                     configManager.refreshConfigHashes().onSuccess { addLog(it) }
-                    addLog("Verifying deployed CVars against ConfigMonitor...")
-                    _readingProgress.value = 50
-                    configManager.verifyDeployedCvars(com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars).onSuccess { report ->
-                        val cvarValues = com.wuwaconfig.app.config.CvarDatabase.extractCvarValues(engineWithPaths)
-                        val details = com.wuwaconfig.app.config.CvarDatabase.buildCvarDetails(
-                            com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars,
-                            cvarValues
-                        )
-                        _verificationReport.value = report.copy(cvarDetails = details)
-                        _readingProgress.value = 100
-                        addLog("VERIFY: ${report.recognizedCount}/${report.totalCount} CVars accepted by engine")
-                        if (details.values.count { it.matchesDefault } > 0) {
-                            addLog("CVar DB: ${details.values.count { it.matchesDefault }} redundant CVars (match game defaults)")
+                    if (opts.generateEngine) {
+                        addLog("Verifying deployed CVars against ConfigMonitor...")
+                        _readingProgress.value = 50
+                        configManager.verifyDeployedCvars(com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars).onSuccess { report ->
+                            val cvarValues = com.wuwaconfig.app.config.CvarDatabase.extractCvarValues(engineWithPaths)
+                            val details = com.wuwaconfig.app.config.CvarDatabase.buildCvarDetails(
+                                com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars,
+                                cvarValues
+                            )
+                            _verificationReport.value = report.copy(cvarDetails = details)
+                            _readingProgress.value = 100
+                            addLog("VERIFY: ${report.recognizedCount}/${report.totalCount} CVars accepted by engine")
+                            if (details.values.count { it.matchesDefault } > 0) {
+                                addLog("CVar DB: ${details.values.count { it.matchesDefault }} redundant CVars (match game defaults)")
+                            }
+                            if (report.rejected.isNotEmpty()) {
+                                val sample = report.rejected.take(5).joinToString(", ")
+                                addLog("Unrecognized (sample): $sample${if (report.rejected.size > 5) "..." else ""}")
+                            }
+                        }.onFailure { e ->
+                            addLog("Verify skipped: ${e.message}")
                         }
-                        if (report.rejected.isNotEmpty()) {
-                            val sample = report.rejected.take(5).joinToString(", ")
-                            addLog("Unrecognized (sample): $sample${if (report.rejected.size > 5) "..." else ""}")
-                        }
-                    }.onFailure { e ->
-                        addLog("Verify skipped: ${e.message}")
                     }
                     _readingProgress.value = 0
                 } else {

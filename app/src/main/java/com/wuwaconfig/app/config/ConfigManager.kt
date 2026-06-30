@@ -102,9 +102,9 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             if (logResult.isFailure) return@withContext Result.failure(logResult.exceptionOrNull()!!)
             val (text, _) = logResult.getOrThrow()
             val info = LogParser.parseLog(text)
-            val recognized = info.activeCvars.keys
-            val accepted = generatedCvars.filter { it in recognized }.toSet()
-            val rejected = generatedCvars - recognized
+            val recognizedLower = info.activeCvars.keys.map { it.lowercase() }.toSet()
+            val accepted = generatedCvars.filter { it.lowercase() in recognizedLower }.toSet()
+            val rejected = generatedCvars - accepted
             Result.success(VerificationReport(
                 accepted = accepted,
                 rejected = rejected,

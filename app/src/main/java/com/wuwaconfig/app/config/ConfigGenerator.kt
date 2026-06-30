@@ -28,10 +28,59 @@ object ConfigGenerator {
     var allowRestrictedCvars = true
     var lastGeneratedCvars: Set<String> = emptySet()
 
-    private val cvarPattern = Regex("""^([\w.]+)=""", RegexOption.MULTILINE)
+    private val cvarPrefixes = listOf(
+        "a.", "fx.", "foliage.", "gc.", "grass.", "kuro.", "lod.", "niagara.",
+        "r.", "s.", "sg.", "wp."
+    )
 
-    private fun extractCvarNames(iniText: String): Set<String> =
-        cvarPattern.findAll(iniText).map { it.groupValues[1] }.toSet()
+    private fun extractCvarNames(iniText: String): Set<String> {
+        val names = linkedSetOf<String>()
+        for (line in iniText.lines()) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith(";") || trimmed.startsWith("#") ||
+                trimmed.startsWith("//") || trimmed.startsWith("[")
+            ) continue
+
+            val kv = trimmed.removePrefix("+CVars=").removePrefix("-CVars=").trim()
+            val eq = kv.indexOf('=')
+            if (eq <= 0) continue
+            val key = kv.substring(0, eq).trim()
+            val keyLower = key.lowercase()
+            if (cvarPrefixes.any { keyLower.startsWith(it) }) names.add(key)
+        }
+        return names
+    }
+
+    fun rememberGeneratedCvars(iniText: String) {
+        lastGeneratedCvars = extractCvarNames(iniText)
+    }
+
+    fun replaceCoreSystemPaths(engineIni: String, corePaths: List<String>): String {
+        val lines = engineIni.lines()
+        val result = mutableListOf<String>()
+        var i = 0
+        var replaced = false
+
+        while (i < lines.size) {
+            val trimmed = lines[i].trim()
+            if (trimmed.equals("[Core.System]", ignoreCase = true)) {
+                result.addAll(corePaths)
+                replaced = true
+                i++
+                while (i < lines.size && !lines[i].trim().startsWith("[")) i++
+                continue
+            }
+            result.add(lines[i])
+            i++
+        }
+
+        if (!replaced) {
+            val insertAt = result.indexOfFirst { it.trim().startsWith("[SystemSettings]", ignoreCase = true) }
+                .let { if (it >= 0) it else 0 }
+            result.addAll(insertAt, corePaths + "")
+        }
+        return result.joinToString("\n")
+    }
 
     val DEFAULT_CORE_SYSTEM = listOf(
         "[Core.System]",
@@ -145,14 +194,15 @@ object ConfigGenerator {
     }
 
     fun generate(preset: String, opts: GeneratorOptions, existingEngineContent: String? = null,
-                 logInfo: LogInfo = this.logInfo, activePreset: String = this.activePreset): GeneratedIni {
+                 logInfo: LogInfo = this.logInfo, activePreset: String = preset): GeneratedIni {
         val corePaths = if (existingEngineContent != null) extractCoreSystemPaths(existingEngineContent) else null
         return if (corePaths != null) generateWithCorePaths(preset, opts, corePaths, logInfo, activePreset)
         else generateWithCorePaths(preset, opts, DEFAULT_CORE_SYSTEM, logInfo, activePreset)
     }
 
     fun generateWithCorePaths(preset: String, opts: GeneratorOptions, corePaths: List<String>,
-                              logInfo: LogInfo = this.logInfo, activePreset: String = this.activePreset): GeneratedIni {
+                              logInfo: LogInfo = this.logInfo, activePreset: String = preset): GeneratedIni {
+        this.activePreset = activePreset
         val p = PRESETS[preset] ?: error("Unknown preset: $preset")
         val engine = applyCvarOverrides(buildAndroidEngineIni(p, opts, corePaths, logInfo, activePreset), opts.cvarOverrides)
         val optimizedEngine = if (opts.optimizeWithCvarDb) {
@@ -162,7 +212,7 @@ object ConfigGenerator {
         val gus = buildAndroidGameUserSettingsIni(p, opts, logInfo)
         val sc = if (opts.generateScalability) buildAndroidScalabilityIni(p, opts) else ""
         val hw = if (opts.generateHardware) buildAndroidHardwareIni(p, opts, logInfo) else ""
-        lastGeneratedCvars = extractCvarNames(optimizedEngine)
+        rememberGeneratedCvars(optimizedEngine)
         return GeneratedIni(engine = optimizedEngine, deviceProfiles = dp, gameUserSettings = gus, scalability = sc, hardware = hw)
     }
 
@@ -178,10 +228,9 @@ object ConfigGenerator {
         val hasThermalIssues = logInfo.thermalEvents >= 5
         val isHighEnd = Regex("""adreno.*7\d{2}""").containsMatchIn(gpu) ||
                 Regex("""adreno.*8\d{2}""").containsMatchIn(gpu) ||
-                gpu.contains("mali-g7") || gpu.contains("mali-g6") || gpu.contains("mali-g615") ||
-                ((logInfo.fpsCap ?: 0) >= 60 && !Regex("""adreno.*6\d{2}""").containsMatchIn(gpu))
+                Regex("""mali-g(7\d{1,2}|8\d{1,2}|9\d{1,2})""").containsMatchIn(gpu)
         val isMid = Regex("""adreno.*6\d{2}""").containsMatchIn(gpu) ||
-                gpu.contains("mali-g5") || gpu.contains("mali-g57") || gpu.contains("mali-g68")
+                Regex("""mali-g(5\d{1,2}|6\d{1,2})""").containsMatchIn(gpu)
         val grassCull = if (isHighEnd) 2000 else if (isMid && hasThermalIssues) 600 else if (isMid) 1200 else 800
         return DeviceTier(
             isHighEnd = isHighEnd, isMid = isMid, hasThermalIssues = hasThermalIssues,
