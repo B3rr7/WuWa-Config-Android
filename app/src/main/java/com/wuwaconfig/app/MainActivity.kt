@@ -22,7 +22,9 @@ import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.screens.BackupScreen
 import com.wuwaconfig.app.ui.screens.BattleStatsScreen
 import com.wuwaconfig.app.ui.screens.ConfigGenScreen
+import com.wuwaconfig.app.ui.screens.HistoryScreen
 import com.wuwaconfig.app.ui.screens.HomeScreen
+import com.wuwaconfig.app.ui.screens.LogsScreen
 import com.wuwaconfig.app.ui.screens.PityScreen
 import com.wuwaconfig.app.ui.screens.ProfileScreen
 import com.wuwaconfig.app.ui.screens.SettingsScreen
@@ -141,7 +143,9 @@ fun AppNavigation(viewModel: MainViewModel) {
                 onNavigateToConfigGen = { navController.navigate("configgen") },
                 onNavigateToPity = { navController.navigate("pity") },
                 onNavigateToProfile = { navController.navigate("profile") },
-                onNavigateToBattleStats = { navController.navigate("battlestats") }
+                onNavigateToBattleStats = { navController.navigate("battlestats") },
+                onNavigateToLogs = { navController.navigate("logs") },
+                onNavigateToHistory = { navController.navigate("history") }
             )
         }
         composable("backups") {
@@ -176,6 +180,18 @@ fun AppNavigation(viewModel: MainViewModel) {
         }
         composable("battlestats") {
             BattleStatsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("logs") {
+            LogsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("history") {
+            HistoryScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )

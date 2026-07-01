@@ -86,7 +86,7 @@ The app needs to read/write game config files in `Android/data/com.kurogame.wuth
 
 - **Backend Status** — current access method, connection state. Tap chip to cycle methods.
 - **Manual ADB** — enter IP:port for Wireless Debugging
-- **Custom Config** — pick `.ini` files to apply (Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini). Auto-backup before applying.
+- **Custom Config** — pick `.ini` files to apply (Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini). When <5 files uploaded, Backup Scope dialog asks: back up all 5 or only overwritten files. Success popup with green checkmark after deploy.
 - **Delete Config Files** — removes all 5 config files from game directory
 - **Quick Actions** — Backups, Collect Client.log, Config Generator, Cancel
 - **Real-time log viewer** with color-coded messages, save icon to export to `Downloads/WuWaConfig/`
@@ -173,9 +173,10 @@ Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via l
 
 ### Backup & Restore
 
-- **Auto-backup** — created before any config write
-- **Manual backup** — named backups from Backups screen
-- **Restore** — push saved files back to device
+- **Per-file selection** — both create and restore allow picking which .ini files to include via checkboxes
+- **Create Backup** — dialog shows checkboxes for all 5 INI files (default: all checked). Only checked files are read from device and saved.
+- **Restore Backup** — "Restore" opens dialog with the backup's files as checkboxes (default: all checked). Only checked files are pushed to device.
+- **Auto-backup** — created before any config write; when <5 files uploaded, asks whether to back up all 5 or only the files being overwritten
 - **Delete** — remove old backups
 - Also saved as `.ini` files in `Downloads/WuWaConfig/Backups/{name}/` for browsing
 
@@ -194,7 +195,7 @@ Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via l
 ```
 app/
 └── src/main/java/com/wuwaconfig/app/
-    ├── MainActivity.kt           # Navigation (7 screens), permissions
+    ├── MainActivity.kt           # Navigation (10 screens), permissions
     ├── WuWaConfigApp.kt          # Application class, backend holder, background settings
     ├── adb/
     │   ├── AdbProtocol.kt        # Wire protocol message encode/decode
@@ -210,10 +211,12 @@ app/
     ├── config/
     │   ├── ConfigGenerator.kt    # INI generation, CVar overrides, CvarDatabase optimization, Scalability.ini
     │   ├── CvarDatabase.kt       # Loads 3 CVar files from assets (libUE4_cvars.txt, config_monitor_cvars.txt, config_monitor_values.txt), lookup + optimization + SmartBrain scoring
+    │   ├── CvarOptimizer.kt      # Per-device profile optimizer (Advanced Gen mode)
     │   ├── ConfigManager.kt      # Device I/O, backups, logs, profiles, battle stats, hashes
+    │   ├── DeployHistoryStore.kt # Deploy history JSON persistence (20 records max)
     │   ├── LogParser.kt          # XOR decryption, Convene URL extract, battle stat parse
     │   ├── SmartBrain.kt         # Scoring engine, recommendation
-    │   ├── ForbiddenCvars.kt    # 31 known Kuro restricted CVars + strip/filter helpers
+    │   ├── ForbiddenCvars.kt    # 33 known Kuro restricted CVars + strip/filter helpers
     │   ├── BenchmarkTuner.kt     # Auto-tune: FPS capture, preset adjustment
     │   ├── GachaApi.kt           # Gacha API client (HTTP POST, pity calc, predictions)
     │   ├── GachaHistoryStore.kt  # Local gacha history persistence (12hr TTL)
@@ -223,7 +226,9 @@ app/
     │   ├── GachaRecord.kt        # GachaRecord, GachaPool, GachaData, PityPrediction, GachaHistoryEntry
     │   ├── PlayerProfile.kt      # Profile data class
     │   ├── BattleStats.kt        # BattleStats data class
+    │   ├── DeployRecord.kt       # DeployRecord + DeployComparison for deploy history
     │   ├── LogInfo.kt            # Parsed log data
+    │   ├── LogRepository.kt      # Global log singleton with rotating file
     │   ├── PresetModels.kt       # CvarEntry, GameMode, GeneratorOptions (5 file toggles + allowRestrictedCvars), GeneratedIni
     │   ├── GamePaths.kt          # Directory paths, hash monitor config
     │   ├── ConfigPreset.kt       # ConfigFile, ConfigBackup
@@ -236,13 +241,15 @@ app/
         ├── components/
         │   └── Components.kt     # GlassCard, GradientBackground, GlitchText, GlassButton, etc.
         ├── screens/
-        │   ├── HomeScreen.kt     # Backend control, actions, log viewer
-        │   ├── ConfigGenScreen.kt # Analysis, presets, options, auto-tune, 4-tab review
+        │   ├── HomeScreen.kt     # Backend control, custom config (with backup scope dialog + success popup), actions, log viewer, deploy history card
+        │   ├── ConfigGenScreen.kt # Analysis, presets, options, advanced per-device tuning, auto-tune, verification
         │   ├── PityScreen.kt     # Gacha fetcher, summary, predictions, history
         │   ├── ProfileScreen.kt  # Player profile view (cached)
         │   ├── BattleStatsScreen.kt # Battle stats from Client.log
-        │   ├── BackupScreen.kt   # Backup list + CRUD
-        │   ├── SettingsScreen.kt # Theme, backgrounds, info
+        │   ├── BackupScreen.kt   # Backup list + CRUD with per-file selection
+        │   ├── HistoryScreen.kt  # Deploy history viewer with comparison
+        │   ├── LogsScreen.kt     # Full-screen log viewer with search/filter
+        │   ├── SettingsScreen.kt # Theme, backgrounds, info, deploy history toggle
         │   ├── SetupScreen.kt    # First-run setup
         │   └── TermsScreen.kt    # Terms of use
         └── theme/

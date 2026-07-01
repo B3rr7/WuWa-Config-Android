@@ -1,6 +1,8 @@
 package com.wuwaconfig.app.config
 
 import com.wuwaconfig.app.model.LogInfo
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 
 data class BrainRecommendation(
     val preset: String,
@@ -78,6 +80,7 @@ object SmartBrain {
         cvars.entries.firstOrNull { it.key.contains(key, ignoreCase = true) }?.value
 
     fun scoreRecommendation(info: LogInfo): BrainRecommendation {
+        LogRepository.add("SmartBrain: analyzing device info (GPU=${info.gpu}, RAM=${info.ramMb}MB, thermal=${info.thermalEvents})")
         var score = 50
         val signals = mutableListOf<String>()
         val warnings = mutableListOf<String>()
@@ -260,6 +263,7 @@ object SmartBrain {
         }
 
         val preset = recommendPreset(score, info, tier, isHighRes)
+        LogRepository.add("SmartBrain: score=$score, recommended preset='$preset', ${signals.size} signals, ${warnings.size} warnings")
         return BrainRecommendation(preset, score, score, signals, warnings)
     }
 

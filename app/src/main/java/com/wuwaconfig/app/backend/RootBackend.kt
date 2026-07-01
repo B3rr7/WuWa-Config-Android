@@ -1,5 +1,7 @@
 package com.wuwaconfig.app.backend
 
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -9,51 +11,62 @@ class RootBackend : AccessBackend {
         private set
 
     override suspend fun connect(): Result<Unit> = withContext(Dispatchers.IO) {
+        LogRepository.add("Root: checking su access...")
         try {
             val process = ProcessBuilder("su", "-c", "echo ROOT_OK")
                 .redirectErrorStream(true)
                 .start()
             val output = process.inputStream.bufferedReader().readText().trim()
             val exited = process.waitFor(10, TimeUnit.SECONDS)
-            if (!exited) { process.destroyForcibly(); return@withContext Result.failure(Exception("Root check timed out")) }
+            if (!exited) { process.destroyForcibly(); LogRepository.add("Root check timed out", LogLevel.ERROR); return@withContext Result.failure(Exception("Root check timed out")) }
             val exitCode = process.exitValue()
             if (exitCode == 0 && output == "ROOT_OK") {
                 isConnected = true
+                LogRepository.add("Root access granted", LogLevel.SUCCESS)
                 Result.success(Unit)
             } else {
+                LogRepository.add("Root access denied: $output", LogLevel.ERROR)
                 Result.failure(Exception(output.ifBlank { "Root access denied" }))
             }
         } catch (e: Exception) {
+            LogRepository.add("Root not available: ${e.message}", LogLevel.ERROR)
             Result.failure(Exception("Root not available: ${e.message}"))
         }
     }
 
     override fun disconnect() {
+        LogRepository.add("Root: disconnect")
         isConnected = false
     }
 
 
     override suspend fun executeShellCommand(command: String): Result<String> = withContext(Dispatchers.IO) {
+        LogRepository.add("Root shell: ${command.take(120)}")
         try {
             val process = ProcessBuilder("su", "-c", command)
                 .redirectErrorStream(true)
                 .start()
             val output = process.inputStream.bufferedReader().readText()
             val exited = process.waitFor(10, TimeUnit.SECONDS)
-            if (!exited) { process.destroyForcibly(); return@withContext Result.failure(Exception("Command timed out: $command")) }
+            if (!exited) { process.destroyForcibly(); LogRepository.add("Root shell timed out", LogLevel.ERROR); return@withContext Result.failure(Exception("Command timed out: $command")) }
             val exitCode = process.exitValue()
             if (exitCode != 0) {
+                LogRepository.add("Root shell failed (exit $exitCode): ${output.take(100)}", LogLevel.ERROR)
                 Result.failure(Exception(output.trim().ifEmpty { "Command failed with exit code $exitCode" }))
             } else {
                 Result.success(output.trim())
             }
         } catch (e: Exception) {
+            LogRepository.add("Root shell exception: ${e.message}", LogLevel.ERROR)
             Result.failure(e)
         }
     }
 
     override suspend fun pushFile(sourcePath: String, targetPath: String): Result<String> {
-        return executeShellCommand("cp \"$sourcePath\" \"$targetPath\"")
+        LogRepository.add("Root push: $sourcePath -> $targetPath")
+        val result = executeShellCommand("cp \"$sourcePath\" \"$targetPath\"")
+        if (result.isSuccess) LogRepository.add("Root push completed: $targetPath", LogLevel.SUCCESS)
+        return result
     }
 
     override suspend fun ensureDirectoryExists(dirPath: String): Result<String> {

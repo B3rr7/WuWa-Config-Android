@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wuwaconfig.app.adb.PortScanner
 import com.wuwaconfig.app.backend.AccessMethod
+import com.wuwaconfig.app.model.DeployComparison
+import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.*
 import com.wuwaconfig.app.ui.theme.*
@@ -61,18 +64,25 @@ fun HomeScreen(
     onNavigateToConfigGen: () -> Unit,
     onNavigateToPity: () -> Unit,
     onNavigateToProfile: () -> Unit,
-    onNavigateToBattleStats: () -> Unit
+    onNavigateToBattleStats: () -> Unit,
+    onNavigateToLogs: () -> Unit,
+    onNavigateToHistory: () -> Unit
 ) {
     val backendStatus by viewModel.backendStatus.collectAsState()
     val backups by viewModel.backups.collectAsState()
     val logs by viewModel.logs.collectAsState()
     val isApplying by viewModel.isApplying.collectAsState()
+    val deployRecords by viewModel.deployRecords.collectAsState()
+    val deployHistoryEnabled by viewModel.deployHistoryEnabled.collectAsState()
+    val customDeploySuccess by viewModel.customDeploySuccess.collectAsState()
 
 
     var customConfigState by remember { mutableStateOf(CustomConfigState.IDLE) }
     var pickedFiles by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showAdbDialog by remember { mutableStateOf(false) }
+    var showBackupScopeDialog by remember { mutableStateOf(false) }
+    var pendingApply by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
     var adbHost by remember { mutableStateOf(PortScanner.getDeviceIp()) }
     var adbPort by remember { mutableStateOf("") }
 
@@ -315,14 +325,20 @@ fun HomeScreen(
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     GlassButton(
                                         onClick = {
-                                            val engine = pickedFiles.firstOrNull { it.targetName == "Engine.ini" }?.content
-                                            val device = pickedFiles.firstOrNull { it.targetName == "DeviceProfiles.ini" }?.content
-                                            val gus = pickedFiles.firstOrNull { it.targetName == "GameUserSettings.ini" }?.content
-                                            val scalability = pickedFiles.firstOrNull { it.targetName == "Scalability.ini" }?.content
-                                            val hardware = pickedFiles.firstOrNull { it.targetName == "Hardware.ini" }?.content
-                                            viewModel.applyCustomFiles(engine, device, gus, scalability, hardware)
-                                            customConfigState = CustomConfigState.IDLE
-                                            pickedFiles = emptyList()
+                                            val selectedTargets = pickedFiles.map { it.targetName }.toSet()
+                                            if (selectedTargets.size < 5) {
+                                                pendingApply = pickedFiles
+                                                showBackupScopeDialog = true
+                                            } else {
+                                                val engine = pickedFiles.firstOrNull { it.targetName == "Engine.ini" }?.content
+                                                val device = pickedFiles.firstOrNull { it.targetName == "DeviceProfiles.ini" }?.content
+                                                val gus = pickedFiles.firstOrNull { it.targetName == "GameUserSettings.ini" }?.content
+                                                val scalability = pickedFiles.firstOrNull { it.targetName == "Scalability.ini" }?.content
+                                                val hardware = pickedFiles.firstOrNull { it.targetName == "Hardware.ini" }?.content
+                                                viewModel.applyCustomFiles(engine, device, gus, scalability, hardware)
+                                                customConfigState = CustomConfigState.IDLE
+                                                pickedFiles = emptyList()
+                                            }
                                         },
                                         modifier = Modifier.weight(1f),
                                         enabled = !isApplying,
@@ -450,6 +466,23 @@ fun HomeScreen(
                                 Spacer(Modifier.weight(1f))
                                 Text("Stats", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
                             }
+                            ElevatedButton(
+                                onClick = onNavigateToLogs,
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                enabled = true,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.elevatedButtonColors(
+                                    containerColor = NeonCyan.copy(alpha = 0.08f),
+                                    contentColor = NeonCyan
+                                ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
+                            ) {
+                                Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("App Log", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text("Full", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
+                            }
                             if (isApplying) {
                                 GlassOutlinedButton(
                                     onClick = { viewModel.cancelOperation() },
@@ -462,9 +495,83 @@ fun HomeScreen(
                     }
                 }
 
-                // --- Log ---
+                // --- Deploy History ---
+                if (deployHistoryEnabled && deployRecords.isNotEmpty()) {
+                    val latest = deployRecords.first()
+                    item {
+                        GlassCard(
+                            modifier = Modifier.clickable { onNavigateToHistory() },
+                            accentColor = NeonBlue.copy(alpha = 0.7f)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(NeonBlue.copy(alpha = 0.8f))
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Deploy History", style = MaterialTheme.typography.titleSmall, color = NeonBlue, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text(if (latest.hasOutcome) "Compared" else "Tap to compare", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Default.ChevronRight, contentDescription = "View", tint = NeonBlue.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column {
+                                    Text("${latest.presetName.uppercase()} — ${java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.US).format(java.util.Date(latest.timestamp))}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                                    Text("${latest.totalCount} CVars · ${latest.acceptedCount}/${latest.totalCount} accepted", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                                }
+                                if (latest.hasOutcome) {
+                                    val c = latest.comparison()
+                                    val fpsText = c.fpsDelta?.let { f -> "${if (f >= 0) "+" else ""}${"%.1f".format(f)} FPS" } ?: ""
+                                    Text(fpsText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = if ((c.fpsDelta ?: 0f) >= 0) NeonGreen else NeonRed)
+                                } else {
+                                    Text("?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // --- Recent Log ---
                 item {
-                    LogViewer(logs, onSave = { viewModel.saveLogs() })
+                    GlassCard(
+                        modifier = Modifier.clickable { onNavigateToLogs() },
+                        accentColor = NeonCyan
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(NeonCyan.copy(alpha = 0.8f))
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Recent Log", style = MaterialTheme.typography.titleSmall, color = NeonCyan, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.weight(1f))
+                            Text("${logs.size} entries", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.Default.ChevronRight, contentDescription = "View all", tint = NeonCyan.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        if (logs.isEmpty()) {
+                            Text("No logs yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
+                        } else {
+                            Column {
+                                logs.takeLast(5).forEach { log ->
+                                    val c = when (log.level) {
+                                        LogLevel.SUCCESS -> NeonGreen
+                                        LogLevel.ERROR -> NeonRed
+                                        LogLevel.WARNING -> NeonAmber
+                                        LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                    Text("[${log.timestamp}] ${log.message}", style = MaterialTheme.typography.bodySmall, color = c)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -556,6 +663,99 @@ fun HomeScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showBackupScopeDialog) {
+        val selectedNames = pendingApply.map { it.targetName }
+        AlertDialog(
+            onDismissRequest = { showBackupScopeDialog = false; pendingApply = emptyList() },
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            titleContentColor = NeonAmber,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            title = { Text("Backup Scope", color = NeonAmber, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("You are about to overwrite: ${selectedNames.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(12.dp))
+                    Text("Back up the other INI files too, or only the ones being overwritten?", style = MaterialTheme.typography.bodyMedium)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val engine = pendingApply.firstOrNull { it.targetName == "Engine.ini" }?.content
+                        val device = pendingApply.firstOrNull { it.targetName == "DeviceProfiles.ini" }?.content
+                        val gus = pendingApply.firstOrNull { it.targetName == "GameUserSettings.ini" }?.content
+                        val scalability = pendingApply.firstOrNull { it.targetName == "Scalability.ini" }?.content
+                        val hardware = pendingApply.firstOrNull { it.targetName == "Hardware.ini" }?.content
+                        viewModel.applyCustomFiles(engine, device, gus, scalability, hardware, backupAllInis = true)
+                        showBackupScopeDialog = false
+                        pendingApply = emptyList()
+                        customConfigState = CustomConfigState.IDLE
+                        pickedFiles = emptyList()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonAmber.copy(alpha = 0.15f),
+                        contentColor = NeonAmber
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) { Text("Back Up All 5 INIs") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showBackupScopeDialog = false
+                        pendingApply = emptyList()
+                    }) { Text("Cancel") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            val engine = pendingApply.firstOrNull { it.targetName == "Engine.ini" }?.content
+                            val device = pendingApply.firstOrNull { it.targetName == "DeviceProfiles.ini" }?.content
+                            val gus = pendingApply.firstOrNull { it.targetName == "GameUserSettings.ini" }?.content
+                            val scalability = pendingApply.firstOrNull { it.targetName == "Scalability.ini" }?.content
+                            val hardware = pendingApply.firstOrNull { it.targetName == "Hardware.ini" }?.content
+                            viewModel.applyCustomFiles(engine, device, gus, scalability, hardware, backupAllInis = false)
+                            showBackupScopeDialog = false
+                            pendingApply = emptyList()
+                            customConfigState = CustomConfigState.IDLE
+                            pickedFiles = emptyList()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NeonPurple.copy(alpha = 0.15f),
+                            contentColor = NeonPurple
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) { Text("Only Overwritten") }
+                }
+            }
+        )
+    }
+
+    customDeploySuccess?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearCustomDeploySuccess() },
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(32.dp)) },
+            title = { Text("Deployed Successfully", color = NeonGreen, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text(msg, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Config files written and KuroConfigMonitor hash refreshed.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.clearCustomDeploySuccess() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonGreen.copy(alpha = 0.15f),
+                        contentColor = NeonGreen
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) { Text("OK", fontWeight = FontWeight.Bold) }
             }
         )
     }

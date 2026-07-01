@@ -4,6 +4,8 @@ import com.wuwaconfig.app.model.CvarEntry
 import com.wuwaconfig.app.model.GeneratedIni
 import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.LogInfo
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -17,7 +19,7 @@ data class PresetProfile(
 val PRESETS = mutableMapOf(
     "potato"      to PresetProfile(50, 0, 128, 0, 3, 0.3, 0.3, 0.4, 0, 5, 1500),
     "performance" to PresetProfile(60, 0, 256, 0, 3, 0.5, 0.5, 0.6, 0, 3, 4500),
-    "balanced"    to PresetProfile(100, 2, 1024, 1, 0, 2.0, 1.5, 2.0, 1, 0, 15000),
+    "balanced"    to PresetProfile(80, 2, 1024, 1, 0, 2.0, 1.5, 2.0, 1, 0, 15000),
     "high"        to PresetProfile(100, 4, 2048, 2, 0, 3.0, 2.0, 2.5, 2, 0, 20000),
     "ultra"       to PresetProfile(100, 5, 2048, 4, -1, 4.0, 3.0, 3.0, 2, -1, 30000)
 )
@@ -27,6 +29,13 @@ object ConfigGenerator {
     var logInfo = LogInfo()
     var allowRestrictedCvars = true
     var lastGeneratedCvars: Set<String> = emptySet()
+
+    fun reset() {
+        activePreset = "balanced"
+        logInfo = LogInfo()
+        allowRestrictedCvars = true
+        lastGeneratedCvars = emptySet()
+    }
 
     private val cvarPrefixes = listOf(
         "a.", "fx.", "foliage.", "gc.", "grass.", "kuro.", "lod.", "niagara.",
@@ -195,7 +204,9 @@ object ConfigGenerator {
 
     fun generate(preset: String, opts: GeneratorOptions, existingEngineContent: String? = null,
                  logInfo: LogInfo = this.logInfo, activePreset: String = preset): GeneratedIni {
+        LogRepository.add("ConfigGenerator: generating config with preset '$preset'")
         val corePaths = if (existingEngineContent != null) extractCoreSystemPaths(existingEngineContent) else null
+        LogRepository.add("ConfigGenerator: preset=$preset, hasExistingEngine=${existingEngineContent != null}, optimize=${opts.optimizeWithCvarDb}")
         return if (corePaths != null) generateWithCorePaths(preset, opts, corePaths, logInfo, activePreset)
         else generateWithCorePaths(preset, opts, DEFAULT_CORE_SYSTEM, logInfo, activePreset)
     }
@@ -203,17 +214,79 @@ object ConfigGenerator {
     fun generateWithCorePaths(preset: String, opts: GeneratorOptions, corePaths: List<String>,
                               logInfo: LogInfo = this.logInfo, activePreset: String = preset): GeneratedIni {
         this.activePreset = activePreset
-        val p = PRESETS[preset] ?: error("Unknown preset: $preset")
-        val engine = applyCvarOverrides(buildAndroidEngineIni(p, opts, corePaths, logInfo, activePreset), opts.cvarOverrides)
+        val p = if (opts.useAdvancedGen) {
+            LogRepository.add("ConfigGenerator: using CvarOptimizer per-device tuning")
+            CvarOptimizer.toPresetProfile(CvarOptimizer.optimizeProfile(logInfo))
+        } else {
+            PRESETS[preset] ?: error("Unknown preset: $preset")
+        }
+        LogRepository.add("ConfigGenerator: building Engine.ini")
+        val rawEngine = buildAndroidEngineIni(p, opts, corePaths, logInfo, activePreset)
+        val engine = if (opts.importFromLog && logInfo.activeCvars.isNotEmpty()) {
+            LogRepository.add("ConfigGenerator: merging with ${logInfo.activeCvars.size} log CVars")
+            mergeWithLogCvars(rawEngine, logInfo.activeCvars, opts)
+        } else rawEngine
+        val overriddenEngine = applyCvarOverrides(engine, opts.cvarOverrides)
         val optimizedEngine = if (opts.optimizeWithCvarDb) {
-            CvarDatabase.optimizeIniText(engine)
-        } else engine
+            LogRepository.add("ConfigGenerator: optimizing with CvarDatabase")
+            val result = CvarDatabase.optimizeIniText(overriddenEngine)
+            val originalLines = overriddenEngine.lines().size
+            val optimizedLines = result.lines().size
+            val removed = originalLines - optimizedLines
+            LogRepository.add("ConfigGenerator: optimization commented out $removed redundant/unknown CVars")
+            result
+        } else overriddenEngine
+        LogRepository.add("ConfigGenerator: building DeviceProfiles.ini")
         val dp = buildAndroidDeviceProfilesIni(p, opts, logInfo, activePreset)
         val gus = buildAndroidGameUserSettingsIni(p, opts, logInfo)
         val sc = if (opts.generateScalability) buildAndroidScalabilityIni(p, opts) else ""
         val hw = if (opts.generateHardware) buildAndroidHardwareIni(p, opts, logInfo) else ""
-        rememberGeneratedCvars(optimizedEngine)
-        return GeneratedIni(engine = optimizedEngine, deviceProfiles = dp, gameUserSettings = gus, scalability = sc, hardware = hw)
+        val deduplicatedEngine = deduplicateIniText(optimizedEngine)
+        rememberGeneratedCvars(deduplicatedEngine)
+        LogRepository.add("ConfigGenerator: generation complete", LogLevel.SUCCESS)
+        return GeneratedIni(engine = deduplicatedEngine, deviceProfiles = dp, gameUserSettings = gus, scalability = sc, hardware = hw)
+    }
+
+    private fun mergeWithLogCvars(generatedIni: String, logCvars: Map<String, String>, opts: GeneratorOptions): String {
+        val generatedKeys = extractCvarNames(generatedIni).map { it.lowercase() }.toSet()
+        val logLines = mutableListOf<String>()
+        for ((key, value) in logCvars) {
+            val kl = key.lowercase()
+            if (kl.startsWith("sg.") || kl.startsWith("r.") || kl.startsWith("fx.") || kl.startsWith("foliage.") || kl.startsWith("grass.") || kl.startsWith("a.") || kl.startsWith("niagara.")) {
+                if (kl !in generatedKeys) {
+                    logLines.add("$key=$value")
+                }
+            }
+        }
+        if (logLines.isEmpty()) return generatedIni
+        val lines = generatedIni.lines().toMutableList()
+        val ssIdx = lines.indexOfLast { it.trim().equals("[SystemSettings]", ignoreCase = true) }
+        val insertIdx = if (ssIdx >= 0) {
+            var after = ssIdx + 1
+            while (after < lines.size && lines[after].isBlank()) after++
+            after
+        } else lines.size
+        lines.addAll(insertIdx, listOf("", "; ── IMPORTED FROM Client.log (not in preset) ─────") + logLines + listOf(""))
+        return deduplicateIniText(lines.joinToString("\n"))
+    }
+
+    private fun deduplicateIniText(text: String): String {
+        val lines = text.lines()
+        val seen = mutableMapOf<String, Int>()
+        val toRemove = mutableSetOf<Int>()
+        for ((i, line) in lines.withIndex()) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith(";") || trimmed.startsWith("#") || trimmed.startsWith("//") || trimmed.startsWith("[") || trimmed.startsWith("+")) continue
+            val eq = trimmed.indexOf('=')
+            if (eq <= 0) continue
+            val key = trimmed.substring(0, eq).trim().lowercase()
+            if (!cvarPrefixes.any { key.startsWith(it) }) continue
+            val prev = seen[key]
+            if (prev != null) toRemove.add(prev)
+            seen[key] = i
+        }
+        if (toRemove.isEmpty()) return text
+        return lines.filterIndexed { i, _ -> i !in toRemove }.joinToString("\n")
     }
 
     private data class DeviceTier(
@@ -736,7 +809,6 @@ object ConfigGenerator {
     private fun buildAndroidGameUserSettingsIni(p: PresetProfile, opts: GeneratorOptions, logInfo: LogInfo = this.logInfo): String {
         val deviceRes = parseResolution(logInfo.resolution)
         val (resW, resH) = if (deviceRes != null && deviceRes.first >= 720) deviceRes else (1280 to 720)
-        val resQ = if (p.detail > 1) 100 else if (p.detail > 0) 85 else 70
         val viewQ = if (p.detail > 1) 3 else if (p.detail > 0) 2 else 1
         val shadowQ = if (p.shadow >= 4) 3 else if (p.shadow >= 2) 2 else 1
         val postQ = if (p.detail > 1) 3 else if (p.detail > 0) 2 else 1
@@ -748,7 +820,7 @@ object ConfigGenerator {
         return listOf(
             "; WuWa GameUserSettings.ini — P42 Toolkit", "",
             "[ScalabilityGroups]",
-            "sg.ResolutionQuality=$resQ",
+            "sg.ResolutionQuality=${p.screen}",
             "sg.ViewDistanceQuality=$viewQ",
             "sg.AntiAliasingQuality=$aaQ",
             "sg.ShadowQuality=$shadowQ",
@@ -801,7 +873,6 @@ object ConfigGenerator {
     }
 
     private fun buildAndroidScalabilityIni(p: PresetProfile, opts: GeneratorOptions): String {
-        val resQ = if (p.detail > 1) 100 else if (p.detail > 0) 85 else 70
         val viewQ = if (p.detail > 1) 3 else if (p.detail > 0) 2 else 1
         val shadowQ = if (p.shadow >= 4) 3 else if (p.shadow >= 2) 2 else 1
         val postQ = if (p.detail > 1) 3 else if (p.detail > 0) 2 else 1
@@ -816,7 +887,7 @@ object ConfigGenerator {
             "; WuWa Scalability.ini — P42 Toolkit",
             "",
             "[ScalabilitySettings]",
-            "ResolutionQuality=$resQ.0",
+            "ResolutionQuality=${p.screen}.0",
             "ViewDistanceQuality=$viewQ",
             "AntiAliasingQuality=$aaQ",
             "ShadowQuality=$shadowQ",

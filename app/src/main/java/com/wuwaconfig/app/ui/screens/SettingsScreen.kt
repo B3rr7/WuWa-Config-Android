@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.ui.MainViewModel
 import coil.compose.rememberAsyncImagePainter
+import com.wuwaconfig.app.ui.theme.NeonBlue
 import coil.request.ImageRequest
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
@@ -235,6 +236,27 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                 contentColor = NeonCyan
                             )
                         ) { Icon(Icons.Default.Edit, contentDescription = "Change", modifier = Modifier.size(16.dp)) }
+                    }
+                }
+
+                GlassCard(accentColor = NeonBlue) {
+                    GlassCardHeader("Generation & History", NeonBlue)
+                    Spacer(Modifier.height(8.dp))
+                    val deployHistoryEnabled by viewModel.deployHistoryEnabled.collectAsState()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Deploy History", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text("Save baseline after deploy, compare FPS/thermal later", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = deployHistoryEnabled,
+                            onCheckedChange = { viewModel.setDeployHistoryEnabled(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = NeonBlue, checkedTrackColor = NeonBlue.copy(alpha = 0.3f))
+                        )
                     }
                 }
 

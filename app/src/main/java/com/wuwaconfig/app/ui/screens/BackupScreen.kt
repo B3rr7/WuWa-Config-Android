@@ -25,6 +25,8 @@ import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
 
+private val ALL_INI_FILES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
@@ -33,6 +35,9 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val isApplying by viewModel.isApplying.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var backupName by remember { mutableStateOf("") }
+    var selectedCreateFiles by remember { mutableStateOf(ALL_INI_FILES.toSet()) }
+    var restoreTarget by remember { mutableStateOf<ConfigBackup?>(null) }
+    var selectedRestoreFiles by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     GradientBackground {
         Scaffold(
@@ -58,7 +63,7 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         Text("Connect to get started", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
                         Spacer(Modifier.height(24.dp))
                         GlassButton(
-                            onClick = { showCreateDialog = true },
+                            onClick = { selectedCreateFiles = ALL_INI_FILES.toSet(); showCreateDialog = true },
                             enabled = backendStatus.connected,
                             accentColor = NeonPink,
                             contentColor = Color.White
@@ -79,7 +84,10 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         items(backups, key = { it.id }) { backup ->
                             BackupManageCard(
                                 backup = backup,
-                                onRestore = { viewModel.restoreBackup(backup) },
+                                onRestore = {
+                                    selectedRestoreFiles = backup.files.map { it.name }.toSet()
+                                    restoreTarget = backup
+                                },
                                 onDelete = { viewModel.deleteBackup(backup) },
                                 isApplying = isApplying,
                                 connected = backendStatus.connected
@@ -88,7 +96,7 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     }
                     Box(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)) {
                         GlassButton(
-                            onClick = { showCreateDialog = true },
+                            onClick = { selectedCreateFiles = ALL_INI_FILES.toSet(); showCreateDialog = true },
                             enabled = backendStatus.connected,
                             accentColor = NeonPink,
                             contentColor = Color.White,
@@ -107,29 +115,47 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 textContentColor = MaterialTheme.colorScheme.onSurface,
                 title = { Text("Create Backup", color = NeonPink, fontWeight = FontWeight.Bold) },
                 text = {
-                    OutlinedTextField(
-                        value = backupName,
-                        onValueChange = { backupName = it },
-                        label = { Text("Backup name") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeonPink.copy(alpha = 0.5f),
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.1f)
+                    Column {
+                        OutlinedTextField(
+                            value = backupName,
+                            onValueChange = { backupName = it },
+                            label = { Text("Backup name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonPink.copy(alpha = 0.5f),
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.1f)
+                            )
                         )
-                    )
+                        Spacer(Modifier.height(12.dp))
+                        Text("Select files to back up:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
+                        ALL_INI_FILES.forEach { name ->
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                Checkbox(
+                                    checked = name in selectedCreateFiles,
+                                    onCheckedChange = { checked ->
+                                        selectedCreateFiles = if (checked) selectedCreateFiles + name else selectedCreateFiles - name
+                                    },
+                                    colors = CheckboxDefaults.colors(checkedColor = NeonPink, uncheckedColor = Color.White.copy(alpha = 0.3f))
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(name, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
                 },
                 confirmButton = {
                     Button(
                         onClick = {
-                            if (backupName.isNotBlank()) {
-                                viewModel.createBackup(backupName)
+                            if (backupName.isNotBlank() && selectedCreateFiles.isNotEmpty()) {
+                                viewModel.createBackup(backupName, selectedCreateFiles)
                                 showCreateDialog = false
                                 backupName = ""
                             }
                         },
-                        enabled = backupName.isNotBlank(),
+                        enabled = backupName.isNotBlank() && selectedCreateFiles.isNotEmpty(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = NeonPink.copy(alpha = 0.15f),
                             contentColor = NeonPink
@@ -139,6 +165,54 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 },
                 dismissButton = {
                     TextButton(onClick = { showCreateDialog = false; backupName = "" }) { Text("Cancel") }
+                }
+            )
+        }
+
+        restoreTarget?.let { backup ->
+            AlertDialog(
+                onDismissRequest = { restoreTarget = null },
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                titleContentColor = NeonPurple,
+                textContentColor = MaterialTheme.colorScheme.onSurface,
+                title = { Text("Restore: ${backup.name}", color = NeonPurple, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text("Select files to restore:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
+                        backup.files.forEach { file ->
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                Checkbox(
+                                    checked = file.name in selectedRestoreFiles,
+                                    onCheckedChange = { checked ->
+                                        selectedRestoreFiles = if (checked) selectedRestoreFiles + file.name else selectedRestoreFiles - file.name
+                                    },
+                                    colors = CheckboxDefaults.colors(checkedColor = NeonPurple, uncheckedColor = Color.White.copy(alpha = 0.3f))
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(file.name, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (selectedRestoreFiles.isNotEmpty()) {
+                                viewModel.restoreBackup(backup, selectedRestoreFiles)
+                                restoreTarget = null
+                            }
+                        },
+                        enabled = selectedRestoreFiles.isNotEmpty() && !isApplying,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NeonPurple.copy(alpha = 0.15f),
+                            contentColor = NeonPurple
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) { Text("Restore") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { restoreTarget = null }) { Text("Cancel") }
                 }
             )
         }

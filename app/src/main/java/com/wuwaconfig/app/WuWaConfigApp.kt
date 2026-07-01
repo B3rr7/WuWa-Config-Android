@@ -8,6 +8,9 @@ import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.RootBackend
 import com.wuwaconfig.app.backend.SafBackend
 import com.wuwaconfig.app.backend.ShizukuBackend
+import com.wuwaconfig.app.config.CvarDatabase
+import com.wuwaconfig.app.config.DeployHistoryStore
+import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class WuWaConfigApp : Application() {
@@ -33,6 +36,9 @@ class WuWaConfigApp : Application() {
         adbCrypto = AdbCrypto(this)
         instance = this
         _backend = null
+        LogRepository.init()
+        CvarDatabase.loadAsync()
+        DeployHistoryStore.init(this)
     }
 
     fun switchTo(method: AccessMethod): AccessBackend {

@@ -51,7 +51,9 @@ data class GeneratorOptions(
     val generateScalability: Boolean = false,
     val generateHardware: Boolean = false,
     val allowRestrictedCvars: Boolean = true,
-    val optimizeWithCvarDb: Boolean = true
+    val optimizeWithCvarDb: Boolean = true,
+    val importFromLog: Boolean = false,
+    val useAdvancedGen: Boolean = false
 )
 
 data class GeneratedIni(

@@ -53,14 +53,16 @@ class AdbClient(private val crypto: AdbCrypto) {
 
     private fun authenticate(): Result<Unit> {
         try {
+            val out = output ?: return Result.failure(Exception("ADB output not initialized"))
+            val inp = input ?: return Result.failure(Exception("ADB input not initialized"))
             val cnxn = AdbProtocol.createConnectionMessage()
-            AdbProtocol.writeMessage(output!!, cnxn)
+            AdbProtocol.writeMessage(out, cnxn)
             var triedSignature = false
             var publicKeySent = false
             var authAttempts = 0
 
             while (true) {
-                val message = AdbProtocol.readMessage(input!!)
+                val message = AdbProtocol.readMessage(inp)
                     ?: return Result.failure(Exception("No response from ADB daemon"))
 
                 when {
@@ -74,7 +76,7 @@ class AdbClient(private val crypto: AdbCrypto) {
                             Log.d("AdbClient", "auth[$instanceId]: AUTH challenge, sending signature")
                             triedSignature = true
                             val signature = crypto.signToken(message.payload)
-                            AdbProtocol.writeMessage(output!!, AdbProtocol.createAuthSignatureMessage(signature))
+                            AdbProtocol.writeMessage(out, AdbProtocol.createAuthSignatureMessage(signature))
                         } else if (!publicKeySent || authAttempts < 5) {
                             if (!publicKeySent) {
                                 Log.d("AdbClient", "auth[$instanceId]: AUTH retry, sending public key")
@@ -82,7 +84,7 @@ class AdbClient(private val crypto: AdbCrypto) {
                             } else {
                                 Log.d("AdbClient", "auth[$instanceId]: AUTH attempt $authAttempts, re-sending public key")
                             }
-                            AdbProtocol.writeMessage(output!!, AdbProtocol.createAuthPublicKeyMessage(crypto.getAdbFormattedPublicKey()))
+                            AdbProtocol.writeMessage(out, AdbProtocol.createAuthPublicKeyMessage(crypto.getAdbFormattedPublicKey()))
                         } else {
                             return Result.failure(Exception("Authorization rejected. Check notification shade and accept the RSA fingerprint dialog."))
                         }
@@ -108,15 +110,17 @@ class AdbClient(private val crypto: AdbCrypto) {
     suspend fun executeShellCommand(command: String): Result<String> = withContext(Dispatchers.IO) {
         Log.d("AdbClient", "shell[$instanceId]: connected=$connected cmd=$command")
         if (!connected) return@withContext Result.failure(Exception("Not connected to ADB"))
+        val out = output ?: return@withContext Result.failure(Exception("ADB output not initialized"))
+        val inp = input ?: return@withContext Result.failure(Exception("ADB input not initialized"))
         try {
             val localId = localIdCounter.getAndIncrement()
-            AdbProtocol.writeMessage(output!!, AdbProtocol.createOpenMessage(localId, "shell:$command"))
+            AdbProtocol.writeMessage(out, AdbProtocol.createOpenMessage(localId, "shell:$command"))
 
             val response = StringBuilder()
             var remoteId = 0
 
             loop@ while (true) {
-                val message = AdbProtocol.readMessage(input!!) ?: break
+                val message = AdbProtocol.readMessage(inp) ?: break
                 when {
                     message.command.contentEquals(AdbProtocol.OKAY) -> {
                         if (remoteId == 0) remoteId = message.arg0
@@ -126,7 +130,7 @@ class AdbClient(private val crypto: AdbCrypto) {
                         if (remoteId > 0 && message.arg1 != localId) continue@loop
                         if (remoteId == 0) remoteId = message.arg1
                         response.append(String(message.payload, Charsets.UTF_8))
-                        AdbProtocol.writeMessage(output!!, AdbProtocol.createOkMessage(message.arg1, message.arg0))
+                        AdbProtocol.writeMessage(out, AdbProtocol.createOkMessage(message.arg1, message.arg0))
                     }
                     message.command.contentEquals(AdbProtocol.CLSE) -> {
                         // ADB daemon may send WRTE after CLSE (pipe buffer drain race).
@@ -150,23 +154,26 @@ class AdbClient(private val crypto: AdbCrypto) {
     }
 
     private fun drainTrailingWrite(localId: Int, response: StringBuilder) {
-        val originalTimeout = socket!!.soTimeout
+        val sock = socket ?: return
+        val out = output ?: return
+        val inp = input ?: return
+        val originalTimeout = sock.soTimeout
         try {
-            socket!!.soTimeout = 500
-            while (true) {
-                val msg = AdbProtocol.readMessage(input!!) ?: break
+            sock.soTimeout = 500
+            var iterations = 0
+            while (iterations < 100) {
+                iterations++
+                val msg = AdbProtocol.readMessage(inp) ?: break
                 if (msg.command.contentEquals(AdbProtocol.WRTE) && msg.arg1 == localId) {
                     response.append(String(msg.payload, Charsets.UTF_8))
-                    AdbProtocol.writeMessage(output!!, AdbProtocol.createOkMessage(msg.arg1, msg.arg0))
+                    AdbProtocol.writeMessage(out, AdbProtocol.createOkMessage(msg.arg1, msg.arg0))
                 } else {
-                    // Re-queue non-WRTE messages by breaking — caller handles CLSE/OKAY
                     break
                 }
             }
         } catch (_: java.net.SocketTimeoutException) {
-            // No more trailing messages — normal
         } finally {
-            socket!!.soTimeout = originalTimeout
+            sock.soTimeout = originalTimeout
         }
     }
 

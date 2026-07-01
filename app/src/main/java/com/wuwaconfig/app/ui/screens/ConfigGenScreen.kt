@@ -77,6 +77,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var generateHardware by remember { mutableStateOf(false) }
 
     var allowRestrictedCvars by remember { mutableStateOf(true) }
+    var useAdvancedGen by remember { mutableStateOf(false) }
 
     LaunchedEffect(allowRestrictedCvars) {
         com.wuwaconfig.app.config.ConfigGenerator.allowRestrictedCvars = allowRestrictedCvars
@@ -231,6 +232,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         GeneratorSwitch("Disable auto exposure", disableAutoExposure) { disableAutoExposure = it }
                         GeneratorSwitch("Disable SSR/reflections", disableSSR) { disableSSR = it }
                         GeneratorSwitch("Allow restricted CVars", allowRestrictedCvars) { allowRestrictedCvars = it }
+                        GeneratorSwitch("Advanced per-device tuning", useAdvancedGen) { useAdvancedGen = it }
                     }
                 }
 
@@ -286,7 +288,9 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                         mode = gameMode,
                                         generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
                                         generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-                                        generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars
+                                        generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
+                                        importFromLog = !userChangedPreset && selectedPreset == brain?.preset,
+                                        useAdvancedGen = useAdvancedGen
                                     )
                                     val generated = ConfigGenerator.generate(selectedPreset, opts)
                                     reviewEngineText = generated.engine
@@ -328,7 +332,9 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                             mode = gameMode,
                                             generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
                                             generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-                                            generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars
+                                            generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
+                                            importFromLog = false,
+                                            useAdvancedGen = useAdvancedGen
                                         )
                                         for (round in 1..5) {
                                             tunerProgress = "Round $round: deploying ${currentPreset}..."
@@ -401,7 +407,9 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     mode = gameMode, cvarOverrides = overrides,
                     generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
                     generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-                    generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars
+                    generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
+                    importFromLog = false,
+                    useAdvancedGen = useAdvancedGen
                 )
                 reviewEngineText = newEngine
                 reviewDeviceProfilesText = newDevice

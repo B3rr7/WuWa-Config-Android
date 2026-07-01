@@ -13,6 +13,8 @@ import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.config.GachaApi
 import com.wuwaconfig.app.config.LogParser
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,11 +36,14 @@ class GachaPollService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        LogRepository.add("GachaPollService: onCreate")
         createNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        LogRepository.add("GachaPollService: onStartCommand")
         if (intent?.action == ACTION_STOP) {
+            LogRepository.add("GachaPollService: stopping via ACTION_STOP")
             stopSelf()
             return START_NOT_STICKY
         }
@@ -52,6 +57,7 @@ class GachaPollService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        LogRepository.add("GachaPollService: onDestroy")
         pollJob?.cancel()
         scope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -59,10 +65,11 @@ class GachaPollService : Service() {
     }
 
     private fun startPolling() {
+        LogRepository.add("GachaPollService: starting polling (max 30 attempts)")
         pollJob = scope.launch {
             val app = application as WuWaConfigApp
             val backend = app.backend
-            val configManager = ConfigManager(this@GachaPollService, backend, "")
+            val configManager = ConfigManager(this@GachaPollService, backend, null)
             var attempts = 0
             val maxAttempts = 30
 
@@ -80,26 +87,29 @@ class GachaPollService : Service() {
                             LogParser.extractConveneUrl(text)
                         }
                         if (url != null) {
+                            LogRepository.add("GachaPollService: Convene URL found")
                             updateNotification("URL found! Fetching gacha history...")
 
                             val params = GachaApi.parseUrl(url)
                             if (params != null) {
-                                val data = GachaApi.fetchAllRecords(params)
-                                if (data.isSuccess) {
-                                    val d = data.getOrThrow()
-                                    sendBroadcast(Intent("com.wuwaconfig.app.GACHA_DATA_READY").apply {
-                                        putExtra("totalPulls", d.totalPulls)
-                                        putExtra("fiveStars", d.fiveStars)
-                                        putExtra("fourStars", d.fourStars)
-                                        putExtra("json", Gson().toJson(d))
-                                    })
-                                    showNotification(
-                                        "Gacha data ready!",
-                                        "${d.totalPulls} pulls (${d.fiveStars}★5, ${d.fourStars}★4)"
-                                    )
-                                } else {
-                                    showNotification("Gacha fetch failed", data.exceptionOrNull()?.message ?: "Error")
-                                }
+                                    val data = GachaApi.fetchAllRecords(params)
+                                    if (data.isSuccess) {
+                                        val d = data.getOrThrow()
+                                        LogRepository.add("GachaPollService: fetched ${d.totalPulls} records", LogLevel.SUCCESS)
+                                        sendBroadcast(Intent("com.wuwaconfig.app.GACHA_DATA_READY").apply {
+                                            putExtra("totalPulls", d.totalPulls)
+                                            putExtra("fiveStars", d.fiveStars)
+                                            putExtra("fourStars", d.fourStars)
+                                            putExtra("json", Gson().toJson(d))
+                                        })
+                                        showNotification(
+                                            "Gacha data ready!",
+                                            "${d.totalPulls} pulls (${d.fiveStars}★5, ${d.fourStars}★4)"
+                                        )
+                                    } else {
+                                        LogRepository.add("GachaPollService: fetch failed: ${data.exceptionOrNull()?.message}", LogLevel.ERROR)
+                                        showNotification("Gacha fetch failed", data.exceptionOrNull()?.message ?: "Error")
+                                    }
                             } else {
                                 showNotification("URL parse failed", "Could not parse Convene URL")
                             }
@@ -112,6 +122,7 @@ class GachaPollService : Service() {
                 delay(10_000)
             }
 
+            LogRepository.add("GachaPollService: polling exhausted after $maxAttempts attempts", LogLevel.WARNING)
             showNotification("Polling complete", "Convene URL not found after $maxAttempts attempts")
             stopSelf()
         }
@@ -127,7 +138,6 @@ class GachaPollService : Service() {
         val notification = buildNotification(title, text)
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, notification)
-        stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
     private fun buildNotification(title: String, text: String): Notification {

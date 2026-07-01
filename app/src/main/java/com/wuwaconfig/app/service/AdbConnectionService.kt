@@ -8,6 +8,8 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 
 class AdbConnectionService : Service() {
     companion object {
@@ -17,10 +19,12 @@ class AdbConnectionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        LogRepository.add("AdbConnectionService: onCreate")
         createNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        LogRepository.add("AdbConnectionService: onStartCommand")
         val notification = buildNotification()
         startForeground(NOTIFICATION_ID, notification)
         return START_STICKY
@@ -29,6 +33,7 @@ class AdbConnectionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        LogRepository.add("AdbConnectionService: onDestroy")
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }

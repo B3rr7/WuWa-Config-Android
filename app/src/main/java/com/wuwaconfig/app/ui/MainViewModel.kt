@@ -24,15 +24,19 @@ import com.wuwaconfig.app.backend.SafBackend
 import rikka.shizuku.Shizuku
 import com.wuwaconfig.app.config.ChipsetDetector
 import com.wuwaconfig.app.config.ConfigManager
+import com.wuwaconfig.app.config.DeployHistoryStore
 import com.wuwaconfig.app.config.GachaApi
 import com.wuwaconfig.app.config.GachaHistoryStore
 import com.wuwaconfig.app.config.ProfileStore
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.ConfigBackup
+import com.wuwaconfig.app.model.DeployComparison
+import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.LogEntry
 import com.wuwaconfig.app.model.LogInfo
+import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.service.AdbConnectionService
 import com.wuwaconfig.app.service.GachaPollService
@@ -48,7 +52,8 @@ import java.util.Date
 import java.util.Locale
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = application as WuWaConfigApp
+    private val app: WuWaConfigApp = application as? WuWaConfigApp
+        ?: throw IllegalStateException("MainViewModel requires WuWaConfigApp application")
     private val chipsetDetector = ChipsetDetector
 
     private var _configManager: ConfigManager? = null
@@ -62,11 +67,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _backups = MutableStateFlow<List<ConfigBackup>>(emptyList())
     val backups: StateFlow<List<ConfigBackup>> = _backups.asStateFlow()
 
-    private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
-    val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
+    val logs: StateFlow<List<LogEntry>> = LogRepository.entries
 
     private val _deployResult = MutableStateFlow<String?>(null)
     val deployResult: StateFlow<String?> = _deployResult.asStateFlow()
+
+    private val _customDeploySuccess = MutableStateFlow<String?>(null)
+    val customDeploySuccess: StateFlow<String?> = _customDeploySuccess.asStateFlow()
+
+    fun clearCustomDeploySuccess() { _customDeploySuccess.value = null }
 
     private val _verificationReport = MutableStateFlow<com.wuwaconfig.app.model.VerificationReport?>(null)
     val verificationReport: StateFlow<com.wuwaconfig.app.model.VerificationReport?> = _verificationReport.asStateFlow()
@@ -76,6 +85,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _readingProgress = MutableStateFlow(0)
     val readingProgress: StateFlow<Int> = _readingProgress.asStateFlow()
+
+    private val prefs = application.getSharedPreferences("wuwaconfig", Context.MODE_PRIVATE)
+
+    private val _themeMode = MutableStateFlow(prefs.getString("theme_mode", "system") ?: "system")
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    private val _deployRecords = MutableStateFlow<List<DeployRecord>>(DeployHistoryStore.getAllRecords())
+    val deployRecords: StateFlow<List<DeployRecord>> = _deployRecords.asStateFlow()
+
+    private val _deployComparison = MutableStateFlow<DeployComparison?>(null)
+    val deployComparison: StateFlow<DeployComparison?> = _deployComparison.asStateFlow()
+
+    private val _deployHistoryEnabled = MutableStateFlow(prefs.getBoolean("deploy_history", true))
+    val deployHistoryEnabled: StateFlow<Boolean> = _deployHistoryEnabled.asStateFlow()
 
     fun clearDeployResult() { _deployResult.value = null }
     fun clearConveneUrl() { _conveneUrl.value = null; _gachaData.value = null }
@@ -88,11 +111,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val chipsetInfo = chipsetDetector.detect()
     val gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR
-
-    private val prefs = application.getSharedPreferences("wuwaconfig", Context.MODE_PRIVATE)
-
-    private val _themeMode = MutableStateFlow(prefs.getString("theme_mode", "system") ?: "system")
-    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
 
     fun setThemeMode(mode: String) {
         prefs.edit().putString("theme_mode", mode).apply()
@@ -126,6 +144,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setBackgroundOpacity(opacity: Float) {
         prefs.edit().putFloat("bg_opacity", opacity).apply()
         app.backgroundOpacity.value = opacity
+    }
+
+    fun setDeployHistoryEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("deploy_history", enabled).apply()
+        _deployHistoryEnabled.value = enabled
+    }
+
+    fun compareDeployOutcome(id: String) {
+        viewModelScope.launch {
+            if (DeployHistoryStore.getRecord(id) == null) return@launch
+            addLog("Pulling Client.log for deploy outcome comparison...")
+            val result = configManager.readClientLogContent()
+            if (result.isFailure) {
+                addLog("Failed to pull Client.log: ${result.exceptionOrNull()?.message}")
+                return@launch
+            }
+            val logText = result.getOrThrow()
+            val parsed = com.wuwaconfig.app.config.LogParser.parseLog(logText)
+            DeployHistoryStore.updateOutcome(id, parsed, logText.take(2048))
+            _deployRecords.value = DeployHistoryStore.getAllRecords()
+            val comparison = DeployHistoryStore.compare(id)
+            _deployComparison.value = comparison
+            if (comparison != null) {
+                val lines = mutableListOf<String>()
+                comparison.fpsDelta?.let { lines.add("FPS: ${if (it >= 0) "+" else ""}${"%.1f".format(it)}") }
+                comparison.thermalDelta?.let { lines.add("Thermal: ${if (it <= 0) "-" else "+"}$it") }
+                comparison.oomDelta?.let { lines.add("OOM: ${if (it <= 0) "-" else "+"}$it") }
+                comparison.dropFramesDelta?.let { lines.add("Drops: ${if (it <= 0) "-" else "+"}$it") }
+                addLog("Comparison: ${lines.joinToString(", ")}")
+            }
+        }
     }
 
     private val defaultBackupDir = application.filesDir.resolve("backups").absolutePath
@@ -438,8 +487,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         addLog("Disconnected.")
     }
 
-    fun createBackup(name: String) {
-        Log.d("MainViewModel", "createBackup: name='$name' connected=${_backendStatus.value.connected}")
+    fun createBackup(name: String, selectedFiles: Set<String>? = null) {
+        Log.d("MainViewModel", "createBackup: name='$name' selectedFiles=$selectedFiles connected=${_backendStatus.value.connected}")
         if (_isApplying.value || !_backendStatus.value.connected) {
             Log.d("MainViewModel", "createBackup: not connected, returning")
             return
@@ -447,20 +496,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             addLog("Creating backup: $name...")
             Log.d("MainViewModel", "createBackup: calling configManager.createBackup")
-            val result = configManager.createBackup(name)
+            val result = configManager.createBackup(name, selectedFiles = selectedFiles)
             Log.d("MainViewModel", "createBackup: result success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
             if (result.isSuccess) { addLog("Backup created"); loadBackups() }
             else addLog("Backup failed: ${result.exceptionOrNull()?.message}")
         }
     }
 
-    fun restoreBackup(backup: ConfigBackup) {
+    fun restoreBackup(backup: ConfigBackup, selectedFiles: Set<String>? = null) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
             _isApplying.value = true
             try {
                 addLog("Restoring backup: ${backup.name}...")
-                val result = configManager.restoreBackup(backup) { msg -> addLog(msg) }
+                val result = configManager.restoreBackup(backup, { msg -> addLog(msg) }, selectedFiles = selectedFiles)
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     configManager.refreshConfigHashes().onSuccess { addLog(it) }
@@ -829,6 +878,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             addLog("Verify skipped: ${e.message}")
                         }
                     }
+                    if (_deployHistoryEnabled.value) {
+                        addLog("Capturing baseline for deploy history...")
+                        val baselineResult = configManager.readClientLogContent()
+                        val baselineLog = if (baselineResult.isSuccess) {
+                            com.wuwaconfig.app.config.LogParser.parseLog(baselineResult.getOrThrow())
+                        } else LogInfo()
+                        val report = _verificationReport.value
+                        val fileList = mutableListOf<String>()
+                        if (opts.generateEngine) fileList.add("Engine.ini")
+                        if (opts.generateDeviceProfiles) fileList.add("DeviceProfiles.ini")
+                        if (opts.generateGameUserSettings) fileList.add("GameUserSettings.ini")
+                        if (opts.generateScalability) fileList.add("Scalability.ini")
+                        if (opts.generateHardware) fileList.add("Hardware.ini")
+                        val recordId = java.util.UUID.randomUUID().toString()
+                        val record = DeployRecord(
+                            id = recordId,
+                            timestamp = System.currentTimeMillis(),
+                            presetName = com.wuwaconfig.app.config.ConfigGenerator.activePreset,
+                            generationMethod = if (opts.useAdvancedGen) "advanced" else "classic",
+                            filesDeployed = fileList,
+                            cvarCount = com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars.size,
+                            acceptedCount = report?.recognizedCount ?: 0,
+                            totalCount = report?.totalCount ?: 0,
+                            redundantCount = report?.redundantCount ?: 0,
+                            unknownCount = report?.unknownCount ?: 0,
+                            monitoredCount = report?.monitoredCount ?: 0,
+                            baselineFps = baselineLog.fpsActual,
+                            baselineThermal = baselineLog.thermalEvents,
+                            baselineOom = baselineLog.gpuOom,
+                            baselineDrops = baselineLog.dropFrames,
+                            baselineClientLogSnippet = if (baselineResult.isSuccess) baselineResult.getOrThrow().take(2048) else ""
+                        )
+                        DeployHistoryStore.addRecord(record)
+                        _deployRecords.value = DeployHistoryStore.getAllRecords()
+                        addLog("Deploy record saved (id: ${recordId.take(8)}...)")
+                    }
                     _readingProgress.value = 0
                 } else {
                     val err = result.exceptionOrNull()?.message ?: "Unknown error"
@@ -844,17 +929,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun applyCustomFiles(engineIni: String?, deviceProfilesIni: String?, gameUserSettingsIni: String?, scalabilityIni: String? = null, hardwareIni: String? = null) {
+    fun applyCustomFiles(engineIni: String?, deviceProfilesIni: String?, gameUserSettingsIni: String?, scalabilityIni: String? = null, hardwareIni: String? = null, backupAllInis: Boolean = false) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
             _isApplying.value = true
             try {
+                val fileNames = mapOf(
+                    "Engine.ini" to engineIni,
+                    "DeviceProfiles.ini" to deviceProfilesIni,
+                    "GameUserSettings.ini" to gameUserSettingsIni,
+                    "Scalability.ini" to scalabilityIni,
+                    "Hardware.ini" to hardwareIni,
+                )
+                val selected = fileNames.filterValues { it != null && it.isNotBlank() }.keys
+                val skipped = fileNames.filterValues { it == null || it.isBlank() }.keys
+
                 addLog("Applying custom configs...")
+                if (skipped.isNotEmpty()) addLog("Skipped (not provided): ${skipped.joinToString(", ")}")
 
                 val ts = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
                 if (prefs.getBoolean("backup_before_apply", true)) {
                     addLog("Backing up current configs...")
-                    val backupResult = configManager.createBackup("Auto-backup $ts", type = "auto")
+                    val backupFiles = if (backupAllInis) null else selected
+                    val backupResult = configManager.createBackup("Auto-backup $ts", type = "auto", selectedFiles = backupFiles)
                     if (backupResult.isSuccess) {
                         addLog("Backup saved: ${backupResult.getOrThrow().name}")
                     } else {
@@ -871,7 +968,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ) { msg -> addLog(msg) }
 
                 if (result.isSuccess) {
-                    addLog("SUCCESS: ${result.getOrThrow()}")
+                    addLog("SUCCESS: ${selected.size} file(s) applied (${selected.joinToString(", ")})")
+                    _customDeploySuccess.value = "${selected.size} file(s) deployed: ${selected.joinToString(", ")}"
                     loadBackups()
                     configManager.refreshConfigHashes().onSuccess { addLog(it) }
                 } else addLog("FAILED: ${result.exceptionOrNull()?.message}")
@@ -950,30 +1048,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun addLog(message: String, level: LogLevel = detectLevel(message)) {
-        val ts = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
-        _logs.value = (_logs.value + LogEntry(message, ts, level)).takeLast(200)
+        LogRepository.add(message, level)
     }
 
     fun clearLogs() {
-        _logs.value = emptyList()
+        LogRepository.clear()
+        addLog("Log cleared.", level = LogLevel.INFO)
     }
 
     fun saveLogs() {
         viewModelScope.launch {
-            val entries = _logs.value
-            if (entries.isEmpty()) {
-                addLog("No logs to save.", level = LogLevel.WARNING)
-                return@launch
-            }
-            val content = entries.joinToString("\n") { "[${it.timestamp}] ${it.message}" }
-            try {
-                val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WuWaConfig").also { it.mkdirs() }
-                val fileName = "WuWaConfig_${SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())}.txt"
-                val file = File(dir, fileName)
-                file.writeText(content)
+            val file = LogRepository.saveSnapshot()
+            if (file != null) {
                 addLog("Log saved: ${file.absolutePath}", level = LogLevel.SUCCESS)
-            } catch (e: Exception) {
-                addLog("Failed to save log: ${e.message}", level = LogLevel.ERROR)
+            } else {
+                addLog("No logs to save.", level = LogLevel.WARNING)
             }
         }
     }

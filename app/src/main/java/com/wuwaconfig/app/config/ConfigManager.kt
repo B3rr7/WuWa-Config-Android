@@ -6,10 +6,13 @@ import android.os.Environment
 import android.util.Base64
 import android.util.Log
 import com.wuwaconfig.app.backend.AccessBackend
+import com.wuwaconfig.app.backend.PUSH_RETRY_COUNT
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.model.ConfigFile
 import com.wuwaconfig.app.model.GamePaths
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.model.VerificationReport
 import com.google.gson.Gson
@@ -24,8 +27,16 @@ import java.util.Locale
 class ConfigManager(private val context: Context, private val backend: AccessBackend, backupDirPath: String? = null) {
     private val gson = Gson()
 
-    private val backupDir: File = File(backupDirPath ?: File(context.filesDir, "backups").absolutePath).also { it.mkdirs() }
-    private val publicDir: File = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WuWaConfig").also { it.mkdirs() }
+    private val backupDir: File = File(backupDirPath ?: File(context.filesDir, "backups").absolutePath).also {
+        if (!it.mkdirs() && !it.exists()) {
+            LogRepository.add("ConfigManager: failed to create backup dir: ${it.absolutePath}", LogLevel.WARNING)
+        }
+    }
+    private val publicDir: File = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WuWaConfig").also {
+        if (!it.mkdirs() && !it.exists()) {
+            LogRepository.add("ConfigManager: failed to create public dir: ${it.absolutePath}", LogLevel.WARNING)
+        }
+    }
 
     suspend fun applyCustomConfigs(
         engineIni: String?,
@@ -36,6 +47,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         onProgress: (String) -> Unit
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
+            LogRepository.add("ConfigManager: applying custom configs")
             onProgress("Ensuring target directory exists...")
             backend.ensureDirectoryExists(GamePaths.TARGET_DIR).getOrThrow()
 
@@ -48,6 +60,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             )
 
             if (iniFiles.isEmpty()) {
+                LogRepository.add("ConfigManager: no config files selected", LogLevel.WARNING)
                 return@withContext Result.failure(Exception("No config file content selected"))
             }
 
@@ -64,15 +77,29 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             try {
                 for ((name, content) in iniFiles) {
                     onProgress("Applying $name...")
+                    LogRepository.add("ConfigManager: pushing $name")
                     val tempFile = File(tempDir, name)
                     tempFile.writeText(content)
-                    backend.pushFile(tempFile.absolutePath, "${GamePaths.TARGET_DIR}/$name").getOrThrow()
+                    val targetPath = "${GamePaths.TARGET_DIR}/$name"
+                    var lastError: Result<String>? = null
+                    var success = false
+                    for (attempt in 0..PUSH_RETRY_COUNT) {
+                        val r = backend.pushFile(tempFile.absolutePath, targetPath)
+                        if (r.isSuccess) { success = true; break }
+                        lastError = r
+                        onProgress("Retrying $name (attempt ${attempt + 2})...")
+                    }
+                    if (!success) {
+                        throw lastError?.exceptionOrNull() ?: Exception("Failed to push $name")
+                    }
                 }
+                LogRepository.add("ConfigManager: custom configs applied successfully", LogLevel.SUCCESS)
                 Result.success("Custom configs applied successfully!")
             } finally {
                 tempDir.deleteRecursively()
             }
         } catch (e: Exception) {
+            LogRepository.add("ConfigManager: applyCustomConfigs failed: ${e.message}", LogLevel.ERROR)
             Result.failure(e)
         }
     }
@@ -134,27 +161,32 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         }
     }
 
-    suspend fun createBackup(name: String, type: String = "manual"): Result<ConfigBackup> = withContext(Dispatchers.IO) {
+    suspend fun createBackup(name: String, type: String = "manual", selectedFiles: Set<String>? = null): Result<ConfigBackup> = withContext(Dispatchers.IO) {
         try {
+            LogRepository.add("ConfigManager: creating backup '$name'")
             Log.d("ConfigManager", "createBackup: listing ${GamePaths.TARGET_DIR}")
             val files = backend.listDirectory(GamePaths.TARGET_DIR).getOrThrow()
             Log.d("ConfigManager", "createBackup: listed ${files.size} files: $files")
-            val iniNames = setOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
-            val configFiles = files.filter { it in iniNames }.map { fileName ->
+            val allIniNames = setOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
+            val targetNames = selectedFiles ?: allIniNames
+            val configFiles = files.filter { it in targetNames && it in allIniNames }.map { fileName ->
                 Log.d("ConfigManager", "createBackup: reading $fileName")
                 val content = backend.readFile("${GamePaths.TARGET_DIR}/$fileName").getOrDefault("")
                 Log.d("ConfigManager", "createBackup: read $fileName (${content.length} chars)")
                 ConfigFile(name = fileName, content = content)
             }
+            LogRepository.add("ConfigManager: backup read ${configFiles.size} config files")
             Log.d("ConfigManager", "createBackup: saving backup to $backupDir")
             val backup = ConfigBackup(name = name, files = configFiles, type = type)
             File(backupDir, "${backup.id}.json").writeText(gson.toJson(backup))
             val publicBackupDir = File(File(publicDir, "Backups"), sanitizeDirName(name)).also { it.mkdirs() }
             configFiles.forEach { f -> File(publicBackupDir, f.name).writeText(f.content) }
             Log.d("ConfigManager", "createBackup: SUCCESS")
+            LogRepository.add("ConfigManager: backup '$name' created", LogLevel.SUCCESS)
             Result.success(backup)
         } catch (e: Exception) {
             Log.e("ConfigManager", "createBackup FAILED: ${e.message}", e)
+            LogRepository.add("ConfigManager: createBackup failed: ${e.message}", LogLevel.ERROR)
             Result.failure(e)
         }
     }
@@ -180,8 +212,10 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         if (pubDir.exists()) pubDir.deleteRecursively()
     }
 
-    suspend fun restoreBackup(backup: ConfigBackup, onProgress: (String) -> Unit): Result<String> {
-        return applyFiles(backup.name, backup.files, onProgress)
+    suspend fun restoreBackup(backup: ConfigBackup, onProgress: (String) -> Unit, selectedFiles: Set<String>? = null): Result<String> {
+        val files = if (selectedFiles != null) backup.files.filter { it.name in selectedFiles } else backup.files
+        if (files.isEmpty()) return Result.failure(Exception("No files selected for restore"))
+        return applyFiles(backup.name, files, onProgress)
     }
 
     private suspend fun applyFiles(
@@ -200,7 +234,18 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                     onProgress("Restoring ${file.name}...")
                     val tempFile = File(tempDir, file.name)
                     tempFile.writeText(file.content)
-                    backend.pushFile(tempFile.absolutePath, "${GamePaths.TARGET_DIR}/${file.name}").getOrThrow()
+                    val targetPath = "${GamePaths.TARGET_DIR}/${file.name}"
+                    var lastError: Result<String>? = null
+                    var success = false
+                    for (attempt in 0..PUSH_RETRY_COUNT) {
+                        val r = backend.pushFile(tempFile.absolutePath, targetPath)
+                        if (r.isSuccess) { success = true; break }
+                        lastError = r
+                        onProgress("Retrying ${file.name} (attempt ${attempt + 2})...")
+                    }
+                    if (!success) {
+                        throw lastError?.exceptionOrNull() ?: Exception("Failed to restore ${file.name}")
+                    }
                 }
                 Result.success("$label restored successfully!")
             } finally {
@@ -282,6 +327,9 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             if (result != null) return Result.success(result)
         }
         onProgress(workStart + workRange + 5)
+        if (fileSize > 5_000_000) {
+            return Result.failure(Exception("Client.log too large ($fileSize bytes) for fallback read"))
+        }
         return backend.readFile(path).map { text ->
             LogParser.decodeLogBytes(text.toByteArray(Charsets.ISO_8859_1))
         }
@@ -293,6 +341,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
 
     suspend fun deleteConfigFiles(onProgress: (String) -> Unit): Result<String> = withContext(Dispatchers.IO) {
         try {
+            LogRepository.add("ConfigManager: deleting config files")
             val targets = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
             var deleted = 0
             for (name in targets) {
@@ -300,21 +349,26 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                 if (backend.fileExists(path).getOrElse { false }) {
                     backend.executeShellCommand("rm -f \"$path\"").getOrThrow()
                     onProgress("Deleted $name")
+                    LogRepository.add("ConfigManager: deleted $name")
                     deleted++
                 }
             }
             if (deleted > 0) {
+                LogRepository.add("ConfigManager: deleted $deleted config file(s)", LogLevel.SUCCESS)
                 Result.success("Deleted $deleted config file(s)")
             } else {
+                LogRepository.add("ConfigManager: no config files found to delete", LogLevel.WARNING)
                 Result.failure(Exception("No config files found to delete"))
             }
         } catch (e: Exception) {
+            LogRepository.add("ConfigManager: deleteConfigFiles failed: ${e.message}", LogLevel.ERROR)
             Result.failure(e)
         }
     }
 
     suspend fun refreshConfigHashes(): Result<String> = withContext(Dispatchers.IO) {
         try {
+            LogRepository.add("ConfigManager: refreshing config hashes")
             val md5 = MessageDigest.getInstance("MD5")
             val lines = mutableListOf<String>()
             val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
@@ -347,7 +401,16 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             val newContent = lines.joinToString("\n").trimEnd() + "\n"
             val tempFile = File(context.cacheDir, "KuroConfigMonitor.hash")
             tempFile.writeText(newContent)
-            backend.pushFile(tempFile.absolutePath, GamePaths.HASH_MONITOR_PATH).getOrThrow()
+            var hashPushOk = false
+            var hashPushError: Throwable? = null
+            for (attempt in 0..PUSH_RETRY_COUNT) {
+                val r = backend.pushFile(tempFile.absolutePath, GamePaths.HASH_MONITOR_PATH)
+                if (r.isSuccess) { hashPushOk = true; break }
+                hashPushError = r.exceptionOrNull()
+            }
+            if (!hashPushOk) {
+                throw hashPushError ?: Exception("Failed to push hash file")
+            }
             tempFile.delete()
 
             val verifyResult = backend.readFile(GamePaths.HASH_MONITOR_PATH)
@@ -355,17 +418,21 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                 val stored = verifyResult.getOrThrow().trim()
                 if (stored == newContent.trim()) {
                     Log.d("ConfigManager", "Config hashes refreshed and verified successfully")
+                    LogRepository.add("ConfigManager: hashes refreshed and verified", LogLevel.SUCCESS)
                     Result.success("Config hashes synced & verified")
                 } else {
                     Log.w("ConfigManager", "Hash file read-back mismatch")
+                    LogRepository.add("ConfigManager: hash verify mismatch", LogLevel.WARNING)
                     Result.success("Config hashes synced (verify mismatch)")
                 }
             } else {
                 Log.w("ConfigManager", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
+                LogRepository.add("ConfigManager: hash verify skipped", LogLevel.WARNING)
                 Result.success("Config hashes synced (verify skipped)")
             }
         } catch (e: Exception) {
             Log.w("ConfigManager", "Failed to refresh hashes: ${e.message}")
+            LogRepository.add("ConfigManager: refreshConfigHashes failed: ${e.message}", LogLevel.ERROR)
             Result.failure(e)
         }
     }
