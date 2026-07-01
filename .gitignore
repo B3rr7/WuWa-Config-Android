@@ -13,6 +13,7 @@
 release.jks
 keystore.properties
 *.log
+app.md
 epic_ue4_docs.txt
 ue4_commands.txt
 *.md5
