@@ -177,6 +177,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun retuneAndDeploy(recordId: String) {
+        viewModelScope.launch {
+            val record = DeployHistoryStore.getRecord(recordId) ?: return@launch
+            val profile = record.optimizedProfile ?: run {
+                addLog("No tuning profile found in record — can't retune")
+                return@launch
+            }
+            val comparison = DeployHistoryStore.compare(recordId) ?: run {
+                addLog("No comparison data — run Compare Now first")
+                return@launch
+            }
+
+            addLog("Retuning based on comparison Δ: FPS ${comparison.fpsDelta?.let { "%.1f".format(it) } ?: "?"}, "
+                    + "Thermal ${comparison.thermalDelta ?: "?"}, OOM ${comparison.oomDelta ?: "?"}, "
+                    + "Drops ${comparison.dropFramesDelta ?: "?"}")
+
+            val adjustedProfile = com.wuwaconfig.app.config.CvarOptimizer.adjustProfile(profile, comparison)
+            com.wuwaconfig.app.config.ConfigGenerator.profileOverride =
+                com.wuwaconfig.app.config.CvarOptimizer.toPresetProfile(adjustedProfile)
+
+            val opts = com.wuwaconfig.app.model.GeneratorOptions(
+                fps = 60,
+                generateEngine = record.filesDeployed.contains("Engine.ini"),
+                generateDeviceProfiles = record.filesDeployed.contains("DeviceProfiles.ini"),
+                generateGameUserSettings = record.filesDeployed.contains("GameUserSettings.ini"),
+                generateScalability = record.filesDeployed.contains("Scalability.ini"),
+                generateHardware = record.filesDeployed.contains("Hardware.ini"),
+                useAdvancedGen = false,
+                optimizeWithCvarDb = true
+            )
+            val generated = com.wuwaconfig.app.config.ConfigGenerator.generate(record.presetName, opts)
+            deployGeneratedConfigs(generated, opts, adjustedProfile)
+        }
+    }
+
     private val defaultBackupDir = application.filesDir.resolve("backups").absolutePath
 
     val backupStorageDir: String
@@ -803,7 +838,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deployGeneratedConfigs(
         ini: com.wuwaconfig.app.model.GeneratedIni,
-        opts: com.wuwaconfig.app.model.GeneratorOptions = com.wuwaconfig.app.model.GeneratorOptions()
+        opts: com.wuwaconfig.app.model.GeneratorOptions = com.wuwaconfig.app.model.GeneratorOptions(),
+        retuneProfile: com.wuwaconfig.app.config.CvarOptimizer.OptimizedProfile? = null
     ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
@@ -908,8 +944,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             baselineThermal = baselineLog.thermalEvents,
                             baselineOom = baselineLog.gpuOom,
                             baselineDrops = baselineLog.dropFrames,
-                            baselineClientLogSnippet = if (baselineResult.isSuccess) baselineResult.getOrThrow().take(2048) else ""
+                            baselineClientLogSnippet = if (baselineResult.isSuccess) baselineResult.getOrThrow().take(2048) else "",
+                            optimizedProfile = retuneProfile ?: if (opts.useAdvancedGen) com.wuwaconfig.app.config.CvarOptimizer.optimizeProfile(baselineLog) else null
                         )
+                        com.wuwaconfig.app.config.ConfigGenerator.profileOverride = null
                         DeployHistoryStore.addRecord(record)
                         _deployRecords.value = DeployHistoryStore.getAllRecords()
                         addLog("Deploy record saved (id: ${recordId.take(8)}...)")

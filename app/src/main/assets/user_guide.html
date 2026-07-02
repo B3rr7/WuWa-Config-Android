@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WuWaConfig — User Manual</title>
+<style>
+  :root {
+    --bg: #0a0a1a;
+    --surface: #12122a;
+    --surface2: #1a1a3a;
+    --neon-cyan: #00e5ff;
+    --neon-purple: #b388ff;
+    --neon-pink: #ff4081;
+    --neon-green: #00e676;
+    --neon-red: #ff1744;
+    --neon-amber: #ffab00;
+    --text: #e0e0f0;
+    --text-dim: #8080a0;
+    --border: rgba(255,255,255,0.06);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes glowPulse {
+    0%, 100% { text-shadow: 0 0 8px rgba(0,229,255,0.3), 0 0 20px rgba(0,229,255,0.1); }
+    50% { text-shadow: 0 0 16px rgba(0,229,255,0.6), 0 0 40px rgba(0,229,255,0.2); }
+  }
+  @keyframes glowPurple {
+    0%, 100% { text-shadow: 0 0 8px rgba(179,136,255,0.3), 0 0 20px rgba(179,136,255,0.1); }
+    50% { text-shadow: 0 0 16px rgba(179,136,255,0.6), 0 0 40px rgba(179,136,255,0.2); }
+  }
+  @keyframes borderGlow {
+    0%, 100% { border-color: rgba(0,229,255,0.15); }
+    50% { border-color: rgba(179,136,255,0.3); }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    display: flex;
+    min-height: 100vh;
+    animation: fadeIn 0.6s ease-out;
+  }
+  a { color: var(--neon-cyan); text-decoration: none; transition: color 0.2s, text-shadow 0.2s; }
+  a:hover { text-decoration: underline; text-shadow: 0 0 8px rgba(0,229,255,0.4); }
+
+  /* Sidebar */
+  nav {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 20px 0;
+    z-index: 100;
+    animation: slideIn 0.5s ease-out;
+  }
+  nav h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--neon-purple); padding: 0 20px 12px; animation: glowPurple 3s ease-in-out infinite; }
+  nav a {
+    display: block; padding: 5px 20px; font-size: 13px;
+    color: var(--text-dim); transition: color 0.2s, background 0.2s, border-color 0.2s, padding-left 0.2s;
+    border-left: 2px solid transparent;
+  }
+  nav a:hover { color: var(--neon-cyan); background: rgba(0,229,255,0.04); border-left-color: var(--neon-cyan); padding-left: 24px; text-decoration: none; }
+  nav a.s2 { padding-left: 32px; }
+  nav a.s2:hover { padding-left: 36px; }
+  nav a.s3 { padding-left: 44px; }
+  nav a.s3:hover { padding-left: 48px; }
+
+  /* Main */
+  main { margin-left: 260px; padding: 40px 60px; max-width: 960px; flex: 1; }
+  h1 { font-size: 32px; font-weight: 800; color: var(--neon-cyan); margin-bottom: 4px; letter-spacing: -0.5px; animation: glowPulse 4s ease-in-out infinite; }
+  .sub { color: var(--text-dim); font-size: 14px; margin-bottom: 32px; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  h2 { font-size: 24px; font-weight: 700; color: var(--neon-purple); margin-top: 40px; margin-bottom: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h2:hover { animation: glowPurple 2s ease-in-out infinite; }
+  h3 { font-size: 18px; font-weight: 600; color: var(--neon-cyan); margin-top: 28px; margin-bottom: 10px; }
+  h4 { font-size: 15px; font-weight: 600; color: var(--neon-pink); margin-top: 20px; margin-bottom: 8px; }
+
+  section { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
+  section.visible { opacity: 1; transform: translateY(0); }
+
+  p, li { font-size: 14px; margin-bottom: 10px; }
+  ul, ol { padding-left: 24px; margin-bottom: 14px; }
+  li { margin-bottom: 4px; transition: padding-left 0.2s; }
+  li:hover { padding-left: 4px; }
+
+  code { background: var(--surface2); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--neon-amber); transition: background 0.2s; }
+  code:hover { background: rgba(255,171,0,0.12); }
+  pre {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; overflow-x: auto; margin-bottom: 16px; font-size: 13px; line-height: 1.5;
+    color: var(--text); transition: border-color 0.3s;
+  }
+  pre:hover { border-color: rgba(0,229,255,0.2); animation: borderGlow 3s ease-in-out infinite; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--surface2); color: var(--neon-cyan); font-weight: 600; }
+  tr { transition: background 0.2s, transform 0.15s; }
+  tr:hover { background: rgba(255,255,255,0.03); }
+  tbody tr { transform: scale(1); }
+  tbody tr:hover { transform: scale(1.005); }
+
+  blockquote {
+    border-left: 3px solid var(--neon-amber); background: rgba(255,171,0,0.06);
+    padding: 10px 16px; margin-bottom: 16px; border-radius: 0 6px 6px 0;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  blockquote:hover { border-color: var(--neon-cyan); background: rgba(0,229,255,0.04); }
+  blockquote p { margin: 0; font-size: 13px; color: var(--text-dim); }
+
+  strong { color: #fff; }
+
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; transition: transform 0.15s, box-shadow 0.15s; }
+  .tag:hover { transform: scale(1.08); box-shadow: 0 0 12px rgba(255,255,255,0.08); }
+  .tag-green { background: rgba(0,230,118,0.15); color: var(--neon-green); }
+  .tag-amber { background: rgba(255,171,0,0.15); color: var(--neon-amber); }
+  .tag-blue { background: rgba(0,229,255,0.15); color: var(--neon-cyan); }
+  .tag-red { background: rgba(255,23,68,0.15); color: var(--neon-red); }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--neon-cyan); }
+
+  @media (max-width: 800px) {
+    body { flex-direction: column; }
+    nav { position: static; width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 12px 0; max-height: 200px; overflow-y: auto; }
+    main { margin-left: 0; padding: 20px; }
+    table { font-size: 12px; }
+    th, td { padding: 6px 8px; }
+  }
+</style>
+</head>
+<body>
+<nav id="toc"></nav>
+<main>
+<h1>WuWaConfig</h1>
+<p class="sub">Version 1.0.5+ · Android · Wuthering Waves Config Toolkit</p>
+<hr>
+
+<section id="s1">
+<h2>1. Introduction</h2>
+<p>WuWaConfig is an Android tool that reads, optimizes, and deploys configuration files for <strong>Wuthering Waves</strong> (global version, <code>com.kurogame.wutheringwaves.global</code>). It works with the 5 INI files the game uses:</p>
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>Engine.ini</code></td><td>CVar settings (graphics, performance, shadows, anti-aliasing, etc.)</td></tr>
+<tr><td><code>DeviceProfiles.ini</code></td><td>Device-specific GPU profiles and per-device CVars</td></tr>
+<tr><td><code>GameUserSettings.ini</code></td><td>Resolution, VSync, FPS cap, scalability groups</td></tr>
+<tr><td><code>Scalability.ini</code></td><td>Resolution quality, view distance, shadow/texture/effects quality</td></tr>
+<tr><td><code>Hardware.ini</code></td><td>Hardware profile binding, frame pacing, Anisotropy, mip bias</td></tr>
+</table>
+<p><strong>What it can do:</strong></p>
+<ul>
+<li>Analyze your device's <code>Client.log</code> to extract GPU, RAM, FPS, thermal data, OOM events</li>
+<li>Score your device with SmartBrain (0-100 scale) and recommend the optimal preset</li>
+<li>Generate optimized INI configs from 5 presets (Potato→Ultra) or per-device tuning</li>
+<li>Deploy configs via ADB, Shizuku, Root, or SAF</li>
+<li>Backup configs before applying, with per-file selection</li>
+<li>Compare performance before/after with Deploy History</li>
+<li>Track gacha pity, view player profile, read battle stats from Client.log</li>
+</ul>
+<p><strong>Package:</strong> <code>com.wuwaconfig.app</code><br><strong>Min SDK:</strong> 26 · <strong>Target SDK:</strong> 34<br><strong>Language:</strong> Kotlin · <strong>UI:</strong> Jetpack Compose + Material 3</p>
+</section>
+
+<section id="s2">
+<h2>2. Installation &amp; First Run</h2>
+<h3>2.1 Installation</h3>
+<ol>
+<li>Download the latest APK from the <a href="https://github.com/B3rr7/WuWa-Config-Android/releases">Releases page</a></li>
+<li>Enable <strong>Install from unknown sources</strong> on your device</li>
+<li>Open the APK and install</li>
+</ol>
+<h3>2.2 First Launch</h3>
+<ol>
+<li>Open the app</li>
+<li>Read and accept the <strong>Terms of Use</strong></li>
+<li>Grant <strong>Storage permission</strong> when prompted (needed for backups and log saving)</li>
+<li>The Setup screen shows the game config directory path — tap to proceed to Home</li>
+</ol>
+<h3>2.3 Requirements</h3>
+<ul>
+<li><strong>Wuthering Waves</strong> must be installed on the same device</li>
+<li>One of these connection methods: ADB Wireless Debugging, Shizuku, Root, or SAF</li>
+<li>Android 11+ recommended (Android 8.0+ minimum)</li>
+</ul>
+</section>
+
+<section id="s3">
+<h2>3. Access Methods — How to Connect</h2>
+<p>The app needs to read/write game config files at:</p>
+<pre>/storage/emulated/0/Android/data/com.kurogame.wutheringwaves.global/files/UE4Game/Client/Client/Saved/Config/Android/</pre>
+<p>Choose your connection method from the Home screen by tapping the method chip (cycles ADB → Shizuku → Root → SAF).</p>
+
+<h3>3.1 ADB (Wireless Debugging) — Recommended</h3>
+<p><strong>Best for:</strong> Non-rooted users. The app implements the ADB wire protocol directly — no external ADB binary needed.</p>
+<p><strong>Setup:</strong></p>
+<ol>
+<li>Go to <strong>Developer Options</strong> on your phone</li>
+<li>Enable <strong>Wireless Debugging</strong></li>
+<li>Tap <strong>Wireless Debugging</strong> → <strong>Pair device with pairing code</strong> (if first time)</li>
+<li>Back in the app, tap <strong>Connect</strong> — it auto-scans ports 37000–44000</li>
+<li>Accept the RSA fingerprint prompt on your phone</li>
+</ol>
+<p><strong>Troubleshooting:</strong></p>
+<ul>
+<li>On Android 16+, you may need to re-pair after reboot</li>
+<li>The app auto-regenerates RSA keys if connection is rejected</li>
+<li>If auto-scan fails, tap the ADB chip and enter IP:port manually</li>
+</ul>
+
+<h3>3.2 Shizuku</h3>
+<p><strong>Best for:</strong> Non-rooted users with Shizuku installed. Faster than ADB.</p>
+<p><strong>Setup:</strong></p>
+<ol>
+<li>Install <a href="https://shizuku.rikka.app/">Shizuku</a> from the Play Store</li>
+<li>Start the Shizuku service (follow Shizuku's in-app instructions)</li>
+<li>In WuWaConfig, cycle to <strong>Shizuku</strong> mode</li>
+<li>Tap <strong>Permit</strong> → <strong>Connect</strong></li>
+</ol>
+
+<h3>3.3 Root</h3>
+<p><strong>Best for:</strong> Rooted devices (Magisk, KernelSU, APatch).</p>
+<p><strong>Setup:</strong></p>
+<ol>
+<li>Cycle to <strong>Root</strong> mode</li>
+<li>Tap <strong>Test Root</strong> — grant superuser access in your root manager</li>
+<li>Tap <strong>Connect</strong></li>
+</ol>
+
+<h3>3.4 SAF (Storage Access Framework)</h3>
+<p><strong>Best for:</strong> Quick one-off edits. Limited — no shell access, so config generation and some features are unavailable.</p>
+<p><strong>Setup:</strong></p>
+<ol>
+<li>Cycle to <strong>SAF</strong> mode</li>
+<li>Tap <strong>Pick Dir</strong></li>
+<li>Navigate to the game's Config/Android folder</li>
+<li>Tap <strong>Allow</strong></li>
+</ol>
+
+<h3>3.5 Connection Limits</h3>
+<table>
+<tr><th>Method</th><th>Shell Access</th><th>File Push</th><th>Log Reading</th><th>Config Gen</th></tr>
+<tr><td>ADB</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Shizuku</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Root</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>SAF</td><td>✗</td><td>✓</td><td>Limited</td><td>✗</td></tr>
+</table>
+</section>
+
+<section id="s4">
+<h2>4. Home Screen</h2>
+<p>The main dashboard with all key actions.</p>
+
+<h3>4.1 Backend Status Card</h3>
+<p>Shows the current connection method and state:</p>
+<ul>
+<li><strong>Chip:</strong> Tap to cycle methods (ADB → Shizuku → Root → SAF → ADB)</li>
+<li><strong>Connect/Disconnect button</strong></li>
+<li><strong>State indicator:</strong> Connected (green) or Disconnected (gray)</li>
+</ul>
+<p><strong>Manual ADB (when ADB selected):</strong><br>Enter IP:port if auto-scan fails.</p>
+
+<h3>4.2 Custom Config</h3>
+<p>Upload your own <code>.ini</code> files to apply:</p>
+<ol>
+<li>Tap <strong>Select Custom Configs</strong> — opens the system file picker</li>
+<li>Pick one or more <code>.ini</code> files (must match: Engine.ini, DeviceProfiles.ini, etc.)</li>
+<li>Review screen shows matched files and skipped ones</li>
+<li>If files &lt; 5, a <strong>Backup Scope</strong> dialog asks: <strong>Back Up All 5 INIs</strong> or <strong>Only Overwritten</strong></li>
+<li>Tap <strong>Apply</strong> — files are pushed to the device</li>
+<li>A green <strong>success popup</strong> confirms which files were deployed and that the hash was refreshed</li>
+</ol>
+<p><strong>Auto-backup setting:</strong> Toggle in Settings → Generation &amp; History.</p>
+
+<h3>4.3 Actions</h3>
+<ul>
+<li><strong>Delete Config Files</strong> — removes all 5 INI files from the game directory</li>
+<li><strong>Collect Client.log</strong> — reads and saves the game's encrypted log to <code>Downloads/WuWaConfig/Client.log</code></li>
+<li><strong>Config Generator</strong> — navigate to the full config generation UI</li>
+<li><strong>Backups</strong> — manage saved config snapshots</li>
+<li><strong>Pity Tracker</strong> — fetch gacha history</li>
+<li><strong>Profile</strong> — view player data</li>
+<li><strong>Battle Stats</strong> — combat telemetry</li>
+<li><strong>App Log</strong> — open the full log viewer</li>
+</ul>
+
+<h3>4.4 Recent Log</h3>
+<p>Shows the last 5 log entries. Tap to open the full Log Viewer.</p>
+
+<h3>4.5 Deploy History Card</h3>
+<p>If enabled in Settings, shows the latest deploy with:</p>
+<ul>
+<li>Preset name and timestamp</li>
+<li>Comparison status (compared / not yet compared)</li>
+<li>Tap to open the full History screen</li>
+</ul>
+</section>
+
+<section id="s5">
+<h2>5. Config Generator</h2>
+<p>The core feature — analyze your device, tune settings, and deploy optimized configs.</p>
+
+<h3>5.1 Overview</h3>
+<p>Access from Home screen → <strong>Config Generator</strong>.</p>
+<p>The generator flow:</p>
+<ol>
+<li><strong>Analyze</strong> — read Client.log or import a saved log</li>
+<li><strong>Review analysis</strong> — see GPU, RAM, FPS, thermal events, OOMs, active CVars</li>
+<li><strong>SmartBrain</strong> scores your device and recommends a preset</li>
+<li><strong>Tune</strong> — select preset, options, game mode, and which files to generate</li>
+<li><strong>Generate</strong> — produces INI files with auto-optimization</li>
+<li><strong>Review</strong> — inspect generated text, edit CVar overrides</li>
+<li><strong>Deploy</strong> — push to device, verify with KuroConfigMonitor hash refresh</li>
+</ol>
+
+<h3>5.2 Screen Walkthrough</h3>
+<h4>Analysis Panel</h4>
+<ul>
+<li><strong>Analyze Device</strong> — reads Client.log from device (chunked with gzip, even for 100MB+ files). Shows progress with animated glitch effect.</li>
+<li><strong>Import Log</strong> — pick a saved <code>.log</code> file for offline analysis</li>
+<li><strong>Results:</strong> device model, GPU, API (Vulkan/OpenGL), Android version, RAM, FPS (capped + actual), resolution, render scale, shadow quality, thermal events, texture errors, GPU OOMs, frame drops, network errors, forbidden CVars, active CVars list</li>
+</ul>
+
+<h4>Verification Badge</h4>
+<p>After a deploy, shows:</p>
+<ul>
+<li><span class="tag tag-green">Accepted</span> CVars — recognized by the game engine</li>
+<li><span class="tag tag-red">Rejected</span> CVars — not recognized</li>
+<li><span class="tag tag-green">N redundant</span> — CVars matching game defaults</li>
+<li><span class="tag tag-amber">N unknown</span> — CVars not in the UE4 binary dump</li>
+<li><span class="tag tag-blue">N monitored</span> — CVars tracked by KuroConfigMonitor</li>
+</ul>
+
+<h4>Preset Selector</h4>
+<table>
+<tr><th>Preset</th><th>Screen %</th><th>For</th></tr>
+<tr><td>Potato</td><td>50%</td><td>Dead low-end, 4GB RAM or less</td></tr>
+<tr><td>Performance</td><td>60%</td><td>Stability first, mid-range</td></tr>
+<tr><td>Balanced</td><td>80%</td><td>Daily default, most devices</td></tr>
+<tr><td>High</td><td>100%</td><td>Sharper visuals, flagship GPUs</td></tr>
+<tr><td>Ultra</td><td>100%</td><td>Flagship devices, best visuals</td></tr>
+</table>
+
+<h4>Tuning Card</h4>
+<ul>
+<li><strong>Advanced per-device tuning</strong> — when ON, replaces the fixed preset lookup with <code>CvarOptimizer</code> which computes each field directly from your device's GPU tier, RAM, thermal events, and OOM counts.</li>
+<li><strong>CVar optimization</strong> — when ON (default), CVars matching game defaults get commented out (<code>; REDUNDANT</code>) and unknown CVars get flagged (<code>; UNKNOWN CVar</code>).</li>
+</ul>
+
+<h4>Frame Target</h4>
+<p>Select target FPS: <strong>30 · 45 · 60 · 90 · 120</strong></p>
+
+<h4>Options</h4>
+<table>
+<tr><th>Option</th><th>What it does</th></tr>
+<tr><td>120 FPS unlock</td><td>Enables 120fps cap (device/display must support)</td></tr>
+<tr><td>Ultra quality unlock</td><td>Enables highest quality settings</td></tr>
+<tr><td>VSync</td><td>Synchronizes frame pacing with display refresh</td></tr>
+<tr><td>Auto cooling</td><td>Thermal management CVars</td></tr>
+<tr><td>Force Vulkan safety CVars</td><td>Vulkan-specific stability CVars</td></tr>
+<tr><td>HZB occlusion</td><td>Hierarchical Z-buffer occlusion culling</td></tr>
+<tr><td>Disable fog</td><td>Removes volumetric fog</td></tr>
+<tr><td>Disable chromatic aberration</td><td>Removes CA effect</td></tr>
+<tr><td>Disable toon outlines</td><td>Removes character outlines</td></tr>
+<tr><td>Disable radial blur</td><td>Removes radial blur effect</td></tr>
+<tr><td>Disable bloom</td><td>Removes bloom lighting</td></tr>
+<tr><td>Disable auto exposure</td><td>Removes auto eye adaptation</td></tr>
+<tr><td>Disable SSR/reflections</td><td>Disables screen-space reflections</td></tr>
+<tr><td>Allow restricted CVars</td><td>SmartBrain won't penalize forbidden CVars</td></tr>
+</table>
+
+<h4>Game Mode</h4>
+<ul>
+<li><strong>Overworld</strong> — the open world (default)</li>
+<li><strong>Domain / Tower</strong> — instanced content</li>
+</ul>
+
+<h4>Files to Generate</h4>
+<table>
+<tr><th>File</th><th>Default</th></tr>
+<tr><td>Engine.ini</td><td>✓ ON</td></tr>
+<tr><td>DeviceProfiles.ini</td><td>✓ ON</td></tr>
+<tr><td>GameUserSettings.ini</td><td>✓ ON</td></tr>
+<tr><td>Scalability.ini</td><td>✗ OFF</td></tr>
+<tr><td>Hardware.ini</td><td>✗ OFF</td></tr>
+</table>
+
+<h4>Benchmark Tuner</h4>
+<p>Auto-tune wizard that preserves state across app restarts:</p>
+<ol>
+<li>Tap <strong>Auto-Tune</strong> → deploy current preset</li>
+<li><strong>Go Play dialog</strong> appears → play the game for ~30 seconds</li>
+<li>Tap <strong>Continue</strong> → reads logcat, parses FPS</li>
+<li>If FPS ≥ target → preset stays or bumps up. If FPS &lt; 85% of target → preset drops down. Options adjust based on gap size.</li>
+<li>Up to 5 rounds total. State saved to <code>benchmark_tuner_state.json</code> — survives app close.</li>
+</ol>
+
+<h3>5.3 Generating &amp; Deploying</h3>
+<ol>
+<li>Configure all options</li>
+<li>Tap <strong>Generate</strong> — creates all selected INI files</li>
+<li><strong>Review screen</strong> shows generated text in a monospace editor</li>
+<li>Tap <strong>Deploy to Device</strong> — pushes files, refreshes KuroConfigMonitor hash</li>
+<li><strong>Verify</strong> — app pulls Client.log and cross-references deployed CVars</li>
+</ol>
+</section>
+
+<section id="s6">
+<h2>6. Backup &amp; Restore</h2>
+<p>Access from Home screen → <strong>Backups</strong>.</p>
+
+<h3>6.1 Creating a Backup</h3>
+<ol>
+<li>Tap <strong>Create Backup</strong></li>
+<li>Enter a <strong>Backup name</strong></li>
+<li><strong>Select which INI files to include</strong> — all 5 checked by default</li>
+<li>Tap <strong>Create</strong></li>
+<li>Saves internal JSON + public INI copies</li>
+</ol>
+
+<h3>6.2 Restoring a Backup</h3>
+<ol>
+<li>Find the backup in the list</li>
+<li>Tap <strong>Restore</strong></li>
+<li>Dialog shows the backup's files as checkboxes — all checked by default</li>
+<li>Uncheck any files you don't want to restore</li>
+<li>Tap <strong>Restore</strong></li>
+</ol>
+
+<h3>6.3 Auto-Backup (Custom Config)</h3>
+<p>When applying custom configs and <code>backup_before_apply</code> is on:</p>
+<ul>
+<li>If &lt;5 files uploaded, <strong>Backup Scope</strong> dialog asks: All 5 INIs or Only Overwritten</li>
+<li>If all 5 files uploaded, backup proceeds with all 5 (no dialog)</li>
+</ul>
+
+<h3>6.4 Deleting a Backup</h3>
+<p>Tap <strong>Delete</strong> on any backup card.</p>
+</section>
+
+<section id="s7">
+<h2>7. Settings</h2>
+<p>Access from the gear icon (top-right on Home screen).</p>
+
+<h3>7.1 Access Method</h3>
+<p>Shows current method and connection state. Switch between ADB, Shizuku, Root, and SAF.</p>
+
+<h3>7.2 Theme</h3>
+<table>
+<tr><th>Option</th><th>Description</th></tr>
+<tr><td>System</td><td>Follows device theme</td></tr>
+<tr><td>Dark</td><td>Dark mode (default)</td></tr>
+<tr><td>Light</td><td>Light mode</td></tr>
+</table>
+
+<h3>7.3 Custom Background</h3>
+<p>Set a background image or video for the app:</p>
+<ul>
+<li><strong>Image</strong> — pick JPG, PNG, or GIF</li>
+<li><strong>Video</strong> — pick MP4 video</li>
+<li><strong>Opacity slider</strong> — 5%-70%</li>
+<li><strong>Remove</strong> — clears the custom background</li>
+</ul>
+
+<h3>7.4 Generation &amp; History</h3>
+<table>
+<tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+<tr><td>Backup before apply</td><td>ON</td><td>Auto-backup before custom config deploy</td></tr>
+<tr><td>Deploy History</td><td>ON</td><td>Track deployment baseline and compare outcomes</td></tr>
+</table>
+</section>
+
+<section id="s8">
+<h2>8. Pity Tracker</h2>
+<p>Access from Home screen → <strong>Pity Tracker</strong>.</p>
+<p>Fetches gacha pull history from Kuro's servers using the Convene URL from Client.log.</p>
+<ol>
+<li>Open <strong>Convene History</strong> in-game at least once</li>
+<li>Tap <strong>Fetch Gacha History</strong></li>
+<li>App reads Client.log, finds the Convene URL, fetches from Kuro's API</li>
+<li>Results cached locally for 12 hours</li>
+</ol>
+<p><strong>Display:</strong> total pulls, ★5/★4 counts, average pity, per-pool breakdown, pity predictions (status, last ★5, pulls since, soft pity warning).</p>
+<p><strong>Background Polling:</strong> if URL not found, tap <strong>Poll in Background</strong> — foreground service polls every 10s (up to 30 attempts), shows notification when found.</p>
+</section>
+
+<section id="s9">
+<h2>9. Player Profile</h2>
+<p>Access from Home screen → <strong>Profile</strong>. Read-only — no files modified.</p>
+<p><strong>Data extracted from:</strong> <code>LocalStorage.db</code>, <code>DeviceStorage.db</code>, <code>.sav</code> files.</p>
+<ul>
+<li>UID, Server, Player Level</li>
+<li>Tower floor, Weekly Rogue score, Battle Pass status</li>
+<li>Game version, Language, Last login</li>
+<li>Config summary bar chart</li>
+</ul>
+<p>Auto-shown on revisit; tap <strong>Refresh</strong> to re-fetch from device.</p>
+</section>
+
+<section id="s10">
+<h2>10. Battle Stats</h2>
+<p>Access from Home screen → <strong>Battle Stats</strong>.</p>
+<p>Parses <code>Client.log</code> for Chinese-language combat telemetry.</p>
+<table>
+<tr><th>Section</th><th>Stats</th></tr>
+<tr><td>Header</td><td>Total battles, deaths, staggers, stamina used</td></tr>
+<tr><td>Combat</td><td>Echoes collected, deaths, staggers, stamina</td></tr>
+<tr><td>Dodge</td><td>Forward dodges, back dodges, counter dodges</td></tr>
+<tr><td>Movement</td><td>Teleports, role changes</td></tr>
+<tr><td>Echo Skills</td><td>Skills used, transforms</td></tr>
+<tr><td>Other</td><td>Monthly cards claimed, log file size</td></tr>
+</table>
+</section>
+
+<section id="s11">
+<h2>11. Log Viewer</h2>
+<p>Access from Home screen → <strong>App Log</strong>, or tap the Recent Log card.</p>
+<ul>
+<li>Real-time entries with timestamps</li>
+<li>Search bar</li>
+<li>Level filter chips: All / INFO / SUCCESS / WARNING / ERROR</li>
+<li>Entry count, auto-scroll</li>
+<li>Save to <code>Downloads/WuWaConfig/WuWaConfig_yyyy-MM-dd_HH-mm-ss.txt</code></li>
+</ul>
+<table>
+<tr><th>Level</th><th>Color</th><th>Meaning</th></tr>
+<tr><td>INFO</td><td>Default</td><td>Normal operation info</td></tr>
+<tr><td>SUCCESS</td><td>Green</td><td>Successful operations</td></tr>
+<tr><td>WARNING</td><td>Amber</td><td>Non-critical issues</td></tr>
+<tr><td>ERROR</td><td>Red</td><td>Failed operations</td></tr>
+</table>
+</section>
+
+<section id="s12">
+<h2>12. Deploy History</h2>
+<p>Access from Home screen → <strong>Deploy History card</strong> or from History screen.</p>
+<p>Tracks each config deployment and lets you compare outcomes after gameplay.</p>
+
+<h3>12.1 How It Works</h3>
+<ol>
+<li><strong>Baseline</strong> — when you deploy a config, the app saves a <code>DeployRecord</code></li>
+<li><strong>Compare</strong> — tap <strong>Compare Now</strong> on a record</li>
+<li>App reads fresh Client.log and computes Δ vs baseline:
+<ul>
+<li>FPS change</li>
+<li>Thermal events change</li>
+<li>OOM count change</li>
+<li>Frame drop change</li>
+</ul></li>
+<li>Results color-coded: green = improvement, red = regression</li>
+<li>If record was Advanced per-device tuned, a <strong>Retune &amp; Deploy</strong> button appears:
+<ul>
+<li><strong>Stable</strong> (±5 FPS, 0 OOM, ≤2 thermal, ≤5 drops) → no change</li>
+<li><strong>OOM increased</strong> → force potato-level</li>
+<li><strong>Degraded</strong> → screen×0.75, shadow-2, detail-1, SSR-1</li>
+<li><strong>Improved</strong> → screen×1.15, shadow+1, detail+1, SSR+1</li>
+<li>Generates new config, deploys, saves new record — repeat until stable</li>
+</ul></li>
+</ol>
+
+<h3>12.2 Settings</h3>
+<p>Toggle in <strong>Settings → Generation &amp; History → Deploy History</strong>. Default: ON.</p>
+</section>
+
+<section id="s13">
+<h2>13. Config Generation Deep Dive</h2>
+
+<h3>13.1 Engine.ini</h3>
+<p>~300 lines of CVars in 18 sections:</p>
+<table>
+<tr><th>Section</th><th>CVars</th></tr>
+<tr><td>Character Quality</td><td>LOD, shadow, draw distance</td></tr>
+<tr><td>Scalability</td><td>sg.* values from preset</td></tr>
+<tr><td>Anti-Aliasing</td><td>TAA parameters, temporal upsampling</td></tr>
+<tr><td>Post Processing</td><td>Bloom, DoF, CA, auto-exposure, AO</td></tr>
+<tr><td>Shadow</td><td>CSM cascades, shadow resolution, distance</td></tr>
+<tr><td>Texture Streaming</td><td>MipBias, Aniso, pool size</td></tr>
+<tr><td>Mobile Rendering</td><td>MSAA, HBAO, FSR, PPR</td></tr>
+<tr><td>VRS</td><td>Variable Rate Shading</td></tr>
+<tr><td>Effects / Particles</td><td>Niagara quality, spawn rates</td></tr>
+<tr><td>Water / Reflection</td><td>SSR, planar reflection</td></tr>
+<tr><td>Screen-Space Effects</td><td>SSGI, SSS, SSFS</td></tr>
+<tr><td>Environment</td><td>Fog, clouds, foliage</td></tr>
+<tr><td>NPC &amp; World</td><td>Culling distances, LOD</td></tr>
+<tr><td>Advanced LOD</td><td>Screen radius, distance scaling</td></tr>
+<tr><td>Animation &amp; BP</td><td>URO, animation rates</td></tr>
+<tr><td>Frame &amp; Display</td><td>VSync, FramePace, FrameGen</td></tr>
+<tr><td>Pipeline / RHI</td><td>PSO cache, RHI command</td></tr>
+<tr><td>Thermal &amp; Stability</td><td>Auto-cool, thermal control</td></tr>
+</table>
+
+<h3>13.2 DeviceProfiles.ini</h3>
+<p>Detects your SoC and applies device-specific profiles:</p>
+<ul>
+<li>40+ SoC profiles from Adreno 830 down to Mali-G57</li>
+<li>Fallback: universal profiles based on preset</li>
+<li>Device evaluation tier, texture LOD bias, draw distances, imposter scale, ISM distances, foliage cull, FPS unlock</li>
+</ul>
+
+<h3>13.3 GameUserSettings.ini</h3>
+<ul>
+<li><code>[ScalabilityGroups]</code> — sg.* values</li>
+<li><code>[/Script/Engine.GameUserSettings]</code> — VSync, resolution, FPS cap, HDR</li>
+</ul>
+
+<h3>13.4 Scalability.ini &amp; Hardware.ini</h3>
+<p>Optional files (OFF by default): resolution quality, quality levels, hardware profile, frame pacing.</p>
+
+<h3>13.5 Core.System Paths</h3>
+<p>Before generation, the app reads existing Engine.ini from device and extracts <code>[Core.System]</code> paths (~40 content paths). If no existing config, built-in defaults are used.</p>
+
+<h3>13.6 Post-Processing</h3>
+<ol>
+<li>Import from log — CVars from Client.log added</li>
+<li>CVar overrides — user's key=value pairs</li>
+<li>CVar optimization — redundant/unknown CVars commented out</li>
+<li>Deduplication — duplicate keys removed (last wins)</li>
+<li>Forbidden CVar stripping — 33 Kuro-restricted CVars removed</li>
+</ol>
+
+<h3>13.7 Advanced Per-Device Tuning</h3>
+<p>When ON, the fixed preset lookup is replaced by <code>CvarOptimizer</code>:</p>
+<ul>
+<li>GPU tier detection (flagship/high/mid_high/mid/mid_low/low/unknown)</li>
+<li>Per-field rules: screen%, shadow, SSR, mipbias, streaming, view distance, foliage LOD, detail, LOD bias, grass cull</li>
+<li>Hard-limited: OOM ≥ 1 OR (thermal ≥ 3 AND low-tier GPU) → minimum settings</li>
+<li>Constrained: thermal ≥ 3, texture errors ≥ 5, or RAM &lt; 6GB → 1-2 tiers lower</li>
+</ul>
+<p><strong>Self-tuning feedback loop:</strong></p>
+<ol>
+<li>Deploy with Advanced Gen ON → saves <code>OptimizedProfile</code> in history</li>
+<li>Play game → new Client.log created</li>
+<li>History → Compare Now → pulls log, computes Δs</li>
+<li>Retune &amp; Deploy — <code>adjustProfile()</code> adjusts based on Δs, generates new config, deploys</li>
+<li>Repeat until stable</li>
+</ol>
+
+<h3>13.8 File Push Mechanism</h3>
+<ol>
+<li>Content base64-encoded</li>
+<li>Split into <code>printf '%s'</code> chunks (~4000 bytes)</li>
+<li>Written to <code>/data/local/tmp/wuwaconfig_{ts}_{rand}.b64</code></li>
+<li>Decoded via <code>base64 -d</code></li>
+<li>Temp file deleted</li>
+<li>MD5 verified</li>
+<li>Retried once on failure</li>
+</ol>
+</section>
+
+<section id="s14">
+<h2>14. SmartBrain Scoring</h2>
+<p>Analyzes device from <code>LogInfo</code>, scores 0-100, recommends preset.</p>
+
+<h3>14.1 Base Score: 50</h3>
+
+<h3>14.2 GPU Tier</h3>
+<table>
+<tr><th>Tier</th><th>Examples</th><th>Score</th></tr>
+<tr><td>Flagship</td><td>Adreno 8xx, Dimensity 93+, Tensor G3+</td><td><strong>+30</strong></td></tr>
+<tr><td>High</td><td>Adreno 75x-80x, Dimensity 85+, Mali-G7+</td><td><strong>+20</strong></td></tr>
+<tr><td>Mid-High</td><td>Adreno 7xx, Dimensity 73+, Xclipse</td><td><strong>+10</strong></td></tr>
+<tr><td>Mid</td><td>Adreno 6xx, Mali-G6xx</td><td><strong>±0</strong></td></tr>
+<tr><td>Mid-Low</td><td>Adreno 5xx, Mali-G5xx</td><td><strong>-10</strong></td></tr>
+<tr><td>Low/Unknown</td><td>Everything else</td><td><strong>-20</strong></td></tr>
+</table>
+
+<h3>14.3 Other Factors</h3>
+<table>
+<tr><th>Factor</th><th>Condition</th><th>Score</th></tr>
+<tr><td>RAM</td><td>≥8GB / 6-8GB / 4-6GB / &lt;4GB</td><td>+8 / +5 / 0 / -15</td></tr>
+<tr><td>Vulkan</td><td>Available</td><td>+8</td></tr>
+<tr><td>FPS met target</td><td>≥95% of cap</td><td>+5</td></tr>
+<tr><td>FPS drop 10-20%</td><td></td><td>-6</td></tr>
+<tr><td>FPS drop 20-30%</td><td></td><td>-12</td></tr>
+<tr><td>FPS drop &gt;30%</td><td></td><td>-18</td></tr>
+<tr><td>Actual FPS &lt;30</td><td></td><td>-15</td></tr>
+<tr><td>Actual FPS 30-45</td><td></td><td>-8</td></tr>
+<tr><td>Thermal events</td><td>≥5 / ≥3 / ≥1</td><td>-20 / -12 / -5</td></tr>
+<tr><td>GPU OOM</td><td>≥3 / ≥2 / ≥1</td><td>-30 / -20 / -12</td></tr>
+<tr><td>Frame drops</td><td>≥15 / ≥5</td><td>-10 / -5</td></tr>
+<tr><td>Low memory device</td><td>Flag from game</td><td>-15</td></tr>
+<tr><td>Forbidden CVars (×5 each)</td><td>If restricted</td><td>-5 each</td></tr>
+<tr><td>Network errors</td><td>≥10 / ≥5</td><td>-10 / -5</td></tr>
+<tr><td>Render scale ≥110%</td><td></td><td>+5</td></tr>
+<tr><td>Render scale ≥125%</td><td></td><td>+3</td></tr>
+<tr><td>Render scale &lt;70%</td><td></td><td>-10</td></tr>
+<tr><td>4K resolution</td><td>+ mid/low GPU</td><td>-10 + extra</td></tr>
+<tr><td>Texture errors</td><td>Per error (max 20)</td><td>-min(errors, 20)</td></tr>
+<tr><td>Unknown CVars &gt;5</td><td></td><td>-5</td></tr>
+<tr><td>Monitored CVars &gt;10</td><td></td><td>+3</td></tr>
+<tr><td>&gt;20 differ from defaults</td><td>Well-optimized</td><td>+5</td></tr>
+<tr><td>&lt;5 differ from defaults</td><td>Room to improve</td><td>-8</td></tr>
+<tr><td>High shadows + low GPU</td><td></td><td>-6</td></tr>
+<tr><td>High shadows + &lt;6GB RAM</td><td></td><td>-4</td></tr>
+<tr><td>High textures + &lt;6GB RAM</td><td></td><td>-5</td></tr>
+<tr><td>High textures + tex errors</td><td></td><td>-4</td></tr>
+<tr><td>Render scale &gt;100%</td><td>Overclock penalty</td><td>-min(overScale, 8)</td></tr>
+<tr><td>High FPS + thermal</td><td></td><td>-6</td></tr>
+<tr><td>SSAO on low GPU</td><td></td><td>-5</td></tr>
+</table>
+
+<h3>14.4 Preset Recommendation</h3>
+<table>
+<tr><th>Score</th><th>Conditions</th><th>Preset</th></tr>
+<tr><td>any</td><td>GPU OOM ≥ 2</td><td><strong>Potato</strong></td></tr>
+<tr><td>any</td><td>Low memory or score ≤ 20</td><td><strong>Potato</strong></td></tr>
+<tr><td>≥ 80</td><td>Flagship GPU + Vulkan + non-4K</td><td><strong>Ultra</strong></td></tr>
+<tr><td>≥ 75</td><td>Flagship/high GPU + Vulkan</td><td><strong>High</strong></td></tr>
+<tr><td>≥ 70</td><td>Flagship/high GPU</td><td><strong>High</strong></td></tr>
+<tr><td>≥ 40</td><td>Fallthrough</td><td><strong>Balanced</strong></td></tr>
+<tr><td>≥ 20</td><td>Fallthrough</td><td><strong>Performance</strong></td></tr>
+<tr><td>&lt; 20</td><td>Fallthrough</td><td><strong>Potato</strong></td></tr>
+</table>
+</section>
+
+<section id="s15">
+<h2>15. CVar System</h2>
+
+<h3>15.1 What Are CVars?</h3>
+<p>Console Variables are Unreal Engine 4's runtime configuration system. Each CVar is a <code>key=value</code> pair controlling a specific engine behavior.</p>
+
+<h3>15.2 CVar Database</h3>
+<table>
+<tr><th>File</th><th>Entries</th><th>Description</th></tr>
+<tr><td><code>libUE4_cvars.txt</code></td><td>~3348</td><td>Every registered CVar in Kuro's UE4.26 fork</td></tr>
+<tr><td><code>config_monitor_cvars.txt</code></td><td>569</td><td>CVars tracked by KuroConfigMonitor hash</td></tr>
+<tr><td><code>config_monitor_values.txt</code></td><td>568</td><td>Game's default values for monitored CVars</td></tr>
+</table>
+<p>Used for: <code>isKnown()</code>, <code>isMonitored()</code>, <code>gameDefault()</code>, <code>categorize()</code> (18 categories), <code>optimizeIniText()</code>.</p>
+
+<h3>15.3 Forbidden CVars</h3>
+<p>33 CVars the game actively strips/ignores: <code>r.Streaming.Boost</code>, <code>r.ScreenPercentage</code>, <code>r.AFME.Enable</code>, <code>r.DLSSG.Enable</code>, <code>r.FidelityFX.FSR.Enabled</code>, and more.</p>
+
+<h3>15.4 CVar Priority Chain</h3>
+<pre>SetBySystemSettingsIni &gt; SetByDeviceProfile &gt; SetByProjectSetting &gt; SetByScalability</pre>
+<p>Engine.ini <code>[SystemSettings]</code> always wins.</p>
+</section>
+
+<section id="s16">
+<h2>16. FAQ &amp; Troubleshooting</h2>
+
+<h3>16.1 Common Issues</h3>
+<p><strong>"Cannot connect via ADB"</strong></p>
+<ul>
+<li>Ensure Wireless Debugging is enabled in Developer Options</li>
+<li>Check your phone and PC are on the same network</li>
+<li>Restart Wireless Debugging (toggle off/on)</li>
+<li>App auto-scans ports 37000-44000 — enter manually if needed</li>
+</ul>
+<p><strong>"Connection failed: process hasn't exited" (Shizuku)</strong></p>
+<ul>
+<li>Known Shizuku race condition. App retries after 5s. Restart Shizuku if it persists.</li>
+</ul>
+<p><strong>"Client.log too large"</strong></p>
+<ul>
+<li>App handles 100MB+ files with adaptive chunking (up to 30×1MB chunks, gzip). Ensure backend supports <code>dd</code> (SAF does not).</li>
+</ul>
+<p><strong>"No Convene URL found"</strong></p>
+<ul>
+<li>Open Convene History in-game first, wait, try again</li>
+<li>Use Poll in Background</li>
+</ul>
+<p><strong>"Config deploy failed"</strong></p>
+<ul>
+<li>Check game directory exists, ensure write access, try different method</li>
+</ul>
+<p><strong>"Video background opacity doesn't work"</strong></p>
+<ul>
+<li>Known ExoPlayer/SurfaceView limitation. App overlays a black box with inverse opacity.</li>
+</ul>
+
+<h3>16.2 File Locations</h3>
+<table>
+<tr><th>Path</th><th>Contents</th></tr>
+<tr><td><code>Downloads/WuWaConfig/</code></td><td>Saved Client.log, log snapshots</td></tr>
+<tr><td><code>Downloads/WuWaConfig/Backups/{name}/</code></td><td>Backup INI files</td></tr>
+<tr><td><code>Downloads/WuWaConfig/logs/app.log</code></td><td>Rotating app log (5MB, 2 rotations)</td></tr>
+<tr><td><code>{app.filesDir}/backups/</code></td><td>Internal backup JSON manifests</td></tr>
+<tr><td><code>{app.filesDir}/adbkey</code></td><td>RSA key pair for ADB auth</td></tr>
+<tr><td><code>{app.cacheDir}/staging/</code></td><td>Temp INI files before push</td></tr>
+</table>
+
+<h3>16.3 Client.log Decryption</h3>
+<p>The game's <code>Client.log</code> is XOR-encrypted. The decryption uses:</p>
+<pre>LUT[i] = i xor (0xA5 if i%2==1 else 0xEF)</pre>
+<p>Log starts with 3-byte header <code>00 54 50</code> (\0TP). Strip header, apply LUT, detect encoding.</p>
+
+<h3>16.4 Log Reading for Large Files</h3>
+<p>For files &gt;1MB, adaptive chunking: 1 chunk per 5MB, min 5, max 30, each 1MB via <code>dd</code>, gzip-compressed. ~20% coverage of a 100MB file, ~6MB wire transfer.</p>
+
+<h3>16.5 Data Safety</h3>
+<p>The app <strong>never</strong> sends data off-device. All operations are local. No telemetry, no analytics, no internet except gacha API calls.</p>
+
+<h3>16.6 Getting Help</h3>
+<ul>
+<li><a href="https://github.com/B3rr7/WuWa-Config-Android/issues">GitHub Issues</a></li>
+<li><a href="https://t.me/Yt_Player42">Telegram</a></li>
+<li><a href="https://discord.gg/5WP9nN2e2s">Discord</a></li>
+<li><a href="https://www.youtube.com/@Player42_g">YouTube (@Player42_g)</a></li>
+</ul>
+</section>
+</main>
+
+<script>
+(function() {
+  const toc = document.getElementById('toc');
+  const nav = document.createElement('nav');
+  nav.id = 'toc-inner';
+  const h2 = document.createElement('h2');
+  h2.textContent = 'Contents';
+  nav.appendChild(h2);
+  
+  const sections = document.querySelectorAll('h2, h3, h4');
+  sections.forEach(function(el) {
+    const tag = el.tagName.toLowerCase();
+    const level = tag === 'h4' ? 3 : tag === 'h3' ? 2 : 1;
+    const a = document.createElement('a');
+    a.className = 's' + level;
+    const id = el.textContent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    el.id = el.id || id;
+    a.href = '#' + el.id;
+    a.textContent = el.textContent;
+    a.style.animation = 'slideIn 0.4s ease-out both';
+    a.style.animationDelay = (level * 0.03) + 's';
+    nav.appendChild(a);
+  });
+  
+  toc.appendChild(nav);
+
+  // Scroll reveal for sections
+  const observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  
+  document.querySelectorAll('section').forEach(function(s) {
+    observer.observe(s);
+  });
+  
+  // Active sidebar tracking
+  var tocLinks = nav.querySelectorAll('a');
+  var allSections = [];
+  tocLinks.forEach(function(link) {
+    var target = document.querySelector(link.getAttribute('href'));
+    if (target) allSections.push({ link: link, target: target });
+  });
+  window.addEventListener('scroll', function() {
+    var scrollY = window.scrollY + 80;
+    var active = null;
+    allSections.forEach(function(item) {
+      if (item.target.offsetTop <= scrollY) active = item;
+    });
+    tocLinks.forEach(function(l) { l.style.color = ''; l.style.borderLeftColor = 'transparent'; });
+    if (active) {
+      active.link.style.color = 'var(--neon-cyan)';
+      active.link.style.borderLeftColor = 'var(--neon-cyan)';
+    }
+  });
+})();
+</script>
+</body>
+</html>

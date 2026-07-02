@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.config
 
+import com.wuwaconfig.app.model.DeployComparison
 import com.wuwaconfig.app.model.LogInfo
 
 object CvarOptimizer {
@@ -159,5 +160,61 @@ object CvarOptimizer {
             vd = vd, flod = flod, detail = detail,
             lod_bias = lod_bias, grasscull = grasscull
         )
+    }
+
+    fun adjustProfile(current: OptimizedProfile, comparison: DeployComparison): OptimizedProfile {
+        val fpsDelta = comparison.fpsDelta ?: 0f
+        val oomDelta = comparison.oomDelta ?: 0
+        val thermalDelta = comparison.thermalDelta ?: 0
+        val dropDelta = comparison.dropFramesDelta ?: 0
+
+        val wasStable = fpsDelta in -5f..5f && oomDelta <= 0 && thermalDelta <= 2 && dropDelta <= 5
+        val degraded = fpsDelta < -5f || oomDelta > 0 || thermalDelta > 2 || dropDelta > 5
+        val improved = fpsDelta > 5f && oomDelta <= 0 && thermalDelta <= 0 && dropDelta <= 0
+
+        if (wasStable) return current
+
+        if (oomDelta > 0) {
+            return OptimizedProfile(50, 0, 256, 0, 3, 0.3, 0.3, 0.4, 0, 5, 1500)
+        }
+
+        if (degraded) {
+            val newScreen = (current.screen * 0.75f).toInt().coerceIn(50, 100)
+            val newShadow = (current.shadow - 2).coerceAtLeast(0)
+            val newDetail = (current.detail - 1).coerceAtLeast(0)
+            val newSsr = (current.ssr - 1).coerceAtLeast(0)
+            val newMipbias = (current.mipbias + 1).coerceAtMost(3)
+            val newVd = (current.vd * 0.6).coerceAtMost(current.vd)
+            val newFlod = (current.flod * 0.6).coerceAtMost(current.flod)
+            return current.copy(
+                screen = newScreen,
+                shadow = newShadow,
+                shadowRes = if (current.shadow >= 2) 256 else current.shadowRes,
+                ssr = newSsr,
+                mipbias = newMipbias,
+                vd = newVd,
+                flod = newFlod,
+                detail = newDetail,
+                lod_bias = if (newDetail == 0) 3 else current.lod_bias,
+                grasscull = if (newDetail == 0) 4500 else current.grasscull
+            )
+        }
+
+        if (improved) {
+            val newScreen = (current.screen * 1.15f).toInt().coerceIn(50, 100)
+            val newShadow = (current.shadow + 1).coerceAtMost(5)
+            val newDetail = (current.detail + 1).coerceAtMost(2)
+            val newSsr = (current.ssr + 1).coerceAtMost(4)
+            return current.copy(
+                screen = newScreen,
+                shadow = newShadow,
+                shadowRes = when (newShadow) { 4, 5 -> 2048; 2, 3 -> 1024; else -> 256 },
+                ssr = newSsr,
+                detail = newDetail,
+                grasscull = when { newDetail == 2 && current.grasscull < 20000 -> 30000; else -> current.grasscull }
+            )
+        }
+
+        return current
     }
 }

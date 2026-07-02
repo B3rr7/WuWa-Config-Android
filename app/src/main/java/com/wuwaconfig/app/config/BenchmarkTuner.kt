@@ -1,7 +1,31 @@
 package com.wuwaconfig.app.config
 
 import android.util.Log
+import com.google.gson.Gson
+import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.model.GeneratorOptions
+import java.io.File
+
+enum class TunerStage { IDLE, DEPLOYING, WAITING_FOR_PLAY, CAPTURING, COMPLETE }
+
+data class RoundResult(
+    val round: Int,
+    val preset: String,
+    val avgFps: Float,
+    val minFps: Float,
+    val stabilityPct: Float
+)
+
+data class TunerState(
+    val stage: TunerStage = TunerStage.IDLE,
+    val round: Int = 1,
+    val preset: String = "balanced",
+    val options: GeneratorOptions = GeneratorOptions(),
+    val targetFps: Int = 60,
+    val results: List<RoundResult> = emptyList(),
+    val finalPreset: String? = null,
+    val error: String? = null
+)
 
 data class BenchmarkResult(
     val avgFps: Float,
@@ -10,20 +34,41 @@ data class BenchmarkResult(
     val stabilityPct: Float
 )
 
-data class TunerProgress(
-    val round: Int,
-    val preset: String,
-    val avgFps: Float,
-    val minFps: Float,
-    val targetFps: Int,
-    val stage: String
-)
-
 object BenchmarkTuner {
     private const val TAG = "BenchmarkTuner"
+    private const val STATE_FILE = "benchmark_tuner_state.json"
     private val FPS_LINE_PATTERN = """(?:FPS|fps|frame.*?rate|avg\s*fps)[:\s]*(\d+\.?\d*)""".toRegex()
 
     val PRESET_ORDER = listOf("ultra", "high", "balanced", "performance", "potato")
+
+    private val gson = Gson()
+
+    fun loadState(): TunerState? {
+        return try {
+            val file = File(WuWaConfigApp.instance.filesDir, STATE_FILE)
+            if (!file.exists()) return null
+            gson.fromJson(file.readText(), TunerState::class.java)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load tuner state", e)
+            null
+        }
+    }
+
+    fun saveState(state: TunerState) {
+        try {
+            File(WuWaConfigApp.instance.filesDir, STATE_FILE).writeText(gson.toJson(state))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save tuner state", e)
+        }
+    }
+
+    fun clearState() {
+        try {
+            File(WuWaConfigApp.instance.filesDir, STATE_FILE).delete()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear tuner state", e)
+        }
+    }
 
     fun parseFpsLogcat(logcatText: String): Result<BenchmarkResult> {
         val fpsValues = mutableListOf<Float>()

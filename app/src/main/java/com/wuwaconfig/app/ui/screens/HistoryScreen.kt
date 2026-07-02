@@ -62,7 +62,8 @@ fun HistoryScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         DeployHistoryCard(
                             record = record,
                             isConnected = backendStatus.connected && !isApplying,
-                            onCompare = { viewModel.compareDeployOutcome(record.id) }
+                            onCompare = { viewModel.compareDeployOutcome(record.id) },
+                            onRetune = { viewModel.retuneAndDeploy(record.id) }
                         )
                     }
                 }
@@ -72,7 +73,7 @@ fun HistoryScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun DeployHistoryCard(record: DeployRecord, isConnected: Boolean, onCompare: () -> Unit) {
+private fun DeployHistoryCard(record: DeployRecord, isConnected: Boolean, onCompare: () -> Unit, onRetune: () -> Unit = {}) {
     val dateStr = remember(record.timestamp) {
         SimpleDateFormat("MMM d, yyyy HH:mm", Locale.US).format(Date(record.timestamp))
     }
@@ -127,6 +128,16 @@ private fun DeployHistoryCard(record: DeployRecord, isConnected: Boolean, onComp
             ComparisonRow("Thermal", comparison.thermalDelta?.toFloat(), "events", inverted = true)
             ComparisonRow("OOM", comparison.oomDelta?.toFloat(), "events", inverted = true)
             ComparisonRow("Drops", comparison.dropFramesDelta?.toFloat(), "frames", inverted = true)
+        }
+
+        if (record.hasOutcome && record.optimizedProfile != null && isConnected) {
+            Spacer(Modifier.height(8.dp))
+            GlassButton(
+                onClick = onRetune,
+                modifier = Modifier.fillMaxWidth(),
+                accentColor = NeonRed,
+                contentColor = Color.White
+            ) { Text("Retune & Deploy (Auto-Adjust)", fontWeight = FontWeight.Bold) }
         }
 
         if (!record.hasOutcome && isConnected) {

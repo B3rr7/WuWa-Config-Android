@@ -29,6 +29,7 @@ object ConfigGenerator {
     var logInfo = LogInfo()
     var allowRestrictedCvars = true
     var lastGeneratedCvars: Set<String> = emptySet()
+    var profileOverride: PresetProfile? = null
 
     fun reset() {
         activePreset = "balanced"
@@ -214,7 +215,10 @@ object ConfigGenerator {
     fun generateWithCorePaths(preset: String, opts: GeneratorOptions, corePaths: List<String>,
                               logInfo: LogInfo = this.logInfo, activePreset: String = preset): GeneratedIni {
         this.activePreset = activePreset
-        val p = if (opts.useAdvancedGen) {
+        val p = if (profileOverride != null) {
+            LogRepository.add("ConfigGenerator: using profileOverride (retune)")
+            profileOverride.also { profileOverride = null }!!
+        } else if (opts.useAdvancedGen) {
             LogRepository.add("ConfigGenerator: using CvarOptimizer per-device tuning")
             CvarOptimizer.toPresetProfile(CvarOptimizer.optimizeProfile(logInfo))
         } else {

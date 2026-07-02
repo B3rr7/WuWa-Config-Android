@@ -1,5 +1,7 @@
 package com.wuwaconfig.app.model
 
+import com.wuwaconfig.app.config.CvarOptimizer
+
 data class DeployRecord(
     val id: String,
     val timestamp: Long,
@@ -21,7 +23,8 @@ data class DeployRecord(
     val outcomeThermal: Int? = null,
     val outcomeOom: Int? = null,
     val outcomeDrops: Int? = null,
-    val outcomeTimestamp: Long? = null
+    val outcomeTimestamp: Long? = null,
+    val optimizedProfile: CvarOptimizer.OptimizedProfile? = null
 ) {
     val hasOutcome: Boolean get() = outcomeTimestamp != null
 

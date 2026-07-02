@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.ui.screens
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -42,7 +43,7 @@ import com.wuwaconfig.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit, onNavigateToUserGuide: () -> Unit = {}) {
     val backendStatus by viewModel.backendStatus.collectAsState()
     val chipset = viewModel.chipsetInfo
     var showBackupDirDialog by remember { mutableStateOf(false) }
@@ -300,6 +301,12 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                 context = ctx
                             )
                         }
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            UserGuideButton(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = onNavigateToUserGuide
+                            )
+                        }
                     }
                 }
             }
@@ -386,6 +393,23 @@ private fun InfoSetting(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun UserGuideButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = NeonGreen.copy(alpha = 0.12f),
+            contentColor = NeonGreen
+        )
+    ) {
+        Icon(Icons.Default.Edit, contentDescription = "User Guide", modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text("User Guide", fontWeight = FontWeight.Bold)
     }
 }
 

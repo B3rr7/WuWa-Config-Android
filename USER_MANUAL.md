@@ -291,10 +291,18 @@ Choose which files to generate. Engine.ini and DeviceProfiles.ini are recommende
 
 #### Benchmark Tuner
 
-Auto-tune wizard (progressive preset stepping):
-- Deploys a preset → captures FPS via logcat → adjusts preset up/down → redeploys
-- Up to 5 rounds, stops when target FPS is stable
-- Shows progress for each round
+Auto-tune wizard that **preserves state across app restarts**:
+
+1. **Tap Auto-Tune** → deploy current preset with your options
+2. **Go Play dialog** appears → play the game for ~30 seconds to generate FPS data in logcat
+3. **Tap Continue** → the tuner reads logcat, parses FPS, analyzes performance
+4. If FPS ≥ target → preset stays or bumps up (if >15% headroom). If FPS < 85% of target → preset drops down. Options also adjust: disable SSR/disable bloom/disable radial blur/lower shadows based on FPS gap size.
+5. Next round deploys the adjusted preset. Up to 5 rounds total.
+
+**Survives app close** — state saved to `{filesDir}/benchmark_tuner_state.json`:
+- Close the app mid-tuner (e.g., to play the game) → reopen → tuner resumes at Go Play dialog
+- Results persist until you Dismiss
+- Cancel Tuner clears state
 
 ### 5.3 Generating & Deploying
 
@@ -505,6 +513,12 @@ Tracks each config deployment and lets you compare outcomes after gameplay.
    - OOM count change
    - Frame drop change
 4. Results shown with color coding: green = improvement, red = regression
+5. If the record was generated with **Advanced per-device tuning** (has an `OptimizedProfile`), a **Retune & Deploy (Auto-Adjust)** button appears after comparison:
+   - **Stable** (±5 FPS, 0 OOM, ≤2 thermal, ≤5 drops) → no change
+   - **OOM increased** → force potato-level minimums
+   - **Degraded** (FPS↓ >5, thermal↑ >2, drops↑ >5) → screen×0.75, shadow-2, detail-1, SSR-1, viewDistance×0.6
+   - **Improved** (FPS↑ >5, no regressions) → screen×1.15, shadow+1, detail+1, SSR+1
+   - Generates new config with adjusted profile, deploys, saves new record — repeat until stable
 
 ### 12.2 Settings
 
@@ -585,6 +599,12 @@ When **Advanced per-device tuning** is ON in the Tuning card, the fixed preset l
 - **Constrained detection** — thermal ≥ 3, texture errors ≥ 5, or RAM < 6GB reduces settings by 1-2 tiers
 
 The result is converted to a `PresetProfile` so all existing builder functions work without changes.
+
+**Self-tuning feedback loop** — when you deploy with Advanced Gen ON, the app saves the computed `OptimizedProfile` in the deploy history record. After playing the game:
+1. Go to **History** → tap **Compare Now** — pulls fresh Client.log, computes Δs
+2. Tap **Retune & Deploy (Auto-Adjust)** — `CvarOptimizer.adjustProfile()` adjusts the profile based on Δs
+3. The adjusted profile is injected via `ConfigGenerator.profileOverride` → new config generated → deployed
+4. A new deploy record is saved with the adjusted profile — repeat until the comparison shows stable
 
 ### 13.8 File Push Mechanism
 

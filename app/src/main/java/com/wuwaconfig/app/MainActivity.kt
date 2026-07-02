@@ -30,6 +30,7 @@ import com.wuwaconfig.app.ui.screens.ProfileScreen
 import com.wuwaconfig.app.ui.screens.SettingsScreen
 import com.wuwaconfig.app.ui.screens.SetupScreen
 import com.wuwaconfig.app.ui.screens.TermsScreen
+import com.wuwaconfig.app.ui.screens.UserGuideScreen
 import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 
 class MainActivity : ComponentActivity() {
@@ -163,6 +164,12 @@ fun AppNavigation(viewModel: MainViewModel) {
         composable("settings") {
             SettingsScreen(
                 viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToUserGuide = { navController.navigate("userguide") }
+            )
+        }
+        composable("userguide") {
+            UserGuideScreen(
                 onBack = { navController.popBackStack() }
             )
         }
