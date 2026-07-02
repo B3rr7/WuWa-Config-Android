@@ -412,7 +412,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                 }
                 updates[name] = mapOf(
                     "Hash" to hash,
-                    "ModifyCount" to (prevCount + 1).toString(),
+                    "ModifyCount" to prevCount.toString(),
                     "LastModifiedTime" to now
                 )
             }
@@ -477,7 +477,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                     val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
                     patchedLines.add("[$name]")
                     patchedLines.add("Hash=$hash")
-                    patchedLines.add("ModifyCount=1")
+                    patchedLines.add("ModifyCount=0")
                     patchedLines.add("LastModifiedTime=$now")
                     patchedLines.add("")
                 }

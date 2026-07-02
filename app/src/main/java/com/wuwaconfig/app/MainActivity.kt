@@ -10,11 +10,21 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -121,12 +131,34 @@ fun AppNavigation(viewModel: MainViewModel) {
     val navController = rememberNavController()
     val startDest = if (viewModel.isSetupDone) "home" else "setup"
 
+    val navEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition? = {
+        slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+            fadeIn(animationSpec = tween(300))
+    }
+    val navExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition? = {
+        slideOutHorizontally(targetOffsetX = { -it / 3 }, animationSpec = tween(250)) +
+            fadeOut(animationSpec = tween(250))
+    }
+    val popEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition? = {
+        slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+            fadeIn(animationSpec = tween(300))
+    }
+    val popExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition? = {
+        slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(250)) +
+            fadeOut(animationSpec = tween(250))
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDest,
         modifier = Modifier
     ) {
-        composable("setup") {
+        composable("setup",
+            enterTransition = { fadeIn(animationSpec = tween(400)) },
+            exitTransition = { fadeOut(animationSpec = tween(300)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(300)) },
+            popExitTransition = { fadeOut(animationSpec = tween(300)) }
+        ) {
             SetupScreen(
                 viewModel = viewModel,
                 onComplete = {
@@ -136,7 +168,10 @@ fun AppNavigation(viewModel: MainViewModel) {
                 }
             )
         }
-        composable("home") {
+        composable("home",
+            enterTransition = navEnter, exitTransition = navExit,
+            popEnterTransition = popEnter, popExitTransition = popExit
+        ) {
             HomeScreen(
                 viewModel = viewModel,
                 onNavigateToBackups = { navController.navigate("backups") },
@@ -149,55 +184,82 @@ fun AppNavigation(viewModel: MainViewModel) {
                 onNavigateToHistory = { navController.navigate("history") }
             )
         }
-        composable("backups") {
+        composable("backups",
+            enterTransition = navEnter, exitTransition = navExit,
+            popEnterTransition = popEnter, popExitTransition = popExit
+        ) {
             BackupScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )
         }
-        composable("configgen") {
+        composable("configgen",
+            enterTransition = navEnter, exitTransition = navExit,
+            popEnterTransition = popEnter, popExitTransition = popExit
+        ) {
             ConfigGenScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )
         }
-        composable("settings") {
+        composable("settings",
+            enterTransition = navEnter, exitTransition = navExit,
+            popEnterTransition = popEnter, popExitTransition = popExit
+        ) {
             SettingsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToUserGuide = { navController.navigate("userguide") }
             )
         }
-        composable("userguide") {
+        composable("userguide",
+            enterTransition = navEnter, exitTransition = navExit,
+            popEnterTransition = popEnter, popExitTransition = popExit
+        ) {
             UserGuideScreen(
                 onBack = { navController.popBackStack() }
             )
         }
-        composable("pity") {
+        composable("pity",
+            enterTransition = navEnter, exitTransition = navExit,
+            popEnterTransition = popEnter, popExitTransition = popExit
+        ) {
             PityScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )
         }
-        composable("profile") {
+        composable("profile",
+            enterTransition = navEnter, exitTransition = navExit,
+            popEnterTransition = popEnter, popExitTransition = popExit
+        ) {
             ProfileScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )
         }
-        composable("battlestats") {
+        composable("battlestats",
+            enterTransition = navEnter, exitTransition = navExit,
+            popEnterTransition = popEnter, popExitTransition = popExit
+        ) {
             BattleStatsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )
         }
-        composable("logs") {
+        composable("logs",
+            enterTransition = navEnter, exitTransition = navExit,
+            popEnterTransition = popEnter, popExitTransition = popExit
+        ) {
             LogsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )
         }
-        composable("history") {
+        composable("history",
+            enterTransition = navEnter, exitTransition = navExit,
+            popEnterTransition = popEnter, popExitTransition = popExit
+        ) {
             HistoryScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }

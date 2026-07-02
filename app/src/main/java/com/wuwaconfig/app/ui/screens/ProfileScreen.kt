@@ -29,6 +29,8 @@ import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
 import com.wuwaconfig.app.ui.theme.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -346,6 +348,11 @@ private fun ConfigSummarySection(profile: PlayerProfile, configModifyCounts: Map
 
 @Composable
 private fun ConfigBar(label: String, count: Int, max: Int, accent: Color) {
+    val animatedFraction by animateFloatAsState(
+        targetValue = if (max > 0) count.toFloat() / max else 0f,
+        animationSpec = tween(durationMillis = 800, delayMillis = 100),
+        label = "configBar"
+    )
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -365,7 +372,7 @@ private fun ConfigBar(label: String, count: Int, max: Int, accent: Color) {
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(fraction = count.toFloat() / max)
+                    .fillMaxWidth(fraction = animatedFraction)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(3.dp))
                     .background(

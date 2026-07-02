@@ -1,13 +1,18 @@
 package com.wuwaconfig.app.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -129,12 +134,20 @@ fun GlassButton(
     val disabledContainer = if (isLight) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.04f)
     val disabledContent = if (isLight) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f) else Color.White.copy(alpha = 0.25f)
     val resolvedContentColor = if (isLight) accentColor else contentColor
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && enabled) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f),
+        label = "btnScale"
+    )
 
     Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(52.dp).graphicsLayer(scaleX = scale, scaleY = scale),
         enabled = enabled,
         shape = RoundedCornerShape(8.dp),
+        interactionSource = interactionSource,
         colors = ButtonDefaults.buttonColors(
             containerColor = buttonContainer,
             contentColor = resolvedContentColor,
@@ -175,12 +188,20 @@ fun GlassOutlinedButton(
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val disabledContent = if (isLight) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f) else Color.White.copy(alpha = 0.25f)
     val borderColor = if (isLight) accentColor.copy(alpha = 0.55f) else accentColor.copy(alpha = 0.3f)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && enabled) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f),
+        label = "outBtnScale"
+    )
 
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(52.dp).graphicsLayer(scaleX = scale, scaleY = scale),
         enabled = enabled,
         shape = RoundedCornerShape(8.dp),
+        interactionSource = interactionSource,
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = accentColor,
             disabledContentColor = disabledContent
@@ -524,5 +545,23 @@ fun GlitchText(
         Text(text = displayText, fontWeight = fontWeight, style = style, modifier = finalMod)
     } else {
         Text(text = displayText, fontWeight = fontWeight, modifier = finalMod)
+    }
+}
+
+@Composable
+fun AnimatedListItem(
+    index: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    AnimatedVisibility(
+        visible = true,
+        enter = slideInVertically(
+            initialOffsetY = { it / 2 },
+            animationSpec = tween(delayMillis = index * 40, durationMillis = 300)
+        ) + fadeIn(animationSpec = tween(delayMillis = index * 40, durationMillis = 300)),
+        modifier = modifier
+    ) {
+        content()
     }
 }
