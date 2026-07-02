@@ -54,7 +54,7 @@ class AdbConnectionService : Service() {
 
     private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("WuWaP42")
+            .setContentTitle("WuWaConfig")
             .setContentText("ADB connection active")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_LOW)

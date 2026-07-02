@@ -11,8 +11,8 @@ android {
         applicationId = "com.wuwaconfig.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "1.0.5"
+        versionCode = 7
+        versionName = "1.0.6"
     }
 
     val keystoreProps = rootProject.file("keystore.properties").let { f ->
@@ -66,7 +66,7 @@ android {
         val vName = name
         val vVersion = versionName
         outputs.configureEach {
-            val apkName = if (vName == "release") "WuWap42-v${vVersion}-release.apk" else "WuWap42-debug.apk"
+            val apkName = if (vName == "release") "WuWaConfig-v${vVersion}-release.apk" else "WuWaConfig-debug.apk"
             (this as com.android.build.gradle.internal.api.ApkVariantOutputImpl).outputFileName = apkName
         }
     }

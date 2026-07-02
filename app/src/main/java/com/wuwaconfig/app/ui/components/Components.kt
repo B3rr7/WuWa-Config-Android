@@ -467,7 +467,7 @@ private fun VideoBackground(
 }
 
 val GLITCH_NAMES = listOf(
-    "WuWaP42",
+    "WuWaConfig",
     "Rover's Tool",
     "Config Forge",
     "Pulse Engine",

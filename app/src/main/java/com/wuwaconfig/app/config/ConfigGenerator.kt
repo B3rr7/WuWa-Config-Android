@@ -192,7 +192,7 @@ object ConfigGenerator {
             "; ════════════════════════════════════════════════",
             "; ██████╗ 42╚████╗     TOOLKIT",
             "; ██╔══██╗██║  ██║╚════██╗    Wuthering Waves Config",
-            "; ██████╔╝███████║ █████╔╝    P42 Toolkit",
+            "; ██████╔╝███████║ █████╔╝    WuWaConfig Toolkit",
             "; ██╔═══╝ ╚════██║██╔═══╝     Generated: $now",
             "; ██║           ██║███████╗   Preset : ${preset.uppercase()}",
             "; ╚═╝           ╚═╝╚══════╝   Device : ${logInfo.deviceModel ?: "unknown"}",
@@ -822,7 +822,7 @@ object ConfigGenerator {
         val aaQ = if (p.detail > 0) 2 else 1
 
         return listOf(
-            "; WuWa GameUserSettings.ini — P42 Toolkit", "",
+            "; WuWa GameUserSettings.ini — WuWaConfig", "",
             "[ScalabilityGroups]",
             "sg.ResolutionQuality=${p.screen}",
             "sg.ViewDistanceQuality=$viewQ",
@@ -888,7 +888,7 @@ object ConfigGenerator {
         val shaQ = if (p.detail > 1) 3 else 2
 
         return listOf(
-            "; WuWa Scalability.ini — P42 Toolkit",
+            "; WuWa Scalability.ini — WuWaConfig",
             "",
             "[ScalabilitySettings]",
             "ResolutionQuality=${p.screen}.0",
@@ -916,7 +916,7 @@ object ConfigGenerator {
             else -> "Mid"
         }
         return listOf(
-            "; WuWa Hardware.ini — P42 Toolkit",
+            "; WuWa Hardware.ini — WuWaConfig",
             "; Generated for ${logInfo.deviceModel ?: "Android device"}",
             "",
             "[DeviceProfile]",

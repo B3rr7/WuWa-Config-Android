@@ -244,7 +244,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     title = {
                         Column {
                             Text("Config Generator", fontWeight = FontWeight.Bold)
-                            Text("WuWaP42 presets", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("WuWaConfig presets", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     },
                     navigationIcon = {
