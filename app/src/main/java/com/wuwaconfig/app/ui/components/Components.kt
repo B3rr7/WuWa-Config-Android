@@ -440,8 +440,9 @@ private fun VideoBackground(
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             }
         },
-        modifier = modifier.graphicsLayer(alpha = alpha)
+        modifier = modifier
     )
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 1f - alpha)))
 }
 
 val GLITCH_NAMES = listOf(
