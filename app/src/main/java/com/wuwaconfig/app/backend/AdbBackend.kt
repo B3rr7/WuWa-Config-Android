@@ -87,6 +87,7 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         val parent = File(targetPath).parent ?: return Result.failure(Exception("Invalid target path"))
 
         suspend fun doPush(): Result<String> {
+            client.executeShellCommand("rm -f /data/local/tmp/wuwaconfig_*.b64")
             val mkdirCmd = "mkdir -p ${shQuote(parent)}"
             val mkdirResult = client.executeShellCommand(mkdirCmd)
             if (mkdirResult.isFailure) {

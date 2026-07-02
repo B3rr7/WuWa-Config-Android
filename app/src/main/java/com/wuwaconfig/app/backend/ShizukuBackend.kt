@@ -77,6 +77,7 @@ class ShizukuBackend : AccessBackend {
         val parent = File(targetPath).parent ?: return@withContext Result.failure(Exception("Invalid target path"))
 
         suspend fun doPush(): Result<String> {
+            shizukuExec("sh", "-c", "rm -f /data/local/tmp/wuwaconfig_*.b64")
             shizukuExec("mkdir", "-p", parent)
             val eq = shQuote(encodedPath)
             shizukuExec("sh", "-c", "rm -f $eq")

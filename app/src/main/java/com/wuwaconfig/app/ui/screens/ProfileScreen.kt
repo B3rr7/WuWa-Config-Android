@@ -37,6 +37,7 @@ fun ProfileScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val profileLoading by viewModel.profileLoading.collectAsState()
     val backendStatus by viewModel.backendStatus.collectAsState()
     val logs by viewModel.logs.collectAsState()
+    val configModifyCounts by viewModel.configModifyCounts.collectAsState()
 
     LaunchedEffect(Unit) {
         if (profile == null && backendStatus.connected) {
@@ -89,7 +90,7 @@ fun ProfileScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 if (profile != null) {
                     val p = profile ?: return@Column
                     UidHeader(p)
-                    ProfileContent(p)
+                    ProfileContent(p, configModifyCounts)
                 } else if (!profileLoading) {
                     GlassButton(
                         onClick = { viewModel.loadProfile() },
@@ -187,10 +188,10 @@ private fun BadgeItem(text: String, accent: Color) {
 }
 
 @Composable
-private fun ProfileContent(profile: PlayerProfile) {
+private fun ProfileContent(profile: PlayerProfile, configModifyCounts: Map<String, Int>) {
     GameProgressSection(profile)
     GameInfoSection(profile)
-    ConfigSummarySection(profile)
+    ConfigSummarySection(profile, configModifyCounts)
 }
 
 @Composable
@@ -290,7 +291,7 @@ private fun InfoChip(icon: ImageVector, label: String, value: String, accent: Co
 }
 
 @Composable
-private fun ConfigSummarySection(profile: PlayerProfile) {
+private fun ConfigSummarySection(profile: PlayerProfile, configModifyCounts: Map<String, Int>) {
     GlassCard(accentColor = NeonPink) {
         SectionHeader("CONFIG SUMMARY", NeonPink)
         Spacer(Modifier.height(6.dp))
@@ -307,6 +308,39 @@ private fun ConfigSummarySection(profile: PlayerProfile) {
         ConfigBar("DeviceProfiles.ini", profile.deviceProfileCount, maxCount, NeonPurple)
         Spacer(Modifier.height(8.dp))
         ConfigBar("GameUserSettings.ini", profile.gameUserSettingCount, maxCount, NeonPink)
+
+        if (configModifyCounts.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NeonPink.copy(alpha = 0.15f)))
+            Spacer(Modifier.height(10.dp))
+            Text("MODIFICATIONS", style = MaterialTheme.typography.labelMedium, color = NeonPink.copy(alpha = 0.7f), letterSpacing = 2.sp)
+            Spacer(Modifier.height(8.dp))
+            val allFiles = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
+            for (fileName in allFiles) {
+                val count = configModifyCounts[fileName] ?: 0
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(fileName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "$count",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (count > 0) NeonAmber else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "× modified",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

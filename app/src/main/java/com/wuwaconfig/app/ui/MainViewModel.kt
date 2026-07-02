@@ -109,6 +109,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _playerProfile = MutableStateFlow<com.wuwaconfig.app.model.PlayerProfile?>(null)
     val playerProfile: StateFlow<com.wuwaconfig.app.model.PlayerProfile?> = _playerProfile.asStateFlow()
 
+    private val _configModifyCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val configModifyCounts: StateFlow<Map<String, Int>> = _configModifyCounts.asStateFlow()
+
     val chipsetInfo = chipsetDetector.detect()
     val gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR
 
@@ -787,6 +790,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun loadConfigModifyCounts() {
+        if (!_backendStatus.value.connected) return
+        viewModelScope.launch {
+            val result = configManager.readConfigModifyCounts()
+            if (result.isSuccess) {
+                _configModifyCounts.value = result.getOrThrow().associate { it.fileName to it.modifyCount }
+            }
+        }
+    }
+
     fun loadProfile(forceRefresh: Boolean = false) {
         if (_profileLoading.value || !_backendStatus.value.connected) return
         if (!forceRefresh && _playerProfile.value != null) return
@@ -795,12 +808,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _profileLoading.value = true
             addLog(if (forceRefresh) "Refreshing player profile..." else "Reading player profile (read-only)...")
             try {
-                val result = configManager.readProfile()
+                    val result = configManager.readProfile()
                 if (result.isSuccess) {
                     val profile = result.getOrThrow()
                     _playerProfile.value = profile
                     ProfileStore.save(getApplication(), profile)
                     addLog("Profile loaded")
+                    loadConfigModifyCounts()
                 } else {
                     addLog("FAILED: ${result.exceptionOrNull()?.message}")
                 }

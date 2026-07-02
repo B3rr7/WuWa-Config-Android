@@ -7,6 +7,7 @@ import android.util.Base64
 import android.util.Log
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.PUSH_RETRY_COUNT
+import com.wuwaconfig.app.backend.shQuote
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.model.ConfigFile
@@ -386,47 +387,118 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         try {
             LogRepository.add("ConfigManager: refreshing config hashes")
             val md5 = MessageDigest.getInstance("MD5")
-            val lines = mutableListOf<String>()
             val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
 
             val existingHashContent = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
-            val existingCounts = mutableMapOf<String, Int>()
-            var currentSection = ""
-            for (line in existingHashContent.lines()) {
-                val trimmed = line.trim()
-                if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                    currentSection = trimmed
-                } else if (trimmed.startsWith("ModifyCount=")) {
-                    val count = trimmed.removePrefix("ModifyCount=").toIntOrNull()
-                    if (count != null) existingCounts[currentSection] = count
-                }
-            }
+            val existingLines = existingHashContent.lines().toMutableList()
+            val hasExistingContent = existingLines.any { it.trim().startsWith("[") }
 
+            // Build map of monitored file -> new values to patch
+            val updates = mutableMapOf<String, Map<String, String>>()
             for (name in GamePaths.MONITORED_FILES) {
                 val path = "${GamePaths.TARGET_DIR}/$name"
                 val content = backend.readFile(path).getOrDefault("")
                 val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
-                val prevCount = existingCounts["[$name]"] ?: 0
-                lines.add("[$name]")
-                lines.add("Hash=$hash")
-                lines.add("ModifyCount=${prevCount + 1}")
-                lines.add("LastModifiedTime=$now")
-                lines.add("")
+
+                var prevCount = 0
+                var inSection = false
+                for (line in existingLines) {
+                    val t = line.trim()
+                    if (t.equals("[$name]", ignoreCase = false)) { inSection = true; continue }
+                    if (inSection && t.startsWith("[") && t.endsWith("]")) break
+                    if (inSection && t.startsWith("ModifyCount=")) {
+                        prevCount = t.removePrefix("ModifyCount=").toIntOrNull() ?: 0
+                    }
+                }
+                updates[name] = mapOf(
+                    "Hash" to hash,
+                    "ModifyCount" to (prevCount + 1).toString(),
+                    "LastModifiedTime" to now
+                )
             }
 
-            val newContent = lines.joinToString("\n").trimEnd() + "\n"
+            val patchedLines = mutableListOf<String>()
+            var currentSection = ""
+
+            fun flushPendingSection(name: String) {
+                val patch = updates.remove(name) ?: return
+                for (lineKey in listOf("Hash", "ModifyCount", "LastModifiedTime")) {
+                    val value = patch[lineKey] ?: continue
+                    patchedLines.add("$lineKey=$value")
+                }
+            }
+
+            if (hasExistingContent) {
+                for (line in existingLines) {
+                    val trimmed = line.trim()
+                    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                        val sectionName = trimmed.removePrefix("[").removeSuffix("]")
+                        // If we just finished a monitored section and not all patch keys were found,
+                        // append any missing ones before the next section
+                        if (updates.containsKey(currentSection)) {
+                            flushPendingSection(currentSection)
+                        }
+                        currentSection = sectionName
+                        patchedLines.add(line)
+                    } else if (updates.containsKey(currentSection)) {
+                        val eq = trimmed.indexOf('=')
+                        if (eq > 0) {
+                            val key = trimmed.substring(0, eq).trim()
+                            val replacement = updates[currentSection]?.get(key)
+                            if (replacement != null) {
+                                val indent = line.takeWhile { it == ' ' || it == '\t' }
+                                patchedLines.add("$indent$key=$replacement")
+                            } else {
+                                patchedLines.add(line)
+                            }
+                        } else {
+                            patchedLines.add(line)
+                        }
+                    } else {
+                        patchedLines.add(line)
+                    }
+                }
+                // If last section was monitored, append any remaining patch keys
+                if (updates.containsKey(currentSection)) {
+                    flushPendingSection(currentSection)
+                }
+                // If any monitored files had no section in the existing file, append new sections
+                for ((name, patch) in updates) {
+                    patchedLines.add("")
+                    patchedLines.add("[$name]")
+                    patchedLines.add("Hash=${patch["Hash"] ?: ""}")
+                    patchedLines.add("ModifyCount=${patch["ModifyCount"] ?: "0"}")
+                    patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
+                }
+            } else {
+                // No existing content — build from scratch (first-time)
+                for (name in GamePaths.MONITORED_FILES) {
+                    val content = backend.readFile("${GamePaths.TARGET_DIR}/$name").getOrDefault("")
+                    val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+                    patchedLines.add("[$name]")
+                    patchedLines.add("Hash=$hash")
+                    patchedLines.add("ModifyCount=1")
+                    patchedLines.add("LastModifiedTime=$now")
+                    patchedLines.add("")
+                }
+            }
+
+            val newContent = patchedLines.joinToString("\n").trimEnd() + "\n"
             val tempFile = File(context.cacheDir, "KuroConfigMonitor.hash")
             tempFile.writeText(newContent)
+            val hashTempPath = GamePaths.HASH_MONITOR_PATH + ".new"
             var hashPushOk = false
             var hashPushError: Throwable? = null
             for (attempt in 0..PUSH_RETRY_COUNT) {
-                val r = backend.pushFile(tempFile.absolutePath, GamePaths.HASH_MONITOR_PATH)
+                val r = backend.pushFile(tempFile.absolutePath, hashTempPath)
                 if (r.isSuccess) { hashPushOk = true; break }
                 hashPushError = r.exceptionOrNull()
             }
             if (!hashPushOk) {
+                backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
                 throw hashPushError ?: Exception("Failed to push hash file")
             }
+            backend.executeShellCommand("mv ${shQuote(hashTempPath)} ${shQuote(GamePaths.HASH_MONITOR_PATH)}")
             tempFile.delete()
 
             val verifyResult = backend.readFile(GamePaths.HASH_MONITOR_PATH)
@@ -449,6 +521,29 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         } catch (e: Exception) {
             Log.w("ConfigManager", "Failed to refresh hashes: ${e.message}")
             LogRepository.add("ConfigManager: refreshConfigHashes failed: ${e.message}", LogLevel.ERROR)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun readConfigModifyCounts(): Result<List<com.wuwaconfig.app.model.ConfigHashInfo>> = withContext(Dispatchers.IO) {
+        try {
+            val content = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
+            if (content.isBlank()) return@withContext Result.failure(Exception("No hash file on device"))
+            val results = mutableListOf<com.wuwaconfig.app.model.ConfigHashInfo>()
+            var currentFile = ""
+            for (line in content.lines()) {
+                val trimmed = line.trim()
+                if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                    currentFile = trimmed.removePrefix("[").removeSuffix("]")
+                } else if (trimmed.startsWith("ModifyCount=") && currentFile.isNotEmpty()) {
+                    val count = trimmed.removePrefix("ModifyCount=").toIntOrNull() ?: 0
+                    results.add(com.wuwaconfig.app.model.ConfigHashInfo(currentFile, count))
+                }
+            }
+            if (results.isEmpty()) return@withContext Result.failure(Exception("No modify counts found"))
+            Result.success(results)
+        } catch (e: Exception) {
+            Log.w("ConfigManager", "Failed to read modify counts: ${e.message}")
             Result.failure(e)
         }
     }
