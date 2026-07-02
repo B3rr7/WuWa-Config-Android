@@ -18,8 +18,10 @@ import com.wuwaconfig.app.model.VerificationReport
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
+import java.util.zip.GZIPInputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -264,17 +266,13 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         onProgress(5)
         val sizeResult = backend.executeShellCommand("wc -c < \"$path\" 2>/dev/null")
         val fileSize = sizeResult.getOrNull()?.trim()?.toLongOrNull() ?: 0L
-        val CHUNK = 500_000L
-        val LARGE_THRESHOLD = 500_000L
+        if (fileSize <= 0L) return Result.failure(Exception("Cannot determine log file size"))
 
-        val numChunks = when {
-            fileSize <= LARGE_THRESHOLD -> 1
-            fileSize <= CHUNK * 3 -> 2
-            else -> 3
+        val CHUNK_SIZE = 1_000_000L
+        val totalChunks = when {
+            fileSize <= CHUNK_SIZE -> 1
+            else -> (fileSize / 5_000_000L).toInt().coerceIn(5, 30)
         }
-        val workStart = 10
-        val workRange = 75
-        fun progressForChunk(done: Int) = workStart + (done * workRange / numChunks)
 
         fun decodeB64(output: String): ByteArray? {
             val clean = output.lines()
@@ -284,55 +282,73 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             return try { Base64.decode(clean, Base64.DEFAULT) } catch (_: Exception) { null }
         }
 
-        fun decodeChunk(b64: String?): Pair<String, Boolean>? {
-            val raw = b64?.let { decodeB64(it) } ?: return null
-            return try { LogParser.decodeLogBytes(raw) } catch (_: Exception) { null }
+        fun decompress(data: ByteArray): ByteArray {
+            return try {
+                ByteArrayOutputStream().use { out ->
+                    GZIPInputStream(data.inputStream()).use { it.copyTo(out) }
+                    out.toByteArray()
+                }
+            } catch (_: Exception) { data }
         }
 
-        if (fileSize > LARGE_THRESHOLD) {
-            onProgress(progressForChunk(0))
-            val headB64 = backend.executeShellCommand("head -c $CHUNK \"$path\" | base64 2>/dev/null")
-            onProgress(progressForChunk(1))
-            val tailB64 = backend.executeShellCommand("tail -c $CHUNK \"$path\" | base64 2>/dev/null")
-            val head = decodeChunk(headB64.getOrNull())
-            val wasEncrypted = head?.second == true
+        suspend fun pullChunk(offset: Long): Pair<String, Boolean>? {
+            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | gzip -c | base64"
+            val out = backend.executeShellCommand(cmd).getOrNull()
+            val raw = out?.let { decodeB64(it) } ?: return null
+            val decompressed = decompress(raw)
+            return try { LogParser.decodeLogBytes(decompressed) } catch (_: Exception) { null }
+        }
 
-            fun decodeChunkX(b64: String?): Pair<String, Boolean>? {
-                val raw = b64?.let { decodeB64(it) } ?: return null
-                return try {
-                    if (wasEncrypted) com.wuwaconfig.app.config.LogParser.decodeXorBytes(raw)
-                    else com.wuwaconfig.app.config.LogParser.decodeLogBytes(raw)
-                } catch (_: Exception) { null }
-            }
+        suspend fun pullChunkText(offset: Long, wasEncrypted: Boolean): String? {
+            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | gzip -c | base64"
+            val out = backend.executeShellCommand(cmd).getOrNull()
+            val raw = out?.let { decodeB64(it) } ?: return null
+            val decompressed = decompress(raw)
+            return try {
+                val pair = if (wasEncrypted) LogParser.decodeXorBytes(decompressed)
+                           else LogParser.decodeLogBytes(decompressed)
+                pair.first
+            } catch (_: Exception) { null }
+        }
 
-            val chunks = mutableListOf<String>()
-            head?.first?.let { chunks.add(it) }
-            if (fileSize > CHUNK * 3) {
-                onProgress(progressForChunk(2))
-                val midOff = maxOf(0, fileSize / 2 - CHUNK / 2)
-                val midB64 = backend.executeShellCommand("dd if=\"$path\" bs=1 skip=$midOff count=$CHUNK 2>/dev/null | base64")
-                midB64.getOrNull()?.let { decodeChunkX(it) }?.first?.let { chunks.add(it) }
-            }
-            onProgress(workStart + workRange)
-            decodeChunkX(tailB64.getOrNull())?.first?.let { chunks.add(it) }
-            val text = chunks.joinToString("\n")
-            onProgress(workStart + workRange + 5)
-            if (text.isNotBlank()) return Result.success(text to wasEncrypted)
-        } else {
-            onProgress(progressForChunk(0))
+        if (totalChunks == 1) {
+            onProgress(50)
             val full = backend.executeShellCommand("base64 \"$path\" 2>/dev/null")
-            onProgress(workStart + workRange)
-            val result = full.getOrNull()?.let { decodeChunk(it) }
-            onProgress(workStart + workRange + 5)
+            onProgress(85)
+            val raw = full.getOrNull()?.let { decodeB64(it) }
+            val result = raw?.let { try { LogParser.decodeLogBytes(it) } catch (_: Exception) { null } }
+            onProgress(95)
             if (result != null) return Result.success(result)
+        } else {
+            val offsets = (0 until totalChunks).map { i ->
+                (fileSize * i / totalChunks).coerceAtMost(fileSize - CHUNK_SIZE)
+            }.distinct()
+
+            fun progressForChunk(done: Int) = 10 + (done * 80 / offsets.size)
+
+            var wasEncrypted = false
+            val chunks = mutableListOf<String>()
+
+            for ((i, offset) in offsets.withIndex()) {
+                onProgress(progressForChunk(i))
+                if (i == 0) {
+                    pullChunk(offset)?.let { (text, enc) ->
+                        wasEncrypted = enc
+                        chunks.add(text)
+                    }
+                } else {
+                    pullChunkText(offset, wasEncrypted)?.let { chunks.add(it) }
+                }
+            }
+
+            onProgress(92)
+            val combined = chunks.joinToString("\n")
+            onProgress(95)
+            if (combined.isNotBlank()) return Result.success(combined to wasEncrypted)
         }
-        onProgress(workStart + workRange + 5)
-        if (fileSize > 5_000_000) {
-            return Result.failure(Exception("Client.log too large ($fileSize bytes) for fallback read"))
-        }
-        return backend.readFile(path).map { text ->
-            LogParser.decodeLogBytes(text.toByteArray(Charsets.ISO_8859_1))
-        }
+
+        onProgress(95)
+        return Result.failure(Exception("Failed to read Client.log ($fileSize bytes)"))
     }
 
     suspend fun getCurrentConfigFiles(): Result<List<String>> {
