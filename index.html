@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WuWaConfig — Wuthering Waves Config Toolkit</title>
+  <meta name="description" content="Android app for Wuthering Waves performance optimization — FPS boost, graphics tuning, Smart Brain auto-optimization, Pity Tracker, Battle Stats, CVar editor." />
+  <meta name="keywords" content="wuthering waves, wuwa, fps boost, engine.ini, config optimizer, gacha tracker, pity calculator, android optimization, unreal engine 4, mobile gaming" />
+  <meta property="og:title" content="WuWaConfig" />
+  <meta property="og:description" content="Wuthering Waves Android Config Toolkit — FPS boost, graphics tuning, Smart Auto-optimization" />
+  <meta property="og:image" content="app_logo.webp" />
+  <meta name="theme-color" content="#0D0D1A" />
+
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0D0D1A;
+      --surface: #16162E;
+      --card: #1E1E3A;
+      --border: #2A2A5A;
+      --text: #E0E0F0;
+      --muted: #8888AA;
+      --neon-purple: #7B2FFF;
+      --neon-cyan: #00D9FF;
+      --neon-pink: #FF3B6F;
+      --neon-green: #00FF88;
+      --neon-amber: #FFB800;
+      --neon-gold: #FFD700;
+      --radius: 16px;
+      --glow: 0 0 20px rgba(123, 47, 255, 0.3);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background ── */
+    #particles {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .particle {
+      position: absolute;
+      width: 3px; height: 3px;
+      background: var(--neon-purple);
+      border-radius: 50%;
+      opacity: 0;
+      animation: float linear infinite;
+    }
+    @keyframes float {
+      0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+      10%  { opacity: 0.6; }
+      90%  { opacity: 0.4; }
+      100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+    }
+
+    /* ── Layout ── */
+    .container { max-width: 960px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      padding: 60px 0 40px;
+      position: relative;
+    }
+    .logo {
+      width: 128px; height: 128px;
+      border-radius: 28px;
+      box-shadow: var(--glow);
+      transition: transform 0.3s ease;
+    }
+    .logo:hover { transform: scale(1.08); }
+    header h1 {
+      font-size: 2.6rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--neon-purple), var(--neon-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 16px 0 8px;
+      letter-spacing: -0.5px;
+    }
+    header .subtitle {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 24px;
+    }
+
+    /* ── Badges ── */
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 16px 0 28px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: #fff;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .badge:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+    .badge-purple { background: #7B2FFF; }
+    .badge-cyan   { background: #00B8D9; }
+    .badge-pink   { background: #FF3B6F; }
+    .badge-amber  { background: #FF8A00; }
+    .badge-discord{ background: #5865F2; }
+    .badge-telegram{ background: #2CA5E0; }
+    .badge-youtube{ background: #FF0000; }
+    .badge-github { background: #333; }
+
+    /* ── Disclaimer ── */
+    .disclaimer {
+      background: rgba(255, 59, 111, 0.08);
+      border: 1px solid rgba(255, 59, 111, 0.25);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin: 0 0 48px;
+      font-size: 0.9rem;
+      color: #FF6B8A;
+      text-align: center;
+    }
+    .disclaimer strong { color: var(--neon-pink); }
+
+    /* ── Sections ── */
+    section { margin-bottom: 56px; }
+
+    .section-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title .icon { font-size: 1.5rem; }
+    .section-title .line {
+      flex: 1;
+      height: 2px;
+      background: linear-gradient(90deg, var(--neon-purple), transparent);
+    }
+
+    /* ── Feature grid ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+      cursor: default;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--neon-purple);
+      box-shadow: 0 8px 32px rgba(123, 47, 255, 0.15);
+    }
+    .feature-card .emoji { font-size: 1.6rem; margin-bottom: 8px; display: block; }
+    .feature-card h3 { font-size: 1rem; margin-bottom: 6px; color: #fff; }
+    .feature-card p { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+
+    /* ── Table ── */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    thead { background: var(--surface); }
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 700;
+      color: var(--neon-cyan);
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(123, 47, 255, 0.04); }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .card h3 { color: #fff; margin-bottom: 6px; }
+    .card p { color: var(--muted); font-size: 0.88rem; }
+    .card .chip {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin: 2px 2px 0 0;
+    }
+    .chip-purple { background: rgba(123, 47, 255, 0.2); color: var(--neon-purple); }
+    .chip-cyan   { background: rgba(0, 217, 255, 0.15); color: var(--neon-cyan); }
+    .chip-green  { background: rgba(0, 255, 136, 0.15); color: var(--neon-green); }
+    .chip-pink   { background: rgba(255, 59, 111, 0.15); color: var(--neon-pink); }
+    .chip-amber  { background: rgba(255, 184, 0, 0.15); color: var(--neon-amber); }
+
+    /* ── Access methods ── */
+    .methods { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+    .method-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .method-card:hover { transform: translateY(-3px); }
+    .method-card .emoji { font-size: 2rem; display: block; margin-bottom: 6px; }
+    .method-card h4 { font-size: 0.95rem; margin-bottom: 4px; }
+    .method-card .tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .tag-green  { background: rgba(0, 255, 136, 0.15); color: var(--neon-green); }
+    .tag-amber  { background: rgba(255, 184, 0, 0.15); color: var(--neon-amber); }
+    .tag-cyan   { background: rgba(0, 217, 255, 0.15); color: var(--neon-cyan); }
+    .tag-red    { background: rgba(255, 59, 111, 0.15); color: var(--neon-pink); }
+
+    /* ── Links ── */
+    .links-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .link-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 600;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .link-card:hover { transform: translateY(-2px); border-color: var(--neon-purple); }
+    .link-card .emoji { font-size: 1.3rem; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 40px 0 48px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      border-top: 1px solid var(--border);
+      margin-top: 24px;
+    }
+    footer a { color: var(--neon-cyan); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Animations ── */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+    .glitch-text {
+      animation: glitch 4s infinite;
+      position: relative;
+    }
+    @keyframes glitch {
+      0%, 90%, 100% { transform: none; opacity: 1; }
+      92% { transform: skew(-2deg) translateX(2px); opacity: 0.8; }
+      94% { transform: skew(2deg) translateX(-2px); opacity: 0.9; }
+      96% { transform: skew(-1deg); }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.9rem; }
+      header { padding: 36px 0 24px; }
+      .features { grid-template-columns: 1fr; }
+      .methods { grid-template-columns: 1fr 1fr; }
+      .badges a { font-size: 0.75rem; padding: 6px 12px; }
+      .section-title { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── Particles ─── -->
+  <div id="particles"></div>
+
+  <!-- ─── Header ─── -->
+  <header>
+    <div class="container">
+      <img src="app_logo.webp" alt="WuWaConfig" class="logo" />
+      <h1 class="glitch-text">WuWaConfig</h1>
+      <p class="subtitle">Wuthering Waves Android Config Toolkit — FPS boost, graphics tuning, Smart Auto-optimization, Pity Tracker &amp; Battle Stats</p>
+
+      <div class="badges">
+        <a class="badge badge-purple" href="https://github.com/B3rr7/WuWa-Config-Android/releases">⬇ Download APK</a>
+        <a class="badge badge-cyan" href="https://github.com/B3rr7/WuWa-Config-Android/releases">📦 v1.0.6</a>
+        <a class="badge badge-github" href="https://github.com/B3rr7/WuWa-Config-Android">⭐ Star on GitHub</a>
+        <a class="badge badge-discord" href="https://discord.gg/5WP9nN2e2s">💬 Discord</a>
+        <a class="badge badge-telegram" href="https://t.me/Yt_Player42">✈️ Telegram</a>
+        <a class="badge badge-youtube" href="https://www.youtube.com/@Player42_g">▶ YouTube</a>
+      </div>
+
+      <div class="disclaimer">
+        ⚠️ <strong>Disclaimer:</strong> This project is <strong>NOT affiliated</strong> with Kuro Games or Wuthering Waves.
+        Fan-made tool. Use at your own risk.
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── Features ─── -->
+  <section>
+    <div class="container">
+      <h2 class="section-title fade-in"><span class="icon">✨</span> Features <span class="line"></span></h2>
+      <div class="features">
+        <div class="feature-card fade-in"><span class="emoji">🚀</span><h3>FPS Boost</h3><p>5 presets (Potato → Ultra), 120 FPS unlock, Vulkan toggle, thermal throttling fixes</p></div>
+        <div class="feature-card fade-in"><span class="emoji">🧠</span><h3>Smart Auto-Optimize</h3><p>Analyzes GPU, RAM, FPS, thermal — scores 0-100, recommends best preset</p></div>
+        <div class="feature-card fade-in"><span class="emoji">⚡</span><h3>Auto-Tune Wizard</h3><p>Multi-round benchmark: deploy → test → adjust → repeat until target FPS reached</p></div>
+        <div class="feature-card fade-in"><span class="emoji">🎨</span><h3>Graphics Tuning</h3><p>Shadow quality, SSR, bloom, fog, CA, outlines, HZB occlusion, texture streaming &amp; more</p></div>
+        <div class="feature-card fade-in"><span class="emoji">🔍</span><h3>CVar Editor</h3><p>Full INI editor with auto-sync, hash reconciliation, 3100+ CVar database reference</p></div>
+        <div class="feature-card fade-in"><span class="emoji">💾</span><h3>Backup &amp; Restore</h3><p>Per-file selection, auto-backup before deploy with scope dialog</p></div>
+        <div class="feature-card fade-in"><span class="emoji">🔗</span><h3>4 Access Methods</h3><p>ADB (in-app), Shizuku, Root, SAF — no PC needed</p></div>
+        <div class="feature-card fade-in"><span class="emoji">📊</span><h3>Pity Tracker</h3><p>Fetches gacha history from Kuro's API, soft/hard pity, 50/50 status</p></div>
+        <div class="feature-card fade-in"><span class="emoji">📈</span><h3>Battle Stats</h3><p>Combat analytics from Client.log: dodges, deaths, echo skills, stamina</p></div>
+        <div class="feature-card fade-in"><span class="emoji">🔐</span><h3>Undetectable</h3><p>Adaptive hash patching preserves ModifyCount. Snapshot+reconcile detects game interference</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Presets ─── -->
+  <section>
+    <div class="container">
+      <h2 class="section-title fade-in"><span class="icon">🎮</span> Presets <span class="line"></span></h2>
+      <div class="table-wrap fade-in">
+        <table>
+          <thead>
+            <tr><th>Preset</th><th>Screen%</th><th>Shadow</th><th>SSR</th><th>View Dist</th><th>Foliage LOD</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="chip chip-amber">POTATO</span></td><td>50%</td><td>Off (128)</td><td>Off</td><td>0.3</td><td>0.4</td></tr>
+            <tr><td><span class="chip chip-cyan">PERFORMANCE</span></td><td>60%</td><td>Off</td><td>Off</td><td>0.5</td><td>0.7</td></tr>
+            <tr><td><span class="chip chip-green">BALANCED</span></td><td>80%</td><td>Medium</td><td>Low</td><td>1.5</td><td>2.0</td></tr>
+            <tr><td><span class="chip chip-purple">HIGH</span></td><td>100%</td><td>High</td><td>High</td><td>2.0</td><td>2.5</td></tr>
+            <tr><td><span class="chip chip-pink">ULTRA</span></td><td>100%</td><td>Epic</td><td>Ultra</td><td>3.0</td><td>3.0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Smart Brain Scoring ─── -->
+  <section>
+    <div class="container">
+      <h2 class="section-title fade-in"><span class="icon">🧠</span> Smart Brain Scoring <span class="line"></span></h2>
+      <div class="table-wrap fade-in">
+        <table>
+          <thead>
+            <tr><th>Signal</th><th>Impact</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>🖥 GPU tier</td><td>±30</td></tr>
+            <tr><td>💾 RAM</td><td>±15</td></tr>
+            <tr><td>⚡ Vulkan</td><td>+8</td></tr>
+            <tr><td>📉 FPS drops</td><td>−6 to −18</td></tr>
+            <tr><td>🌡 Thermal events</td><td>−5 to −20</td></tr>
+            <tr><td>💥 GPU OOM</td><td>−12 to −30</td></tr>
+            <tr><td>🔄 Frame drops</td><td>−5 to −10</td></tr>
+            <tr><td>🚫 Forbidden CVars</td><td>−5 each</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card fade-in" style="margin-top:16px;text-align:center;">
+        <p style="font-size:0.95rem;">
+          <strong>Recommended:</strong>
+          <span class="chip chip-pink">Ultra ≥80</span>
+          <span class="chip chip-purple">High ≥70</span>
+          <span class="chip chip-green">Balanced ≥40</span>
+          <span class="chip chip-cyan">Performance &lt;40</span>
+          <span class="chip chip-amber">Potato ≤20</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Access Methods ─── -->
+  <section>
+    <div class="container">
+      <h2 class="section-title fade-in"><span class="icon">🔌</span> Access Methods <span class="line"></span></h2>
+      <div class="methods">
+        <div class="method-card fade-in">
+          <span class="emoji">🔧</span>
+          <h4>ADB Wireless</h4>
+          <p style="font-size:0.82rem;color:var(--muted);">In-app ADB wire protocol — no external binary</p>
+          <span class="tag tag-green">No Root</span>
+        </div>
+        <div class="method-card fade-in">
+          <span class="emoji">📱</span>
+          <h4>Shizuku</h4>
+          <p style="font-size:0.82rem;color:var(--muted);">Elevated shell via Shizuku API</p>
+          <span class="tag tag-green">No Root</span>
+        </div>
+        <div class="method-card fade-in">
+          <span class="emoji">🦸</span>
+          <h4>Root</h4>
+          <p style="font-size:0.82rem;color:var(--muted);">Direct su -c shell access</p>
+          <span class="tag tag-amber">Root</span>
+        </div>
+        <div class="method-card fade-in">
+          <span class="emoji">📂</span>
+          <h4>SAF</h4>
+          <p style="font-size:0.82rem;color:var(--muted);">Storage Access Framework — no shell</p>
+          <span class="tag tag-red">Limited</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Detection Avoidance ─── -->
+  <section>
+    <div class="container">
+      <h2 class="section-title fade-in"><span class="icon">🛡</span> Detection Avoidance <span class="line"></span></h2>
+      <div class="table-wrap fade-in">
+        <table>
+          <thead>
+            <tr><th>Mechanism</th><th>How it works</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Adaptive hash patching</strong></td><td>Patches only <code>Hash=</code> &amp; <code>LastModifiedTime=</code>. Preserves <code>ModifyCount=</code>, unknown fields, formatting</td></tr>
+            <tr><td><strong>Atomic write</strong></td><td>Writes to <code>.new</code> temp → <code>mv</code> rename — crash never corrupts live file</td></tr>
+            <tr><td><strong>Zero stale temps</strong></td><td><code>rm -f /data/local/tmp/wuwaconfig_*.b64</code> before every push</td></tr>
+            <tr><td><strong>ModifyCount preserved</strong></td><td>Never incremented — no cumulative trail from testing</td></tr>
+            <tr><td><strong>Snapshot + Reconcile</strong></td><td>Every config op captures pre-hash → compares → detects game interference</td></tr>
+            <tr><td><strong>Auto-sync</strong></td><td>On connect and INI Editor open, auto-checks/fixes hash desync</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Tech Stack ─── -->
+  <section>
+    <div class="container">
+      <h2 class="section-title fade-in"><span class="icon">🛠</span> Tech Stack <span class="line"></span></h2>
+      <div class="table-wrap fade-in">
+        <table>
+          <thead>
+            <tr><th>Layer</th><th>Technology</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Language</td><td>Kotlin 1.9.22</td></tr>
+            <tr><td>UI</td><td>Jetpack Compose + Material 3</td></tr>
+            <tr><td>Architecture</td><td>MVVM (single ViewModel + StateFlow)</td></tr>
+            <tr><td>Navigation</td><td>Jetpack Navigation Compose</td></tr>
+            <tr><td>Image / Video</td><td>Coil + Media3 ExoPlayer</td></tr>
+            <tr><td>ADB protocol</td><td>In-app (no external binary)</td></tr>
+            <tr><td>Min / Target SDK</td><td>26 / 34</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Links ─── -->
+  <section>
+    <div class="container">
+      <h2 class="section-title fade-in"><span class="icon">🔗</span> Links <span class="line"></span></h2>
+      <div class="links-grid">
+        <a class="link-card fade-in" href="https://github.com/B3rr7/WuWa-Config-Android"><span class="emoji">🐙</span> GitHub</a>
+        <a class="link-card fade-in" href="https://github.com/B3rr7/WuWa-Config-Android/releases"><span class="emoji">📦</span> Releases</a>
+        <a class="link-card fade-in" href="https://www.youtube.com/@Player42_g"><span class="emoji">▶</span> YouTube</a>
+        <a class="link-card fade-in" href="https://t.me/Yt_Player42"><span class="emoji">✈️</span> Telegram</a>
+        <a class="link-card fade-in" href="https://discord.gg/5WP9nN2e2s"><span class="emoji">💬</span> Discord</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Footer ─── -->
+  <footer>
+    <div class="container">
+      Built with ❤️ by <a href="https://github.com/B3rr7">Player42</a>
+      <br />
+      Copyright &copy; 2026 &mdash; <a href="LICENSE">MIT License</a>
+    </div>
+  </footer>
+
+  <script>
+    // ─── Particles ───
+    (function initParticles() {
+      const container = document.getElementById('particles');
+      for (let i = 0; i < 60; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const size = 1 + Math.random() * 3;
+        p.style.width = size + 'px';
+        p.style.height = size + 'px';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.animationDuration = (10 + Math.random() * 20) + 's';
+        p.style.animationDelay = (Math.random() * 15) + 's';
+        p.style.background = ['#7B2FFF','#00D9FF','#FF3B6F','#00FF88','#FFB800'][Math.floor(Math.random() * 5)];
+        container.appendChild(p);
+      }
+    })();
+
+    // ─── Scroll Reveal ───
+    (function initScrollReveal() {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      }, { threshold: 0.15 });
+
+      document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+    })();
+
+    // ─── Glitch title ───
+    (function initGlitch() {
+      const h1 = document.querySelector('h1');
+      const original = h1.textContent;
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+{}:<>?';
+      let interval = null;
+
+      h1.addEventListener('mouseenter', () => {
+        let count = 0;
+        const max = 8;
+        interval = setInterval(() => {
+          let result = '';
+          for (let i = 0; i < original.length; i++) {
+            if (Math.random() > 0.6 && count < max) {
+              result += chars[Math.floor(Math.random() * chars.length)];
+            } else {
+              result += original[i];
+            }
+          }
+          h1.textContent = result;
+          count++;
+          if (count >= max) {
+            clearInterval(interval);
+            h1.textContent = original;
+          }
+        }, 80);
+      });
+
+      h1.addEventListener('mouseleave', () => {
+        clearInterval(interval);
+        h1.textContent = original;
+      });
+    })();
+  </script>
+</body>
+</html>
