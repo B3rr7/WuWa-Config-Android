@@ -1,9 +1,10 @@
 package com.wuwaconfig.app.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,7 +19,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wuwaconfig.app.model.PlayerProfile
@@ -29,12 +29,13 @@ import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
 import com.wuwaconfig.app.ui.theme.*
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+fun ProfileScreen(
+    viewModel: MainViewModel,
+    onBack: () -> Unit,
+) {
     val profile by viewModel.playerProfile.collectAsState()
     val profileLoading by viewModel.profileLoading.collectAsState()
     val backendStatus by viewModel.backendStatus.collectAsState()
@@ -52,18 +53,23 @@ fun ProfileScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             topBar = {
                 TopAppBar(
                     title = { Text("Player Profile", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonGreen) } },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = NeonGreen
-                    )
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBack,
+                        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonGreen) }
+                    },
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            titleContentColor = NeonGreen,
+                        ),
                 )
             },
-            containerColor = Color.Transparent
+            containerColor = Color.Transparent,
         ) { padding ->
             Column(
                 modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Spacer(Modifier.height(4.dp))
 
@@ -71,7 +77,7 @@ fun ProfileScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     Text(
                         "Read-only view of your game data. No files are modified — zero footprint.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -81,7 +87,7 @@ fun ProfileScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         enabled = false,
                         accentColor = NeonGreen,
-                        contentColor = Color.White
+                        contentColor = Color.White,
                     ) {
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                         Spacer(Modifier.width(10.dp))
@@ -99,7 +105,7 @@ fun ProfileScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         enabled = backendStatus.connected,
                         accentColor = NeonGreen,
-                        contentColor = Color.White
+                        contentColor = Color.White,
                     ) {
                         Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(10.dp))
@@ -122,7 +128,7 @@ fun ProfileScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         onClick = { viewModel.loadProfile(forceRefresh = true) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !profileLoading,
-                        accentColor = NeonGreen
+                        accentColor = NeonGreen,
                     ) {
                         if (profileLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), color = NeonGreen, strokeWidth = 2.dp)
@@ -145,7 +151,7 @@ private fun UidHeader(profile: PlayerProfile) {
     GlassCard(accentColor = NeonCyan) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("ACCOUNT", style = MaterialTheme.typography.labelSmall, color = NeonCyan.copy(alpha = 0.5f), letterSpacing = 3.sp)
             Spacer(Modifier.height(8.dp))
@@ -161,7 +167,7 @@ private fun UidHeader(profile: PlayerProfile) {
             Spacer(Modifier.height(6.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 BadgeItem("Lv.${profile.playerLevel ?: "—"}", NeonGold)
                 BadgeItem(profile.server ?: "—", NeonPurple)
@@ -171,26 +177,33 @@ private fun UidHeader(profile: PlayerProfile) {
             Text(
                 "Last login: ${profile.lastLoginTime ?: "N/A"}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             )
         }
     }
 }
 
 @Composable
-private fun BadgeItem(text: String, accent: Color) {
+private fun BadgeItem(
+    text: String,
+    accent: Color,
+) {
     Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(accent.copy(alpha = 0.15f))
-            .padding(horizontal = 14.dp, vertical = 4.dp)
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .background(accent.copy(alpha = 0.15f))
+                .padding(horizontal = 14.dp, vertical = 4.dp),
     ) {
         Text(text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = accent)
     }
 }
 
 @Composable
-private fun ProfileContent(profile: PlayerProfile, configModifyCounts: Map<String, Int>) {
+private fun ProfileContent(
+    profile: PlayerProfile,
+    configModifyCounts: Map<String, Int>,
+) {
     GameProgressSection(profile)
     GameInfoSection(profile)
     ConfigSummarySection(profile, configModifyCounts)
@@ -220,7 +233,7 @@ private fun GameProgressSection(profile: PlayerProfile) {
                 "Battle Pass",
                 if (profile.battlePassPurchased) "Purchased" else "Free",
                 if (profile.battlePassPurchased) NeonGold else NeonAmber,
-                Modifier.weight(1f)
+                Modifier.weight(1f),
             )
         }
 
@@ -232,7 +245,7 @@ private fun GameProgressSection(profile: PlayerProfile) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(region, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("Lv.$level", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = NeonGold)
@@ -243,13 +256,20 @@ private fun GameProgressSection(profile: PlayerProfile) {
 }
 
 @Composable
-private fun ProgressChip(icon: ImageVector, label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+private fun ProgressChip(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
     Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(accent.copy(alpha = 0.08f))
-            .padding(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(accent.copy(alpha = 0.08f))
+                .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(icon, contentDescription = null, tint = accent.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
         Spacer(Modifier.height(2.dp))
@@ -277,13 +297,20 @@ private fun GameInfoSection(profile: PlayerProfile) {
 }
 
 @Composable
-private fun InfoChip(icon: ImageVector, label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+private fun InfoChip(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
     Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(accent.copy(alpha = 0.08f))
-            .padding(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(accent.copy(alpha = 0.08f))
+                .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(icon, contentDescription = null, tint = accent.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
         Spacer(Modifier.height(2.dp))
@@ -293,14 +320,17 @@ private fun InfoChip(icon: ImageVector, label: String, value: String, accent: Co
 }
 
 @Composable
-private fun ConfigSummarySection(profile: PlayerProfile, configModifyCounts: Map<String, Int>) {
+private fun ConfigSummarySection(
+    profile: PlayerProfile,
+    configModifyCounts: Map<String, Int>,
+) {
     GlassCard(accentColor = NeonPink) {
         SectionHeader("CONFIG SUMMARY", NeonPink)
         Spacer(Modifier.height(6.dp))
         Text(
             "Read-only counts — no files modified.",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
         Spacer(Modifier.height(12.dp))
 
@@ -323,7 +353,7 @@ private fun ConfigSummarySection(profile: PlayerProfile, configModifyCounts: Map
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(fileName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -331,13 +361,13 @@ private fun ConfigSummarySection(profile: PlayerProfile, configModifyCounts: Map
                             "$count",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold,
-                            color = if (count > 0) NeonAmber else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            color = if (count > 0) NeonAmber else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
                             "× modified",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         )
                     }
                 }
@@ -347,43 +377,53 @@ private fun ConfigSummarySection(profile: PlayerProfile, configModifyCounts: Map
 }
 
 @Composable
-private fun ConfigBar(label: String, count: Int, max: Int, accent: Color) {
+private fun ConfigBar(
+    label: String,
+    count: Int,
+    max: Int,
+    accent: Color,
+) {
     val animatedFraction by animateFloatAsState(
         targetValue = if (max > 0) count.toFloat() / max else 0f,
         animationSpec = tween(durationMillis = 800, delayMillis = 100),
-        label = "configBar"
+        label = "configBar",
     )
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("$count", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = accent)
         }
         Spacer(Modifier.height(4.dp))
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(Color.White.copy(alpha = 0.08f))
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Color.White.copy(alpha = 0.08f)),
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth(fraction = animatedFraction)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(
-                        Brush.horizontalGradient(listOf(accent.copy(alpha = 0.6f), accent))
-                    )
+                modifier =
+                    Modifier
+                        .fillMaxWidth(fraction = animatedFraction)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(
+                            Brush.horizontalGradient(listOf(accent.copy(alpha = 0.6f), accent)),
+                        ),
             )
         }
     }
 }
 
 @Composable
-private fun SectionHeader(text: String, accent: Color) {
+private fun SectionHeader(
+    text: String,
+    accent: Color,
+) {
     Text(text, style = MaterialTheme.typography.labelMedium, color = accent.copy(alpha = 0.7f), letterSpacing = 2.sp)
 }

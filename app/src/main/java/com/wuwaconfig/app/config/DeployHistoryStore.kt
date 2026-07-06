@@ -31,17 +31,22 @@ object DeployHistoryStore {
 
     fun getAllRecords(): List<DeployRecord> = records.toList()
 
-    fun updateOutcome(id: String, outcome: LogInfo, snippet: String = ""): Boolean {
+    fun updateOutcome(
+        id: String,
+        outcome: LogInfo,
+        snippet: String = "",
+    ): Boolean {
         val idx = records.indexOfFirst { it.id == id }
         if (idx < 0) return false
-        records[idx] = records[idx].copy(
-            outcomeFps = outcome.fpsActual,
-            outcomeThermal = outcome.thermalEvents,
-            outcomeOom = outcome.gpuOom,
-            outcomeDrops = outcome.dropFrames,
-            outcomeTimestamp = System.currentTimeMillis(),
-            baselineClientLogSnippet = if (records[idx].baselineClientLogSnippet.isEmpty()) snippet else records[idx].baselineClientLogSnippet
-        )
+        records[idx] =
+            records[idx].copy(
+                outcomeFps = outcome.fpsActual,
+                outcomeThermal = outcome.thermalEvents,
+                outcomeOom = outcome.gpuOom,
+                outcomeDrops = outcome.dropFrames,
+                outcomeTimestamp = System.currentTimeMillis(),
+                baselineClientLogSnippet = if (records[idx].baselineClientLogSnippet.isEmpty()) snippet else records[idx].baselineClientLogSnippet,
+            )
         save()
         return true
     }
@@ -78,6 +83,7 @@ object DeployHistoryStore {
     private fun save() {
         try {
             storeFile?.writeText(gson.toJson(records))
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 }

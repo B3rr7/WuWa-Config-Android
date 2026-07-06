@@ -2,18 +2,18 @@ package com.wuwaconfig.app.model
 
 data class PresetsFile(
     val android: Map<String, PresetTier> = emptyMap(),
-    val pc: Map<String, PresetTier> = emptyMap()
+    val pc: Map<String, PresetTier> = emptyMap(),
 )
 
 data class PresetTier(
     val settings: Map<String, Any> = emptyMap(),
     val deviceprofiles: Map<String, Any> = emptyMap(),
-    val gameusersettings: Map<String, Any> = emptyMap()
+    val gameusersettings: Map<String, Any> = emptyMap(),
 )
 
 enum class GameMode(val label: String) {
     Overworld("Overworld"),
-    Domain("Domain / Tower")
+    Domain("Domain / Tower"),
 }
 
 data class CvarEntry(
@@ -21,7 +21,7 @@ data class CvarEntry(
     val value: String,
     val category: String = "",
     val isOverridden: Boolean = false,
-    val originalValue: String = value
+    val originalValue: String = value,
 )
 
 data class GeneratorOptions(
@@ -53,7 +53,7 @@ data class GeneratorOptions(
     val allowRestrictedCvars: Boolean = true,
     val optimizeWithCvarDb: Boolean = true,
     val importFromLog: Boolean = false,
-    val useAdvancedGen: Boolean = false
+    val useAdvancedGen: Boolean = false,
 )
 
 data class GeneratedIni(
@@ -61,10 +61,10 @@ data class GeneratedIni(
     val deviceProfiles: String = "",
     val gameUserSettings: String = "",
     val scalability: String = "",
-    val hardware: String = ""
+    val hardware: String = "",
 )
 
 data class ModeConfig(
     val preset: String = "balanced",
-    val options: GeneratorOptions = GeneratorOptions()
+    val options: GeneratorOptions = GeneratorOptions(),
 )

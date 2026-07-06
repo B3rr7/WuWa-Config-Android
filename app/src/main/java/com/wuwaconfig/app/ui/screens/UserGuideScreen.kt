@@ -3,10 +3,18 @@ package com.wuwaconfig.app.ui.screens
 import android.annotation.SuppressLint
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -17,16 +25,18 @@ import com.wuwaconfig.app.ui.theme.NeonPurple
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun UserGuideScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val htmlContent = remember {
-        try {
-            context.assets.open("user_guide.html").bufferedReader().use { it.readText() }
-        } catch (_: Exception) {
-            "<html><body><h2>Failed to load user guide</h2></body></html>"
+    val htmlContent =
+        remember {
+            try {
+                context.assets.open("user_guide.html").bufferedReader().use { it.readText() }
+            } catch (_: Exception) {
+                "<html><body><h2>Failed to load user guide</h2></body></html>"
+            }
         }
-    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -36,12 +46,13 @@ fun UserGuideScreen(onBack: () -> Unit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = NeonPurple)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-                )
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    ),
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         AndroidView(
             factory = { ctx ->
@@ -54,9 +65,10 @@ fun UserGuideScreen(onBack: () -> Unit) {
                     loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
                 }
             },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
         )
     }
 }

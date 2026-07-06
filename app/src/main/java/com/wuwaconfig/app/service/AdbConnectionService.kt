@@ -8,7 +8,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 
 class AdbConnectionService : Service() {
@@ -23,7 +22,11 @@ class AdbConnectionService : Service() {
         createNotificationChannel()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         LogRepository.add("AdbConnectionService: onStartCommand")
         val notification = buildNotification()
         startForeground(NOTIFICATION_ID, notification)
@@ -40,13 +43,14 @@ class AdbConnectionService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "ADB Connection",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Maintains ADB wireless debugging connection"
-            }
+            val channel =
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "ADB Connection",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Maintains ADB wireless debugging connection"
+                }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }

@@ -1,13 +1,12 @@
 package com.wuwaconfig.app.ui
 
 import android.app.Application
-import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,13 +14,10 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.adb.PortScanner
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.backend.SafBackend
-import rikka.shizuku.Shizuku
 import com.wuwaconfig.app.config.ChipsetDetector
 import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.config.DeployHistoryStore
@@ -34,32 +30,40 @@ import com.wuwaconfig.app.model.DeployComparison
 import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
+import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogEntry
 import com.wuwaconfig.app.model.LogInfo
-import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.service.AdbConnectionService
 import com.wuwaconfig.app.service.GachaPollService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import rikka.shizuku.Shizuku
 import java.io.BufferedReader
-import java.io.File
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    private val app: WuWaConfigApp = application as? WuWaConfigApp
-        ?: throw IllegalStateException("MainViewModel requires WuWaConfigApp application")
+    private val app: WuWaConfigApp =
+        application as? WuWaConfigApp
+            ?: throw IllegalStateException("MainViewModel requires WuWaConfigApp application")
     private val chipsetDetector = ChipsetDetector
 
+    val configGenerator get() = app.configGenerator
+    val cvarDatabase get() = app.cvarDatabase
+
     private var _configManager: ConfigManager? = null
-    private val configManager: ConfigManager get() = synchronized(this) {
-        _configManager ?: ConfigManager(getApplication(), app.backend, backupStorageDir).also { _configManager = it }
-    }
+    private val configManager: ConfigManager get() =
+        synchronized(this) {
+            _configManager ?: ConfigManager(getApplication(), app.backend, backupStorageDir).also { _configManager = it }
+        }
 
     private val _backendStatus = MutableStateFlow(BackendStatus())
     val backendStatus: StateFlow<BackendStatus> = _backendStatus.asStateFlow()
@@ -75,7 +79,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _customDeploySuccess = MutableStateFlow<String?>(null)
     val customDeploySuccess: StateFlow<String?> = _customDeploySuccess.asStateFlow()
 
-    fun clearCustomDeploySuccess() { _customDeploySuccess.value = null }
+    fun clearCustomDeploySuccess() {
+        _customDeploySuccess.value = null
+    }
 
     private val _verificationReport = MutableStateFlow<com.wuwaconfig.app.model.VerificationReport?>(null)
     val verificationReport: StateFlow<com.wuwaconfig.app.model.VerificationReport?> = _verificationReport.asStateFlow()
@@ -100,8 +106,82 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _deployHistoryEnabled = MutableStateFlow(prefs.getBoolean("deploy_history", true))
     val deployHistoryEnabled: StateFlow<Boolean> = _deployHistoryEnabled.asStateFlow()
 
-    fun clearDeployResult() { _deployResult.value = null }
-    fun clearConveneUrl() { _conveneUrl.value = null; _gachaData.value = null }
+    fun clearDeployResult() {
+        _deployResult.value = null
+    }
+
+    fun clearConveneUrl() {
+        _conveneUrl.value = null
+        _gachaData.value = null
+    }
+
+    private val _editingFileName = MutableStateFlow<String?>(null)
+    val editingFileName: StateFlow<String?> = _editingFileName.asStateFlow()
+    private val _iniEditorContent = MutableStateFlow<String?>(null)
+    val iniEditorContent: StateFlow<String?> = _iniEditorContent.asStateFlow()
+    private val _iniEditorLoading = MutableStateFlow(false)
+    val iniEditorLoading: StateFlow<Boolean> = _iniEditorLoading.asStateFlow()
+    private val _iniEditorError = MutableStateFlow<String?>(null)
+    val iniEditorError: StateFlow<String?> = _iniEditorError.asStateFlow()
+    private val _iniEditorSuccess = MutableStateFlow<String?>(null)
+    val iniEditorSuccess: StateFlow<String?> = _iniEditorSuccess.asStateFlow()
+
+    fun clearIniEditorError() {
+        _iniEditorError.value = null
+    }
+
+    fun clearIniEditorSuccess() {
+        _iniEditorSuccess.value = null
+    }
+
+    fun readIniFile(fileName: String) {
+        viewModelScope.launch {
+            _iniEditorLoading.value = true
+            _iniEditorError.value = null
+            addLog("INI Editor: reading $fileName from device")
+            configManager.readCurrentConfig(fileName).onSuccess { content ->
+                _editingFileName.value = fileName
+                _iniEditorContent.value = content
+                addLog("INI Editor: $fileName loaded (${content.length} chars)", LogLevel.SUCCESS)
+            }.onFailure { e ->
+                _iniEditorContent.value = null
+                _iniEditorError.value = "Failed to read $fileName: ${e.message}"
+                addLog("INI Editor: failed to read $fileName: ${e.message}", LogLevel.ERROR)
+            }
+            _iniEditorLoading.value = false
+        }
+    }
+
+    fun returnToFileList() {
+        _editingFileName.value = null
+        _iniEditorContent.value = null
+        _iniEditorError.value = null
+    }
+
+    fun saveIniFile(content: String) {
+        val fileName = _editingFileName.value ?: return
+        viewModelScope.launch {
+            _iniEditorLoading.value = true
+            _iniEditorError.value = null
+            addLog("INI Editor: saving $fileName to device")
+            val preSnapshot = configManager.snapshotHashFile().getOrNull()
+            configManager.pushSingleFile(fileName, content) { /* progress */ }
+                .onSuccess { msg ->
+                    addLog("INI Editor: $fileName pushed, refreshing hashes...", LogLevel.SUCCESS)
+                    configManager.reconcileAfterModify(preSnapshot).onSuccess { hashMsg ->
+                        addLog("$fileName saved. $hashMsg", LogLevel.SUCCESS)
+                        _iniEditorSuccess.value = "$fileName saved successfully"
+                    }.onFailure { e ->
+                        addLog("INI Editor: hash refresh warning: ${e.message}", LogLevel.WARNING)
+                        _iniEditorSuccess.value = "$fileName saved (hash refresh: ${e.message})"
+                    }
+                }.onFailure { e ->
+                    _iniEditorError.value = "Failed to save $fileName: ${e.message}"
+                    addLog("INI Editor: failed to save $fileName: ${e.message}", LogLevel.ERROR)
+                }
+            _iniEditorLoading.value = false
+        }
+    }
 
     private val _gachaHistory = MutableStateFlow<GachaHistoryEntry?>(null)
     val gachaHistory: StateFlow<GachaHistoryEntry?> = _gachaHistory.asStateFlow()
@@ -133,14 +213,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val backgroundOpacity: StateFlow<Float> = app.backgroundOpacity
 
     fun setBackgroundImageUri(uri: String?) {
-        if (uri != null) prefs.edit().putString("bg_image_uri", uri).apply()
-        else prefs.edit().remove("bg_image_uri").apply()
+        if (uri != null) {
+            prefs.edit().putString("bg_image_uri", uri).apply()
+        } else {
+            prefs.edit().remove("bg_image_uri").apply()
+        }
         app.backgroundImageUri.value = uri
     }
 
     fun setBackgroundVideoUri(uri: String?) {
-        if (uri != null) prefs.edit().putString("bg_video_uri", uri).apply()
-        else prefs.edit().remove("bg_video_uri").apply()
+        if (uri != null) {
+            prefs.edit().putString("bg_video_uri", uri).apply()
+        } else {
+            prefs.edit().remove("bg_video_uri").apply()
+        }
         app.backgroundVideoUri.value = uri
     }
 
@@ -183,34 +269,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun retuneAndDeploy(recordId: String) {
         viewModelScope.launch {
             val record = DeployHistoryStore.getRecord(recordId) ?: return@launch
-            val profile = record.optimizedProfile ?: run {
-                addLog("No tuning profile found in record — can't retune")
-                return@launch
-            }
-            val comparison = DeployHistoryStore.compare(recordId) ?: run {
-                addLog("No comparison data — run Compare Now first")
-                return@launch
-            }
+            val profile =
+                record.optimizedProfile ?: run {
+                    addLog("No tuning profile found in record — can't retune")
+                    return@launch
+                }
+            val comparison =
+                DeployHistoryStore.compare(recordId) ?: run {
+                    addLog("No comparison data — run Compare Now first")
+                    return@launch
+                }
 
-            addLog("Retuning based on comparison Δ: FPS ${comparison.fpsDelta?.let { "%.1f".format(it) } ?: "?"}, "
-                    + "Thermal ${comparison.thermalDelta ?: "?"}, OOM ${comparison.oomDelta ?: "?"}, "
-                    + "Drops ${comparison.dropFramesDelta ?: "?"}")
+            addLog(
+                "Retuning based on comparison Δ: FPS ${comparison.fpsDelta?.let { "%.1f".format(it) } ?: "?"}, " +
+                    "Thermal ${comparison.thermalDelta ?: "?"}, OOM ${comparison.oomDelta ?: "?"}, " +
+                    "Drops ${comparison.dropFramesDelta ?: "?"}",
+            )
 
             val adjustedProfile = com.wuwaconfig.app.config.CvarOptimizer.adjustProfile(profile, comparison)
-            com.wuwaconfig.app.config.ConfigGenerator.profileOverride =
-                com.wuwaconfig.app.config.CvarOptimizer.toPresetProfile(adjustedProfile)
 
-            val opts = com.wuwaconfig.app.model.GeneratorOptions(
-                fps = 60,
-                generateEngine = record.filesDeployed.contains("Engine.ini"),
-                generateDeviceProfiles = record.filesDeployed.contains("DeviceProfiles.ini"),
-                generateGameUserSettings = record.filesDeployed.contains("GameUserSettings.ini"),
-                generateScalability = record.filesDeployed.contains("Scalability.ini"),
-                generateHardware = record.filesDeployed.contains("Hardware.ini"),
-                useAdvancedGen = false,
-                optimizeWithCvarDb = true
-            )
-            val generated = com.wuwaconfig.app.config.ConfigGenerator.generate(record.presetName, opts)
+            val opts =
+                com.wuwaconfig.app.model.GeneratorOptions(
+                    fps = 60,
+                    generateEngine = record.filesDeployed.contains("Engine.ini"),
+                    generateDeviceProfiles = record.filesDeployed.contains("DeviceProfiles.ini"),
+                    generateGameUserSettings = record.filesDeployed.contains("GameUserSettings.ini"),
+                    generateScalability = record.filesDeployed.contains("Scalability.ini"),
+                    generateHardware = record.filesDeployed.contains("Hardware.ini"),
+                    useAdvancedGen = false,
+                    optimizeWithCvarDb = true,
+                )
+            val profileOverride = com.wuwaconfig.app.config.CvarOptimizer.toPresetProfile(adjustedProfile)
+            val generated = configGenerator.generate(record.presetName, opts, profileOverride = profileOverride)
             deployGeneratedConfigs(generated, opts, adjustedProfile)
         }
     }
@@ -233,8 +323,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val termsVersionAccepted: Int
         get() = prefs.getInt("terms_version", 0)
 
-    fun needsTermsAccept(): Boolean =
-        !termsAccepted || termsVersionAccepted < TERMS_VERSION
+    fun needsTermsAccept(): Boolean = !termsAccepted || termsVersionAccepted < TERMS_VERSION
 
     fun acceptTerms() {
         prefs.edit().putBoolean("terms_accepted", true).putInt("terms_version", TERMS_VERSION).apply()
@@ -249,7 +338,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 getApplication<Application>().registerReceiver(gachaReceiver, filter)
             }
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+        }
         _gachaHistory.value = GachaHistoryStore.load(getApplication())
         val cached = ProfileStore.load(getApplication())
         if (cached != null) {
@@ -258,22 +348,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private val gachaReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val json = intent.getStringExtra("json")
-            if (json != null) {
-                try {
-                    val type = object : TypeToken<GachaData>() {}.type
-                    val data = Gson().fromJson<GachaData>(json, type)
-                    _gachaData.value = data
-                    _conveneUrl.value = "found"
-                    GachaHistoryStore.save(getApplication(), data)
-                    _gachaHistory.value = GachaHistoryStore.load(getApplication())
-                    addLog("Background poll: loaded ${data.totalPulls} pulls (${data.fiveStars}★5)")
-                } catch (_: Exception) { }
+    private val gachaReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context,
+                intent: Intent,
+            ) {
+                val json = intent.getStringExtra("json")
+                if (json != null) {
+                    try {
+                        val type = object : TypeToken<GachaData>() {}.type
+                        val data = Gson().fromJson<GachaData>(json, type)
+                        _gachaData.value = data
+                        _conveneUrl.value = "found"
+                        GachaHistoryStore.save(getApplication(), data)
+                        _gachaHistory.value = GachaHistoryStore.load(getApplication())
+                        addLog("Background poll: loaded ${data.totalPulls} pulls (${data.fiveStars}★5)")
+                    } catch (_: Exception) {
+                    }
+                }
             }
         }
-    }
 
     init {
         if (prefs.getBoolean("terms_accepted", false)) {
@@ -293,8 +388,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         addLog("Gacha history cleared")
     }
 
-    fun gachaHistoryRemainingHours(): Long =
-        GachaHistoryStore.getRemainingHours(getApplication())
+    fun gachaHistoryRemainingHours(): Long = GachaHistoryStore.getRemainingHours(getApplication())
 
     fun restoreGachaFromHistory() {
         val entry = _gachaHistory.value ?: return
@@ -371,7 +465,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val backend = app.backend
             val result = backend.connect()
             val ip = if (method == AccessMethod.ADB) withContext(Dispatchers.IO) { PortScanner.getDeviceIp() } else ""
-            val port = com.wuwaconfig.app.adb.PortScanner.lastAdbPort?.let { p -> if (p > 0) p else _backendStatus.value.port } ?: _backendStatus.value.port
+            val port =
+                com.wuwaconfig.app.adb.PortScanner.lastAdbPort?.let {
+                        p ->
+                    if (p > 0) p else _backendStatus.value.port
+                } ?: _backendStatus.value.port
 
             if (result.isSuccess) {
                 _backendStatus.value = BackendStatus(method = method, connected = true, host = ip, port = port)
@@ -379,7 +477,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (method == AccessMethod.ADB) {
                     try {
                         getApplication<Application>().startForegroundService(Intent(getApplication(), AdbConnectionService::class.java))
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                    }
                     val testAccess = backend.fileExists("$gameConfigDir/Engine.ini")
                     if (testAccess.isSuccess) {
                         addLog(if (testAccess.getOrThrow()) "Game config directory accessible." else "Config files not found (first run?).")
@@ -389,12 +488,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 loadBackups()
+                syncConfigHashes()
             } else {
                 val message = friendlyBackendError(result.exceptionOrNull()?.message)
-                _backendStatus.value = BackendStatus(
-                    method = method, connected = false, host = ip,
-                    errorMessage = message
-                )
+                _backendStatus.value =
+                    BackendStatus(
+                        method = method, connected = false, host = ip,
+                        errorMessage = message,
+                    )
                 addLog("ERROR: $message")
             }
         }
@@ -412,41 +513,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun requestShizukuPermission() {
         try {
             Shizuku.requestPermission(1001)
-        } catch (_: Exception) {}
-    }
-
-    private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
-        if (requestCode == 1001) {
-            if (grantResult == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                addLog("Shizuku permission granted!")
-                connect()
-            } else {
-                _backendStatus.value = _backendStatus.value.copy(errorMessage = "Shizuku permission denied")
-                addLog("ERROR: Shizuku permission denied")
-            }
+        } catch (_: Exception) {
         }
     }
+
+    private val shizukuPermissionListener =
+        Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
+            if (requestCode == 1001) {
+                if (grantResult == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    addLog("Shizuku permission granted!")
+                    connect()
+                } else {
+                    _backendStatus.value = _backendStatus.value.copy(errorMessage = "Shizuku permission denied")
+                    addLog("ERROR: Shizuku permission denied")
+                }
+            }
+        }
 
     init {
         try {
             Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 
     override fun onCleared() {
         super.onCleared()
         try {
             Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         app.backend.disconnect()
     }
 
-    fun connectAdbManual(host: String, portText: String) {
+    fun connectAdbManual(
+        host: String,
+        portText: String,
+    ) {
         val port = portText.toIntOrNull()
         if (port == null || port !in 1..65535) {
-            _backendStatus.value = BackendStatus(
-                method = AccessMethod.ADB, errorMessage = "Invalid port. Enter a number between 1-65535."
-            )
+            _backendStatus.value =
+                BackendStatus(
+                    method = AccessMethod.ADB, errorMessage = "Invalid port. Enter a number between 1-65535.",
+                )
             return
         }
         viewModelScope.launch {
@@ -460,7 +569,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     addLog("Connected to $host:$port!")
                     try {
                         getApplication<Application>().startForegroundService(Intent(getApplication(), AdbConnectionService::class.java))
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                    }
                     loadBackups()
                 } else {
                     val msg = friendlyBackendError(result.exceptionOrNull()?.message)
@@ -518,14 +628,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (method == AccessMethod.ADB) {
             try {
                 getApplication<Application>().stopService(Intent(getApplication(), AdbConnectionService::class.java))
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
         _backendStatus.value = BackendStatus(method = method)
         _isApplying.value = false
         addLog("Disconnected.")
     }
 
-    fun createBackup(name: String, selectedFiles: Set<String>? = null) {
+    fun createBackup(
+        name: String,
+        selectedFiles: Set<String>? = null,
+    ) {
         Log.d("MainViewModel", "createBackup: name='$name' selectedFiles=$selectedFiles connected=${_backendStatus.value.connected}")
         if (_isApplying.value || !_backendStatus.value.connected) {
             Log.d("MainViewModel", "createBackup: not connected, returning")
@@ -536,22 +650,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Log.d("MainViewModel", "createBackup: calling configManager.createBackup")
             val result = configManager.createBackup(name, selectedFiles = selectedFiles)
             Log.d("MainViewModel", "createBackup: result success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
-            if (result.isSuccess) { addLog("Backup created"); loadBackups() }
-            else addLog("Backup failed: ${result.exceptionOrNull()?.message}")
+            if (result.isSuccess) {
+                addLog("Backup created")
+                loadBackups()
+            } else {
+                addLog("Backup failed: ${result.exceptionOrNull()?.message}")
+            }
         }
     }
 
-    fun restoreBackup(backup: ConfigBackup, selectedFiles: Set<String>? = null) {
+    fun restoreBackup(
+        backup: ConfigBackup,
+        selectedFiles: Set<String>? = null,
+    ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
             _isApplying.value = true
             try {
                 addLog("Restoring backup: ${backup.name}...")
+                val preSnapshot = configManager.snapshotHashFile().getOrNull()
                 val result = configManager.restoreBackup(backup, { msg -> addLog(msg) }, selectedFiles = selectedFiles)
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
-                    configManager.refreshConfigHashes().onSuccess { addLog(it) }
-                } else addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                    configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
+                } else {
+                    addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                }
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "restoreBackup crashed", e)
@@ -582,8 +706,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 addLog("Collecting Client.log...")
                 val result = configManager.collectClientLog { msg -> addLog(msg) }
-                if (result.isSuccess) addLog("SUCCESS: ${result.getOrThrow()}")
-                else addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                if (result.isSuccess) {
+                    addLog("SUCCESS: ${result.getOrThrow()}")
+                } else {
+                    addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                }
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "collectClientLog crashed", e)
@@ -620,21 +747,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _gachaLoading = MutableStateFlow(false)
     val gachaLoading: StateFlow<Boolean> = _gachaLoading.asStateFlow()
 
-    fun analyzeClientLog() {
+    fun analyzeClientLog(allowRestrictedCvars: Boolean = true) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
             _isApplying.value = true
             try {
                 _readingProgress.value = 0
                 addLog("Reading Client.log from device...")
-                val result = configManager.readClientLogTextWithMetadata { pct ->
-                    _readingProgress.value = pct
-                }
+                val result =
+                    configManager.readClientLogTextWithMetadata { pct ->
+                        _readingProgress.value = pct
+                    }
                 if (result.isSuccess) {
                     _readingProgress.value = 95
                     val (text, decrypted) = result.getOrThrow()
                     addLog(if (decrypted) "Encrypted log detected; decrypted successfully." else "Plain log detected.")
-                    doAnalyzeLogText(text)
+                    doAnalyzeLogText(text, allowRestrictedCvars)
                 } else {
                     addLog("FAILED: ${result.exceptionOrNull()?.message}")
                 }
@@ -648,7 +776,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun analyzeClientLogBytes(bytes: ByteArray) {
+    fun analyzeClientLogBytes(
+        bytes: ByteArray,
+        allowRestrictedCvars: Boolean = true,
+    ) {
         if (_isApplying.value) return
         viewModelScope.launch {
             _isApplying.value = true
@@ -658,7 +789,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val (text, decrypted) = com.wuwaconfig.app.config.LogParser.decodeLogBytes(bytes)
                 addLog(if (decrypted) "Encrypted imported log decrypted successfully." else "Imported plain log.")
                 _readingProgress.value = 95
-                doAnalyzeLogText(text)
+                doAnalyzeLogText(text, allowRestrictedCvars)
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "analyzeClientLogBytes crashed", e)
@@ -669,19 +800,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun doAnalyzeLogText(text: String) {
+    private suspend fun doAnalyzeLogText(
+        text: String,
+        allowRestrictedCvars: Boolean = true,
+    ) {
         try {
             addLog("Parsing log...")
-            val info = withContext(Dispatchers.Default) {
-                com.wuwaconfig.app.config.LogParser.parseLog(text)
-            }
-            com.wuwaconfig.app.config.ConfigGenerator.logInfo = info
+            val info =
+                withContext(Dispatchers.Default) {
+                    com.wuwaconfig.app.config.LogParser.parseLog(text)
+                }
             _logAnalysis.value = info
             addLog("GPU: ${info.gpu ?: "unknown"}, RAM: ${info.ramMb ?: "?"}MB")
             _readingProgress.value = 98
-            val brain = withContext(Dispatchers.Default) {
-                com.wuwaconfig.app.config.SmartBrain.scoreRecommendation(info)
-            }
+            val brain =
+                withContext(Dispatchers.Default) {
+                    com.wuwaconfig.app.config.SmartBrain.scoreRecommendation(info, cvarDatabase, allowRestrictedCvars)
+                }
             _brainRecommendation.value = brain
             addLog("Brain recommends: ${brain.preset} (score: ${brain.score})")
         } catch (e: Exception) {
@@ -698,16 +833,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _conveneUrlLoading.value = true
             var remaining = retryCount
             while (remaining >= 0) {
-                addLog("Reading Client.log for Convene URL${if (remaining < retryCount) " (attempt ${retryCount - remaining + 1}/$retryCount)" else ""}...")
+                addLog(
+                    "Reading Client.log for Convene URL${if (remaining < retryCount) " (attempt ${retryCount - remaining + 1}/$retryCount)" else ""}...",
+                )
                 try {
-                    val result = configManager.readClientLogTextWithMetadata { pct ->
-                        if (pct % 25 == 0 && remaining == retryCount) addLog("Reading... $pct%")
-                    }
+                    val result =
+                        configManager.readClientLogTextWithMetadata { pct ->
+                            if (pct % 25 == 0 && remaining == retryCount) addLog("Reading... $pct%")
+                        }
                     if (result.isSuccess) {
                         val (text, _) = result.getOrThrow()
-                        val url = withContext(Dispatchers.Default) {
-                            com.wuwaconfig.app.config.LogParser.extractConveneUrl(text)
-                        }
+                        val url =
+                            withContext(Dispatchers.Default) {
+                                com.wuwaconfig.app.config.LogParser.extractConveneUrl(text)
+                            }
                         if (url != null) {
                             addLog("Found Convene URL")
                             _conveneUrl.value = url
@@ -744,9 +883,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 return
             }
             addLog("Fetching gacha records from server...")
-            val result = withContext(Dispatchers.IO) {
-                GachaApi.fetchAllRecords(params)
-            }
+            val result =
+                withContext(Dispatchers.IO) {
+                    GachaApi.fetchAllRecords(params)
+                }
             if (result.isSuccess) {
                 val data = result.getOrThrow()
                 _gachaData.value = data
@@ -769,9 +909,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openConveneUrl(url: String) {
         try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
+            val intent =
+                Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
             getApplication<android.app.Application>().startActivity(intent)
         } catch (e: Exception) {
             addLog("Failed to open URL: ${e.message}")
@@ -808,7 +949,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _profileLoading.value = true
             addLog(if (forceRefresh) "Refreshing player profile..." else "Reading player profile (read-only)...")
             try {
-                    val result = configManager.readProfile()
+                val result = configManager.readProfile()
                 if (result.isSuccess) {
                     val profile = result.getOrThrow()
                     _playerProfile.value = profile
@@ -853,7 +994,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun deployGeneratedConfigs(
         ini: com.wuwaconfig.app.model.GeneratedIni,
         opts: com.wuwaconfig.app.model.GeneratorOptions = com.wuwaconfig.app.model.GeneratorOptions(),
-        retuneProfile: com.wuwaconfig.app.config.CvarOptimizer.OptimizedProfile? = null
+        retuneProfile: com.wuwaconfig.app.config.CvarOptimizer.OptimizedProfile? = null,
     ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
@@ -861,59 +1002,76 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 _verificationReport.value = null
                 addLog("Deploying generated configs...")
+                val preSnapshot = configManager.snapshotHashFile().getOrNull()
 
                 val existingResult = configManager.readCurrentConfig("Engine.ini")
-                val corePaths = if (existingResult.isSuccess) {
-                    val extracted = com.wuwaconfig.app.config.ConfigGenerator.extractCoreSystemPaths(existingResult.getOrThrow())
-                    addLog("Found ${extracted.size - 1} [Core.System] paths on device")
-                    extracted
-                } else {
-                    val fromBackup = configManager.getLocalBackups().firstOrNull { backup ->
-                        backup.files.any { it.name == "Engine.ini" }
-                    }?.files?.firstOrNull { it.name == "Engine.ini" }?.content
-                    if (fromBackup != null) {
-                        addLog("Device Engine.ini missing, using paths from backup")
-                        com.wuwaconfig.app.config.ConfigGenerator.extractCoreSystemPaths(fromBackup)
+                val corePaths =
+                    if (existingResult.isSuccess) {
+                        val extracted = configGenerator.extractCoreSystemPaths(existingResult.getOrThrow())
+                        addLog("Found ${extracted.size - 1} [Core.System] paths on device")
+                        extracted
                     } else {
-                        addLog("Using default [Core.System] paths")
-                        com.wuwaconfig.app.config.ConfigGenerator.DEFAULT_CORE_SYSTEM
+                        val fromBackup =
+                            configManager.getLocalBackups().firstOrNull { backup ->
+                                backup.files.any { it.name == "Engine.ini" }
+                            }?.files?.firstOrNull { it.name == "Engine.ini" }?.content
+                        if (fromBackup != null) {
+                            addLog("Device Engine.ini missing, using paths from backup")
+                            configGenerator.extractCoreSystemPaths(fromBackup)
+                        } else {
+                            addLog("Using default [Core.System] paths")
+                            configGenerator.DEFAULT_CORE_SYSTEM
+                        }
                     }
-                }
 
-                val engineWithPaths = if (opts.generateEngine) {
-                    val sourceEngine = ini.engine.ifBlank {
-                        com.wuwaconfig.app.config.ConfigGenerator.generateWithCorePaths(
-                            com.wuwaconfig.app.config.ConfigGenerator.activePreset,
-                            opts,
-                            corePaths
-                        ).engine
+                var lastGeneratedCvars: Set<String> = emptySet()
+                var lastActivePreset: String = "balanced"
+
+                val engineWithPaths =
+                    if (opts.generateEngine) {
+                        val sourceEngine =
+                            ini.engine.ifBlank {
+                                val result =
+                                    configGenerator.generateWithCorePaths(
+                                        lastActivePreset,
+                                        opts,
+                                        corePaths,
+                                    )
+                                lastGeneratedCvars = result.cvarNames
+                                lastActivePreset = result.activePreset
+                                result.ini.engine
+                            }
+                        val replaced = configGenerator.replaceCoreSystemPaths(sourceEngine, corePaths)
+                        if (sourceEngine == ini.engine) {
+                            lastGeneratedCvars = configGenerator.extractCvarNames(replaced)
+                        }
+                        replaced
+                    } else {
+                        ""
                     }
-                    com.wuwaconfig.app.config.ConfigGenerator.replaceCoreSystemPaths(sourceEngine, corePaths)
-                        .also { com.wuwaconfig.app.config.ConfigGenerator.rememberGeneratedCvars(it) }
-                } else {
-                    ""
-                }
 
-                val result = configManager.applyCustomConfigs(
-                    engineIni = if (opts.generateEngine) engineWithPaths else null,
-                    deviceProfilesIni = if (opts.generateDeviceProfiles) ini.deviceProfiles else null,
-                    gameUserSettingsIni = if (opts.generateGameUserSettings) ini.gameUserSettings else null,
-                    scalabilityIni = if (opts.generateScalability && ini.scalability.isNotBlank()) ini.scalability else null,
-                    hardwareIni = if (opts.generateHardware && ini.hardware.isNotBlank()) ini.hardware else null,
-                ) { msg -> addLog(msg) }
+                val result =
+                    configManager.applyCustomConfigs(
+                        engineIni = if (opts.generateEngine) engineWithPaths else null,
+                        deviceProfilesIni = if (opts.generateDeviceProfiles) ini.deviceProfiles else null,
+                        gameUserSettingsIni = if (opts.generateGameUserSettings) ini.gameUserSettings else null,
+                        scalabilityIni = if (opts.generateScalability && ini.scalability.isNotBlank()) ini.scalability else null,
+                        hardwareIni = if (opts.generateHardware && ini.hardware.isNotBlank()) ini.hardware else null,
+                    ) { msg -> addLog(msg) }
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     _deployResult.value = result.getOrThrow()
-                    configManager.refreshConfigHashes().onSuccess { addLog(it) }
+                    configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
                     if (opts.generateEngine) {
                         addLog("Verifying deployed CVars against ConfigMonitor...")
                         _readingProgress.value = 50
-                        configManager.verifyDeployedCvars(com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars).onSuccess { report ->
-                            val cvarValues = com.wuwaconfig.app.config.CvarDatabase.extractCvarValues(engineWithPaths)
-                            val details = com.wuwaconfig.app.config.CvarDatabase.buildCvarDetails(
-                                com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars,
-                                cvarValues
-                            )
+                        configManager.verifyDeployedCvars(lastGeneratedCvars).onSuccess { report ->
+                            val cvarValues = cvarDatabase.extractCvarValues(engineWithPaths)
+                            val details =
+                                cvarDatabase.buildCvarDetails(
+                                    lastGeneratedCvars,
+                                    cvarValues,
+                                )
                             _verificationReport.value = report.copy(cvarDetails = details)
                             _readingProgress.value = 100
                             addLog("VERIFY: ${report.recognizedCount}/${report.totalCount} CVars accepted by engine")
@@ -931,9 +1089,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (_deployHistoryEnabled.value) {
                         addLog("Capturing baseline for deploy history...")
                         val baselineResult = configManager.readClientLogContent()
-                        val baselineLog = if (baselineResult.isSuccess) {
-                            com.wuwaconfig.app.config.LogParser.parseLog(baselineResult.getOrThrow())
-                        } else LogInfo()
+                        val baselineLog =
+                            if (baselineResult.isSuccess) {
+                                com.wuwaconfig.app.config.LogParser.parseLog(baselineResult.getOrThrow())
+                            } else {
+                                LogInfo()
+                            }
                         val report = _verificationReport.value
                         val fileList = mutableListOf<String>()
                         if (opts.generateEngine) fileList.add("Engine.ini")
@@ -942,26 +1103,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         if (opts.generateScalability) fileList.add("Scalability.ini")
                         if (opts.generateHardware) fileList.add("Hardware.ini")
                         val recordId = java.util.UUID.randomUUID().toString()
-                        val record = DeployRecord(
-                            id = recordId,
-                            timestamp = System.currentTimeMillis(),
-                            presetName = com.wuwaconfig.app.config.ConfigGenerator.activePreset,
-                            generationMethod = if (opts.useAdvancedGen) "advanced" else "classic",
-                            filesDeployed = fileList,
-                            cvarCount = com.wuwaconfig.app.config.ConfigGenerator.lastGeneratedCvars.size,
-                            acceptedCount = report?.recognizedCount ?: 0,
-                            totalCount = report?.totalCount ?: 0,
-                            redundantCount = report?.redundantCount ?: 0,
-                            unknownCount = report?.unknownCount ?: 0,
-                            monitoredCount = report?.monitoredCount ?: 0,
-                            baselineFps = baselineLog.fpsActual,
-                            baselineThermal = baselineLog.thermalEvents,
-                            baselineOom = baselineLog.gpuOom,
-                            baselineDrops = baselineLog.dropFrames,
-                            baselineClientLogSnippet = if (baselineResult.isSuccess) baselineResult.getOrThrow().take(2048) else "",
-                            optimizedProfile = retuneProfile ?: if (opts.useAdvancedGen) com.wuwaconfig.app.config.CvarOptimizer.optimizeProfile(baselineLog) else null
-                        )
-                        com.wuwaconfig.app.config.ConfigGenerator.profileOverride = null
+                        val record =
+                            DeployRecord(
+                                id = recordId,
+                                timestamp = System.currentTimeMillis(),
+                                presetName = lastActivePreset,
+                                generationMethod = if (opts.useAdvancedGen) "advanced" else "classic",
+                                filesDeployed = fileList,
+                                cvarCount = lastGeneratedCvars.size,
+                                acceptedCount = report?.recognizedCount ?: 0,
+                                totalCount = report?.totalCount ?: 0,
+                                redundantCount = report?.redundantCount ?: 0,
+                                unknownCount = report?.unknownCount ?: 0,
+                                monitoredCount = report?.monitoredCount ?: 0,
+                                baselineFps = baselineLog.fpsActual,
+                                baselineThermal = baselineLog.thermalEvents,
+                                baselineOom = baselineLog.gpuOom,
+                                baselineDrops = baselineLog.dropFrames,
+                                baselineClientLogSnippet = if (baselineResult.isSuccess) baselineResult.getOrThrow().take(2048) else "",
+                                optimizedProfile = retuneProfile ?: if (opts.useAdvancedGen) com.wuwaconfig.app.config.CvarOptimizer.optimizeProfile(baselineLog) else null,
+                            )
                         DeployHistoryStore.addRecord(record)
                         _deployRecords.value = DeployHistoryStore.getAllRecords()
                         addLog("Deploy record saved (id: ${recordId.take(8)}...)")
@@ -981,18 +1142,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun applyCustomFiles(engineIni: String?, deviceProfilesIni: String?, gameUserSettingsIni: String?, scalabilityIni: String? = null, hardwareIni: String? = null, backupAllInis: Boolean = false) {
+    fun applyCustomFiles(
+        engineIni: String?,
+        deviceProfilesIni: String?,
+        gameUserSettingsIni: String?,
+        scalabilityIni: String? = null,
+        hardwareIni: String? = null,
+        backupAllInis: Boolean = false,
+    ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
             _isApplying.value = true
             try {
-                val fileNames = mapOf(
-                    "Engine.ini" to engineIni,
-                    "DeviceProfiles.ini" to deviceProfilesIni,
-                    "GameUserSettings.ini" to gameUserSettingsIni,
-                    "Scalability.ini" to scalabilityIni,
-                    "Hardware.ini" to hardwareIni,
-                )
+                val preSnapshot = configManager.snapshotHashFile().getOrNull()
+                val fileNames =
+                    mapOf(
+                        "Engine.ini" to engineIni,
+                        "DeviceProfiles.ini" to deviceProfilesIni,
+                        "GameUserSettings.ini" to gameUserSettingsIni,
+                        "Scalability.ini" to scalabilityIni,
+                        "Hardware.ini" to hardwareIni,
+                    )
                 val selected = fileNames.filterValues { it != null && it.isNotBlank() }.keys
                 val skipped = fileNames.filterValues { it == null || it.isBlank() }.keys
 
@@ -1011,20 +1181,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-                val result = configManager.applyCustomConfigs(
-                    engineIni = engineIni,
-                    deviceProfilesIni = deviceProfilesIni,
-                    gameUserSettingsIni = gameUserSettingsIni,
-                    scalabilityIni = scalabilityIni,
-                    hardwareIni = hardwareIni,
-                ) { msg -> addLog(msg) }
+                val result =
+                    configManager.applyCustomConfigs(
+                        engineIni = engineIni,
+                        deviceProfilesIni = deviceProfilesIni,
+                        gameUserSettingsIni = gameUserSettingsIni,
+                        scalabilityIni = scalabilityIni,
+                        hardwareIni = hardwareIni,
+                    ) { msg -> addLog(msg) }
 
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${selected.size} file(s) applied (${selected.joinToString(", ")})")
                     _customDeploySuccess.value = "${selected.size} file(s) deployed: ${selected.joinToString(", ")}"
                     loadBackups()
-                    configManager.refreshConfigHashes().onSuccess { addLog(it) }
-                } else addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                    configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
+                } else {
+                    addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                }
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "applyCustomFiles crashed", e)
@@ -1034,24 +1207,104 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun deleteConfigFiles() {
+    fun cleanConfigFiles() {
         if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
             _isApplying.value = true
             try {
-                addLog("Deleting config files...")
-                val result = configManager.deleteConfigFiles { msg -> addLog(msg) }
+                addLog("Cleaning config files...")
+                val preSnapshot = configManager.snapshotHashFile().getOrNull()
+                val result = configManager.cleanConfigFiles { msg -> addLog(msg) }
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     loadBackups()
-                } else addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                    configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
+                } else {
+                    addLog(result.exceptionOrNull()?.message ?: "Clean failed")
+                }
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
-                Log.e("WuWaConfig", "deleteConfigFiles crashed", e)
+                Log.e("WuWaConfig", "cleanConfigFiles crashed", e)
             } finally {
                 _isApplying.value = false
             }
         }
+    }
+
+    fun deleteSelectedConfigFiles(selectedFiles: Set<String>) {
+        if (_isApplying.value || !_backendStatus.value.connected) return
+        viewModelScope.launch {
+            _isApplying.value = true
+            try {
+                addLog("Deleting ${selectedFiles.size} config file(s): ${selectedFiles.joinToString(", ")}")
+                val preSnapshot = configManager.snapshotHashFile().getOrNull()
+                val result = configManager.deleteConfigFiles(selectedFiles)
+                if (result.isSuccess) {
+                    addLog("SUCCESS: ${result.getOrThrow()}")
+                    loadBackups()
+                    configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
+                } else {
+                    addLog(result.exceptionOrNull()?.message ?: "Delete failed")
+                }
+            } catch (e: Exception) {
+                addLog("CRASH: ${e.message}")
+                Log.e("WuWaConfig", "deleteSelectedConfigFiles crashed", e)
+            } finally {
+                _isApplying.value = false
+            }
+        }
+    }
+
+    fun syncConfigHashes(onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            addLog("Hash sync: checking device config hashes...")
+            val md5 = java.security.MessageDigest.getInstance("MD5")
+            val hashContent = app.backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
+            if (hashContent.isBlank()) {
+                addLog("Hash sync: no hash file found, creating fresh...")
+                configManager.refreshConfigHashes().onSuccess { addLog(it) }
+                onResult(true)
+                return@launch
+            }
+            var needsRefresh = false
+            for (name in GamePaths.MONITORED_FILES) {
+                val path = "${GamePaths.TARGET_DIR}/$name"
+                val content = app.backend.readFile(path).getOrDefault("")
+                val actualHash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+                val storedHash = extractHash(hashContent, name)
+                if (storedHash != null && storedHash != actualHash) {
+                    addLog("Hash sync: $name hash mismatch (stored=$storedHash, actual=$actualHash)", LogLevel.WARNING)
+                    needsRefresh = true
+                } else if (storedHash == null) {
+                    addLog("Hash sync: $name has no stored hash", LogLevel.WARNING)
+                    needsRefresh = true
+                }
+            }
+            if (needsRefresh) {
+                addLog("Hash sync: refreshing to match current files...")
+                configManager.refreshConfigHashes().onSuccess { addLog(it) }
+            } else {
+                addLog("Hash sync: all hashes match", LogLevel.SUCCESS)
+            }
+            onResult(needsRefresh)
+        }
+    }
+
+    private fun extractHash(
+        hashContent: String,
+        fileName: String,
+    ): String? {
+        var inSection = false
+        for (line in hashContent.lines()) {
+            val t = line.trim()
+            if (t.equals("[$fileName]", ignoreCase = false)) {
+                inSection = true
+                continue
+            }
+            if (inSection && t.startsWith("[") && t.endsWith("]")) break
+            if (inSection && t.startsWith("Hash=")) return t.removePrefix("Hash=").trim()
+        }
+        return null
     }
 
     suspend fun executeShellCommand(cmd: String): Result<String> {
@@ -1061,8 +1314,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun readUriContent(uri: Uri): Result<String> {
         return try {
             val ctx = getApplication<Application>()
-            val stream = ctx.contentResolver.openInputStream(uri)
-                ?: return Result.failure(Exception("Cannot open file"))
+            val stream =
+                ctx.contentResolver.openInputStream(uri)
+                    ?: return Result.failure(Exception("Cannot open file"))
             val text = stream.use { BufferedReader(InputStreamReader(it)).readText() }
             Result.success(text)
         } catch (e: Exception) {
@@ -1073,8 +1327,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun readUriBytes(uri: Uri): Result<ByteArray> {
         return try {
             val ctx = getApplication<Application>()
-            val stream = ctx.contentResolver.openInputStream(uri)
-                ?: return Result.failure(Exception("Cannot open file"))
+            val stream =
+                ctx.contentResolver.openInputStream(uri)
+                    ?: return Result.failure(Exception("Cannot open file"))
             val bytes = stream.use { it.readBytes() }
             Result.success(bytes)
         } catch (e: Exception) {
@@ -1090,16 +1345,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (it.moveToFirst()) {
                     val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
                     if (idx >= 0) it.getString(idx) else null
-                } else null
+                } else {
+                    null
+                }
             }
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun loadBackups() {
         _backups.value = configManager.getLocalBackups()
     }
 
-    fun addLog(message: String, level: LogLevel = detectLevel(message)) {
+    fun addLog(
+        message: String,
+        level: LogLevel = detectLevel(message),
+    ) {
         LogRepository.add(message, level)
     }
 
@@ -1119,11 +1381,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun detectLevel(message: String): LogLevel = when {
-        message.startsWith("SUCCESS:") || message.startsWith("SUCCESS ") -> LogLevel.SUCCESS
-        message.startsWith("WARNING:") -> LogLevel.WARNING
-        message.startsWith("ERROR:") || message.startsWith("FAILED:") || message.startsWith("CRASH:") -> LogLevel.ERROR
-        else -> LogLevel.INFO
-    }
-
+    private fun detectLevel(message: String): LogLevel =
+        when {
+            message.startsWith("SUCCESS:") || message.startsWith("SUCCESS ") -> LogLevel.SUCCESS
+            message.startsWith("WARNING:") -> LogLevel.WARNING
+            message.startsWith("ERROR:") || message.startsWith("FAILED:") || message.startsWith("CRASH:") -> LogLevel.ERROR
+            else -> LogLevel.INFO
+        }
 }

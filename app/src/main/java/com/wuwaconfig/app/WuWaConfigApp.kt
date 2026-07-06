@@ -8,13 +8,24 @@ import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.RootBackend
 import com.wuwaconfig.app.backend.SafBackend
 import com.wuwaconfig.app.backend.ShizukuBackend
+import com.wuwaconfig.app.config.ConfigGenerator
 import com.wuwaconfig.app.config.CvarDatabase
 import com.wuwaconfig.app.config.DeployHistoryStore
 import com.wuwaconfig.app.model.LogRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 class WuWaConfigApp : Application() {
     lateinit var adbCrypto: AdbCrypto
+        private set
+
+    lateinit var cvarDatabase: CvarDatabase
+        private set
+
+    lateinit var configGenerator: ConfigGenerator
         private set
 
     private var _backend: AccessBackend? = null
@@ -31,13 +42,17 @@ class WuWaConfigApp : Application() {
     var currentMethod: AccessMethod = AccessMethod.ADB
         private set
 
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     override fun onCreate() {
         super.onCreate()
         adbCrypto = AdbCrypto(this)
         instance = this
         _backend = null
         LogRepository.init()
-        CvarDatabase.loadAsync()
+        cvarDatabase = CvarDatabase(assets)
+        configGenerator = ConfigGenerator(cvarDatabase)
+        appScope.launch { cvarDatabase.load() }
         DeployHistoryStore.init(this)
     }
 

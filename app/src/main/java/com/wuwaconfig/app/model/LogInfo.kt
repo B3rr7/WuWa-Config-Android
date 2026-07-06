@@ -31,5 +31,5 @@ data class LogInfo(
     val forbiddenCvars: Int = 0,
     val thermalEvents: Int = 0,
     val networkErrors: Int = 0,
-    val activeCvars: Map<String, String> = emptyMap()
+    val activeCvars: Map<String, String> = emptyMap(),
 )

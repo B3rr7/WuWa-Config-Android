@@ -87,8 +87,9 @@ The app needs to read/write game config files in `Android/data/com.kurogame.wuth
 - **Backend Status** — current access method, connection state. Tap chip to cycle methods.
 - **Manual ADB** — enter IP:port for Wireless Debugging
 - **Custom Config** — pick `.ini` files to apply (Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini). When <5 files uploaded, Backup Scope dialog asks: back up all 5 or only overwritten files. Success popup with green checkmark after deploy.
-- **Delete Config Files** — removes all 5 config files from game directory
-- **Quick Actions** — Backups, Collect Client.log, Config Generator, Cancel
+- **Clean Config Files** (NeonRed) — strips all CVar values from all 5 INI files while preserving `[Core.System]` Engine content paths. Game regenerates defaults on next boot.
+- **Auto-sync on Connect** — every time you connect, app auto-checks `KuroConfigMonitor.hash` vs actual INI MD5s, fixes desync before you do anything.
+- **Quick Actions** — Profile, Battle Stats, Pity Tracker, Backups, Collect Client.log, Config Generator, INI Editor, App Log
 - **Real-time log viewer** with color-coded messages, save icon to export to `Downloads/WuWaConfig/`
 
 > All user-facing files (saved logs, collected Client.log, config backups) are stored in `Downloads/WuWaConfig/` — accessible from any file manager.
@@ -141,7 +142,7 @@ Toggle each: Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.i
 Single button — generates configs with automatic CVar optimization: redundant lines matching game defaults are commented out (`; REDUNDANT`), and unknown CVars not in the UE4 binary dump are flagged (`; UNKNOWN CVar`). Shows review dialog with monospace text editor. Edit CVars inline, then deploy from dialog or close without deploying.
 
 #### 8. Deploy
-Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge with color-coded tag chips: **N redundant** (matches game defaults), **N unknown** (not in UE4 binary dump), **N monitored** (ConfigMonitor-tracked).
+Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Uses **hash snapshot + reconcile** pattern: saves hash file before deploy, compares afterward to detect concurrent game access, always recomputes from actual files. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge with color-coded tag chips: **N redundant** (matches game defaults), **N unknown** (not in UE4 binary dump), **N monitored** (ConfigMonitor-tracked).
 
 #### 9. Auto-Tune Wizard
 Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via logcat → adjusts preset/options → redeploys until target FPS reached.
@@ -211,8 +212,9 @@ app/
     ├── config/
     │   ├── ConfigGenerator.kt    # INI generation, CVar overrides, CvarDatabase optimization, Scalability.ini
     │   ├── CvarDatabase.kt       # Loads 3 CVar files from assets (libUE4_cvars.txt, config_monitor_cvars.txt, config_monitor_values.txt), lookup + optimization + SmartBrain scoring
+    │   ├── CvarCategorizer.kt    # Pure CVar categorization logic (standalone object, testable without Android)
     │   ├── CvarOptimizer.kt      # Per-device profile optimizer (Advanced Gen mode)
-    │   ├── ConfigManager.kt      # Device I/O, backups, logs, profiles, battle stats, hashes
+    │   ├── ConfigManager.kt      # Device I/O, backups, logs, profiles, battle stats, hashes, pushSingleFile, cleanIniContent, snapshotHashFile + reconcileAfterModify
     │   ├── DeployHistoryStore.kt # Deploy history JSON persistence (20 records max)
     │   ├── LogParser.kt          # XOR decryption, Convene URL extract, battle stat parse
     │   ├── SmartBrain.kt         # Scoring engine, recommendation
@@ -241,13 +243,14 @@ app/
         ├── components/
         │   └── Components.kt     # GlassCard, GradientBackground, GlitchText, GlassButton, etc.
         ├── screens/
-        │   ├── HomeScreen.kt     # Backend control, custom config (with backup scope dialog + success popup), actions, log viewer, deploy history card
+        │   ├── HomeScreen.kt     # Backend control, custom config (with backup scope dialog + success popup), clean config, actions (Profile → Battle Stats → Pity → Backups → Collect Log → Config Gen → INI Editor → App Log), log viewer, deploy history card
         │   ├── ConfigGenScreen.kt # Analysis, presets, options, advanced per-device tuning, auto-tune, verification
         │   ├── PityScreen.kt     # Gacha fetcher, summary, predictions, history
         │   ├── ProfileScreen.kt  # Player profile view (cached)
         │   ├── BattleStatsScreen.kt # Battle stats from Client.log
         │   ├── BackupScreen.kt   # Backup list + CRUD with per-file selection
         │   ├── HistoryScreen.kt  # Deploy history viewer with comparison
+        │   ├── IniEditorScreen.kt # Full-screen monospace text editor for any of the 5 monitored INI files. Push + hash refresh on save. Auto-syncs hashes on open.
         │   ├── LogsScreen.kt     # Full-screen log viewer with search/filter
         │   ├── SettingsScreen.kt # Theme, backgrounds, info, deploy history toggle
         │   ├── SetupScreen.kt    # First-run setup

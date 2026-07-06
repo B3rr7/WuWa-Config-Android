@@ -34,6 +34,7 @@ import com.wuwaconfig.app.ui.screens.BattleStatsScreen
 import com.wuwaconfig.app.ui.screens.ConfigGenScreen
 import com.wuwaconfig.app.ui.screens.HistoryScreen
 import com.wuwaconfig.app.ui.screens.HomeScreen
+import com.wuwaconfig.app.ui.screens.IniEditorScreen
 import com.wuwaconfig.app.ui.screens.LogsScreen
 import com.wuwaconfig.app.ui.screens.PityScreen
 import com.wuwaconfig.app.ui.screens.ProfileScreen
@@ -44,9 +45,10 @@ import com.wuwaconfig.app.ui.screens.UserGuideScreen
 import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 
 class MainActivity : ComponentActivity() {
-    private val manageStorageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        initExternalBackupDir()
-    }
+    private val manageStorageLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            initExternalBackupDir()
+        }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -72,14 +74,13 @@ class MainActivity : ComponentActivity() {
                             showTerms = false
                             this@MainActivity.requestStoragePermissions()
                             this@MainActivity.initExternalBackupDir()
-                        }
+                        },
                     )
                 } else {
                     AppNavigation(viewModel)
                 }
             }
         }
-
     }
 
     override fun onResume() {
@@ -93,9 +94,10 @@ class MainActivity : ComponentActivity() {
         vm.initDownloadBackupDir()
     }
 
-    private val permissionsLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        initExternalBackupDir()
-    }
+    private val permissionsLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            initExternalBackupDir()
+        }
 
     private fun requestStoragePermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -151,13 +153,14 @@ fun AppNavigation(viewModel: MainViewModel) {
     NavHost(
         navController = navController,
         startDestination = startDest,
-        modifier = Modifier
+        modifier = Modifier,
     ) {
-        composable("setup",
+        composable(
+            "setup",
             enterTransition = { fadeIn(animationSpec = tween(400)) },
             exitTransition = { fadeOut(animationSpec = tween(300)) },
             popEnterTransition = { fadeIn(animationSpec = tween(300)) },
-            popExitTransition = { fadeOut(animationSpec = tween(300)) }
+            popExitTransition = { fadeOut(animationSpec = tween(300)) },
         ) {
             SetupScreen(
                 viewModel = viewModel,
@@ -165,12 +168,15 @@ fun AppNavigation(viewModel: MainViewModel) {
                     navController.navigate("home") {
                         popUpTo("setup") { inclusive = true }
                     }
-                }
+                },
             )
         }
-        composable("home",
-            enterTransition = navEnter, exitTransition = navExit,
-            popEnterTransition = popEnter, popExitTransition = popExit
+        composable(
+            "home",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
         ) {
             HomeScreen(
                 viewModel = viewModel,
@@ -181,88 +187,128 @@ fun AppNavigation(viewModel: MainViewModel) {
                 onNavigateToProfile = { navController.navigate("profile") },
                 onNavigateToBattleStats = { navController.navigate("battlestats") },
                 onNavigateToLogs = { navController.navigate("logs") },
-                onNavigateToHistory = { navController.navigate("history") }
+                onNavigateToHistory = { navController.navigate("history") },
+                onNavigateToIniEditor = { navController.navigate("inieditor") },
             )
         }
-        composable("backups",
-            enterTransition = navEnter, exitTransition = navExit,
-            popEnterTransition = popEnter, popExitTransition = popExit
+        composable(
+            "backups",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
         ) {
             BackupScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
-        composable("configgen",
-            enterTransition = navEnter, exitTransition = navExit,
-            popEnterTransition = popEnter, popExitTransition = popExit
+        composable(
+            "configgen",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
         ) {
             ConfigGenScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
-        composable("settings",
-            enterTransition = navEnter, exitTransition = navExit,
-            popEnterTransition = popEnter, popExitTransition = popExit
+        composable(
+            "settings",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
         ) {
             SettingsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
-                onNavigateToUserGuide = { navController.navigate("userguide") }
+                onNavigateToUserGuide = { navController.navigate("userguide") },
             )
         }
-        composable("userguide",
-            enterTransition = navEnter, exitTransition = navExit,
-            popEnterTransition = popEnter, popExitTransition = popExit
+        composable(
+            "userguide",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
         ) {
             UserGuideScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
-        composable("pity",
-            enterTransition = navEnter, exitTransition = navExit,
-            popEnterTransition = popEnter, popExitTransition = popExit
+        composable(
+            "pity",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
         ) {
             PityScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
-        composable("profile",
-            enterTransition = navEnter, exitTransition = navExit,
-            popEnterTransition = popEnter, popExitTransition = popExit
+        composable(
+            "profile",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
         ) {
             ProfileScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
-        composable("battlestats",
-            enterTransition = navEnter, exitTransition = navExit,
-            popEnterTransition = popEnter, popExitTransition = popExit
+        composable(
+            "battlestats",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
         ) {
             BattleStatsScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
-        composable("logs",
-            enterTransition = navEnter, exitTransition = navExit,
-            popEnterTransition = popEnter, popExitTransition = popExit
+        composable(
+            "logs",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
         ) {
             LogsScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
-        composable("history",
-            enterTransition = navEnter, exitTransition = navExit,
-            popEnterTransition = popEnter, popExitTransition = popExit
+        composable(
+            "history",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
         ) {
             HistoryScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            "inieditor",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
+        ) {
+            IniEditorScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
             )
         }
     }

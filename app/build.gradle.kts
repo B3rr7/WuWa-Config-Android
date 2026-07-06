@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 android {
@@ -15,18 +16,27 @@ android {
         versionName = "1.0.6"
     }
 
-    val keystoreProps = rootProject.file("keystore.properties").let { f ->
-        if (!f.exists()) emptyMap()
-        else f.readLines().mapNotNull { line ->
-            val trimmed = line.trim()
-            if (trimmed.startsWith("#") || trimmed.isEmpty()) null
-            else {
-                val eq = trimmed.indexOf('=')
-                if (eq > 0) trimmed.substring(0, eq).trim() to trimmed.substring(eq + 1).trim()
-                else null
+    val keystoreProps =
+        rootProject.file("keystore.properties")
+            .let { f ->
+                if (!f.exists()) {
+                    emptyMap()
+                } else {
+                    f.readLines().mapNotNull { line ->
+                        val trimmed = line.trim()
+                        if (trimmed.startsWith("#") || trimmed.isEmpty()) {
+                            null
+                        } else {
+                            val eq = trimmed.indexOf('=')
+                            if (eq > 0) {
+                                trimmed.substring(0, eq).trim() to trimmed.substring(eq + 1).trim()
+                            } else {
+                                null
+                            }
+                        }
+                    }.toMap()
+                }
             }
-        }.toMap()
-    }
 
     signingConfigs {
         create("release") {
@@ -66,7 +76,7 @@ android {
         val vName = name
         val vVersion = versionName
         outputs.configureEach {
-            val apkName = if (vName == "release") "WuWaConfig-v${vVersion}-release.apk" else "WuWaConfig-debug.apk"
+            val apkName = if (vName == "release") "WuWaConfig-v$vVersion-release.apk" else "WuWaConfig-debug.apk"
             (this as com.android.build.gradle.internal.api.ApkVariantOutputImpl).outputFileName = apkName
         }
     }
@@ -99,8 +109,6 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
 
@@ -112,4 +120,6 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    testImplementation("junit:junit:4.13.2")
 }

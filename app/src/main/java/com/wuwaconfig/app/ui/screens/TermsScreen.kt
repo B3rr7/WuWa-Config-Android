@@ -28,15 +28,16 @@ fun TermsScreen(onAccept: () -> Unit) {
     GradientBackground {
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState()),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(24.dp)
+                        .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
             ) {
                 Spacer(Modifier.height(24.dp))
 
@@ -44,7 +45,7 @@ fun TermsScreen(onAccept: () -> Unit) {
                     Icons.Default.Warning,
                     contentDescription = null,
                     tint = NeonAmber,
-                    modifier = Modifier.size(56.dp)
+                    modifier = Modifier.size(56.dp),
                 )
 
                 Spacer(Modifier.height(16.dp))
@@ -54,7 +55,7 @@ fun TermsScreen(onAccept: () -> Unit) {
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = NeonCyan,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
 
                 Spacer(Modifier.height(8.dp))
@@ -63,7 +64,7 @@ fun TermsScreen(onAccept: () -> Unit) {
                     "Please read carefully before proceeding",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -75,14 +76,14 @@ fun TermsScreen(onAccept: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                             color = NeonAmber.copy(alpha = 0.5f),
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
 
                         Text(
                             "This application is a FAN-MADE tool for modifying game configuration files.",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White
+                            color = Color.White,
                         )
 
                         Text(
@@ -91,39 +92,39 @@ fun TermsScreen(onAccept: () -> Unit) {
                             fontWeight = FontWeight.Bold,
                             color = NeonRed,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
 
                         HorizontalDivider(
                             color = NeonAmber.copy(alpha = 0.15f),
-                            thickness = 1.dp
+                            thickness = 1.dp,
                         )
 
                         Text(
                             "By installing and using this application, you acknowledge and agree to the following:",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
-                            color = Color.White
+                            color = Color.White,
                         )
 
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             BulletPoint(
-                                "This tool edits and modifies game configuration files (.ini) for Wuthering Waves."
+                                "This tool edits and modifies game configuration files (.ini) for Wuthering Waves.",
                             )
                             BulletPoint(
-                                "Modifying game files may be subject to the game's Terms of Service. You assume full responsibility."
+                                "Modifying game files may be subject to the game's Terms of Service. You assume full responsibility.",
                             )
                             BulletPoint(
-                                "The creator of this application is NOT responsible for any account actions, bans, penalties, or issues that may arise from using modified configuration files."
+                                "The creator of this application is NOT responsible for any account actions, bans, penalties, or issues that may arise from using modified configuration files.",
                             )
                             BulletPoint(
-                                "This application is provided \"AS IS\" without any warranty, express or implied."
+                                "This application is provided \"AS IS\" without any warranty, express or implied.",
                             )
                             BulletPoint(
-                                "You use this software at your own risk. No guarantees are made about its safety or compatibility."
+                                "You use this software at your own risk. No guarantees are made about its safety or compatibility.",
                             )
                             BulletPoint(
-                                "No game assets, code, or copyrighted material from Wuthering Waves is distributed with this app."
+                                "No game assets, code, or copyrighted material from Wuthering Waves is distributed with this app.",
                             )
                         }
 
@@ -131,7 +132,7 @@ fun TermsScreen(onAccept: () -> Unit) {
 
                         HorizontalDivider(
                             color = NeonAmber.copy(alpha = 0.15f),
-                            thickness = 1.dp
+                            thickness = 1.dp,
                         )
 
                         Text(
@@ -139,7 +140,7 @@ fun TermsScreen(onAccept: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
 
                         Text(
@@ -147,7 +148,7 @@ fun TermsScreen(onAccept: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                             color = NeonAmber.copy(alpha = 0.5f),
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
@@ -158,7 +159,7 @@ fun TermsScreen(onAccept: () -> Unit) {
                     onClick = onAccept,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     accentColor = NeonGreen,
-                    contentColor = Color.White
+                    contentColor = Color.White,
                 ) {
                     Text("Agree & Continue", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
@@ -167,13 +168,13 @@ fun TermsScreen(onAccept: () -> Unit) {
 
                 TextButton(
                     onClick = { (context as? Activity)?.finishAffinity() },
-                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                 ) {
                     Text(
                         "Decline & Exit",
                         color = NeonRed.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
                     )
                 }
 
@@ -187,18 +188,18 @@ fun TermsScreen(onAccept: () -> Unit) {
 private fun BulletPoint(text: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.Top,
     ) {
         Text(
             "•",
             style = MaterialTheme.typography.bodyMedium,
             color = NeonAmber,
-            modifier = Modifier.width(16.dp)
+            modifier = Modifier.width(16.dp),
         )
         Text(
             text,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
         )
     }
 }

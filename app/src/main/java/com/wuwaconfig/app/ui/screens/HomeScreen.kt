@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,13 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wuwaconfig.app.adb.PortScanner
 import com.wuwaconfig.app.backend.AccessMethod
-import com.wuwaconfig.app.model.DeployComparison
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.*
@@ -34,11 +31,12 @@ import com.wuwaconfig.app.ui.theme.*
 private data class PickedFile(
     val displayName: String,
     val targetName: String,
-    val content: String
+    val content: String,
 )
 
 private enum class CustomConfigState {
-    IDLE, REVIEW
+    IDLE,
+    REVIEW,
 }
 
 private val TARGET_NAMES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
@@ -66,7 +64,8 @@ fun HomeScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToBattleStats: () -> Unit,
     onNavigateToLogs: () -> Unit,
-    onNavigateToHistory: () -> Unit
+    onNavigateToHistory: () -> Unit,
+    onNavigateToIniEditor: () -> Unit = {},
 ) {
     val backendStatus by viewModel.backendStatus.collectAsState()
     val backups by viewModel.backups.collectAsState()
@@ -76,32 +75,33 @@ fun HomeScreen(
     val deployHistoryEnabled by viewModel.deployHistoryEnabled.collectAsState()
     val customDeploySuccess by viewModel.customDeploySuccess.collectAsState()
 
-
     var customConfigState by remember { mutableStateOf(CustomConfigState.IDLE) }
     var pickedFiles by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showCleanDialog by remember { mutableStateOf(false) }
     var showAdbDialog by remember { mutableStateOf(false) }
     var showBackupScopeDialog by remember { mutableStateOf(false) }
     var pendingApply by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
     var adbHost by remember { mutableStateOf(PortScanner.getDeviceIp()) }
     var adbPort by remember { mutableStateOf("") }
 
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris: List<Uri> ->
-        if (uris.isNotEmpty()) {
-            val matched = uris.mapNotNull { uri ->
-                val name = viewModel.getFileName(uri) ?: return@mapNotNull null
-                val target = matchTarget(name) ?: return@mapNotNull null
-                val content = viewModel.readUriContent(uri).getOrNull() ?: return@mapNotNull null
-                PickedFile(displayName = name, targetName = target, content = content)
-            }
-            if (matched.isNotEmpty()) {
-                pickedFiles = matched
-                customConfigState = CustomConfigState.REVIEW
+    val filePickerLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenMultipleDocuments(),
+        ) { uris: List<Uri> ->
+            if (uris.isNotEmpty()) {
+                val matched =
+                    uris.mapNotNull { uri ->
+                        val name = viewModel.getFileName(uri) ?: return@mapNotNull null
+                        val target = matchTarget(name) ?: return@mapNotNull null
+                        val content = viewModel.readUriContent(uri).getOrNull() ?: return@mapNotNull null
+                        PickedFile(displayName = name, targetName = target, content = content)
+                    }
+                if (matched.isNotEmpty()) {
+                    pickedFiles = matched
+                    customConfigState = CustomConfigState.REVIEW
+                }
             }
         }
-    }
 
     GradientBackground {
         Scaffold(
@@ -110,7 +110,11 @@ fun HomeScreen(
                     title = {
                         Column {
                             GlitchText(fontWeight = FontWeight.Bold)
-                            Text("Config Toolkit", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "Config Toolkit",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     },
                     actions = {
@@ -118,32 +122,34 @@ fun HomeScreen(
                         val rotation by infiniteTransition.animateFloat(
                             initialValue = 0f,
                             targetValue = 360f,
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(2000, easing = LinearEasing),
-                                repeatMode = RepeatMode.Restart,
-                            ),
+                            animationSpec =
+                                infiniteRepeatable(
+                                    animation = tween(2000, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Restart,
+                                ),
                         )
                         IconButton(onClick = onNavigateToSettings) {
                             Icon(
                                 Icons.Default.Settings,
                                 contentDescription = "Settings",
                                 tint = NeonPurple,
-                                modifier = Modifier.rotate(rotation)
+                                modifier = Modifier.rotate(rotation),
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = NeonPurple
-                    )
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            titleContentColor = NeonPurple,
+                        ),
                 )
             },
-            containerColor = Color.Transparent
+            containerColor = Color.Transparent,
         ) { padding ->
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                contentPadding = PaddingValues(bottom = 80.dp),
             ) {
                 item { Spacer(Modifier.height(8.dp)) }
 
@@ -151,8 +157,16 @@ fun HomeScreen(
                 item {
                     GlassCard(accentColor = NeonPurple) {
                         Column(Modifier.fillMaxWidth()) {
-                            Text("Wuthering Waves", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Manage configs, backups, and device tuned presets.", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Wuthering Waves",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "Manage configs, backups, and device tuned presets.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                         }
                     }
                 }
@@ -160,22 +174,24 @@ fun HomeScreen(
                     BackendStatusCard(
                         status = backendStatus,
                         onToggle = {
-                            val next = when (backendStatus.method) {
-                                AccessMethod.ADB -> AccessMethod.SHIZUKU
-                                AccessMethod.SHIZUKU -> AccessMethod.ROOT
-                                AccessMethod.ROOT -> AccessMethod.SAF
-                                AccessMethod.SAF -> AccessMethod.ADB
-                            }
+                            val next =
+                                when (backendStatus.method) {
+                                    AccessMethod.ADB -> AccessMethod.SHIZUKU
+                                    AccessMethod.SHIZUKU -> AccessMethod.ROOT
+                                    AccessMethod.ROOT -> AccessMethod.SAF
+                                    AccessMethod.SAF -> AccessMethod.ADB
+                                }
                             viewModel.switchTo(next)
-                        }
+                        },
                     )
                 }
                 item {
-                    val safTreeLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.OpenDocumentTree()
-                    ) { uri: Uri? ->
-                        if (uri != null) viewModel.saveSafTreeUri(uri)
-                    }
+                    val safTreeLauncher =
+                        rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.OpenDocumentTree(),
+                        ) { uri: Uri? ->
+                            if (uri != null) viewModel.saveSafTreeUri(uri)
+                        }
 
                     if (!backendStatus.connected) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -184,33 +200,53 @@ fun HomeScreen(
                                 modifier = Modifier.weight(1f),
                                 enabled = true,
                                 accentColor = NeonCyan,
-                                contentColor = Color.White
+                                contentColor = Color.White,
                             ) { Text("Connect", fontWeight = FontWeight.Bold) }
                             when (backendStatus.method) {
-                                AccessMethod.ADB -> GlassOutlinedButton(
-                                    onClick = { showAdbDialog = true },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = true,
-                                    accentColor = NeonAmber
-                                ) { Icon(Icons.Default.Edit, contentDescription = "Manual", modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Manual") }
-                                AccessMethod.SHIZUKU -> GlassOutlinedButton(
-                                    onClick = { viewModel.requestShizukuPermission() },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = true,
-                                    accentColor = NeonAmber
-                                ) { Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Permit") }
-                                AccessMethod.SAF -> GlassOutlinedButton(
-                                    onClick = { safTreeLauncher.launch(null) },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = true,
-                                    accentColor = NeonAmber
-                                ) { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Pick Dir") }
-                                AccessMethod.ROOT -> GlassOutlinedButton(
-                                    onClick = { viewModel.connect() },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = true,
-                                    accentColor = NeonAmber
-                                ) { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Test Root") }
+                                AccessMethod.ADB ->
+                                    GlassOutlinedButton(
+                                        onClick = { showAdbDialog = true },
+                                        modifier = Modifier.weight(1f),
+                                        enabled = true,
+                                        accentColor = NeonAmber,
+                                    ) {
+                                        Icon(Icons.Default.Edit, contentDescription = "Manual", modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Manual")
+                                    }
+                                AccessMethod.SHIZUKU ->
+                                    GlassOutlinedButton(
+                                        onClick = { viewModel.requestShizukuPermission() },
+                                        modifier = Modifier.weight(1f),
+                                        enabled = true,
+                                        accentColor = NeonAmber,
+                                    ) {
+                                        Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Permit")
+                                    }
+                                AccessMethod.SAF ->
+                                    GlassOutlinedButton(
+                                        onClick = { safTreeLauncher.launch(null) },
+                                        modifier = Modifier.weight(1f),
+                                        enabled = true,
+                                        accentColor = NeonAmber,
+                                    ) {
+                                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Pick Dir")
+                                    }
+                                AccessMethod.ROOT ->
+                                    GlassOutlinedButton(
+                                        onClick = { viewModel.connect() },
+                                        modifier = Modifier.weight(1f),
+                                        enabled = true,
+                                        accentColor = NeonAmber,
+                                    ) {
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Test Root")
+                                    }
                             }
                         }
                     } else {
@@ -220,13 +256,13 @@ fun HomeScreen(
                                 modifier = Modifier.weight(1f),
                                 enabled = true,
                                 accentColor = NeonCyan,
-                                contentColor = Color.White
+                                contentColor = Color.White,
                             ) { Text("Reconnect", fontWeight = FontWeight.Bold) }
                             GlassOutlinedButton(
                                 onClick = { viewModel.disconnect() },
                                 modifier = Modifier.weight(1f),
                                 enabled = true,
-                                accentColor = NeonRed
+                                accentColor = NeonRed,
                             ) { Text("Disconnect", fontWeight = FontWeight.Bold) }
                         }
                     }
@@ -234,30 +270,31 @@ fun HomeScreen(
 
                 // --- F2P Tips / Sponsor ---
                 item {
-                    val f2pTips = remember {
-                        listOf(
-                            "Save your Astrites! Do your dailies & events.",
-                            "Weapon banner pity carries over — plan your pulls.",
-                            "Use your Waveplates daily — don't cap at 240.",
-                            "Check the Tower of Adversity reset every 2 weeks.",
-                            "Level one main DPS first before splitting resources.",
-                            "Echo main stats matter more than set bonuses early on.",
-                            "Don't skip exploration — those chests add up.",
-                            "Join a union for extra rewards and support echoes.",
-                            "Save your premium currency for limited banners only.",
-                            "Talent materials have specific farm days — plan ahead.",
-                            "Use the data bank to track which echoes you own.",
-                            "Forgery challenges rotate daily — check what you need.",
-                            "Your rover is actually viable — invest in it.",
-                            "Don't pull on standard banner with Astrites.",
-                            "Co-op lets you farm materials without spending waveplates.",
-                            "Pincer Maneuver events give free 4-star weapons.",
-                            "Level your weapon to max before switching characters.",
-                            "The Crucible gives free battle pass exp every week.",
-                            "Save your crystal solvents for double-drop events.",
-                            "You can preview all echo skills in the data bank."
-                        )
-                    }
+                    val f2pTips =
+                        remember {
+                            listOf(
+                                "Save your Astrites! Do your dailies & events.",
+                                "Weapon banner pity carries over — plan your pulls.",
+                                "Use your Waveplates daily — don't cap at 240.",
+                                "Check the Tower of Adversity reset every 2 weeks.",
+                                "Level one main DPS first before splitting resources.",
+                                "Echo main stats matter more than set bonuses early on.",
+                                "Don't skip exploration — those chests add up.",
+                                "Join a union for extra rewards and support echoes.",
+                                "Save your premium currency for limited banners only.",
+                                "Talent materials have specific farm days — plan ahead.",
+                                "Use the data bank to track which echoes you own.",
+                                "Forgery challenges rotate daily — check what you need.",
+                                "Your rover is actually viable — invest in it.",
+                                "Don't pull on standard banner with Astrites.",
+                                "Co-op lets you farm materials without spending waveplates.",
+                                "Pincer Maneuver events give free 4-star weapons.",
+                                "Level your weapon to max before switching characters.",
+                                "The Crucible gives free battle pass exp every week.",
+                                "Save your crystal solvents for double-drop events.",
+                                "You can preview all echo skills in the data bank.",
+                            )
+                        }
                     GlassCard(accentColor = NeonAmber) {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Info, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(20.dp))
@@ -268,7 +305,7 @@ fun HomeScreen(
                                     names = f2pTips,
                                     intervalMs = 15000L,
                                     fontWeight = FontWeight.Normal,
-                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                                 )
                             }
                         }
@@ -282,25 +319,37 @@ fun HomeScreen(
                         Spacer(Modifier.height(8.dp))
                         when (customConfigState) {
                             CustomConfigState.IDLE -> {
-                                Text("Select .ini files to replace. Files matching Engine, DeviceProfiles, GameUserSettings, Scalability, or Hardware will be backed up and applied.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "Select .ini files to replace. Files matching Engine, DeviceProfiles, GameUserSettings, Scalability, or Hardware will be backed up and applied.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                                 Spacer(Modifier.height(8.dp))
                                 GlassButton(
                                     onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
                                     modifier = Modifier.fillMaxWidth(),
                                     enabled = backendStatus.connected,
                                     accentColor = NeonCyan,
-                                    contentColor = Color.White
+                                    contentColor = Color.White,
                                 ) { Text("Select Custom Configs", fontWeight = FontWeight.Bold) }
                                 Spacer(Modifier.height(8.dp))
                                 GlassOutlinedButton(
-                                    onClick = { showDeleteDialog = true },
+                                    onClick = { showCleanDialog = true },
                                     modifier = Modifier.fillMaxWidth(),
                                     enabled = backendStatus.connected,
-                                    accentColor = NeonRed
-                                ) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Delete Config Files", fontWeight = FontWeight.Bold) }
+                                    accentColor = NeonRed,
+                                ) {
+                                    Icon(Icons.Default.CleaningServices, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Clean Config Files", fontWeight = FontWeight.Bold)
+                                }
                                 if (!backendStatus.connected) {
                                     Spacer(Modifier.height(4.dp))
-                                    Text("Connect to device first", style = MaterialTheme.typography.bodySmall, color = NeonRed.copy(alpha = 0.7f))
+                                    Text(
+                                        "Connect to device first",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = NeonRed.copy(alpha = 0.7f),
+                                    )
                                 }
                             }
                             CustomConfigState.REVIEW -> {
@@ -308,18 +357,36 @@ fun HomeScreen(
                                 Spacer(Modifier.height(6.dp))
                                 pickedFiles.forEach { f ->
                                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
-                                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = NeonGreen)
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = NeonGreen,
+                                        )
                                         Spacer(Modifier.width(8.dp))
                                         Column {
-                                            Text("→ ${f.targetName}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = NeonCyan)
-                                            Text("from ${f.displayName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                                            Text(
+                                                "→ ${f.targetName}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Medium,
+                                                color = NeonCyan,
+                                            )
+                                            Text(
+                                                "from ${f.displayName}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            )
                                         }
                                     }
                                 }
                                 val missing = TARGET_NAMES.filter { t -> pickedFiles.none { it.targetName == t } }
                                 if (missing.isNotEmpty()) {
                                     Spacer(Modifier.height(6.dp))
-                                    Text("Will skip: ${missing.joinToString(", ")}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                                    Text(
+                                        "Will skip: ${missing.joinToString(", ")}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                    )
                                 }
                                 Spacer(Modifier.height(10.dp))
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -343,7 +410,7 @@ fun HomeScreen(
                                         modifier = Modifier.weight(1f),
                                         enabled = !isApplying,
                                         accentColor = NeonPurple,
-                                        contentColor = Color.White
+                                        contentColor = Color.White,
                                     ) { Text("Apply", fontWeight = FontWeight.Bold) }
                                     GlassOutlinedButton(
                                         onClick = {
@@ -351,7 +418,7 @@ fun HomeScreen(
                                             pickedFiles = emptyList()
                                         },
                                         modifier = Modifier.weight(1f),
-                                        accentColor = NeonPink
+                                        accentColor = NeonPink,
                                     ) { Text("Cancel") }
                                 }
                             }
@@ -366,129 +433,186 @@ fun HomeScreen(
                         Spacer(Modifier.height(8.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             ElevatedButton(
-                                onClick = onNavigateToBackups,
-                                modifier = Modifier.fillMaxWidth().height(84.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.elevatedButtonColors(
-                                    containerColor = NeonPink.copy(alpha = 0.08f),
-                                    contentColor = NeonPink
-                                ),
-                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
-                            ) {
-                                Icon(Icons.Default.RestorePage, contentDescription = null, modifier = Modifier.size(22.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Text("Backups", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.weight(1f))
-                                Text("${backups.size} saved", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
-                            }
-                            ElevatedButton(
-                                onClick = { viewModel.collectClientLog() },
-                                modifier = Modifier.fillMaxWidth().height(84.dp),
-                                enabled = backendStatus.connected && !isApplying,
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.elevatedButtonColors(
-                                    containerColor = NeonGreen.copy(alpha = 0.08f),
-                                    contentColor = NeonGreen
-                                ),
-                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
-                            ) {
-                                Icon(Icons.Default.BugReport, contentDescription = null, modifier = Modifier.size(22.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Text("Collect Client.log", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.weight(1f))
-                                Text("Device log", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
-                            }
-                            ElevatedButton(
-                                onClick = onNavigateToConfigGen,
-                                modifier = Modifier.fillMaxWidth().height(84.dp),
-                                enabled = true,
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.elevatedButtonColors(
-                                    containerColor = NeonAmber.copy(alpha = 0.08f),
-                                    contentColor = NeonAmber
-                                ),
-                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
-                            ) {
-                                Icon(Icons.Default.Construction, contentDescription = null, modifier = Modifier.size(22.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Text("Config Generator", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.weight(1f))
-                                Text("Generate", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
-                            }
-                            ElevatedButton(
-                                onClick = onNavigateToPity,
-                                modifier = Modifier.fillMaxWidth().height(84.dp),
-                                enabled = true,
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.elevatedButtonColors(
-                                    containerColor = NeonPurple.copy(alpha = 0.08f),
-                                    contentColor = NeonPurple
-                                ),
-                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
-                            ) {
-                                Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(22.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Text("Pity Tracker", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.weight(1f))
-                                Text("Import", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
-                            }
-                            ElevatedButton(
                                 onClick = onNavigateToProfile,
                                 modifier = Modifier.fillMaxWidth().height(84.dp),
                                 enabled = true,
                                 shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.elevatedButtonColors(
-                                    containerColor = NeonGreen.copy(alpha = 0.08f),
-                                    contentColor = NeonGreen
-                                ),
-                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
+                                colors =
+                                    ButtonDefaults.elevatedButtonColors(
+                                        containerColor = NeonGreen.copy(alpha = 0.08f),
+                                        contentColor = NeonGreen,
+                                    ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
                             ) {
                                 Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(22.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Text("Profile", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.weight(1f))
-                                Text("View", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
+                                Text(
+                                    "View",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                )
                             }
                             ElevatedButton(
                                 onClick = onNavigateToBattleStats,
                                 modifier = Modifier.fillMaxWidth().height(84.dp),
                                 enabled = true,
                                 shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.elevatedButtonColors(
-                                    containerColor = NeonRed.copy(alpha = 0.08f),
-                                    contentColor = NeonRed
-                                ),
-                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
+                                colors =
+                                    ButtonDefaults.elevatedButtonColors(
+                                        containerColor = NeonRed.copy(alpha = 0.08f),
+                                        contentColor = NeonRed,
+                                    ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
                             ) {
                                 Icon(Icons.Default.SportsEsports, contentDescription = null, modifier = Modifier.size(22.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Text("Battle Stats", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.weight(1f))
-                                Text("Stats", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
+                                Text(
+                                    "Stats",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                )
+                            }
+                            ElevatedButton(
+                                onClick = onNavigateToPity,
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                enabled = true,
+                                shape = RoundedCornerShape(8.dp),
+                                colors =
+                                    ButtonDefaults.elevatedButtonColors(
+                                        containerColor = NeonPurple.copy(alpha = 0.08f),
+                                        contentColor = NeonPurple,
+                                    ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
+                            ) {
+                                Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Pity Tracker", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "Import",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                )
+                            }
+                            ElevatedButton(
+                                onClick = onNavigateToBackups,
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors =
+                                    ButtonDefaults.elevatedButtonColors(
+                                        containerColor = NeonPink.copy(alpha = 0.08f),
+                                        contentColor = NeonPink,
+                                    ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
+                            ) {
+                                Icon(Icons.Default.RestorePage, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Backups", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "${backups.size} saved",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                )
+                            }
+                            ElevatedButton(
+                                onClick = { viewModel.collectClientLog() },
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                enabled = backendStatus.connected && !isApplying,
+                                shape = RoundedCornerShape(8.dp),
+                                colors =
+                                    ButtonDefaults.elevatedButtonColors(
+                                        containerColor = NeonGreen.copy(alpha = 0.08f),
+                                        contentColor = NeonGreen,
+                                    ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
+                            ) {
+                                Icon(Icons.Default.BugReport, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Collect Client.log", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "Device log",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                )
+                            }
+                            ElevatedButton(
+                                onClick = onNavigateToConfigGen,
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                enabled = true,
+                                shape = RoundedCornerShape(8.dp),
+                                colors =
+                                    ButtonDefaults.elevatedButtonColors(
+                                        containerColor = NeonAmber.copy(alpha = 0.08f),
+                                        contentColor = NeonAmber,
+                                    ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
+                            ) {
+                                Icon(Icons.Default.Construction, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Config Generator", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "Generate",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                )
+                            }
+                            ElevatedButton(
+                                onClick = onNavigateToIniEditor,
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                enabled = backendStatus.connected && !isApplying,
+                                shape = RoundedCornerShape(8.dp),
+                                colors =
+                                    ButtonDefaults.elevatedButtonColors(
+                                        containerColor = NeonBlue.copy(alpha = 0.08f),
+                                        contentColor = NeonBlue,
+                                    ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("INI Editor", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "Edit",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                )
                             }
                             ElevatedButton(
                                 onClick = onNavigateToLogs,
                                 modifier = Modifier.fillMaxWidth().height(84.dp),
                                 enabled = true,
                                 shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.elevatedButtonColors(
-                                    containerColor = NeonCyan.copy(alpha = 0.08f),
-                                    contentColor = NeonCyan
-                                ),
-                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp)
+                                colors =
+                                    ButtonDefaults.elevatedButtonColors(
+                                        containerColor = NeonCyan.copy(alpha = 0.08f),
+                                        contentColor = NeonCyan,
+                                    ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
                             ) {
                                 Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(22.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Text("App Log", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.weight(1f))
-                                Text("Full", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
+                                Text(
+                                    "Full",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                )
                             }
                             if (isApplying) {
                                 GlassOutlinedButton(
                                     onClick = { viewModel.cancelOperation() },
                                     modifier = Modifier.fillMaxWidth(),
                                     enabled = true,
-                                    accentColor = NeonRed
+                                    accentColor = NeonRed,
                                 ) { Text("Cancel", fontWeight = FontWeight.Bold) }
                             }
                         }
@@ -501,34 +625,69 @@ fun HomeScreen(
                     item {
                         GlassCard(
                             modifier = Modifier.clickable { onNavigateToHistory() },
-                            accentColor = NeonBlue.copy(alpha = 0.7f)
+                            accentColor = NeonBlue.copy(alpha = 0.7f),
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(NeonBlue.copy(alpha = 0.8f))
+                                    modifier =
+                                        Modifier
+                                            .size(8.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(NeonBlue.copy(alpha = 0.8f)),
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text("Deploy History", style = MaterialTheme.typography.titleSmall, color = NeonBlue, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Deploy History",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = NeonBlue,
+                                    fontWeight = FontWeight.Bold,
+                                )
                                 Spacer(Modifier.weight(1f))
-                                Text(if (latest.hasOutcome) "Compared" else "Tap to compare", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                                Text(
+                                    if (latest.hasOutcome) "Compared" else "Tap to compare",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                )
                                 Spacer(Modifier.width(4.dp))
-                                Icon(Icons.Default.ChevronRight, contentDescription = "View", tint = NeonBlue.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
+                                Icon(
+                                    Icons.Default.ChevronRight,
+                                    contentDescription = "View",
+                                    tint = NeonBlue.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(20.dp),
+                                )
                             }
                             Spacer(Modifier.height(8.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column {
-                                    Text("${latest.presetName.uppercase()} — ${java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.US).format(java.util.Date(latest.timestamp))}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                                    Text("${latest.totalCount} CVars · ${latest.acceptedCount}/${latest.totalCount} accepted", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                                    Text(
+                                        "${latest.presetName.uppercase()} — ${java.text.SimpleDateFormat(
+                                            "MMM d, HH:mm",
+                                            java.util.Locale.US,
+                                        ).format(java.util.Date(latest.timestamp))}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                    Text(
+                                        "${latest.totalCount} CVars · ${latest.acceptedCount}/${latest.totalCount} accepted",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    )
                                 }
                                 if (latest.hasOutcome) {
                                     val c = latest.comparison()
                                     val fpsText = c.fpsDelta?.let { f -> "${if (f >= 0) "+" else ""}${"%.1f".format(f)} FPS" } ?: ""
-                                    Text(fpsText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = if ((c.fpsDelta ?: 0f) >= 0) NeonGreen else NeonRed)
+                                    Text(
+                                        fpsText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if ((c.fpsDelta ?: 0f) >= 0) NeonGreen else NeonRed,
+                                    )
                                 } else {
-                                    Text("?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                                    Text(
+                                        "?",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    )
                                 }
                             }
                         }
@@ -539,34 +698,49 @@ fun HomeScreen(
                 item {
                     GlassCard(
                         modifier = Modifier.clickable { onNavigateToLogs() },
-                        accentColor = NeonCyan
+                        accentColor = NeonCyan,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(NeonCyan.copy(alpha = 0.8f))
+                                modifier =
+                                    Modifier
+                                        .size(8.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(NeonCyan.copy(alpha = 0.8f)),
                             )
                             Spacer(Modifier.width(8.dp))
                             Text("Recent Log", style = MaterialTheme.typography.titleSmall, color = NeonCyan, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.weight(1f))
-                            Text("${logs.size} entries", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                            Text(
+                                "${logs.size} entries",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            )
                             Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Default.ChevronRight, contentDescription = "View all", tint = NeonCyan.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = "View all",
+                                tint = NeonCyan.copy(alpha = 0.6f),
+                                modifier = Modifier.size(20.dp),
+                            )
                         }
                         Spacer(Modifier.height(8.dp))
                         if (logs.isEmpty()) {
-                            Text("No logs yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
+                            Text(
+                                "No logs yet.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                            )
                         } else {
                             Column {
                                 logs.takeLast(5).forEach { log ->
-                                    val c = when (log.level) {
-                                        LogLevel.SUCCESS -> NeonGreen
-                                        LogLevel.ERROR -> NeonRed
-                                        LogLevel.WARNING -> NeonAmber
-                                        LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
+                                    val c =
+                                        when (log.level) {
+                                            LogLevel.SUCCESS -> NeonGreen
+                                            LogLevel.ERROR -> NeonRed
+                                            LogLevel.WARNING -> NeonAmber
+                                            LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
                                     Text("[${log.timestamp}] ${log.message}", style = MaterialTheme.typography.bodySmall, color = c)
                                 }
                             }
@@ -580,7 +754,8 @@ fun HomeScreen(
     LaunchedEffect(backendStatus.errorMessage) {
         if (backendStatus.method == AccessMethod.ADB &&
             !backendStatus.connected &&
-            backendStatus.errorMessage.contains("ADB port not found", ignoreCase = true)) {
+            backendStatus.errorMessage.contains("ADB port not found", ignoreCase = true)
+        ) {
             showAdbDialog = true
         }
     }
@@ -593,7 +768,11 @@ fun HomeScreen(
             title = { Text("Wireless Debugging", color = NeonCyan, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Enter the IP:port from Developer Options > Wireless Debugging.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Enter the IP:port from Developer Options > Wireless Debugging.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = adbHost,
@@ -601,10 +780,11 @@ fun HomeScreen(
                         label = { Text("IP Address") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeonCyan,
-                            focusedLabelColor = NeonCyan
-                        )
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonCyan,
+                                focusedLabelColor = NeonCyan,
+                            ),
                     )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
@@ -613,10 +793,11 @@ fun HomeScreen(
                         label = { Text("Port") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeonCyan,
-                            focusedLabelColor = NeonCyan
-                        )
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonCyan,
+                                focusedLabelColor = NeonCyan,
+                            ),
                     )
                 }
             },
@@ -626,51 +807,86 @@ fun HomeScreen(
                         showAdbDialog = false
                         viewModel.connectAdbManual(adbHost, adbPort)
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeonCyan.copy(alpha = 0.15f),
-                        contentColor = NeonCyan
-                    ),
-                    shape = RoundedCornerShape(10.dp)
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = NeonCyan.copy(alpha = 0.15f),
+                            contentColor = NeonCyan,
+                        ),
+                    shape = RoundedCornerShape(10.dp),
                 ) { Text("Connect", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
                 TextButton(onClick = { showAdbDialog = false }) { Text("Cancel") }
-            }
+            },
         )
     }
 
-    if (showDeleteDialog) {
+    if (showCleanDialog) {
+        val iniFiles = remember { listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini") }
+        val cleanSelection = remember { mutableStateMapOf(*iniFiles.map { it to true }.toTypedArray()) }
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
+            onDismissRequest = { showCleanDialog = false },
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = NeonRed, modifier = Modifier.size(32.dp)) },
-            title = { Text("Delete Config Files", color = NeonRed, fontWeight = FontWeight.Bold) },
+            icon = { Icon(Icons.Default.CleaningServices, contentDescription = null, tint = NeonRed, modifier = Modifier.size(32.dp)) },
+            title = { Text("Config Files", color = NeonRed, fontWeight = FontWeight.Bold) },
             text = {
-                Text("Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, and Hardware.ini will be deleted from the game directory. This cannot be undone.", style = MaterialTheme.typography.bodyMedium)
+                Column {
+                    Text(
+                        "Select files to process. Clean strips CVars (preserves [Core.System] paths). Delete removes files entirely.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    iniFiles.forEach { name ->
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { cleanSelection[name] = !(cleanSelection[name] ?: true) }.padding(vertical = 4.dp)) {
+                            Checkbox(
+                                checked = cleanSelection[name] ?: true,
+                                onCheckedChange = { cleanSelection[name] = it },
+                                colors = CheckboxDefaults.colors(checkedColor = NeonRed, uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(name, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteDialog = false
-                        viewModel.deleteConfigFiles()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeonRed.copy(alpha = 0.15f),
-                        contentColor = NeonRed
-                    ),
-                    shape = RoundedCornerShape(10.dp)
-                ) { Text("Delete", fontWeight = FontWeight.Bold) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            showCleanDialog = false
+                            val selected = cleanSelection.filterValues { it }.keys
+                            if (selected.isNotEmpty()) viewModel.cleanConfigFiles()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonRed.copy(alpha = 0.15f), contentColor = NeonRed),
+                        shape = RoundedCornerShape(10.dp),
+                        enabled = cleanSelection.any { it.value },
+                    ) { Text("Clean", fontWeight = FontWeight.Bold) }
+                    Button(
+                        onClick = {
+                            showCleanDialog = false
+                            val selected = cleanSelection.filterValues { it }.keys
+                            if (selected.isNotEmpty()) viewModel.deleteSelectedConfigFiles(selected)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonRed.copy(alpha = 0.25f), contentColor = NeonRed),
+                        shape = RoundedCornerShape(10.dp),
+                        enabled = cleanSelection.any { it.value },
+                    ) { Text("Delete", fontWeight = FontWeight.Bold) }
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
-            }
+                TextButton(onClick = { showCleanDialog = false }) { Text("Cancel") }
+            },
         )
     }
 
     if (showBackupScopeDialog) {
         val selectedNames = pendingApply.map { it.targetName }
         AlertDialog(
-            onDismissRequest = { showBackupScopeDialog = false; pendingApply = emptyList() },
+            onDismissRequest = {
+                showBackupScopeDialog = false
+                pendingApply = emptyList()
+            },
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             titleContentColor = NeonAmber,
             textContentColor = MaterialTheme.colorScheme.onSurface,
@@ -679,7 +895,10 @@ fun HomeScreen(
                 Column {
                     Text("You are about to overwrite: ${selectedNames.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(12.dp))
-                    Text("Back up the other INI files too, or only the ones being overwritten?", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Back up the other INI files too, or only the ones being overwritten?",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             },
             confirmButton = {
@@ -696,11 +915,12 @@ fun HomeScreen(
                         customConfigState = CustomConfigState.IDLE
                         pickedFiles = emptyList()
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeonAmber.copy(alpha = 0.15f),
-                        contentColor = NeonAmber
-                    ),
-                    shape = RoundedCornerShape(10.dp)
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = NeonAmber.copy(alpha = 0.15f),
+                            contentColor = NeonAmber,
+                        ),
+                    shape = RoundedCornerShape(10.dp),
                 ) { Text("Back Up All 5 INIs") }
             },
             dismissButton = {
@@ -723,14 +943,15 @@ fun HomeScreen(
                             customConfigState = CustomConfigState.IDLE
                             pickedFiles = emptyList()
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NeonPurple.copy(alpha = 0.15f),
-                            contentColor = NeonPurple
-                        ),
-                        shape = RoundedCornerShape(10.dp)
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = NeonPurple.copy(alpha = 0.15f),
+                                contentColor = NeonPurple,
+                            ),
+                        shape = RoundedCornerShape(10.dp),
                     ) { Text("Only Overwritten") }
                 }
-            }
+            },
         )
     }
 
@@ -744,20 +965,24 @@ fun HomeScreen(
                 Column {
                     Text(msg, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
-                    Text("Config files written and KuroConfigMonitor hash refreshed.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Config files written and KuroConfigMonitor hash refreshed.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = { viewModel.clearCustomDeploySuccess() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeonGreen.copy(alpha = 0.15f),
-                        contentColor = NeonGreen
-                    ),
-                    shape = RoundedCornerShape(10.dp)
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = NeonGreen.copy(alpha = 0.15f),
+                            contentColor = NeonGreen,
+                        ),
+                    shape = RoundedCornerShape(10.dp),
                 ) { Text("OK", fontWeight = FontWeight.Bold) }
-            }
+            },
         )
     }
-
 }

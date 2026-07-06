@@ -60,6 +60,7 @@ class AdbCrypto(private val context: Context) {
     }
 
     fun getPublicKey(): PublicKey = keyPair!!.public
+
     fun getPrivateKey(): PrivateKey = keyPair!!.private
 
     fun getAdbFormattedPublicKey(): ByteArray {
@@ -74,14 +75,20 @@ class AdbCrypto(private val context: Context) {
         return "$b64 wuwaconfig@android\u0000".toByteArray()
     }
 
-    private fun writeUint32(stream: java.io.ByteArrayOutputStream, v: Int) {
+    private fun writeUint32(
+        stream: java.io.ByteArrayOutputStream,
+        v: Int,
+    ) {
         stream.write((v shr 24) and 0xFF)
         stream.write((v shr 16) and 0xFF)
         stream.write((v shr 8) and 0xFF)
         stream.write(v and 0xFF)
     }
 
-    private fun writeMpInt(stream: java.io.ByteArrayOutputStream, raw: ByteArray) {
+    private fun writeMpInt(
+        stream: java.io.ByteArrayOutputStream,
+        raw: ByteArray,
+    ) {
         var data = raw
         if (data.size > 1 && data[0] == 0.toByte()) data = data.copyOfRange(1, data.size)
         writeUint32(stream, data.size)

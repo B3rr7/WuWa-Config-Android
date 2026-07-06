@@ -17,6 +17,7 @@ object AdbProtocol {
     val CLSE = "CLSE".encodeToByteArray()
     val WRTE = "WRTE".encodeToByteArray()
     val AUTH = "AUTH".encodeToByteArray()
+    val STLS = "STLS".encodeToByteArray()
 
     const val VERSION = 0x01000001
     const val MAX_DATA = 256 * 1024
@@ -25,7 +26,7 @@ object AdbProtocol {
         val command: ByteArray,
         val arg0: Int,
         val arg1: Int,
-        val payload: ByteArray
+        val payload: ByteArray,
     ) {
         val dataLength: Int get() = payload.size
     }
@@ -51,16 +52,19 @@ object AdbProtocol {
         val cmdInt = ByteBuffer.wrap(cmd).order(ByteOrder.LITTLE_ENDIAN).int
         if (magic != (cmdInt xor 0xFFFFFFFF.toInt())) return null
 
-        val payload = if (dataLength > 0) {
-            val data = ByteArray(dataLength)
-            var dataOffset = 0
-            while (dataOffset < dataLength) {
-                val read = input.read(data, dataOffset, dataLength - dataOffset)
-                if (read < 0) return null
-                dataOffset += read
+        val payload =
+            if (dataLength > 0) {
+                val data = ByteArray(dataLength)
+                var dataOffset = 0
+                while (dataOffset < dataLength) {
+                    val read = input.read(data, dataOffset, dataLength - dataOffset)
+                    if (read < 0) return null
+                    dataOffset += read
+                }
+                data
+            } else {
+                ByteArray(0)
             }
-            data
-        } else ByteArray(0)
 
         // CRC32 is not enforced on Android 11+ (daemon may send 0)
         // Skip the check for compatibility
@@ -74,19 +78,23 @@ object AdbProtocol {
         return crc.value.toInt()
     }
 
-    fun writeMessage(output: OutputStream, message: AdbMessage) {
+    fun writeMessage(
+        output: OutputStream,
+        message: AdbMessage,
+    ) {
         val cmdInt = ByteBuffer.wrap(message.command).order(ByteOrder.LITTLE_ENDIAN).int
         val magic = cmdInt xor 0xFFFFFFFF.toInt()
         val crc32 = calculateCrc32(message.payload)
 
-        val header = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN).apply {
-            put(message.command)
-            putInt(message.arg0)
-            putInt(message.arg1)
-            putInt(message.dataLength)
-            putInt(crc32)
-            putInt(magic)
-        }.array()
+        val header =
+            ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN).apply {
+                put(message.command)
+                putInt(message.arg0)
+                putInt(message.arg1)
+                putInt(message.dataLength)
+                putInt(crc32)
+                putInt(magic)
+            }.array()
 
         output.write(header)
         if (message.payload.isNotEmpty()) {
@@ -95,7 +103,7 @@ object AdbProtocol {
         output.flush()
     }
 
-    fun createConnectionMessage(banner: String = "device::"): AdbMessage {
+    fun createConnectionMessage(banner: String = "host::"): AdbMessage {
         val payload = "${banner}\u0000".encodeToByteArray()
         return AdbMessage(CNXN, VERSION, MAX_DATA, payload)
     }
@@ -108,21 +116,32 @@ object AdbProtocol {
         return AdbMessage(AUTH, AUTH_RSA_PUBLIC, 0, publicKey)
     }
 
-    fun createOpenMessage(localId: Int, destination: String): AdbMessage {
+    fun createOpenMessage(
+        localId: Int,
+        destination: String,
+    ): AdbMessage {
         return AdbMessage(OPEN, localId, 0, "$destination\u0000".encodeToByteArray())
     }
 
-    fun createWriteMessage(localId: Int, remoteId: Int, data: ByteArray): AdbMessage {
+    fun createWriteMessage(
+        localId: Int,
+        remoteId: Int,
+        data: ByteArray,
+    ): AdbMessage {
         return AdbMessage(WRTE, localId, remoteId, data)
     }
 
-    fun createCloseMessage(localId: Int, remoteId: Int): AdbMessage {
+    fun createCloseMessage(
+        localId: Int,
+        remoteId: Int,
+    ): AdbMessage {
         return AdbMessage(CLSE, localId, remoteId, ByteArray(0))
     }
 
-    fun createOkMessage(localId: Int, remoteId: Int): AdbMessage {
+    fun createOkMessage(
+        localId: Int,
+        remoteId: Int,
+    ): AdbMessage {
         return AdbMessage(OKAY, localId, remoteId, ByteArray(0))
     }
-
-
 }

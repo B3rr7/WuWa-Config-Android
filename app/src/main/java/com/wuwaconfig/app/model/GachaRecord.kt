@@ -15,19 +15,20 @@ data class GachaPool(
     val label: String,
 ) {
     companion object {
-        val ALL = listOf(
-            GachaPool("1", "Character Event"),
-            GachaPool("2", "Weapon Event"),
-            GachaPool("3", "Standard"),
-            GachaPool("4", "Beginner 1"),
-            GachaPool("5", "Beginner 2"),
-            GachaPool("6", "Weapon 2"),
-            GachaPool("7", "Character 2"),
-            GachaPool("8", "Standard 2"),
-            GachaPool("9", "Weapon 3"),
-            GachaPool("10", "Character 3"),
-            GachaPool("11", "Standard 3"),
-        )
+        val ALL =
+            listOf(
+                GachaPool("1", "Character Event"),
+                GachaPool("2", "Weapon Event"),
+                GachaPool("3", "Standard"),
+                GachaPool("4", "Beginner 1"),
+                GachaPool("5", "Beginner 2"),
+                GachaPool("6", "Weapon 2"),
+                GachaPool("7", "Character 2"),
+                GachaPool("8", "Standard 2"),
+                GachaPool("9", "Weapon 3"),
+                GachaPool("10", "Character 3"),
+                GachaPool("11", "Standard 3"),
+            )
     }
 }
 

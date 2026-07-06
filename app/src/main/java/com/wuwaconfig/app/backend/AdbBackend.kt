@@ -7,7 +7,6 @@ import com.wuwaconfig.app.adb.PortScanner
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import java.io.File
-import java.security.MessageDigest
 
 class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
     private val client = AdbClient(crypto)
@@ -39,7 +38,10 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         return first
     }
 
-    suspend fun connectTo(host: String, port: Int): Result<Unit> {
+    suspend fun connectTo(
+        host: String,
+        port: Int,
+    ): Result<Unit> {
         LogRepository.add("ADB connectTo: $host:$port")
         val first = client.connect(port, host)
         if (first.isSuccess) {
@@ -77,7 +79,10 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         return result
     }
 
-    override suspend fun pushFile(sourcePath: String, targetPath: String): Result<String> {
+    override suspend fun pushFile(
+        sourcePath: String,
+        targetPath: String,
+    ): Result<String> {
         LogRepository.add("ADB push: $sourcePath -> $targetPath")
         val sourceFile = File(sourcePath)
         val bytes = sourceFile.readBytes()
@@ -113,9 +118,10 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
                     return lastErr
                 }
             }
-            val decodeResult = client.executeShellCommand(
-                "base64 -d ${shQuote(encodedPath)} > ${shQuote(targetPath)}; rm -f ${shQuote(encodedPath)}"
-            )
+            val decodeResult =
+                client.executeShellCommand(
+                    "base64 -d ${shQuote(encodedPath)} > ${shQuote(targetPath)}; rm -f ${shQuote(encodedPath)}",
+                )
             if (decodeResult.isFailure) return decodeResult
             val verifyCmd = "md5sum ${shQuote(targetPath)} 2>/dev/null | cut -d' ' -f1"
             val remoteMd5 = client.executeShellCommand(verifyCmd).getOrNull()?.trim()
@@ -182,7 +188,7 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
     override suspend fun backupFile(path: String): Result<String> {
         val result = client.backupFile(path)
         if (result.isFailure) {
-            val backupPath = "${path}.backup_${System.currentTimeMillis()}"
+            val backupPath = "$path.backup_${System.currentTimeMillis()}"
             return client.executeShellCommandWithRunAs(GAME_PKG, "cp ${shQuote(path)} ${shQuote(backupPath)}")
         }
         return result
@@ -195,5 +201,4 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         }
         return result
     }
-
 }

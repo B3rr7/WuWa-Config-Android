@@ -6,12 +6,12 @@ enum class AdbConnectionState {
     CONNECTING,
     AUTHENTICATING,
     CONNECTED,
-    ERROR
+    ERROR,
 }
 
 data class AdbStatus(
     val state: AdbConnectionState = AdbConnectionState.DISCONNECTED,
     val port: Int = 0,
     val errorMessage: String = "",
-    val isServiceRunning: Boolean = false
+    val isServiceRunning: Boolean = false,
 )

@@ -30,7 +30,10 @@ import com.wuwaconfig.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BattleStatsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+fun BattleStatsScreen(
+    viewModel: MainViewModel,
+    onBack: () -> Unit,
+) {
     val stats by viewModel.battleStats.collectAsState()
     val loading by viewModel.battleStatsLoading.collectAsState()
     val backendStatus by viewModel.backendStatus.collectAsState()
@@ -41,18 +44,23 @@ fun BattleStatsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             topBar = {
                 TopAppBar(
                     title = { Text("Battle Stats", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonGreen) } },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = NeonGreen
-                    )
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBack,
+                        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonGreen) }
+                    },
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            titleContentColor = NeonGreen,
+                        ),
                 )
             },
-            containerColor = Color.Transparent
+            containerColor = Color.Transparent,
         ) { padding ->
             Column(
                 modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Spacer(Modifier.height(4.dp))
 
@@ -60,7 +68,7 @@ fun BattleStatsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     Text(
                         "Battle statistics extracted from Client.log. Data from all game sessions is cumulative.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -70,13 +78,13 @@ fun BattleStatsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         enabled = backendStatus.connected && !loading,
                         accentColor = NeonGreen,
-                        contentColor = Color.White
+                        contentColor = Color.White,
                     ) {
                         if (loading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(18.dp),
                                 color = Color.White,
-                                strokeWidth = 2.dp
+                                strokeWidth = 2.dp,
                             )
                             Spacer(Modifier.width(10.dp))
                             Text("Loading...", fontWeight = FontWeight.Bold)
@@ -108,7 +116,7 @@ fun BattleStatsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !loading,
                         accentColor = NeonGreen,
-                        contentColor = Color.White
+                        contentColor = Color.White,
                     ) { Text("Refresh", fontWeight = FontWeight.Bold) }
                 }
 
@@ -125,7 +133,7 @@ private fun BattleStatsHeader(stats: BattleStats) {
     GlassCard(accentColor = NeonRed) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("TOTAL BATTLES", style = MaterialTheme.typography.labelSmall, color = NeonRed.copy(alpha = 0.5f), letterSpacing = 3.sp)
             Spacer(Modifier.height(4.dp))
@@ -139,7 +147,7 @@ private fun BattleStatsHeader(stats: BattleStats) {
             Spacer(Modifier.height(8.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 MiniBadge("${stats.deaths} Deaths", NeonRed)
                 MiniBadge("${stats.staggers} Staggers", NeonAmber)
@@ -150,12 +158,16 @@ private fun BattleStatsHeader(stats: BattleStats) {
 }
 
 @Composable
-private fun MiniBadge(text: String, accent: Color) {
+private fun MiniBadge(
+    text: String,
+    accent: Color,
+) {
     Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(accent.copy(alpha = 0.12f))
-            .padding(horizontal = 12.dp, vertical = 4.dp)
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(accent.copy(alpha = 0.12f))
+                .padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
         Text(text, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = accent)
     }
@@ -207,7 +219,11 @@ private fun BattleStatsContent(stats: BattleStats) {
 }
 
 @Composable
-private fun SectionCard(title: String, accent: Color, content: @Composable ColumnScope.() -> Unit) {
+private fun SectionCard(
+    title: String,
+    accent: Color,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     GlassCard(accentColor = accent) {
         Text(title, style = MaterialTheme.typography.labelMedium, color = accent.copy(alpha = 0.7f), letterSpacing = 2.sp)
         Spacer(Modifier.height(10.dp))
@@ -216,13 +232,20 @@ private fun SectionCard(title: String, accent: Color, content: @Composable Colum
 }
 
 @Composable
-private fun StatCell(icon: ImageVector, label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+private fun StatCell(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
     Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(accent.copy(alpha = 0.08f))
-            .padding(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(accent.copy(alpha = 0.08f))
+                .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(icon, contentDescription = null, tint = accent.copy(alpha = 0.7f), modifier = Modifier.size(22.dp))
         Spacer(Modifier.height(2.dp))

@@ -13,7 +13,7 @@ data class RoundResult(
     val preset: String,
     val avgFps: Float,
     val minFps: Float,
-    val stabilityPct: Float
+    val stabilityPct: Float,
 )
 
 data class TunerState(
@@ -24,14 +24,14 @@ data class TunerState(
     val targetFps: Int = 60,
     val results: List<RoundResult> = emptyList(),
     val finalPreset: String? = null,
-    val error: String? = null
+    val error: String? = null,
 )
 
 data class BenchmarkResult(
     val avgFps: Float,
     val minFps: Float,
     val frameTimeMs: Float,
-    val stabilityPct: Float
+    val stabilityPct: Float,
 )
 
 object BenchmarkTuner {
@@ -86,14 +86,19 @@ object BenchmarkTuner {
         val stable = fpsValues.count { it >= avg * 0.8f }.toFloat() / fpsValues.size * 100f
         return Result.success(
             BenchmarkResult(
-                avgFps = avg, minFps = min,
+                avgFps = avg,
+                minFps = min,
                 frameTimeMs = if (avg > 0) 1000f / avg else 0f,
-                stabilityPct = stable
-            )
+                stabilityPct = stable,
+            ),
         )
     }
 
-    fun pickPresetForFps(currentPreset: String, avgFps: Float, targetFps: Int): String {
+    fun pickPresetForFps(
+        currentPreset: String,
+        avgFps: Float,
+        targetFps: Int,
+    ): String {
         if (targetFps <= 0) return currentPreset
         val idx = PRESET_ORDER.indexOf(currentPreset)
         if (avgFps >= targetFps && idx > 0) {
@@ -106,14 +111,23 @@ object BenchmarkTuner {
         return currentPreset
     }
 
-    fun adjustOptionsForFps(current: GeneratorOptions, avgFps: Float, targetFps: Int): GeneratorOptions {
+    fun adjustOptionsForFps(
+        current: GeneratorOptions,
+        avgFps: Float,
+        targetFps: Int,
+    ): GeneratorOptions {
         if (avgFps >= targetFps) return current
         val gap = targetFps - avgFps
         var adjusted = current
-        if (gap > 15 && !adjusted.disableSSR) adjusted = adjusted.copy(disableSSR = true)
-        else if (gap > 10 && !adjusted.disableBloom) adjusted = adjusted.copy(disableBloom = true)
-        else if (gap > 8 && !adjusted.disableRadialBlur) adjusted = adjusted.copy(disableRadialBlur = true)
-        else if (gap > 5) adjusted = adjusted.copy(shadowOverride = 1)
+        if (gap > 15 && !adjusted.disableSSR) {
+            adjusted = adjusted.copy(disableSSR = true)
+        } else if (gap > 10 && !adjusted.disableBloom) {
+            adjusted = adjusted.copy(disableBloom = true)
+        } else if (gap > 8 && !adjusted.disableRadialBlur) {
+            adjusted = adjusted.copy(disableRadialBlur = true)
+        } else if (gap > 5) {
+            adjusted = adjusted.copy(shadowOverride = 1)
+        }
         return adjusted
     }
 }

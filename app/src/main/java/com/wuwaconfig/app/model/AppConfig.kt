@@ -6,9 +6,11 @@ data class AppSettings(
     val backupBeforeApply: Boolean = true,
     val overwriteExisting: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val showNotifications: Boolean = true
+    val showNotifications: Boolean = true,
 )
 
 enum class ThemeMode {
-    LIGHT, DARK, SYSTEM
+    LIGHT,
+    DARK,
+    SYSTEM,
 }

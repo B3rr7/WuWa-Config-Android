@@ -1,10 +1,10 @@
 package com.wuwaconfig.app.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -20,7 +20,6 @@ import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
-import com.wuwaconfig.app.ui.components.GlassCardHeader
 import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
@@ -29,7 +28,10 @@ private val ALL_INI_FILES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUser
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+fun BackupScreen(
+    viewModel: MainViewModel,
+    onBack: () -> Unit,
+) {
     val backendStatus by viewModel.backendStatus.collectAsState()
     val backups by viewModel.backups.collectAsState()
     val isApplying by viewModel.isApplying.collectAsState()
@@ -44,30 +46,55 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             topBar = {
                 TopAppBar(
                     title = { Text("Backups", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonPink) } },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = NeonPink
-                    )
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBack,
+                        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonPink) }
+                    },
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            titleContentColor = NeonPink,
+                        ),
                 )
             },
-            containerColor = Color.Transparent
+            containerColor = Color.Transparent,
         ) { padding ->
             if (backups.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.RestorePage, contentDescription = null, modifier = Modifier.size(64.dp), tint = NeonPink.copy(alpha = 0.4f))
+                        Icon(
+                            Icons.Default.RestorePage,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = NeonPink.copy(alpha = 0.4f),
+                        )
                         Spacer(Modifier.height(12.dp))
-                        Text("No backups yet", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                        Text(
+                            "No backups yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        )
                         Spacer(Modifier.height(4.dp))
-                        Text("Connect to get started", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
+                        Text(
+                            "Connect to get started",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                        )
                         Spacer(Modifier.height(24.dp))
                         GlassButton(
-                            onClick = { selectedCreateFiles = ALL_INI_FILES.toSet(); showCreateDialog = true },
+                            onClick = {
+                                selectedCreateFiles = ALL_INI_FILES.toSet()
+                                showCreateDialog = true
+                            },
                             enabled = backendStatus.connected,
                             accentColor = NeonPink,
-                            contentColor = Color.White
-                        ) { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Create Backup", fontWeight = FontWeight.Bold) }
+                            contentColor = Color.White,
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Create Backup", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             } else {
@@ -75,10 +102,14 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp)
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
                     ) {
                         item {
-                            Text("${backups.size} backup(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                            Text(
+                                "${backups.size} backup(s)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            )
                             Spacer(Modifier.height(4.dp))
                         }
                         items(backups, key = { it.id }) { backup ->
@@ -90,18 +121,25 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                 },
                                 onDelete = { viewModel.deleteBackup(backup) },
                                 isApplying = isApplying,
-                                connected = backendStatus.connected
+                                connected = backendStatus.connected,
                             )
                         }
                     }
                     Box(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)) {
                         GlassButton(
-                            onClick = { selectedCreateFiles = ALL_INI_FILES.toSet(); showCreateDialog = true },
+                            onClick = {
+                                selectedCreateFiles = ALL_INI_FILES.toSet()
+                                showCreateDialog = true
+                            },
                             enabled = backendStatus.connected,
                             accentColor = NeonPink,
                             contentColor = Color.White,
-                            modifier = Modifier.widthIn(min = 200.dp)
-                        ) { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Create Backup", fontWeight = FontWeight.Bold) }
+                            modifier = Modifier.widthIn(min = 200.dp),
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Create Backup", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -109,7 +147,10 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
         if (showCreateDialog) {
             AlertDialog(
-                onDismissRequest = { showCreateDialog = false; backupName = "" },
+                onDismissRequest = {
+                    showCreateDialog = false
+                    backupName = ""
+                },
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 titleContentColor = NeonPink,
                 textContentColor = MaterialTheme.colorScheme.onSurface,
@@ -123,22 +164,34 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = NeonPink.copy(alpha = 0.5f),
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.1f)
-                            )
+                            colors =
+                                OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = NeonPink.copy(alpha = 0.5f),
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                ),
                         )
                         Spacer(Modifier.height(12.dp))
-                        Text("Select files to back up:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "Select files to back up:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Spacer(Modifier.height(4.dp))
                         ALL_INI_FILES.forEach { name ->
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            ) {
                                 Checkbox(
                                     checked = name in selectedCreateFiles,
                                     onCheckedChange = { checked ->
                                         selectedCreateFiles = if (checked) selectedCreateFiles + name else selectedCreateFiles - name
                                     },
-                                    colors = CheckboxDefaults.colors(checkedColor = NeonPink, uncheckedColor = Color.White.copy(alpha = 0.3f))
+                                    colors =
+                                        CheckboxDefaults.colors(
+                                            checkedColor = NeonPink,
+                                            uncheckedColor = Color.White.copy(alpha = 0.3f),
+                                        ),
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(name, style = MaterialTheme.typography.bodySmall)
@@ -156,16 +209,20 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             }
                         },
                         enabled = backupName.isNotBlank() && selectedCreateFiles.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NeonPink.copy(alpha = 0.15f),
-                            contentColor = NeonPink
-                        ),
-                        shape = RoundedCornerShape(10.dp)
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = NeonPink.copy(alpha = 0.15f),
+                                contentColor = NeonPink,
+                            ),
+                        shape = RoundedCornerShape(10.dp),
                     ) { Text("Create") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showCreateDialog = false; backupName = "" }) { Text("Cancel") }
-                }
+                    TextButton(onClick = {
+                        showCreateDialog = false
+                        backupName = ""
+                    }) { Text("Cancel") }
+                },
             )
         }
 
@@ -178,16 +235,27 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 title = { Text("Restore: ${backup.name}", color = NeonPurple, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("Select files to restore:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "Select files to restore:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Spacer(Modifier.height(4.dp))
                         backup.files.forEach { file ->
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            ) {
                                 Checkbox(
                                     checked = file.name in selectedRestoreFiles,
                                     onCheckedChange = { checked ->
                                         selectedRestoreFiles = if (checked) selectedRestoreFiles + file.name else selectedRestoreFiles - file.name
                                     },
-                                    colors = CheckboxDefaults.colors(checkedColor = NeonPurple, uncheckedColor = Color.White.copy(alpha = 0.3f))
+                                    colors =
+                                        CheckboxDefaults.colors(
+                                            checkedColor = NeonPurple,
+                                            uncheckedColor = Color.White.copy(alpha = 0.3f),
+                                        ),
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(file.name, style = MaterialTheme.typography.bodySmall)
@@ -204,16 +272,17 @@ fun BackupScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             }
                         },
                         enabled = selectedRestoreFiles.isNotEmpty() && !isApplying,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NeonPurple.copy(alpha = 0.15f),
-                            contentColor = NeonPurple
-                        ),
-                        shape = RoundedCornerShape(10.dp)
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = NeonPurple.copy(alpha = 0.15f),
+                                contentColor = NeonPurple,
+                            ),
+                        shape = RoundedCornerShape(10.dp),
                     ) { Text("Restore") }
                 },
                 dismissButton = {
                     TextButton(onClick = { restoreTarget = null }) { Text("Cancel") }
-                }
+                },
             )
         }
     }
@@ -226,7 +295,7 @@ private fun BackupManageCard(
     onRestore: () -> Unit,
     onDelete: () -> Unit,
     isApplying: Boolean,
-    connected: Boolean
+    connected: Boolean,
 ) {
     val isAuto = backup.type == "auto"
     val accent = if (isAuto) NeonAmber else NeonPurple
@@ -245,7 +314,7 @@ private fun BackupManageCard(
                         onClick = {},
                         label = { Text(label, style = MaterialTheme.typography.labelSmall, color = accent) },
                         colors = SuggestionChipDefaults.suggestionChipColors(containerColor = accent.copy(alpha = 0.1f)),
-                        border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accent.copy(alpha = 0.2f))
+                        border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accent.copy(alpha = 0.2f)),
                     )
                 }
                 Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -254,14 +323,14 @@ private fun BackupManageCard(
         Spacer(Modifier.height(8.dp))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             backup.files.forEach { file ->
                 SuggestionChip(
                     onClick = {},
                     label = { Text(file.name, style = MaterialTheme.typography.labelSmall) },
                     colors = SuggestionChipDefaults.suggestionChipColors(containerColor = accent.copy(alpha = 0.08f)),
-                    border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accent.copy(alpha = 0.15f))
+                    border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accent.copy(alpha = 0.15f)),
                 )
             }
         }
@@ -270,16 +339,24 @@ private fun BackupManageCard(
             GlassOutlinedButton(
                 onClick = onDelete,
                 accentColor = NeonRed,
-                modifier = Modifier.height(40.dp)
-            ) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Delete", fontWeight = FontWeight.Bold) }
+                modifier = Modifier.height(40.dp),
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Delete", fontWeight = FontWeight.Bold)
+            }
             Spacer(Modifier.width(8.dp))
             GlassButton(
                 onClick = onRestore,
                 enabled = connected && !isApplying,
                 accentColor = accent,
                 contentColor = Color.White,
-                modifier = Modifier.height(40.dp)
-            ) { Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Restore", fontWeight = FontWeight.Bold) }
+                modifier = Modifier.height(40.dp),
+            ) {
+                Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Restore", fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

@@ -14,7 +14,7 @@ const val PUSH_RETRY_COUNT = 1
 
 const val MAX_ARG_STRLEN = 4096
 private const val PRINTF_OVERHEAD = 15 // "printf '%s' " + " >> "
-private const val QUOTE_OVERHEAD = 2   // two single quotes around value
+private const val QUOTE_OVERHEAD = 2 // two single quotes around value
 
 fun maxPushChunkSize(encodedPath: String): Int {
     val pathQuoted = shQuote(encodedPath)

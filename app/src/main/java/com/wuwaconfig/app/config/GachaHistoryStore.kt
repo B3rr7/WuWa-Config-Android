@@ -15,8 +15,7 @@ object GachaHistoryStore {
     private const val TTL_HOURS = 12L
     private val gson = Gson()
 
-    private fun getFile(ctx: Context): File =
-        File(ctx.filesDir, FILE_NAME)
+    private fun getFile(ctx: Context): File = File(ctx.filesDir, FILE_NAME)
 
     fun load(ctx: Context): GachaHistoryEntry? {
         val file = getFile(ctx)
@@ -28,38 +27,45 @@ object GachaHistoryStore {
             if (entry != null && System.currentTimeMillis() >= entry.expiresAt) {
                 file.delete()
                 null
-            } else entry
+            } else {
+                entry
+            }
         } catch (_: Exception) {
             file.delete()
             null
         }
     }
 
-    fun save(ctx: Context, data: GachaData) {
+    fun save(
+        ctx: Context,
+        data: GachaData,
+    ) {
         val now = System.currentTimeMillis()
-        val entry = GachaHistoryEntry(
-            id = UUID.randomUUID().toString().take(8),
-            createdAt = now,
-            expiresAt = now + TTL_HOURS * 60 * 60 * 1000,
-            totalPulls = data.totalPulls,
-            fiveStars = data.fiveStars,
-            fourStars = data.fourStars,
-            avgPity5 = data.avgPity5,
-            avgPity4 = data.avgPity4,
-            predictions = data.predictions,
-            pools = GachaPool.ALL.mapNotNull { pool ->
-                val poolRecords = data.records.filter { it.cardPoolType == pool.type }
-                if (poolRecords.isEmpty()) return@mapNotNull null
-                GachaHistoryPool(
-                    label = pool.label,
-                    type = pool.type,
-                    pullCount = poolRecords.size,
-                    fiveStars = poolRecords.count { it.qualityLevel == 5 },
-                    fourStars = poolRecords.count { it.qualityLevel == 4 },
-                )
-            },
-            fullDataJson = gson.toJson(data),
-        )
+        val entry =
+            GachaHistoryEntry(
+                id = UUID.randomUUID().toString().take(8),
+                createdAt = now,
+                expiresAt = now + TTL_HOURS * 60 * 60 * 1000,
+                totalPulls = data.totalPulls,
+                fiveStars = data.fiveStars,
+                fourStars = data.fourStars,
+                avgPity5 = data.avgPity5,
+                avgPity4 = data.avgPity4,
+                predictions = data.predictions,
+                pools =
+                    GachaPool.ALL.mapNotNull { pool ->
+                        val poolRecords = data.records.filter { it.cardPoolType == pool.type }
+                        if (poolRecords.isEmpty()) return@mapNotNull null
+                        GachaHistoryPool(
+                            label = pool.label,
+                            type = pool.type,
+                            pullCount = poolRecords.size,
+                            fiveStars = poolRecords.count { it.qualityLevel == 5 },
+                            fourStars = poolRecords.count { it.qualityLevel == 4 },
+                        )
+                    },
+                fullDataJson = gson.toJson(data),
+            )
         getFile(ctx).writeText(gson.toJson(entry))
     }
 

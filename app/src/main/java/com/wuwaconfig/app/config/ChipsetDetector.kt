@@ -12,7 +12,7 @@ object ChipsetDetector {
         val isMediatek: Boolean,
         val isExynos: Boolean,
         val isTensor: Boolean,
-        val codename: String
+        val codename: String,
     )
 
     fun detect(): ChipsetInfo {
@@ -20,12 +20,13 @@ object ChipsetDetector {
         val board = Build.BOARD.lowercase()
         val manufacturer = Build.MANUFACTURER.lowercase()
 
-        val isSnapdragon = soc.contains("sm") || soc.contains("qcom") ||
-            board.contains("kalama") || board.contains("shima") ||
-            board.contains("lahaina") || board.contains("kona") ||
-            soc.contains("sun") || soc.contains("taro") ||
-            soc.contains("pitti") || soc.contains("parrot") ||
-            soc.contains("crow") || soc.contains("garnet")
+        val isSnapdragon =
+            soc.contains("sm") || soc.contains("qcom") ||
+                board.contains("kalama") || board.contains("shima") ||
+                board.contains("lahaina") || board.contains("kona") ||
+                soc.contains("sun") || soc.contains("taro") ||
+                soc.contains("pitti") || soc.contains("parrot") ||
+                soc.contains("crow") || soc.contains("garnet")
 
         val isMediatek = soc.contains("mt") || manufacturer.contains("mediatek")
         val isExynos = soc.contains("exynos") || board.contains("exynos")
@@ -40,7 +41,7 @@ object ChipsetDetector {
             isMediatek = isMediatek,
             isExynos = isExynos,
             isTensor = isTensor,
-            codename = Build.DEVICE
+            codename = Build.DEVICE,
         )
     }
 

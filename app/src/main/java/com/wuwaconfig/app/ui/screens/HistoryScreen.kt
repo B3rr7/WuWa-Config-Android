@@ -11,11 +11,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
@@ -29,7 +27,10 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+fun HistoryScreen(
+    viewModel: MainViewModel,
+    onBack: () -> Unit,
+) {
     val deployRecords by viewModel.deployRecords.collectAsState()
     val backendStatus by viewModel.backendStatus.collectAsState()
     val isApplying by viewModel.isApplying.collectAsState()
@@ -39,31 +40,40 @@ fun HistoryScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             topBar = {
                 TopAppBar(
                     title = { Text("Deploy History", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonAmber) } },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = NeonAmber
-                    )
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBack,
+                        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonAmber) }
+                    },
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            titleContentColor = NeonAmber,
+                        ),
                 )
             },
-            containerColor = Color.Transparent
+            containerColor = Color.Transparent,
         ) { padding ->
             if (deployRecords.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text("No deploy records yet. Generate and deploy a config first.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "No deploy records yet. Generate and deploy a config first.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(vertical = 16.dp)
+                    contentPadding = PaddingValues(vertical = 16.dp),
                 ) {
                     itemsIndexed(deployRecords) { _, record ->
                         DeployHistoryCard(
                             record = record,
                             isConnected = backendStatus.connected && !isApplying,
                             onCompare = { viewModel.compareDeployOutcome(record.id) },
-                            onRetune = { viewModel.retuneAndDeploy(record.id) }
+                            onRetune = { viewModel.retuneAndDeploy(record.id) },
                         )
                     }
                 }
@@ -73,28 +83,50 @@ fun HistoryScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun DeployHistoryCard(record: DeployRecord, isConnected: Boolean, onCompare: () -> Unit, onRetune: () -> Unit = {}) {
-    val dateStr = remember(record.timestamp) {
-        SimpleDateFormat("MMM d, yyyy HH:mm", Locale.US).format(Date(record.timestamp))
-    }
+private fun DeployHistoryCard(
+    record: DeployRecord,
+    isConnected: Boolean,
+    onCompare: () -> Unit,
+    onRetune: () -> Unit = {},
+) {
+    val dateStr =
+        remember(record.timestamp) {
+            SimpleDateFormat("MMM d, yyyy HH:mm", Locale.US).format(Date(record.timestamp))
+        }
     val comparison = if (record.hasOutcome) record.comparison() else null
 
     GlassCard(accentColor = if (record.hasOutcome) NeonGreen else NeonBlue) {
         GlassCardHeader(
             title = "${record.presetName.uppercase()} — $dateStr",
-            accentColor = if (record.hasOutcome) NeonGreen else NeonBlue
+            accentColor = if (record.hasOutcome) NeonGreen else NeonBlue,
         )
         Spacer(Modifier.height(8.dp))
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Method: ${record.generationMethod}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("${record.filesDeployed.size} file(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "Method: ${record.generationMethod}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "${record.filesDeployed.size} file(s)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         Spacer(Modifier.height(4.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("CVars: ${record.totalCount}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Accepted: ${record.acceptedCount}/${record.totalCount}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "CVars: ${record.totalCount}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Accepted: ${record.acceptedCount}/${record.totalCount}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         if (record.redundantCount > 0 || record.unknownCount > 0 || record.monitoredCount > 0) {
@@ -102,17 +134,32 @@ private fun DeployHistoryCard(record: DeployRecord, isConnected: Boolean, onComp
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (record.redundantCount > 0) {
                     Surface(shape = RoundedCornerShape(4.dp), color = NeonGreen.copy(alpha = 0.15f)) {
-                        Text("${record.redundantCount} redundant", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = NeonGreen)
+                        Text(
+                            "${record.redundantCount} redundant",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NeonGreen,
+                        )
                     }
                 }
                 if (record.unknownCount > 0) {
                     Surface(shape = RoundedCornerShape(4.dp), color = NeonAmber.copy(alpha = 0.15f)) {
-                        Text("${record.unknownCount} unknown", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = NeonAmber)
+                        Text(
+                            "${record.unknownCount} unknown",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NeonAmber,
+                        )
                     }
                 }
                 if (record.monitoredCount > 0) {
                     Surface(shape = RoundedCornerShape(4.dp), color = NeonBlue.copy(alpha = 0.15f)) {
-                        Text("${record.monitoredCount} monitored", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = NeonBlue)
+                        Text(
+                            "${record.monitoredCount} monitored",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NeonBlue,
+                        )
                     }
                 }
             }
@@ -136,7 +183,7 @@ private fun DeployHistoryCard(record: DeployRecord, isConnected: Boolean, onComp
                 onClick = onRetune,
                 modifier = Modifier.fillMaxWidth(),
                 accentColor = NeonRed,
-                contentColor = Color.White
+                contentColor = Color.White,
             ) { Text("Retune & Deploy (Auto-Adjust)", fontWeight = FontWeight.Bold) }
         }
 
@@ -146,7 +193,7 @@ private fun DeployHistoryCard(record: DeployRecord, isConnected: Boolean, onComp
                 onClick = onCompare,
                 modifier = Modifier.fillMaxWidth(),
                 accentColor = NeonCyan,
-                contentColor = Color.White
+                contentColor = Color.White,
             ) { Text("Compare Now (Pull Client.log)", fontWeight = FontWeight.Bold) }
         }
 
@@ -158,7 +205,12 @@ private fun DeployHistoryCard(record: DeployRecord, isConnected: Boolean, onComp
 }
 
 @Composable
-private fun ComparisonRow(label: String, delta: Float?, unit: String, inverted: Boolean) {
+private fun ComparisonRow(
+    label: String,
+    delta: Float?,
+    unit: String,
+    inverted: Boolean,
+) {
     if (delta == null) return
     val isGood = if (inverted) delta < 0 else delta >= 0
     val sign = if (delta >= 0) "+" else ""
@@ -168,7 +220,7 @@ private fun ComparisonRow(label: String, delta: Float?, unit: String, inverted: 
             "$sign${"%.1f".format(delta)} $unit",
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold,
-            color = if (isGood) NeonGreen else NeonRed
+            color = if (isGood) NeonGreen else NeonRed,
         )
     }
 }

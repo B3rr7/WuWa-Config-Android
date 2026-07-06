@@ -12,14 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
-import kotlin.random.Random
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +25,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wuwaconfig.app.config.BenchmarkTuner
-import com.wuwaconfig.app.config.ConfigGenerator
 import com.wuwaconfig.app.config.RoundResult
 import com.wuwaconfig.app.config.TunerStage
 import com.wuwaconfig.app.config.TunerState
@@ -44,10 +38,17 @@ import com.wuwaconfig.app.ui.components.GlassCardHeader
 import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+fun ConfigGenScreen(
+    viewModel: MainViewModel,
+    onBack: () -> Unit,
+) {
     val backendStatus by viewModel.backendStatus.collectAsState()
     val isApplying by viewModel.isApplying.collectAsState()
     val readingProgress by viewModel.readingProgress.collectAsState()
@@ -83,10 +84,6 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var useAdvancedGen by remember { mutableStateOf(false) }
     var optimizeWithCvarDb by remember { mutableStateOf(true) }
 
-    LaunchedEffect(allowRestrictedCvars) {
-        com.wuwaconfig.app.config.ConfigGenerator.allowRestrictedCvars = allowRestrictedCvars
-    }
-
     var gameMode by remember { mutableStateOf(GameMode.Overworld) }
     var showReview by remember { mutableStateOf(false) }
     var reviewEngineText by remember { mutableStateOf("") }
@@ -98,18 +95,19 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var showGoPlayDialog by remember { mutableStateOf(false) }
     var showResultDialog by remember { mutableStateOf(false) }
 
-    val logPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val result = viewModel.readUriBytes(uri)
-            if (result.isSuccess) {
-                viewModel.analyzeClientLogBytes(result.getOrThrow())
-            } else {
-                viewModel.addLog("FAILED: ${result.exceptionOrNull()?.message}")
+    val logPickerLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument(),
+        ) { uri: Uri? ->
+            if (uri != null) {
+                val result = viewModel.readUriBytes(uri)
+                if (result.isSuccess) {
+                    viewModel.analyzeClientLogBytes(result.getOrThrow())
+                } else {
+                    viewModel.addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                }
             }
         }
-    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -122,11 +120,12 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             tunerState = tunerState.copy(stage = TunerStage.DEPLOYING)
             BenchmarkTuner.saveState(tunerState)
 
-            val generated = ConfigGenerator.generate(preset, opts)
+            val generated = viewModel.configGenerator.generate(preset, opts)
             viewModel.deployGeneratedConfigs(generated, opts)
             var waitMs = 0
             while (viewModel.isApplying.value && waitMs < 30000) {
-                delay(200); waitMs += 200
+                delay(200)
+                waitMs += 200
             }
             if (viewModel.isApplying.value) {
                 tunerState = tunerState.copy(stage = TunerStage.COMPLETE, error = "Deploy timed out")
@@ -150,31 +149,34 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             val targetFps = tunerState.targetFps
 
             val logcatResult = viewModel.executeShellCommand("logcat -d -v brief -t 500")
-            val result = if (logcatResult.isSuccess) {
-                BenchmarkTuner.parseFpsLogcat(logcatResult.getOrThrow())
-            } else {
-                Result.failure(Exception("logcat via backend failed: ${logcatResult.exceptionOrNull()?.message}"))
-            }
+            val result =
+                if (logcatResult.isSuccess) {
+                    BenchmarkTuner.parseFpsLogcat(logcatResult.getOrThrow())
+                } else {
+                    Result.failure(Exception("logcat via backend failed: ${logcatResult.exceptionOrNull()?.message}"))
+                }
 
             if (result.isSuccess) {
                 val r = result.getOrThrow()
                 val newResults = tunerState.results + RoundResult(round, currentPreset, r.avgFps, r.minFps, r.stabilityPct)
                 if (r.avgFps >= targetFps || round >= 5) {
-                    tunerState = TunerState(
-                        stage = TunerStage.COMPLETE, round = round, preset = currentPreset,
-                        options = tunerState.options, targetFps = targetFps,
-                        results = newResults, finalPreset = currentPreset
-                    )
+                    tunerState =
+                        TunerState(
+                            stage = TunerStage.COMPLETE, round = round, preset = currentPreset,
+                            options = tunerState.options, targetFps = targetFps,
+                            results = newResults, finalPreset = currentPreset,
+                        )
                     BenchmarkTuner.saveState(tunerState)
                     showResultDialog = true
                     return@launch
                 }
                 val nextPreset = BenchmarkTuner.pickPresetForFps(currentPreset, r.avgFps, targetFps)
                 val nextOpts = BenchmarkTuner.adjustOptionsForFps(tunerState.options, r.avgFps, targetFps)
-                tunerState = TunerState(
-                    stage = TunerStage.DEPLOYING, round = round + 1, preset = nextPreset,
-                    options = nextOpts, targetFps = targetFps, results = newResults
-                )
+                tunerState =
+                    TunerState(
+                        stage = TunerStage.DEPLOYING, round = round + 1, preset = nextPreset,
+                        options = nextOpts, targetFps = targetFps, results = newResults,
+                    )
                 BenchmarkTuner.saveState(tunerState)
                 runDeployAndWait()
             } else {
@@ -186,23 +188,25 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     }
 
     fun startTuner() {
-        val opts = GeneratorOptions(
-            fps = fps, unlock120 = unlock120, unlockUltra = unlockUltra,
-            vsync = vsync, cool = cooling, vulkan = vulkan, hzb = hzb,
-            fog = fog, ca = ca, disableOutline = disableOutline,
-            disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
-            disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
-            mode = gameMode,
-            generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
-            generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-            generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
-            importFromLog = false, useAdvancedGen = useAdvancedGen,
-            optimizeWithCvarDb = optimizeWithCvarDb
-        )
-        tunerState = TunerState(
-            stage = TunerStage.DEPLOYING, round = 1, preset = selectedPreset,
-            options = opts, targetFps = fps
-        )
+        val opts =
+            GeneratorOptions(
+                fps = fps, unlock120 = unlock120, unlockUltra = unlockUltra,
+                vsync = vsync, cool = cooling, vulkan = vulkan, hzb = hzb,
+                fog = fog, ca = ca, disableOutline = disableOutline,
+                disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
+                disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
+                mode = gameMode,
+                generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
+                generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
+                generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
+                importFromLog = false, useAdvancedGen = useAdvancedGen,
+                optimizeWithCvarDb = optimizeWithCvarDb,
+            )
+        tunerState =
+            TunerState(
+                stage = TunerStage.DEPLOYING, round = 1, preset = selectedPreset,
+                options = opts, targetFps = fps,
+            )
         BenchmarkTuner.saveState(tunerState)
         runDeployAndWait()
     }
@@ -244,7 +248,11 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     title = {
                         Column {
                             Text("Config Generator", fontWeight = FontWeight.Bold)
-                            Text("WuWaConfig presets", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "WuWaConfig presets",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     },
                     navigationIcon = {
@@ -252,19 +260,20 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonCyan)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = NeonCyan
-                    )
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            titleContentColor = NeonCyan,
+                        ),
                 )
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
-            containerColor = Color.Transparent
-            ) { padding ->
+            containerColor = Color.Transparent,
+        ) { padding ->
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp)
+                contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp),
             ) {
                 item(key = "analysis") {
                     AnalysisPanel(
@@ -275,7 +284,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         brain = brain,
                         allowRestrictedCvars = allowRestrictedCvars,
                         onAnalyzeDevice = { viewModel.analyzeClientLog() },
-                        onImportLog = { logPickerLauncher.launch(arrayOf("*/*")) }
+                        onImportLog = { logPickerLauncher.launch(arrayOf("*/*")) },
                     )
                 }
 
@@ -295,13 +304,16 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                 "performance" to "Stability first",
                                 "balanced" to "Daily default",
                                 "high" to "Sharper visuals",
-                                "ultra" to "Flagship devices"
+                                "ultra" to "Flagship devices",
                             ).forEach { (preset, description) ->
                                 PresetRow(
                                     name = preset,
                                     description = description,
                                     selected = selectedPreset == preset,
-                                    onClick = { selectedPreset = preset; userChangedPreset = true }
+                                    onClick = {
+                                        selectedPreset = preset
+                                        userChangedPreset = true
+                                    },
                                 )
                             }
                         }
@@ -326,12 +338,13 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                 FilterChip(
                                     selected = fps == value,
                                     onClick = { fps = value },
-                                    label = { Text("${value} FPS") },
+                                    label = { Text("$value FPS") },
                                     modifier = Modifier.weight(1f),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = NeonBlue.copy(alpha = 0.18f),
-                                        selectedLabelColor = NeonBlue
-                                    )
+                                    colors =
+                                        FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = NeonBlue.copy(alpha = 0.18f),
+                                            selectedLabelColor = NeonBlue,
+                                        ),
                                 )
                             }
                         }
@@ -370,10 +383,11 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                     onClick = { gameMode = mode },
                                     label = { Text(mode.label, maxLines = 1) },
                                     modifier = Modifier.weight(1f),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = NeonBlue.copy(alpha = 0.18f),
-                                        selectedLabelColor = NeonBlue
-                                    )
+                                    colors =
+                                        FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = NeonBlue.copy(alpha = 0.18f),
+                                            selectedLabelColor = NeonBlue,
+                                        ),
                                 )
                             }
                         }
@@ -398,25 +412,26 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             GlassOutlinedButton(
                                 onClick = onBack,
                                 accentColor = NeonPink,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             ) { Text("Back") }
                             GlassButton(
                                 onClick = {
-                                    val opts = GeneratorOptions(
-                                        fps = fps, unlock120 = unlock120, unlockUltra = unlockUltra,
-                                        vsync = vsync, cool = cooling, vulkan = vulkan, hzb = hzb,
-                                        fog = fog, ca = ca, disableOutline = disableOutline,
-                                        disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
-                                        disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
-                                        mode = gameMode,
-                                        generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
-                                        generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-                                        generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
-                                        importFromLog = !userChangedPreset && selectedPreset == brain?.preset,
-                                        useAdvancedGen = useAdvancedGen,
-                                        optimizeWithCvarDb = optimizeWithCvarDb
-                                    )
-                                    val generated = ConfigGenerator.generate(selectedPreset, opts)
+                                    val opts =
+                                        GeneratorOptions(
+                                            fps = fps, unlock120 = unlock120, unlockUltra = unlockUltra,
+                                            vsync = vsync, cool = cooling, vulkan = vulkan, hzb = hzb,
+                                            fog = fog, ca = ca, disableOutline = disableOutline,
+                                            disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
+                                            disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
+                                            mode = gameMode,
+                                            generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
+                                            generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
+                                            generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
+                                            importFromLog = !userChangedPreset && selectedPreset == brain?.preset,
+                                            useAdvancedGen = useAdvancedGen,
+                                            optimizeWithCvarDb = optimizeWithCvarDb,
+                                        )
+                                    val generated = viewModel.configGenerator.generate(selectedPreset, opts)
                                     reviewEngineText = generated.engine
                                     reviewDeviceProfilesText = generated.deviceProfiles
                                     reviewGameUserSettingsText = generated.gameUserSettings
@@ -427,7 +442,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                 enabled = !isApplying,
                                 accentColor = NeonCyan,
                                 contentColor = Color.White,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             ) {
                                 Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
@@ -446,13 +461,14 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     enabled = true,
-                                    accentColor = NeonRed
+                                    accentColor = NeonRed,
                                 ) {
-                                    val label = when (tunerState.stage) {
-                                        TunerStage.DEPLOYING -> "Round ${tunerState.round}: deploying ${tunerState.preset}..."
-                                        TunerStage.CAPTURING -> "Round ${tunerState.round}: capturing FPS..."
-                                        else -> "Cancel Tuner"
-                                    }
+                                    val label =
+                                        when (tunerState.stage) {
+                                            TunerStage.DEPLOYING -> "Round ${tunerState.round}: deploying ${tunerState.preset}..."
+                                            TunerStage.CAPTURING -> "Round ${tunerState.round}: capturing FPS..."
+                                            else -> "Cancel Tuner"
+                                        }
                                     Text(label, fontWeight = FontWeight.Bold)
                                 }
                             }
@@ -462,7 +478,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                     onClick = { startTuner() },
                                     enabled = backendStatus.connected && !isApplying,
                                     accentColor = NeonRed,
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
                                 ) { Text("Auto-Tune", fontWeight = FontWeight.Bold) }
                             }
                         }
@@ -471,7 +487,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                                 onClick = { viewModel.cancelOperation() },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = true,
-                                accentColor = NeonRed
+                                accentColor = NeonRed,
                             ) { Text("Cancel Operation", fontWeight = FontWeight.Bold) }
                         }
                     }
@@ -489,33 +505,41 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             hardwareText = reviewHardwareText,
             onDismiss = { showReview = false },
             onRedeploy = { newEngine, newDevice, newSettings, newScalability, newHardware ->
-                val overrides = ConfigGenerator.parseCvarEntries(newEngine)
-                    .filter { it.isOverridden }
-                    .associate { it.key to it.value }
-                val opts = GeneratorOptions(
-                    fps = fps, unlock120 = unlock120, unlockUltra = unlockUltra,
-                    vsync = vsync, cool = cooling, vulkan = vulkan, hzb = hzb,
-                    fog = fog, ca = ca, disableOutline = disableOutline,
-                    disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
-                    disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
-                    mode = gameMode, cvarOverrides = overrides,
-                    generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
-                    generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-                    generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
-                    importFromLog = false,
-                    useAdvancedGen = useAdvancedGen,
-                    optimizeWithCvarDb = optimizeWithCvarDb
-                )
+                val overrides =
+                    viewModel.configGenerator.parseCvarEntries(newEngine)
+                        .filter { it.isOverridden }
+                        .associate { it.key to it.value }
+                val opts =
+                    GeneratorOptions(
+                        fps = fps, unlock120 = unlock120, unlockUltra = unlockUltra,
+                        vsync = vsync, cool = cooling, vulkan = vulkan, hzb = hzb,
+                        fog = fog, ca = ca, disableOutline = disableOutline,
+                        disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
+                        disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
+                        mode = gameMode, cvarOverrides = overrides,
+                        generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
+                        generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
+                        generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
+                        importFromLog = false,
+                        useAdvancedGen = useAdvancedGen,
+                        optimizeWithCvarDb = optimizeWithCvarDb,
+                    )
                 reviewEngineText = newEngine
                 reviewDeviceProfilesText = newDevice
                 reviewGameUserSettingsText = newSettings
                 reviewScalabilityText = newScalability
                 reviewHardwareText = newHardware
                 viewModel.deployGeneratedConfigs(
-                    com.wuwaconfig.app.model.GeneratedIni(engine = newEngine, deviceProfiles = newDevice, gameUserSettings = newSettings, scalability = newScalability, hardware = newHardware),
-                    opts
+                    com.wuwaconfig.app.model.GeneratedIni(
+                        engine = newEngine,
+                        deviceProfiles = newDevice,
+                        gameUserSettings = newSettings,
+                        scalability = newScalability,
+                        hardware = newHardware,
+                    ),
+                    opts,
                 )
-            }
+            },
         )
     }
 
@@ -533,7 +557,10 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showGoPlayDialog = false; captureAndAnalyze() }) {
+                TextButton(onClick = {
+                    showGoPlayDialog = false
+                    captureAndAnalyze()
+                }) {
                     Text("Continue", color = NeonGreen)
                 }
             },
@@ -544,7 +571,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     tunerState = TunerState()
                     showGoPlayDialog = false
                 }) { Text("Cancel Tuner", color = NeonRed) }
-            }
+            },
         )
     }
 
@@ -579,7 +606,7 @@ fun ConfigGenScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     tunerState = TunerState()
                     showResultDialog = false
                 }) { Text("Dismiss", color = NeonCyan) }
-            }
+            },
         )
     }
 }
@@ -593,7 +620,7 @@ private fun IniReviewDialog(
     scalabilityText: String = "",
     hardwareText: String = "",
     onDismiss: () -> Unit,
-    onRedeploy: (engine: String, deviceProfiles: String, gameUserSettings: String, scalability: String, hardware: String) -> Unit
+    onRedeploy: (engine: String, deviceProfiles: String, gameUserSettings: String, scalability: String, hardware: String) -> Unit,
 ) {
     var engineSrc by remember(engineText) { mutableStateOf(engineText) }
     var dpSrc by remember(deviceProfilesText) { mutableStateOf(deviceProfilesText) }
@@ -617,48 +644,59 @@ private fun IniReviewDialog(
                     selectedTabIndex = tab,
                     edgePadding = 0.dp,
                     divider = {},
-                    containerColor = Color.Transparent
+                    containerColor = Color.Transparent,
                 ) {
                     tabs.forEachIndexed { i, label ->
                         Tab(
                             selected = tab == i,
                             onClick = { tab = i },
                             text = {
-                                Text(label, style = MaterialTheme.typography.labelSmall,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             },
                             selectedContentColor = accents[i],
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
         },
         text = {
-            val src = when (tab) {
-                0 -> engineSrc; 1 -> dpSrc; 2 -> gusSrc
-                tabs.indexOf("Scalability.ini") -> slSrc
-                else -> hwSrc
-            }
-            val onEdit: (String) -> Unit = when (tab) {
-                0 -> { v -> engineSrc = v }; 1 -> { v -> dpSrc = v }
-                2 -> { v -> gusSrc = v }
-                tabs.indexOf("Scalability.ini") -> { v -> slSrc = v }
-                else -> { v -> hwSrc = v }
-            }
+            val src =
+                when (tab) {
+                    0 -> engineSrc
+                    1 -> dpSrc
+                    2 -> gusSrc
+                    tabs.indexOf("Scalability.ini") -> slSrc
+                    else -> hwSrc
+                }
+            val onEdit: (String) -> Unit =
+                when (tab) {
+                    0 -> { v -> engineSrc = v }
+                    1 -> { v -> dpSrc = v }
+                    2 -> { v -> gusSrc = v }
+                    tabs.indexOf("Scalability.ini") -> { v -> slSrc = v }
+                    else -> { v -> hwSrc = v }
+                }
             val accent = accents[tab.coerceAtMost(accents.lastIndex)]
             OutlinedTextField(
                 value = src,
                 onValueChange = onEdit,
                 modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp),
-                textStyle = LocalTextStyle.current.copy(
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                    fontSize = 11.sp
-                ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = accent.copy(alpha = 0.4f),
-                    unfocusedBorderColor = accent.copy(alpha = 0.15f)
-                )
+                textStyle =
+                    LocalTextStyle.current.copy(
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontSize = 11.sp,
+                    ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = accent.copy(alpha = 0.4f),
+                        unfocusedBorderColor = accent.copy(alpha = 0.15f),
+                    ),
             )
         },
         confirmButton = {
@@ -668,7 +706,7 @@ private fun IniReviewDialog(
                     Text("Deploy", fontWeight = FontWeight.Bold)
                 }
             }
-        }
+        },
     )
 }
 
@@ -683,7 +721,7 @@ private fun LogActionContent(label: String) {
         fontWeight = FontWeight.Bold,
         maxLines = 1,
         softWrap = false,
-        overflow = TextOverflow.Ellipsis
+        overflow = TextOverflow.Ellipsis,
     )
 }
 
@@ -692,7 +730,7 @@ private fun PresetRow(
     name: String,
     description: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val accent = if (selected) NeonPurple else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
@@ -700,11 +738,11 @@ private fun PresetRow(
         shape = RoundedCornerShape(8.dp),
         color = if (selected) NeonPurple.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.03f),
         tonalElevation = 0.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(Icons.Default.Speed, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(10.dp))
@@ -717,11 +755,15 @@ private fun PresetRow(
 }
 
 @Composable
-private fun GeneratorSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun GeneratorSwitch(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
@@ -729,9 +771,17 @@ private fun GeneratorSwitch(label: String, checked: Boolean, onCheckedChange: (B
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
+private fun DetailRow(
+    label: String,
+    value: String,
+) {
     Row(Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(68.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(68.dp),
+        )
         Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
     }
 }
@@ -746,7 +796,7 @@ private fun AnalysisPanel(
     brain: com.wuwaconfig.app.config.BrainRecommendation?,
     allowRestrictedCvars: Boolean = true,
     onAnalyzeDevice: () -> Unit,
-    onImportLog: () -> Unit
+    onImportLog: () -> Unit,
 ) {
     GlassCard(accentColor = if (isConnected) NeonGreen else NeonAmber) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -764,11 +814,12 @@ private fun AnalysisPanel(
                         else -> "Analyze from device or import an encrypted Client.log file."
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = when {
-                        isApplying -> MaterialTheme.colorScheme.onSurfaceVariant
-                        logInfo != null -> NeonGreen
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+                    color =
+                        when {
+                            isApplying -> MaterialTheme.colorScheme.onSurfaceVariant
+                            logInfo != null -> NeonGreen
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                 )
             }
             if (isApplying && readingProgress > 0) {
@@ -786,13 +837,13 @@ private fun AnalysisPanel(
                     }
                 }
                 Text(
-                    "${readingProgress}%",
+                    "$readingProgress%",
                     style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 4.sp),
                     color = glitchColors[colorIndex],
-                    modifier = Modifier.offset(x = glitchX.dp, y = glitchY.dp)
+                    modifier = Modifier.offset(x = glitchX.dp, y = glitchY.dp),
                 )
             }
-            }
+        }
 
         if (logInfo != null && !isApplying) {
             val info = logInfo
@@ -818,15 +869,19 @@ private fun AnalysisPanel(
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     issues.forEach { (label, count) ->
-                        IssueBadge(label, count, when (label) {
-                            "GPU OOM", "Low Memory" -> NeonRed
-                            "Restricted CVars" -> if (count > 0) NeonRed else NeonGreen
-                            "Network" -> NeonAmber
-                            else -> if (count > 10) NeonPink else NeonAmber
-                        })
+                        IssueBadge(
+                            label,
+                            count,
+                            when (label) {
+                                "GPU OOM", "Low Memory" -> NeonRed
+                                "Restricted CVars" -> if (count > 0) NeonRed else NeonGreen
+                                "Network" -> NeonAmber
+                                else -> if (count > 10) NeonPink else NeonAmber
+                            },
+                        )
                     }
                 }
             }
@@ -839,19 +894,28 @@ private fun AnalysisPanel(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Smart Brain", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = NeonPurple)
                     Spacer(Modifier.width(8.dp))
-                    Text(rec.preset.uppercase(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = presetColor(rec.preset))
+                    Text(
+                        rec.preset.uppercase(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = presetColor(rec.preset),
+                    )
                     Spacer(Modifier.width(6.dp))
-                    Text("(${rec.score}/100)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "(${rec.score}/100)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Spacer(Modifier.height(6.dp))
 
                 val barColor = presetColor(rec.preset)
                 val barWidth = (rec.score.coerceIn(0, 100) / 100f)
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(barColor.copy(alpha = 0.12f))
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(barColor.copy(alpha = 0.12f)),
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxWidth(barWidth).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(barColor)
+                        modifier = Modifier.fillMaxWidth(barWidth).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(barColor),
                     )
                 }
                 Spacer(Modifier.height(6.dp))
@@ -861,11 +925,18 @@ private fun AnalysisPanel(
                         sigs.forEach { sig ->
                             val isPositive = sig.contains("+")
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(if (isPositive) "+" else "−", style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold, color = if (isPositive) NeonGreen else NeonRed)
+                                Text(
+                                    if (isPositive) "+" else "−",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isPositive) NeonGreen else NeonRed,
+                                )
                                 Spacer(Modifier.width(4.dp))
-                                Text(sig.removePrefix("+").removePrefix("-"), style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    sig.removePrefix("+").removePrefix("-"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
@@ -888,18 +959,26 @@ private fun AnalysisPanel(
             GlassButton(
                 onClick = onAnalyzeDevice,
                 enabled = isConnected && !isApplying,
-                accentColor = NeonCyan, contentColor = Color.White, modifier = Modifier.weight(1f)
+                accentColor = NeonCyan,
+                contentColor = Color.White,
+                modifier = Modifier.weight(1f),
             ) { LogActionContent("Device Log") }
             GlassOutlinedButton(
                 onClick = onImportLog,
-                enabled = !isApplying, accentColor = NeonAmber, modifier = Modifier.weight(1f)
+                enabled = !isApplying,
+                accentColor = NeonAmber,
+                modifier = Modifier.weight(1f),
             ) { LogActionContent("Import Log") }
         }
     }
 }
 
 @Composable
-private fun IssueBadge(label: String, count: Int, color: Color) {
+private fun IssueBadge(
+    label: String,
+    count: Int,
+    color: Color,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(6.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(4.dp))
@@ -910,7 +989,14 @@ private fun IssueBadge(label: String, count: Int, color: Color) {
 
 @Composable
 private fun VerificationBadge(report: VerificationReport) {
-    val color = if (report.acceptedRatio >= 0.8f) NeonGreen else if (report.acceptedRatio >= 0.5f) NeonAmber else NeonRed
+    val color =
+        if (report.acceptedRatio >= 0.8f) {
+            NeonGreen
+        } else if (report.acceptedRatio >= 0.5f) {
+            NeonAmber
+        } else {
+            NeonRed
+        }
     GlassCard(accentColor = color) {
         GlassCardHeader("Deploy Verification", color)
         Spacer(Modifier.height(8.dp))
@@ -919,7 +1005,7 @@ private fun VerificationBadge(report: VerificationReport) {
                 "${report.recognizedCount}/${report.totalCount} CVars accepted by engine",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                color = color
+                color = color,
             )
         }
         if (report.cvarDetails.isNotEmpty()) {
@@ -949,13 +1035,13 @@ private fun VerificationBadge(report: VerificationReport) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 maxLines = 3,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             if (report.rejected.size > 8) {
                 Text(
                     "...and ${report.rejected.size - 8} more",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 )
             }
         }
@@ -963,25 +1049,29 @@ private fun VerificationBadge(report: VerificationReport) {
 }
 
 @Composable
-private fun TagChip(text: String, color: Color) {
+private fun TagChip(
+    text: String,
+    color: Color,
+) {
     Surface(
         shape = MaterialTheme.shapes.small,
-        color = color.copy(alpha = 0.15f)
+        color = color.copy(alpha = 0.15f),
     ) {
         Text(
             text,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = color
+            color = color,
         )
     }
 }
 
-private fun presetColor(preset: String): Color = when (preset) {
-    "potato" -> Color(0xFF8B4513)
-    "performance" -> NeonRed
-    "balanced" -> NeonAmber
-    "high" -> NeonGreen
-    "ultra" -> NeonPurple
-    else -> NeonCyan
-}
+private fun presetColor(preset: String): Color =
+    when (preset) {
+        "potato" -> Color(0xFF8B4513)
+        "performance" -> NeonRed
+        "balanced" -> NeonAmber
+        "high" -> NeonGreen
+        "ultra" -> NeonPurple
+        else -> NeonCyan
+    }

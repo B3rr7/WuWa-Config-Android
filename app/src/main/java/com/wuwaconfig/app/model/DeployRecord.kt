@@ -24,21 +24,22 @@ data class DeployRecord(
     val outcomeOom: Int? = null,
     val outcomeDrops: Int? = null,
     val outcomeTimestamp: Long? = null,
-    val optimizedProfile: CvarOptimizer.OptimizedProfile? = null
+    val optimizedProfile: CvarOptimizer.OptimizedProfile? = null,
 ) {
     val hasOutcome: Boolean get() = outcomeTimestamp != null
 
-    fun comparison(): DeployComparison = DeployComparison(
-        fpsDelta = if (baselineFps != null && outcomeFps != null) outcomeFps - baselineFps else null,
-        thermalDelta = if (outcomeThermal != null) outcomeThermal - baselineThermal else null,
-        oomDelta = if (outcomeOom != null) outcomeOom - baselineOom else null,
-        dropFramesDelta = if (outcomeDrops != null) outcomeDrops - baselineDrops else null
-    )
+    fun comparison(): DeployComparison =
+        DeployComparison(
+            fpsDelta = if (baselineFps != null && outcomeFps != null) outcomeFps - baselineFps else null,
+            thermalDelta = if (outcomeThermal != null) outcomeThermal - baselineThermal else null,
+            oomDelta = if (outcomeOom != null) outcomeOom - baselineOom else null,
+            dropFramesDelta = if (outcomeDrops != null) outcomeDrops - baselineDrops else null,
+        )
 }
 
 data class DeployComparison(
     val fpsDelta: Float?,
     val thermalDelta: Int?,
     val oomDelta: Int?,
-    val dropFramesDelta: Int?
+    val dropFramesDelta: Int?,
 )

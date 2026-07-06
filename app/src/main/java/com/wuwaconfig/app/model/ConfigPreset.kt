@@ -3,7 +3,7 @@ package com.wuwaconfig.app.model
 data class ConfigFile(
     val name: String,
     val content: String,
-    val targetPath: String = ""
+    val targetPath: String = "",
 )
 
 data class ConfigBackup(
@@ -11,5 +11,5 @@ data class ConfigBackup(
     val name: String,
     val timestamp: Long = System.currentTimeMillis(),
     val files: List<ConfigFile>,
-    val type: String = "manual"
+    val type: String = "manual",
 )

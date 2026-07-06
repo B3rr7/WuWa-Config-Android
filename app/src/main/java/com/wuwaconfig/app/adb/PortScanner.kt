@@ -19,10 +19,14 @@ object PortScanner {
     private var cachedIp: String? = null
     private var cacheTimestamp: Long = 0
     private const val CACHE_TTL_MS = 30_000L
+
     @JvmStatic var lastAdbPort: Int? = null
         private set
 
-    fun clearCache() { cachedIp = null; cacheTimestamp = 0 }
+    fun clearCache() {
+        cachedIp = null
+        cacheTimestamp = 0
+    }
 
     data class ScanResult(val host: String, val port: Int)
 
@@ -42,62 +46,72 @@ object PortScanner {
                         val parts = ip.split(".")
                         val isPrivate172 = parts.size == 4 && parts[0] == "172" && parts[1].toIntOrNull()?.let { it in 16..31 } == true
                         if (ip.startsWith("192.") || ip.startsWith("10.") || isPrivate172) {
-                            cachedIp = ip; cacheTimestamp = System.currentTimeMillis()
+                            cachedIp = ip
+                            cacheTimestamp = System.currentTimeMillis()
                             return ip
                         }
                     }
                 }
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         return "127.0.0.1"
     }
 
-    suspend fun scanForAdb(): ScanResult? = withContext(Dispatchers.IO) {
-        val addrs = listOf("127.0.0.1", getDeviceIp()).distinct()
-        for (addr in addrs) {
-            lastAdbPort?.let { port ->
-                if (tryPort(addr, port) > 0) return@withContext ScanResult(addr, port)
+    suspend fun scanForAdb(): ScanResult? =
+        withContext(Dispatchers.IO) {
+            val addrs = listOf("127.0.0.1", getDeviceIp()).distinct()
+            for (addr in addrs) {
+                lastAdbPort?.let { port ->
+                    if (tryPort(addr, port) > 0) return@withContext ScanResult(addr, port)
+                }
+                if (tryPort(addr, WELL_KNOWN_ADB) > 0) return@withContext ScanResult(addr, WELL_KNOWN_ADB)
+                val port = scanHost(addr)
+                if (port > 0) {
+                    lastAdbPort = port
+                    return@withContext ScanResult(addr, port)
+                }
             }
-            if (tryPort(addr, WELL_KNOWN_ADB) > 0) return@withContext ScanResult(addr, WELL_KNOWN_ADB)
-            val port = scanHost(addr)
-            if (port > 0) {
-                lastAdbPort = port
-                return@withContext ScanResult(addr, port)
-            }
+            null
         }
-        null
-    }
 
-    private suspend fun scanHost(host: String): Int = withContext(Dispatchers.IO) {
-        val range = SCAN_START..SCAN_END
-        val batchSize = 50
-        val totalPorts = range.toList()
-        val startTime = System.currentTimeMillis()
-        val MAX_SCAN_MS = 20_000L
-        for (batch in totalPorts.chunked(batchSize)) {
-            if (System.currentTimeMillis() - startTime > MAX_SCAN_MS) break
-            val results = coroutineScope {
-                batch.map { port ->
-                    async { tryPort(host, port) }
-                }.awaitAll()
+    private suspend fun scanHost(host: String): Int =
+        withContext(Dispatchers.IO) {
+            val range = SCAN_START..SCAN_END
+            val batchSize = 50
+            val totalPorts = range.toList()
+            val startTime = System.currentTimeMillis()
+            val MAX_SCAN_MS = 20_000L
+            for (batch in totalPorts.chunked(batchSize)) {
+                if (System.currentTimeMillis() - startTime > MAX_SCAN_MS) break
+                val results =
+                    coroutineScope {
+                        batch.map { port ->
+                            async { tryPort(host, port) }
+                        }.awaitAll()
+                    }
+                val found = results.firstOrNull { it > 0 }
+                if (found != null) return@withContext found
             }
-            val found = results.firstOrNull { it > 0 }
-            if (found != null) return@withContext found
+            0
         }
-        0
-    }
 
-    private fun tryPort(host: String, port: Int): Int {
+    private fun tryPort(
+        host: String,
+        port: Int,
+    ): Int {
         return try {
             Socket().use { socket ->
                 socket.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT)
                 socket.soTimeout = READ_TIMEOUT
-                val cnxn = AdbProtocol.createConnectionMessage()
+                val cnxn = AdbProtocol.createConnectionMessage("host::")
                 AdbProtocol.writeMessage(socket.getOutputStream(), cnxn)
                 val response = AdbProtocol.readMessage(socket.getInputStream())
                 if (response != null && (response.command.contentEquals(AdbProtocol.CNXN) || response.command.contentEquals(AdbProtocol.AUTH))) {
                     port
-                } else 0
+                } else {
+                    0
+                }
             }
         } catch (_: Exception) {
             0

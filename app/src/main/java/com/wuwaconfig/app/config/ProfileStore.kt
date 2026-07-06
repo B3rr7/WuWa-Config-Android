@@ -9,8 +9,7 @@ object ProfileStore {
     private const val FILE_NAME = "player_profile.json"
     private val gson = Gson()
 
-    private fun getFile(ctx: Context): File =
-        File(ctx.filesDir, FILE_NAME)
+    private fun getFile(ctx: Context): File = File(ctx.filesDir, FILE_NAME)
 
     fun load(ctx: Context): PlayerProfile? {
         val file = getFile(ctx)
@@ -23,7 +22,10 @@ object ProfileStore {
         }
     }
 
-    fun save(ctx: Context, profile: PlayerProfile) {
+    fun save(
+        ctx: Context,
+        profile: PlayerProfile,
+    ) {
         getFile(ctx).writeText(gson.toJson(profile))
     }
 

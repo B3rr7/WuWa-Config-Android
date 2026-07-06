@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.os.Environment
 import android.util.Base64
 import android.util.Log
+import com.google.gson.Gson
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.PUSH_RETRY_COUNT
 import com.wuwaconfig.app.backend.shQuote
@@ -16,30 +17,31 @@ import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.model.VerificationReport
-import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
-import java.util.zip.GZIPInputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.GZIPInputStream
 
 class ConfigManager(private val context: Context, private val backend: AccessBackend, backupDirPath: String? = null) {
     private val gson = Gson()
 
-    private val backupDir: File = File(backupDirPath ?: File(context.filesDir, "backups").absolutePath).also {
-        if (!it.mkdirs() && !it.exists()) {
-            LogRepository.add("ConfigManager: failed to create backup dir: ${it.absolutePath}", LogLevel.WARNING)
+    private val backupDir: File =
+        File(backupDirPath ?: File(context.filesDir, "backups").absolutePath).also {
+            if (!it.mkdirs() && !it.exists()) {
+                LogRepository.add("ConfigManager: failed to create backup dir: ${it.absolutePath}", LogLevel.WARNING)
+            }
         }
-    }
-    private val publicDir: File = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WuWaConfig").also {
-        if (!it.mkdirs() && !it.exists()) {
-            LogRepository.add("ConfigManager: failed to create public dir: ${it.absolutePath}", LogLevel.WARNING)
+    private val publicDir: File =
+        File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WuWaConfig").also {
+            if (!it.mkdirs() && !it.exists()) {
+                LogRepository.add("ConfigManager: failed to create public dir: ${it.absolutePath}", LogLevel.WARNING)
+            }
         }
-    }
 
     suspend fun applyCustomConfigs(
         engineIni: String?,
@@ -47,166 +49,228 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         gameUserSettingsIni: String?,
         scalabilityIni: String? = null,
         hardwareIni: String? = null,
-        onProgress: (String) -> Unit
-    ): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            LogRepository.add("ConfigManager: applying custom configs")
-            onProgress("Ensuring target directory exists...")
-            backend.ensureDirectoryExists(GamePaths.TARGET_DIR).getOrThrow()
-
-            val iniFiles = listOfNotNull(
-                engineIni?.takeIf { it.isNotBlank() }?.let { "Engine.ini" to it },
-                deviceProfilesIni?.takeIf { it.isNotBlank() }?.let { "DeviceProfiles.ini" to it },
-                gameUserSettingsIni?.takeIf { it.isNotBlank() }?.let { "GameUserSettings.ini" to it },
-                scalabilityIni?.takeIf { it.isNotBlank() }?.let { "Scalability.ini" to it },
-                hardwareIni?.takeIf { it.isNotBlank() }?.let { "Hardware.ini" to it }
-            )
-
-            if (iniFiles.isEmpty()) {
-                LogRepository.add("ConfigManager: no config files selected", LogLevel.WARNING)
-                return@withContext Result.failure(Exception("No config file content selected"))
-            }
-
-            for ((name, _) in iniFiles) {
-                val targetPath = "${GamePaths.TARGET_DIR}/$name"
-                val exists = backend.fileExists(targetPath).getOrElse { false }
-                if (exists) {
-                    onProgress("$name exists on device, will overwrite")
-                }
-            }
-
-            val tempDir = File(context.cacheDir, "staging")
-            tempDir.mkdirs()
+        onProgress: (String) -> Unit,
+    ): Result<String> =
+        withContext(Dispatchers.IO) {
             try {
-                for ((name, content) in iniFiles) {
-                    onProgress("Applying $name...")
-                    LogRepository.add("ConfigManager: pushing $name")
-                    val tempFile = File(tempDir, name)
-                    tempFile.writeText(content)
+                LogRepository.add("ConfigManager: applying custom configs")
+                onProgress("Ensuring target directory exists...")
+                backend.ensureDirectoryExists(GamePaths.TARGET_DIR).getOrThrow()
+
+                val iniFiles =
+                    listOfNotNull(
+                        engineIni?.takeIf { it.isNotBlank() }?.let { "Engine.ini" to it },
+                        deviceProfilesIni?.takeIf { it.isNotBlank() }?.let { "DeviceProfiles.ini" to it },
+                        gameUserSettingsIni?.takeIf { it.isNotBlank() }?.let { "GameUserSettings.ini" to it },
+                        scalabilityIni?.takeIf { it.isNotBlank() }?.let { "Scalability.ini" to it },
+                        hardwareIni?.takeIf { it.isNotBlank() }?.let { "Hardware.ini" to it },
+                    )
+
+                if (iniFiles.isEmpty()) {
+                    LogRepository.add("ConfigManager: no config files selected", LogLevel.WARNING)
+                    return@withContext Result.failure(Exception("No config file content selected"))
+                }
+
+                for ((name, _) in iniFiles) {
                     val targetPath = "${GamePaths.TARGET_DIR}/$name"
+                    val exists = backend.fileExists(targetPath).getOrElse { false }
+                    if (exists) {
+                        onProgress("$name exists on device, will overwrite")
+                    }
+                }
+
+                val tempDir = File(context.cacheDir, "staging")
+                tempDir.mkdirs()
+                try {
+                    for ((name, content) in iniFiles) {
+                        onProgress("Applying $name...")
+                        LogRepository.add("ConfigManager: pushing $name")
+                        val tempFile = File(tempDir, name)
+                        tempFile.writeText(content)
+                        val targetPath = "${GamePaths.TARGET_DIR}/$name"
+                        var lastError: Result<String>? = null
+                        var success = false
+                        for (attempt in 0..PUSH_RETRY_COUNT) {
+                            val r = backend.pushFile(tempFile.absolutePath, targetPath)
+                            if (r.isSuccess) {
+                                success = true
+                                break
+                            }
+                            lastError = r
+                            onProgress("Retrying $name (attempt ${attempt + 2})...")
+                        }
+                        if (!success) {
+                            throw lastError?.exceptionOrNull() ?: Exception("Failed to push $name")
+                        }
+                    }
+                    LogRepository.add("ConfigManager: custom configs applied successfully", LogLevel.SUCCESS)
+                    Result.success("Custom configs applied successfully!")
+                } finally {
+                    tempDir.deleteRecursively()
+                }
+            } catch (e: Exception) {
+                LogRepository.add("ConfigManager: applyCustomConfigs failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
+
+    suspend fun pushSingleFile(
+        fileName: String,
+        content: String,
+        onProgress: (String) -> Unit,
+    ): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                LogRepository.add("ConfigManager: pushing single file $fileName")
+                onProgress("Ensuring target directory exists...")
+                backend.ensureDirectoryExists(GamePaths.TARGET_DIR).getOrThrow()
+
+                val tempDir = File(context.cacheDir, "staging")
+                tempDir.mkdirs()
+                try {
+                    val tempFile = File(tempDir, fileName)
+                    tempFile.writeText(content)
+                    val targetPath = "${GamePaths.TARGET_DIR}/$fileName"
                     var lastError: Result<String>? = null
                     var success = false
                     for (attempt in 0..PUSH_RETRY_COUNT) {
                         val r = backend.pushFile(tempFile.absolutePath, targetPath)
-                        if (r.isSuccess) { success = true; break }
+                        if (r.isSuccess) {
+                            success = true
+                            break
+                        }
                         lastError = r
-                        onProgress("Retrying $name (attempt ${attempt + 2})...")
+                        onProgress("Retrying $fileName (attempt ${attempt + 2})...")
                     }
                     if (!success) {
-                        throw lastError?.exceptionOrNull() ?: Exception("Failed to push $name")
+                        throw lastError?.exceptionOrNull() ?: Exception("Failed to push $fileName")
                     }
+                    LogRepository.add("ConfigManager: $fileName pushed successfully", LogLevel.SUCCESS)
+                    Result.success("$fileName pushed successfully!")
+                } finally {
+                    tempDir.deleteRecursively()
                 }
-                LogRepository.add("ConfigManager: custom configs applied successfully", LogLevel.SUCCESS)
-                Result.success("Custom configs applied successfully!")
-            } finally {
-                tempDir.deleteRecursively()
+            } catch (e: Exception) {
+                LogRepository.add("ConfigManager: pushSingleFile failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
             }
-        } catch (e: Exception) {
-            LogRepository.add("ConfigManager: applyCustomConfigs failed: ${e.message}", LogLevel.ERROR)
-            Result.failure(e)
         }
-    }
 
-    suspend fun readClientLogContent(onProgress: (Int) -> Unit = {}): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val logFilePath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
-            val content = readRemoteLogText(logFilePath, onProgress).getOrThrow()
-            Result.success(content.first)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun readClientLogTextWithMetadata(onProgress: (Int) -> Unit = {}): Result<Pair<String, Boolean>> = withContext(Dispatchers.IO) {
-        try {
-            val logFilePath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
-            readRemoteLogText(logFilePath, onProgress)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun verifyDeployedCvars(generatedCvars: Set<String>): Result<VerificationReport> = withContext(Dispatchers.IO) {
-        try {
-            val logResult = readRemoteLogText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
-            if (logResult.isFailure) return@withContext Result.failure(logResult.exceptionOrNull()!!)
-            val (text, _) = logResult.getOrThrow()
-            val info = LogParser.parseLog(text)
-            val recognizedLower = info.activeCvars.keys.map { it.lowercase() }.toSet()
-            val accepted = generatedCvars.filter { it.lowercase() in recognizedLower }.toSet()
-            val rejected = generatedCvars - accepted
-            Result.success(VerificationReport(
-                accepted = accepted,
-                rejected = rejected,
-                recognizedCount = accepted.size,
-                totalCount = generatedCvars.size
-            ))
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun collectClientLog(onProgress: (String) -> Unit): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val logFilePath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
-            onProgress("Reading ${GamePaths.LOG_FILE_NAME}...")
-            val content = readRemoteLogText(logFilePath).getOrThrow().first
-            backupDir.mkdirs()
-            val savedFile = File(backupDir, "Client.log")
-            savedFile.writeText(content)
-            val publicFile = File(publicDir, "Client.log")
-            publicFile.writeText(content)
-            onProgress("Saved to ${savedFile.absolutePath}")
-            onProgress("Also saved to ${publicFile.absolutePath} (public)")
-            Result.success(savedFile.absolutePath)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun createBackup(name: String, type: String = "manual", selectedFiles: Set<String>? = null): Result<ConfigBackup> = withContext(Dispatchers.IO) {
-        try {
-            LogRepository.add("ConfigManager: creating backup '$name'")
-            Log.d("ConfigManager", "createBackup: listing ${GamePaths.TARGET_DIR}")
-            val files = backend.listDirectory(GamePaths.TARGET_DIR).getOrThrow()
-            Log.d("ConfigManager", "createBackup: listed ${files.size} files: $files")
-            val allIniNames = setOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
-            val targetNames = selectedFiles ?: allIniNames
-            val configFiles = files.filter { it in targetNames && it in allIniNames }.map { fileName ->
-                Log.d("ConfigManager", "createBackup: reading $fileName")
-                val content = backend.readFile("${GamePaths.TARGET_DIR}/$fileName").getOrDefault("")
-                Log.d("ConfigManager", "createBackup: read $fileName (${content.length} chars)")
-                ConfigFile(name = fileName, content = content)
+    suspend fun readClientLogContent(onProgress: (Int) -> Unit = {}): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val logFilePath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
+                val content = readRemoteLogText(logFilePath, onProgress).getOrThrow()
+                Result.success(content.first)
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-            LogRepository.add("ConfigManager: backup read ${configFiles.size} config files")
-            Log.d("ConfigManager", "createBackup: saving backup to $backupDir")
-            val backup = ConfigBackup(name = name, files = configFiles, type = type)
-            File(backupDir, "${backup.id}.json").writeText(gson.toJson(backup))
-            val publicBackupDir = File(File(publicDir, "Backups"), sanitizeDirName(name)).also { it.mkdirs() }
-            configFiles.forEach { f -> File(publicBackupDir, f.name).writeText(f.content) }
-            Log.d("ConfigManager", "createBackup: SUCCESS")
-            LogRepository.add("ConfigManager: backup '$name' created", LogLevel.SUCCESS)
-            Result.success(backup)
-        } catch (e: Exception) {
-            Log.e("ConfigManager", "createBackup FAILED: ${e.message}", e)
-            LogRepository.add("ConfigManager: createBackup failed: ${e.message}", LogLevel.ERROR)
-            Result.failure(e)
         }
-    }
+
+    suspend fun readClientLogTextWithMetadata(onProgress: (Int) -> Unit = {}): Result<Pair<String, Boolean>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val logFilePath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
+                readRemoteLogText(logFilePath, onProgress)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun verifyDeployedCvars(generatedCvars: Set<String>): Result<VerificationReport> =
+        withContext(Dispatchers.IO) {
+            try {
+                val logResult = readRemoteLogText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
+                if (logResult.isFailure) return@withContext Result.failure(logResult.exceptionOrNull()!!)
+                val (text, _) = logResult.getOrThrow()
+                val info = LogParser.parseLog(text)
+                val recognizedLower = info.activeCvars.keys.map { it.lowercase() }.toSet()
+                val accepted = generatedCvars.filter { it.lowercase() in recognizedLower }.toSet()
+                val rejected = generatedCvars - accepted
+                Result.success(
+                    VerificationReport(
+                        accepted = accepted,
+                        rejected = rejected,
+                        recognizedCount = accepted.size,
+                        totalCount = generatedCvars.size,
+                    ),
+                )
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun collectClientLog(onProgress: (String) -> Unit): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val logFilePath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
+                onProgress("Reading ${GamePaths.LOG_FILE_NAME}...")
+                val content = readRemoteLogText(logFilePath).getOrThrow().first
+                backupDir.mkdirs()
+                val savedFile = File(backupDir, "Client.log")
+                savedFile.writeText(content)
+                val publicFile = File(publicDir, "Client.log")
+                publicFile.writeText(content)
+                onProgress("Saved to ${savedFile.absolutePath}")
+                onProgress("Also saved to ${publicFile.absolutePath} (public)")
+                Result.success(savedFile.absolutePath)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun createBackup(
+        name: String,
+        type: String = "manual",
+        selectedFiles: Set<String>? = null,
+    ): Result<ConfigBackup> =
+        withContext(Dispatchers.IO) {
+            try {
+                LogRepository.add("ConfigManager: creating backup '$name'")
+                Log.d("ConfigManager", "createBackup: listing ${GamePaths.TARGET_DIR}")
+                val files = backend.listDirectory(GamePaths.TARGET_DIR).getOrThrow()
+                Log.d("ConfigManager", "createBackup: listed ${files.size} files: $files")
+                val allIniNames = setOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
+                val targetNames = selectedFiles ?: allIniNames
+                val configFiles =
+                    files.filter { it in targetNames && it in allIniNames }.map { fileName ->
+                        Log.d("ConfigManager", "createBackup: reading $fileName")
+                        val content = backend.readFile("${GamePaths.TARGET_DIR}/$fileName").getOrDefault("")
+                        Log.d("ConfigManager", "createBackup: read $fileName (${content.length} chars)")
+                        ConfigFile(name = fileName, content = content)
+                    }
+                LogRepository.add("ConfigManager: backup read ${configFiles.size} config files")
+                Log.d("ConfigManager", "createBackup: saving backup to $backupDir")
+                val backup = ConfigBackup(name = name, files = configFiles, type = type)
+                File(backupDir, "${backup.id}.json").writeText(gson.toJson(backup))
+                val publicBackupDir = File(File(publicDir, "Backups"), sanitizeDirName(name)).also { it.mkdirs() }
+                configFiles.forEach { f -> File(publicBackupDir, f.name).writeText(f.content) }
+                Log.d("ConfigManager", "createBackup: SUCCESS")
+                LogRepository.add("ConfigManager: backup '$name' created", LogLevel.SUCCESS)
+                Result.success(backup)
+            } catch (e: Exception) {
+                Log.e("ConfigManager", "createBackup FAILED: ${e.message}", e)
+                LogRepository.add("ConfigManager: createBackup failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
 
     fun getLocalBackups(): List<ConfigBackup> {
         if (!backupDir.exists()) return emptyList()
         return backupDir.listFiles()
             ?.filter { it.extension == "json" }
             ?.mapNotNull { file ->
-                try { gson.fromJson(file.readText(), ConfigBackup::class.java) } catch (_: Exception) { null }
+                try {
+                    gson.fromJson(file.readText(), ConfigBackup::class.java)
+                } catch (_: Exception) {
+                    null
+                }
             }
             ?.sortedByDescending { it.timestamp }
             ?: emptyList()
     }
 
-    private fun sanitizeDirName(name: String): String =
-        name.replace(Regex("""[<>:"/\\|?*]"""), "_").take(100)
+    private fun sanitizeDirName(name: String): String = name.replace(Regex("""[<>:"/\\|?*]"""), "_").take(100)
 
     fun deleteLocalBackup(backup: ConfigBackup) {
         val file = File(backupDir, "${backup.id}.json")
@@ -215,7 +279,11 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         if (pubDir.exists()) pubDir.deleteRecursively()
     }
 
-    suspend fun restoreBackup(backup: ConfigBackup, onProgress: (String) -> Unit, selectedFiles: Set<String>? = null): Result<String> {
+    suspend fun restoreBackup(
+        backup: ConfigBackup,
+        onProgress: (String) -> Unit,
+        selectedFiles: Set<String>? = null,
+    ): Result<String> {
         val files = if (selectedFiles != null) backup.files.filter { it.name in selectedFiles } else backup.files
         if (files.isEmpty()) return Result.failure(Exception("No files selected for restore"))
         return applyFiles(backup.name, files, onProgress)
@@ -224,63 +292,76 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
     private suspend fun applyFiles(
         label: String,
         files: List<ConfigFile>,
-        onProgress: (String) -> Unit
-    ): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            onProgress("Ensuring target directory exists...")
-            backend.ensureDirectoryExists(GamePaths.TARGET_DIR).getOrThrow()
-
-            val tempDir = File(context.cacheDir, "staging")
-            tempDir.mkdirs()
+        onProgress: (String) -> Unit,
+    ): Result<String> =
+        withContext(Dispatchers.IO) {
             try {
-                for (file in files) {
-                    onProgress("Restoring ${file.name}...")
-                    val tempFile = File(tempDir, file.name)
-                    tempFile.writeText(file.content)
-                    val targetPath = "${GamePaths.TARGET_DIR}/${file.name}"
-                    var lastError: Result<String>? = null
-                    var success = false
-                    for (attempt in 0..PUSH_RETRY_COUNT) {
-                        val r = backend.pushFile(tempFile.absolutePath, targetPath)
-                        if (r.isSuccess) { success = true; break }
-                        lastError = r
-                        onProgress("Retrying ${file.name} (attempt ${attempt + 2})...")
+                onProgress("Ensuring target directory exists...")
+                backend.ensureDirectoryExists(GamePaths.TARGET_DIR).getOrThrow()
+
+                val tempDir = File(context.cacheDir, "staging")
+                tempDir.mkdirs()
+                try {
+                    for (file in files) {
+                        onProgress("Restoring ${file.name}...")
+                        val tempFile = File(tempDir, file.name)
+                        tempFile.writeText(file.content)
+                        val targetPath = "${GamePaths.TARGET_DIR}/${file.name}"
+                        var lastError: Result<String>? = null
+                        var success = false
+                        for (attempt in 0..PUSH_RETRY_COUNT) {
+                            val r = backend.pushFile(tempFile.absolutePath, targetPath)
+                            if (r.isSuccess) {
+                                success = true
+                                break
+                            }
+                            lastError = r
+                            onProgress("Retrying ${file.name} (attempt ${attempt + 2})...")
+                        }
+                        if (!success) {
+                            throw lastError?.exceptionOrNull() ?: Exception("Failed to restore ${file.name}")
+                        }
                     }
-                    if (!success) {
-                        throw lastError?.exceptionOrNull() ?: Exception("Failed to restore ${file.name}")
-                    }
+                    Result.success("$label restored successfully!")
+                } finally {
+                    tempDir.deleteRecursively()
                 }
-                Result.success("$label restored successfully!")
-            } finally {
-                tempDir.deleteRecursively()
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-        } catch (e: Exception) {
-            Result.failure(e)
         }
-    }
 
     suspend fun readCurrentConfig(fileName: String): Result<String> {
         return backend.readFile("${GamePaths.TARGET_DIR}/$fileName")
     }
 
-    private suspend fun readRemoteLogText(path: String, onProgress: (Int) -> Unit = {}): Result<Pair<String, Boolean>> {
+    private suspend fun readRemoteLogText(
+        path: String,
+        onProgress: (Int) -> Unit = {},
+    ): Result<Pair<String, Boolean>> {
         onProgress(5)
         val sizeResult = backend.executeShellCommand("wc -c < \"$path\" 2>/dev/null")
         val fileSize = sizeResult.getOrNull()?.trim()?.toLongOrNull() ?: 0L
         if (fileSize <= 0L) return Result.failure(Exception("Cannot determine log file size"))
 
         val CHUNK_SIZE = 1_000_000L
-        val totalChunks = when {
-            fileSize <= CHUNK_SIZE -> 1
-            else -> (fileSize / 5_000_000L).toInt().coerceIn(5, 30)
-        }
+        val totalChunks =
+            when {
+                fileSize <= CHUNK_SIZE -> 1
+                else -> (fileSize / 5_000_000L).toInt().coerceIn(5, 30)
+            }
 
         fun decodeB64(output: String): ByteArray? {
-            val clean = output.lines()
-                .filterNot { it.startsWith("base64:", ignoreCase = true) }
-                .joinToString("").trim()
+            val clean =
+                output.lines()
+                    .filterNot { it.startsWith("base64:", ignoreCase = true) }
+                    .joinToString("").trim()
             if (clean.isBlank()) return null
-            return try { Base64.decode(clean, Base64.DEFAULT) } catch (_: Exception) { null }
+            return try {
+                Base64.decode(clean, Base64.DEFAULT)
+            } catch (_: Exception) {
+                null
+            }
         }
 
         fun decompress(data: ByteArray): ByteArray {
@@ -289,7 +370,9 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                     GZIPInputStream(data.inputStream()).use { it.copyTo(out) }
                     out.toByteArray()
                 }
-            } catch (_: Exception) { data }
+            } catch (_: Exception) {
+                data
+            }
         }
 
         suspend fun pullChunk(offset: Long): Pair<String, Boolean>? {
@@ -297,19 +380,32 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             val out = backend.executeShellCommand(cmd).getOrNull()
             val raw = out?.let { decodeB64(it) } ?: return null
             val decompressed = decompress(raw)
-            return try { LogParser.decodeLogBytes(decompressed) } catch (_: Exception) { null }
+            return try {
+                LogParser.decodeLogBytes(decompressed)
+            } catch (_: Exception) {
+                null
+            }
         }
 
-        suspend fun pullChunkText(offset: Long, wasEncrypted: Boolean): String? {
+        suspend fun pullChunkText(
+            offset: Long,
+            wasEncrypted: Boolean,
+        ): String? {
             val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | gzip -c | base64"
             val out = backend.executeShellCommand(cmd).getOrNull()
             val raw = out?.let { decodeB64(it) } ?: return null
             val decompressed = decompress(raw)
             return try {
-                val pair = if (wasEncrypted) LogParser.decodeXorBytes(decompressed)
-                           else LogParser.decodeLogBytes(decompressed)
+                val pair =
+                    if (wasEncrypted) {
+                        LogParser.decodeXorBytes(decompressed)
+                    } else {
+                        LogParser.decodeLogBytes(decompressed)
+                    }
                 pair.first
-            } catch (_: Exception) { null }
+            } catch (_: Exception) {
+                null
+            }
         }
 
         if (totalChunks == 1) {
@@ -317,13 +413,21 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             val full = backend.executeShellCommand("base64 \"$path\" 2>/dev/null")
             onProgress(85)
             val raw = full.getOrNull()?.let { decodeB64(it) }
-            val result = raw?.let { try { LogParser.decodeLogBytes(it) } catch (_: Exception) { null } }
+            val result =
+                raw?.let {
+                    try {
+                        LogParser.decodeLogBytes(it)
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
             onProgress(95)
             if (result != null) return Result.success(result)
         } else {
-            val offsets = (0 until totalChunks).map { i ->
-                (fileSize * i / totalChunks).coerceAtMost(fileSize - CHUNK_SIZE)
-            }.distinct()
+            val offsets =
+                (0 until totalChunks).map { i ->
+                    (fileSize * i / totalChunks).coerceAtMost(fileSize - CHUNK_SIZE)
+                }.distinct()
 
             fun progressForChunk(done: Int) = 10 + (done * 80 / offsets.size)
 
@@ -356,253 +460,399 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         return backend.listDirectory(GamePaths.TARGET_DIR)
     }
 
-    suspend fun deleteConfigFiles(onProgress: (String) -> Unit): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            LogRepository.add("ConfigManager: deleting config files")
-            val targets = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
-            var deleted = 0
-            for (name in targets) {
-                val path = "${GamePaths.TARGET_DIR}/$name"
-                if (backend.fileExists(path).getOrElse { false }) {
-                    backend.executeShellCommand("rm -f \"$path\"").getOrThrow()
-                    onProgress("Deleted $name")
-                    LogRepository.add("ConfigManager: deleted $name")
-                    deleted++
+    fun cleanIniContent(
+        original: String,
+        fileName: String,
+    ): String {
+        if (original.isBlank()) return original
+        if (fileName == "Engine.ini") {
+            val result = StringBuilder()
+            var inCoreSystem = false
+            for (line in original.lines()) {
+                val trimmed = line.trim()
+                if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                    val section = trimmed.removePrefix("[").removeSuffix("]")
+                    inCoreSystem = section == "Core.System"
+                    if (inCoreSystem) {
+                        result.appendLine(line)
+                    }
+                    continue
+                }
+                if (inCoreSystem) {
+                    result.appendLine(line)
                 }
             }
-            if (deleted > 0) {
-                LogRepository.add("ConfigManager: deleted $deleted config file(s)", LogLevel.SUCCESS)
-                Result.success("Deleted $deleted config file(s)")
-            } else {
-                LogRepository.add("ConfigManager: no config files found to delete", LogLevel.WARNING)
-                Result.failure(Exception("No config files found to delete"))
-            }
-        } catch (e: Exception) {
-            LogRepository.add("ConfigManager: deleteConfigFiles failed: ${e.message}", LogLevel.ERROR)
-            Result.failure(e)
+            return result.toString().trimEnd() + "\n"
         }
+        val result = StringBuilder()
+        var inSection = false
+        for (line in original.lines()) {
+            val trimmed = line.trim()
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                inSection = true
+                result.appendLine(line)
+                continue
+            }
+            if (inSection && trimmed.contains('=')) continue
+            if (inSection && trimmed.isNotBlank()) continue
+            result.appendLine(line)
+        }
+        return result.toString().trimEnd() + "\n"
     }
 
-    suspend fun refreshConfigHashes(): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            LogRepository.add("ConfigManager: refreshing config hashes")
-            val md5 = MessageDigest.getInstance("MD5")
-            val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-
-            val existingHashContent = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
-            val existingLines = existingHashContent.lines().toMutableList()
-            val hasExistingContent = existingLines.any { it.trim().startsWith("[") }
-
-            // Build map of monitored file -> new values to patch
-            val updates = mutableMapOf<String, Map<String, String>>()
-            for (name in GamePaths.MONITORED_FILES) {
-                val path = "${GamePaths.TARGET_DIR}/$name"
-                val content = backend.readFile(path).getOrDefault("")
-                val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
-
-                var prevCount = 0
-                var inSection = false
-                for (line in existingLines) {
-                    val t = line.trim()
-                    if (t.equals("[$name]", ignoreCase = false)) { inSection = true; continue }
-                    if (inSection && t.startsWith("[") && t.endsWith("]")) break
-                    if (inSection && t.startsWith("ModifyCount=")) {
-                        prevCount = t.removePrefix("ModifyCount=").toIntOrNull() ?: 0
+    suspend fun cleanConfigFiles(onProgress: (String) -> Unit): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                LogRepository.add("ConfigManager: cleaning config files")
+                var cleaned = 0
+                for (name in GamePaths.MONITORED_FILES) {
+                    val path = "${GamePaths.TARGET_DIR}/$name"
+                    if (!backend.fileExists(path).getOrElse { false }) continue
+                    onProgress("Reading $name...")
+                    val contentResult = backend.readFile(path)
+                    if (contentResult.isFailure) continue
+                    val content = contentResult.getOrThrow()
+                    val cleanedContent = cleanIniContent(content, name)
+                    if (cleanedContent == content) {
+                        onProgress("$name unchanged, skipping")
+                        continue
+                    }
+                    onProgress("Cleaning $name...")
+                    val tempFile = File(context.cacheDir, "staging_$name")
+                    tempFile.parentFile?.mkdirs()
+                    try {
+                        tempFile.writeText(cleanedContent)
+                        backend.pushFile(tempFile.absolutePath, path).getOrThrow()
+                        LogRepository.add("ConfigManager: cleaned $name")
+                        cleaned++
+                    } finally {
+                        tempFile.delete()
                     }
                 }
-                updates[name] = mapOf(
-                    "Hash" to hash,
-                    "ModifyCount" to prevCount.toString(),
-                    "LastModifiedTime" to now
-                )
-            }
-
-            val patchedLines = mutableListOf<String>()
-            var currentSection = ""
-
-            fun flushPendingSection(name: String) {
-                val patch = updates.remove(name) ?: return
-                for (lineKey in listOf("Hash", "ModifyCount", "LastModifiedTime")) {
-                    val value = patch[lineKey] ?: continue
-                    patchedLines.add("$lineKey=$value")
+                if (cleaned > 0) {
+                    LogRepository.add("ConfigManager: cleaned $cleaned config file(s)", LogLevel.SUCCESS)
+                    Result.success("Cleaned $cleaned config file(s)")
+                } else {
+                    LogRepository.add("ConfigManager: no config files needed cleaning", LogLevel.WARNING)
+                    Result.failure(Exception("All config files are already clean"))
                 }
+            } catch (e: Exception) {
+                LogRepository.add("ConfigManager: cleanConfigFiles failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
             }
+        }
 
-            if (hasExistingContent) {
-                for (line in existingLines) {
-                    val trimmed = line.trim()
-                    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                        val sectionName = trimmed.removePrefix("[").removeSuffix("]")
-                        // If we just finished a monitored section and not all patch keys were found,
-                        // append any missing ones before the next section
-                        if (updates.containsKey(currentSection)) {
-                            flushPendingSection(currentSection)
+    suspend fun deleteConfigFiles(fileNames: Set<String>): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                if (fileNames.isEmpty()) return@withContext Result.failure(Exception("No files selected for deletion"))
+                LogRepository.add("ConfigManager: deleting config files: ${fileNames.joinToString(", ")}")
+                var deleted = 0
+                var errors = 0
+                for (name in fileNames) {
+                    val path = "${GamePaths.TARGET_DIR}/$name"
+                    val exists = backend.fileExists(path).getOrElse { false }
+                    if (!exists) {
+                        LogRepository.add("ConfigManager: $name not found on device, skipping")
+                        continue
+                    }
+                    val cmd = "rm -f ${shQuote(path)}"
+                    val result = backend.executeShellCommand(cmd)
+                    if (result.isSuccess) {
+                        LogRepository.add("ConfigManager: deleted $name")
+                        deleted++
+                    } else {
+                        LogRepository.add("ConfigManager: failed to delete $name: ${result.exceptionOrNull()?.message}", LogLevel.ERROR)
+                        errors++
+                    }
+                }
+                if (deleted > 0) {
+                    LogRepository.add("ConfigManager: deleted $deleted config file(s)", LogLevel.SUCCESS)
+                    Result.success("Deleted $deleted config file(s)")
+                } else {
+                    LogRepository.add("ConfigManager: no config files were deleted", LogLevel.WARNING)
+                    Result.failure(Exception("No config files were deleted"))
+                }
+            } catch (e: Exception) {
+                LogRepository.add("ConfigManager: deleteConfigFiles failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
+
+    suspend fun refreshConfigHashes(): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                LogRepository.add("ConfigManager: refreshing config hashes")
+                val md5 = MessageDigest.getInstance("MD5")
+                val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+
+                val existingHashContent = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
+                val existingLines = existingHashContent.lines().toMutableList()
+                val hasExistingContent = existingLines.any { it.trim().startsWith("[") }
+
+                // Build map of monitored file -> new values to patch
+                val updates = mutableMapOf<String, Map<String, String>>()
+                for (name in GamePaths.MONITORED_FILES) {
+                    val path = "${GamePaths.TARGET_DIR}/$name"
+                    val content = backend.readFile(path).getOrDefault("")
+                    val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+
+                    var prevCount = 0
+                    var inSection = false
+                    for (line in existingLines) {
+                        val t = line.trim()
+                        if (t.equals("[$name]", ignoreCase = false)) {
+                            inSection = true
+                            continue
                         }
-                        currentSection = sectionName
-                        patchedLines.add(line)
-                    } else if (updates.containsKey(currentSection)) {
-                        val eq = trimmed.indexOf('=')
-                        if (eq > 0) {
-                            val key = trimmed.substring(0, eq).trim()
-                            val replacement = updates[currentSection]?.get(key)
-                            if (replacement != null) {
-                                val indent = line.takeWhile { it == ' ' || it == '\t' }
-                                patchedLines.add("$indent$key=$replacement")
+                        if (inSection && t.startsWith("[") && t.endsWith("]")) break
+                        if (inSection && t.startsWith("ModifyCount=")) {
+                            prevCount = t.removePrefix("ModifyCount=").toIntOrNull() ?: 0
+                        }
+                    }
+                    updates[name] =
+                        mapOf(
+                            "Hash" to hash,
+                            "ModifyCount" to prevCount.toString(),
+                            "LastModifiedTime" to now,
+                        )
+                }
+
+                val patchedLines = mutableListOf<String>()
+                var currentSection = ""
+                val seenKeys = mutableSetOf<String>()
+
+                fun flushPendingSection(name: String) {
+                    val patch = updates.remove(name) ?: return
+                    for (lineKey in listOf("Hash", "ModifyCount", "LastModifiedTime")) {
+                        val value = patch[lineKey] ?: continue
+                        val newLine = "$lineKey=$value"
+                        if (seenKeys.add(newLine)) patchedLines.add(newLine)
+                    }
+                }
+
+                fun dedupLine(trimmed: String): Boolean {
+                    if (trimmed.startsWith("[") && trimmed.endsWith("]")) return false
+                    val eq = trimmed.indexOf('=')
+                    if (eq <= 0) return false
+                    val key = trimmed.substring(0, eq).trim()
+                    return key in listOf("Hash", "ModifyCount", "LastModifiedTime") && !seenKeys.add(trimmed)
+                }
+
+                if (hasExistingContent) {
+                    for (line in existingLines) {
+                        val trimmed = line.trim()
+                        if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                            val sectionName = trimmed.removePrefix("[").removeSuffix("]")
+                            if (updates.containsKey(currentSection)) {
+                                flushPendingSection(currentSection)
+                            }
+                            currentSection = sectionName
+                            seenKeys.clear()
+                            patchedLines.add(line)
+                        } else if (updates.containsKey(currentSection)) {
+                            val eq = trimmed.indexOf('=')
+                            if (eq > 0) {
+                                val key = trimmed.substring(0, eq).trim()
+                                val replacement = updates[currentSection]?.get(key)
+                                if (replacement != null) {
+                                    val indent = line.takeWhile { it == ' ' || it == '\t' }
+                                    val newLine = "$indent$key=$replacement"
+                                    if (seenKeys.add(newLine)) patchedLines.add(newLine)
+                                } else if (!dedupLine(trimmed)) {
+                                    patchedLines.add(line)
+                                }
                             } else {
                                 patchedLines.add(line)
                             }
-                        } else {
+                        } else if (!dedupLine(trimmed)) {
                             patchedLines.add(line)
                         }
-                    } else {
-                        patchedLines.add(line)
+                    }
+                    if (updates.containsKey(currentSection)) {
+                        flushPendingSection(currentSection)
+                    }
+                    for ((name, patch) in updates) {
+                        patchedLines.add("")
+                        patchedLines.add("[$name]")
+                        patchedLines.add("Hash=${patch["Hash"] ?: ""}")
+                        patchedLines.add("ModifyCount=${patch["ModifyCount"] ?: "0"}")
+                        patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
+                    }
+                } else {
+                    // No existing content — build from scratch (first-time)
+                    for (name in GamePaths.MONITORED_FILES) {
+                        val content = backend.readFile("${GamePaths.TARGET_DIR}/$name").getOrDefault("")
+                        val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+                        patchedLines.add("[$name]")
+                        patchedLines.add("Hash=$hash")
+                        patchedLines.add("ModifyCount=0")
+                        patchedLines.add("LastModifiedTime=$now")
+                        patchedLines.add("")
                     }
                 }
-                // If last section was monitored, append any remaining patch keys
-                if (updates.containsKey(currentSection)) {
-                    flushPendingSection(currentSection)
-                }
-                // If any monitored files had no section in the existing file, append new sections
-                for ((name, patch) in updates) {
-                    patchedLines.add("")
-                    patchedLines.add("[$name]")
-                    patchedLines.add("Hash=${patch["Hash"] ?: ""}")
-                    patchedLines.add("ModifyCount=${patch["ModifyCount"] ?: "0"}")
-                    patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
-                }
-            } else {
-                // No existing content — build from scratch (first-time)
-                for (name in GamePaths.MONITORED_FILES) {
-                    val content = backend.readFile("${GamePaths.TARGET_DIR}/$name").getOrDefault("")
-                    val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
-                    patchedLines.add("[$name]")
-                    patchedLines.add("Hash=$hash")
-                    patchedLines.add("ModifyCount=0")
-                    patchedLines.add("LastModifiedTime=$now")
-                    patchedLines.add("")
-                }
-            }
 
-            val newContent = patchedLines.joinToString("\n").trimEnd() + "\n"
-            val tempFile = File(context.cacheDir, "KuroConfigMonitor.hash")
-            tempFile.writeText(newContent)
-            val hashTempPath = GamePaths.HASH_MONITOR_PATH + ".new"
-            var hashPushOk = false
-            var hashPushError: Throwable? = null
-            for (attempt in 0..PUSH_RETRY_COUNT) {
-                val r = backend.pushFile(tempFile.absolutePath, hashTempPath)
-                if (r.isSuccess) { hashPushOk = true; break }
-                hashPushError = r.exceptionOrNull()
-            }
-            if (!hashPushOk) {
-                backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
-                throw hashPushError ?: Exception("Failed to push hash file")
-            }
-            backend.executeShellCommand("mv ${shQuote(hashTempPath)} ${shQuote(GamePaths.HASH_MONITOR_PATH)}")
-            tempFile.delete()
+                val newContent = patchedLines.joinToString("\n").trimEnd() + "\n"
+                val tempFile = File(context.cacheDir, "KuroConfigMonitor.hash")
+                tempFile.writeText(newContent)
+                val hashTempPath = GamePaths.HASH_MONITOR_PATH + ".new"
+                var hashPushOk = false
+                var hashPushError: Throwable? = null
+                for (attempt in 0..PUSH_RETRY_COUNT) {
+                    val r = backend.pushFile(tempFile.absolutePath, hashTempPath)
+                    if (r.isSuccess) {
+                        hashPushOk = true
+                        break
+                    }
+                    hashPushError = r.exceptionOrNull()
+                }
+                if (!hashPushOk) {
+                    backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
+                    throw hashPushError ?: Exception("Failed to push hash file")
+                }
+                backend.executeShellCommand("mv ${shQuote(hashTempPath)} ${shQuote(GamePaths.HASH_MONITOR_PATH)}")
+                tempFile.delete()
 
-            val verifyResult = backend.readFile(GamePaths.HASH_MONITOR_PATH)
-            if (verifyResult.isSuccess) {
-                val stored = verifyResult.getOrThrow().trim()
-                if (stored == newContent.trim()) {
-                    Log.d("ConfigManager", "Config hashes refreshed and verified successfully")
-                    LogRepository.add("ConfigManager: hashes refreshed and verified", LogLevel.SUCCESS)
-                    Result.success("Config hashes synced & verified")
+                val verifyResult = backend.readFile(GamePaths.HASH_MONITOR_PATH)
+                if (verifyResult.isSuccess) {
+                    val stored = verifyResult.getOrThrow().trim()
+                    if (stored == newContent.trim()) {
+                        Log.d("ConfigManager", "Config hashes refreshed and verified successfully")
+                        LogRepository.add("ConfigManager: hashes refreshed and verified", LogLevel.SUCCESS)
+                        Result.success("Config hashes synced & verified")
+                    } else {
+                        Log.w("ConfigManager", "Hash file read-back mismatch")
+                        LogRepository.add("ConfigManager: hash verify mismatch", LogLevel.WARNING)
+                        Result.success("Config hashes synced (verify mismatch)")
+                    }
                 } else {
-                    Log.w("ConfigManager", "Hash file read-back mismatch")
-                    LogRepository.add("ConfigManager: hash verify mismatch", LogLevel.WARNING)
-                    Result.success("Config hashes synced (verify mismatch)")
+                    Log.w("ConfigManager", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
+                    LogRepository.add("ConfigManager: hash verify skipped", LogLevel.WARNING)
+                    Result.success("Config hashes synced (verify skipped)")
                 }
-            } else {
-                Log.w("ConfigManager", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
-                LogRepository.add("ConfigManager: hash verify skipped", LogLevel.WARNING)
-                Result.success("Config hashes synced (verify skipped)")
+            } catch (e: Exception) {
+                Log.w("ConfigManager", "Failed to refresh hashes: ${e.message}")
+                LogRepository.add("ConfigManager: refreshConfigHashes failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
             }
-        } catch (e: Exception) {
-            Log.w("ConfigManager", "Failed to refresh hashes: ${e.message}")
-            LogRepository.add("ConfigManager: refreshConfigHashes failed: ${e.message}", LogLevel.ERROR)
-            Result.failure(e)
         }
-    }
 
-    suspend fun readConfigModifyCounts(): Result<List<com.wuwaconfig.app.model.ConfigHashInfo>> = withContext(Dispatchers.IO) {
-        try {
+    data class HashFileSnapshot(
+        val content: String,
+        val timestamp: Long,
+    )
+
+    suspend fun snapshotHashFile(): Result<HashFileSnapshot> =
+        withContext(Dispatchers.IO) {
             val content = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
-            if (content.isBlank()) return@withContext Result.failure(Exception("No hash file on device"))
-            val results = mutableListOf<com.wuwaconfig.app.model.ConfigHashInfo>()
-            var currentFile = ""
-            for (line in content.lines()) {
-                val trimmed = line.trim()
-                if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                    currentFile = trimmed.removePrefix("[").removeSuffix("]")
-                } else if (trimmed.startsWith("ModifyCount=") && currentFile.isNotEmpty()) {
-                    val count = trimmed.removePrefix("ModifyCount=").toIntOrNull() ?: 0
-                    results.add(com.wuwaconfig.app.model.ConfigHashInfo(currentFile, count))
-                }
+            LogRepository.add("ConfigManager: hash snapshot taken (${content.length} chars)")
+            Result.success(HashFileSnapshot(content, System.currentTimeMillis()))
+        }
+
+    suspend fun reconcileAfterModify(snapshot: HashFileSnapshot?): Result<String> {
+        if (snapshot == null) {
+            LogRepository.add("ConfigManager: no snapshot — full refresh", LogLevel.WARNING)
+            return refreshConfigHashes()
+        }
+        return withContext(Dispatchers.IO) {
+            val currentContent = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
+            val gameTouched = currentContent != snapshot.content
+
+            if (gameTouched) {
+                LogRepository.add(
+                    "ConfigManager: hash file CHANGED during operation — concurrent game access detected, reconciling",
+                    LogLevel.WARNING,
+                )
+            } else {
+                LogRepository.add("ConfigManager: hash file unchanged — safe update")
             }
-            if (results.isEmpty()) return@withContext Result.failure(Exception("No modify counts found"))
-            Result.success(results)
-        } catch (e: Exception) {
-            Log.w("ConfigManager", "Failed to read modify counts: ${e.message}")
-            Result.failure(e)
+
+            refreshConfigHashes()
         }
     }
 
-    suspend fun readProfile(): Result<PlayerProfile> = withContext(Dispatchers.IO) {
-        val localDb = pullDb("LocalStorage.db")
-        val devDb = pullDb("DeviceStorage.db")
-        try {
-            val uid = queryDb(localDb, "RecentlyLoginUID")?.filter { it.isDigit() }
-            val langRaw = queryDb(devDb, "UseLanguage_en")
-
-            val serverLevels = parseServerLevels(queryDb(localDb, "SdkLevelData"))
-            val primaryServer = serverLevels.firstOrNull()
-            val secondaryServer = serverLevels.getOrNull(1)
-
-            val rawLogin = queryDb(localDb, "RecentlyLoginUID")
-            val otherUid = if (rawLogin != null && uid != null && rawLogin != uid) rawLogin else null
-
-            val uidStr = uid ?: ""
-
-            val profile = PlayerProfile(
-                engineSettingCount = countIniSettings("Engine.ini"),
-                deviceProfileCount = countIniSettings("DeviceProfiles.ini"),
-                gameUserSettingCount = countIniSettings("GameUserSettings.ini"),
-                uid = uid,
-                server = primaryServer?.first,
-                playerLevel = primaryServer?.second,
-                serverLevels = serverLevels,
-                secondaryUid = otherUid,
-                secondaryServer = secondaryServer?.first,
-                secondaryLevel = secondaryServer?.second,
-                lastLoginTime = formatTimestamp(cleanString(queryDb(localDb, "LoginTime_$uidStr"))),
-                towerFloor = queryDb(localDb, "AdventrueTower_$uidStr")?.toIntOrNull(),
-                weeklyRogueScore = queryDb(localDb, "AdventrueWeeklyRogue_$uidStr")?.toIntOrNull(),
-                battlePassPurchased = queryDb(localDb, "BattlePassPayButton_$uidStr")?.contains("1B") == true,
-                loopTowerSeason = queryDb(localDb, "LoopTowerSeason_$uidStr")?.toIntOrNull(),
-                gameVersion = cleanString(queryDb(devDb, "Version_Resource")),
-                patchVersion = cleanString(queryDb(devDb, "PatchVersion")),
-                launcherVersion = cleanString(queryDb(devDb, "Version_Launcher")),
-                language = when (cleanString(langRaw)) {
-                    "1" -> "en"
-                    "2" -> "zh"
-                    "3" -> "ja"
-                    "4" -> "ko"
-                    else -> cleanString(langRaw) ?: "—"
-                },
-                loginDeviceId = extractSavValue("KURO_PLAYER_PREFS.sav", "LoginDeviceId"),
-            )
-            Result.success(profile)
-        } catch (e: Exception) {
-            Log.w("ConfigManager", "readProfile failed: ${e.message}")
-            Result.failure(e)
-        } finally {
-            localDb?.close()
-            devDb?.close()
-            File(context.cacheDir, "profile_LocalStorage.db").delete()
-            File(context.cacheDir, "profile_DeviceStorage.db").delete()
+    suspend fun readConfigModifyCounts(): Result<List<com.wuwaconfig.app.model.ConfigHashInfo>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val content = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
+                if (content.isBlank()) return@withContext Result.failure(Exception("No hash file on device"))
+                val results = mutableListOf<com.wuwaconfig.app.model.ConfigHashInfo>()
+                var currentFile = ""
+                for (line in content.lines()) {
+                    val trimmed = line.trim()
+                    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                        currentFile = trimmed.removePrefix("[").removeSuffix("]")
+                    } else if (trimmed.startsWith("ModifyCount=") && currentFile.isNotEmpty()) {
+                        val count = trimmed.removePrefix("ModifyCount=").toIntOrNull() ?: 0
+                        results.add(com.wuwaconfig.app.model.ConfigHashInfo(currentFile, count))
+                    }
+                }
+                if (results.isEmpty()) return@withContext Result.failure(Exception("No modify counts found"))
+                Result.success(results)
+            } catch (e: Exception) {
+                Log.w("ConfigManager", "Failed to read modify counts: ${e.message}")
+                Result.failure(e)
+            }
         }
-    }
+
+    suspend fun readProfile(): Result<PlayerProfile> =
+        withContext(Dispatchers.IO) {
+            val localDb = pullDb("LocalStorage.db")
+            val devDb = pullDb("DeviceStorage.db")
+            try {
+                val uid = queryDb(localDb, "RecentlyLoginUID")?.filter { it.isDigit() }
+                val langRaw = queryDb(devDb, "UseLanguage_en")
+
+                val serverLevels = parseServerLevels(queryDb(localDb, "SdkLevelData"))
+                val primaryServer = serverLevels.firstOrNull()
+                val secondaryServer = serverLevels.getOrNull(1)
+
+                val rawLogin = queryDb(localDb, "RecentlyLoginUID")
+                val otherUid = if (rawLogin != null && uid != null && rawLogin != uid) rawLogin else null
+
+                val uidStr = uid ?: ""
+
+                val profile =
+                    PlayerProfile(
+                        engineSettingCount = countIniSettings("Engine.ini"),
+                        deviceProfileCount = countIniSettings("DeviceProfiles.ini"),
+                        gameUserSettingCount = countIniSettings("GameUserSettings.ini"),
+                        uid = uid,
+                        server = primaryServer?.first,
+                        playerLevel = primaryServer?.second,
+                        serverLevels = serverLevels,
+                        secondaryUid = otherUid,
+                        secondaryServer = secondaryServer?.first,
+                        secondaryLevel = secondaryServer?.second,
+                        lastLoginTime = formatTimestamp(cleanString(queryDb(localDb, "LoginTime_$uidStr"))),
+                        towerFloor = queryDb(localDb, "AdventrueTower_$uidStr")?.toIntOrNull(),
+                        weeklyRogueScore = queryDb(localDb, "AdventrueWeeklyRogue_$uidStr")?.toIntOrNull(),
+                        battlePassPurchased = queryDb(localDb, "BattlePassPayButton_$uidStr")?.contains("1B") == true,
+                        loopTowerSeason = queryDb(localDb, "LoopTowerSeason_$uidStr")?.toIntOrNull(),
+                        gameVersion = cleanString(queryDb(devDb, "Version_Resource")),
+                        patchVersion = cleanString(queryDb(devDb, "PatchVersion")),
+                        launcherVersion = cleanString(queryDb(devDb, "Version_Launcher")),
+                        language =
+                            when (cleanString(langRaw)) {
+                                "1" -> "en"
+                                "2" -> "zh"
+                                "3" -> "ja"
+                                "4" -> "ko"
+                                else -> cleanString(langRaw) ?: "—"
+                            },
+                        loginDeviceId = extractSavValue("KURO_PLAYER_PREFS.sav", "LoginDeviceId"),
+                    )
+                Result.success(profile)
+            } catch (e: Exception) {
+                Log.w("ConfigManager", "readProfile failed: ${e.message}")
+                Result.failure(e)
+            } finally {
+                localDb?.close()
+                devDb?.close()
+                File(context.cacheDir, "profile_LocalStorage.db").delete()
+                File(context.cacheDir, "profile_DeviceStorage.db").delete()
+            }
+        }
 
     private var cachedBattleStats: BattleStats? = null
     private var cachedFileSize: Long = -1L
@@ -627,17 +877,28 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                         java.util.zip.GZIPInputStream(data.inputStream()).use { it.copyTo(out) }
                         out.toByteArray()
                     }
-                } catch (_: Exception) { data }
+                } catch (_: Exception) {
+                    data
+                }
             }
 
-            suspend fun pullChunk(offset: Long, count: Long): ByteArray? {
+            suspend fun pullChunk(
+                offset: Long,
+                count: Long,
+            ): ByteArray? {
                 val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$count 2>/dev/null | gzip -c | base64"
                 val out = backend.executeShellCommand(cmd).getOrNull() ?: return null
-                val clean = out.lines()
-                    .filterNot { it.startsWith("base64:", ignoreCase = true) }
-                    .joinToString("").trim()
+                val clean =
+                    out.lines()
+                        .filterNot { it.startsWith("base64:", ignoreCase = true) }
+                        .joinToString("").trim()
                 if (clean.isBlank()) return null
-                val b64decoded = try { Base64.decode(clean, Base64.DEFAULT) } catch (_: Exception) { return null }
+                val b64decoded =
+                    try {
+                        Base64.decode(clean, Base64.DEFAULT)
+                    } catch (_: Exception) {
+                        return null
+                    }
                 return decompress(b64decoded)
             }
 
@@ -657,10 +918,16 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             var wasEncrypted = false
             val texts = mutableListOf<String>()
             for ((i, raw) in rawChunks.withIndex()) {
-                val (text, enc) = if (i == 0) LogParser.decodeLogBytes(raw) else {
-                    if (wasEncrypted) LogParser.decodeXorBytes(raw)
-                    else LogParser.decodeLogBytes(raw)
-                }
+                val (text, enc) =
+                    if (i == 0) {
+                        LogParser.decodeLogBytes(raw)
+                    } else {
+                        if (wasEncrypted) {
+                            LogParser.decodeXorBytes(raw)
+                        } else {
+                            LogParser.decodeLogBytes(raw)
+                        }
+                    }
                 if (i == 0) wasEncrypted = enc
                 texts.add(text)
             }
@@ -694,31 +961,42 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
     }
 
     private suspend fun pullDb(dbName: String): SQLiteDatabase? {
-        val remotePath = when (dbName) {
-            "LocalStorage.db" -> "${GamePaths.LOG_DIR.substringBeforeLast("/")}/LocalStorage/$dbName"
-            "DeviceStorage.db" -> "${GamePaths.LOG_DIR.substringBeforeLast("/")}/DeviceSaved/$dbName"
-            else -> return null
-        }
+        val remotePath =
+            when (dbName) {
+                "LocalStorage.db" -> "${GamePaths.LOG_DIR.substringBeforeLast("/")}/LocalStorage/$dbName"
+                "DeviceStorage.db" -> "${GamePaths.LOG_DIR.substringBeforeLast("/")}/DeviceSaved/$dbName"
+                else -> return null
+            }
         val localFile = File(context.cacheDir, "profile_$dbName")
         return try {
             val raw = backend.executeShellCommand("base64 \"$remotePath\" 2>/dev/null").getOrNull() ?: return null
             val bytes = Base64.decode(raw.trim(), Base64.DEFAULT)
             localFile.writeBytes(bytes)
             SQLiteDatabase.openDatabase(localFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
-    private fun queryDb(db: SQLiteDatabase?, key: String): String? {
+    private fun queryDb(
+        db: SQLiteDatabase?,
+        key: String,
+    ): String? {
         if (db == null) return null
         return try {
             val cursor = db.rawQuery("SELECT value FROM LocalStorage WHERE key=?", arrayOf(key))
             val result = if (cursor.moveToFirst()) cursor.getString(0) else null
             cursor.close()
             result
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
-    private suspend fun extractSavValue(savName: String, key: String): String? {
+    private suspend fun extractSavValue(
+        savName: String,
+        key: String,
+    ): String? {
         val savPath = "${GamePaths.LOG_DIR.substringBeforeLast("/")}/SaveGames/$savName"
         val raw = backend.executeShellCommand("strings \"$savPath\" 2>/dev/null | grep -A1 \"^$key\$\" | tail -1").getOrNull()?.trim()
         return raw?.takeIf { it.isNotBlank() && !it.contains("StrProperty") }
@@ -737,7 +1015,8 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                 val level = levels[i].groupValues[1].toIntOrNull() ?: continue
                 results.add(region to level)
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         return results
     }
 

@@ -17,52 +17,51 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Save
 import com.wuwaconfig.app.WuWaConfigApp
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlin.random.Random
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.LogEntry
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.ui.theme.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlin.random.Random
 
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
     accentColor: Color = NeonCyan,
     shape: Shape = RoundedCornerShape(8.dp),
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val cardStart = if (isLight) MaterialTheme.colorScheme.surface else accentColor.copy(alpha = 0.06f)
@@ -72,25 +71,29 @@ fun GlassCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = shape,
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        elevation = CardDefaults.cardElevation(if (isLight) 1.dp else 0.dp)
+        colors =
+            CardDefaults.cardColors(
+                containerColor = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+        elevation = CardDefaults.cardElevation(if (isLight) 1.dp else 0.dp),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            cardStart,
-                            cardEnd
-                        )
-                    ),
-                    shape = shape
-                )
-                .border(0.5.dp, borderColor, shape)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush =
+                            Brush.horizontalGradient(
+                                colors =
+                                    listOf(
+                                        cardStart,
+                                        cardEnd,
+                                    ),
+                            ),
+                        shape = shape,
+                    )
+                    .border(0.5.dp, borderColor, shape),
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 content()
@@ -103,17 +106,18 @@ fun GlassCard(
 fun GlassCardHeader(
     title: String,
     accentColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(accentColor.copy(alpha = 0.8f))
+            modifier =
+                Modifier
+                    .size(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(accentColor.copy(alpha = 0.8f)),
         )
         Spacer(Modifier.width(10.dp))
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = accentColor)
@@ -127,7 +131,7 @@ fun GlassButton(
     enabled: Boolean = true,
     accentColor: Color = NeonCyan,
     contentColor: Color = Color.Black,
-    content: @Composable RowScope.() -> Unit
+    content: @Composable RowScope.() -> Unit,
 ) {
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val buttonContainer = if (isLight) accentColor.copy(alpha = 0.16f) else accentColor.copy(alpha = 0.12f)
@@ -139,7 +143,7 @@ fun GlassButton(
     val scale by animateFloatAsState(
         targetValue = if (isPressed && enabled) 0.96f else 1f,
         animationSpec = spring(dampingRatio = 0.6f),
-        label = "btnScale"
+        label = "btnScale",
     )
 
     Button(
@@ -148,31 +152,35 @@ fun GlassButton(
         enabled = enabled,
         shape = RoundedCornerShape(8.dp),
         interactionSource = interactionSource,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = buttonContainer,
-            contentColor = resolvedContentColor,
-            disabledContainerColor = disabledContainer,
-            disabledContentColor = disabledContent
-        ),
-        elevation = ButtonDefaults.buttonElevation(
-            defaultElevation = 0.dp,
-            pressedElevation = 2.dp
-        )
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = buttonContainer,
+                contentColor = resolvedContentColor,
+                disabledContainerColor = disabledContainer,
+                disabledContentColor = disabledContent,
+            ),
+        elevation =
+            ButtonDefaults.buttonElevation(
+                defaultElevation = 0.dp,
+                pressedElevation = 2.dp,
+            ),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(accentColor.copy(alpha = 0.08f), Color.Transparent)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                )
-                .border(0.5.dp, accentColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush =
+                            Brush.horizontalGradient(
+                                colors = listOf(accentColor.copy(alpha = 0.08f), Color.Transparent),
+                            ),
+                        shape = RoundedCornerShape(8.dp),
+                    )
+                    .border(0.5.dp, accentColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
-            content = content
+            content = content,
         )
     }
 }
@@ -183,7 +191,7 @@ fun GlassOutlinedButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     accentColor: Color = NeonRed,
-    content: @Composable RowScope.() -> Unit
+    content: @Composable RowScope.() -> Unit,
 ) {
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val disabledContent = if (isLight) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f) else Color.White.copy(alpha = 0.25f)
@@ -193,7 +201,7 @@ fun GlassOutlinedButton(
     val scale by animateFloatAsState(
         targetValue = if (isPressed && enabled) 0.96f else 1f,
         animationSpec = spring(dampingRatio = 0.6f),
-        label = "outBtnScale"
+        label = "outBtnScale",
     )
 
     OutlinedButton(
@@ -202,98 +210,119 @@ fun GlassOutlinedButton(
         enabled = enabled,
         shape = RoundedCornerShape(8.dp),
         interactionSource = interactionSource,
-        colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = accentColor,
-            disabledContentColor = disabledContent
-        ),
-        border = BorderStroke(1.dp, borderColor)
+        colors =
+            ButtonDefaults.outlinedButtonColors(
+                contentColor = accentColor,
+                disabledContentColor = disabledContent,
+            ),
+        border = BorderStroke(1.dp, borderColor),
     ) {
         Row(
-            modifier = Modifier
-                .padding(horizontal = 16.dp),
+            modifier =
+                Modifier
+                    .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
-            content = content
+            content = content,
         )
     }
 }
 
-    @Composable
-    fun BackendStatusCard(status: BackendStatus, onToggle: () -> Unit) {
-        val accentColor by animateColorAsState(
-            targetValue = when {
+@Composable
+fun BackendStatusCard(
+    status: BackendStatus,
+    onToggle: () -> Unit,
+) {
+    val accentColor by animateColorAsState(
+        targetValue =
+            when {
                 status.connected -> NeonGreen
                 status.errorMessage.isNotBlank() -> NeonRed
                 else -> NeonAmber
             },
-            label = "accent"
-        )
+        label = "accent",
+    )
 
-        GlassCard(accentColor = accentColor) {
+    GlassCard(accentColor = accentColor) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
+                Box(
+                    modifier =
+                        Modifier
                             .size(12.dp)
                             .clip(RoundedCornerShape(6.dp))
                             .background(accentColor)
-                            .border(1.5.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Access: ${status.method.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            when {
-                                status.connected -> "Connected"
-                                status.errorMessage.isNotBlank() -> status.errorMessage
-                                else -> "Not connected"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = accentColor,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                Spacer(Modifier.width(8.dp))
-                SuggestionChip(
-                    onClick = onToggle,
-                    label = {
-                        val text = if (status.connected) "Switch"
-                        else when (status.method) {
-                            AccessMethod.ADB -> "SHIZUKU"
-                            AccessMethod.SHIZUKU -> "ROOT"
-                            AccessMethod.ROOT -> "SAF"
-                            AccessMethod.SAF -> "ADB"
-                        }
-                        Text(text, fontWeight = FontWeight.Bold)
-                    },
-                    colors = SuggestionChipDefaults.suggestionChipColors(
-                        containerColor = accentColor.copy(alpha = 0.1f),
-                        labelColor = accentColor
-                    ),
-                    border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accentColor.copy(alpha = 0.2f))
+                            .border(1.5.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
                 )
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Access: ${status.method.name}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        when {
+                            status.connected -> "Connected"
+                            status.errorMessage.isNotBlank() -> status.errorMessage
+                            else -> "Not connected"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = accentColor,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
+            Spacer(Modifier.width(8.dp))
+            SuggestionChip(
+                onClick = onToggle,
+                label = {
+                    val text =
+                        if (status.connected) {
+                            "Switch"
+                        } else {
+                            when (status.method) {
+                                AccessMethod.ADB -> "SHIZUKU"
+                                AccessMethod.SHIZUKU -> "ROOT"
+                                AccessMethod.ROOT -> "SAF"
+                                AccessMethod.SAF -> "ADB"
+                            }
+                        }
+                    Text(text, fontWeight = FontWeight.Bold)
+                },
+                colors =
+                    SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = accentColor.copy(alpha = 0.1f),
+                        labelColor = accentColor,
+                    ),
+                border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accentColor.copy(alpha = 0.2f)),
+            )
         }
     }
+}
 
 @Composable
-fun LogViewer(logs: List<LogEntry>, modifier: Modifier = Modifier, onSave: (() -> Unit)? = null) {
+fun LogViewer(
+    logs: List<LogEntry>,
+    modifier: Modifier = Modifier,
+    onSave: (() -> Unit)? = null,
+) {
     GlassCard(modifier = modifier, accentColor = NeonCyan) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(NeonCyan.copy(alpha = 0.8f))
+                modifier =
+                    Modifier
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(NeonCyan.copy(alpha = 0.8f)),
             )
             Spacer(Modifier.width(8.dp))
             Text("Log", style = MaterialTheme.typography.titleSmall, color = NeonCyan, fontWeight = FontWeight.Bold)
@@ -306,26 +335,38 @@ fun LogViewer(logs: List<LogEntry>, modifier: Modifier = Modifier, onSave: (() -
         }
         Spacer(Modifier.height(8.dp))
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 120.dp, max = 200.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 120.dp, max = 200.dp),
         ) {
             if (logs.isEmpty()) {
-                Text("No logs yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
+                Text(
+                    "No logs yet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                )
             } else {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
                 ) {
                     logs.reversed().forEach { log ->
-                        val c = when (log.level) {
-                            LogLevel.SUCCESS -> NeonGreen
-                            LogLevel.ERROR -> NeonRed
-                            LogLevel.WARNING -> NeonAmber
-                            LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                        Text("[${log.timestamp}] ${log.message}", style = MaterialTheme.typography.labelMedium, color = c, modifier = Modifier.padding(vertical = 1.dp))
+                        val c =
+                            when (log.level) {
+                                LogLevel.SUCCESS -> NeonGreen
+                                LogLevel.ERROR -> NeonRed
+                                LogLevel.WARNING -> NeonAmber
+                                LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        Text(
+                            "[${log.timestamp}] ${log.message}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = c,
+                            modifier = Modifier.padding(vertical = 1.dp),
+                        )
                     }
                 }
             }
@@ -334,18 +375,22 @@ fun LogViewer(logs: List<LogEntry>, modifier: Modifier = Modifier, onSave: (() -
 }
 
 @Composable
-fun MiniLogViewer(logs: List<LogEntry>, modifier: Modifier = Modifier) {
+fun MiniLogViewer(
+    logs: List<LogEntry>,
+    modifier: Modifier = Modifier,
+) {
     if (logs.isEmpty()) return
     GlassCard(modifier = modifier, accentColor = NeonAmber) {
         Text("Status", style = MaterialTheme.typography.labelMedium, color = NeonAmber.copy(alpha = 0.7f))
         Spacer(Modifier.height(6.dp))
         logs.takeLast(5).forEach { log ->
-            val c = when (log.level) {
-                LogLevel.SUCCESS -> NeonGreen
-                LogLevel.ERROR -> NeonRed
-                LogLevel.WARNING -> NeonAmber
-                LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
-            }
+            val c =
+                when (log.level) {
+                    LogLevel.SUCCESS -> NeonGreen
+                    LogLevel.ERROR -> NeonRed
+                    LogLevel.WARNING -> NeonAmber
+                    LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
             Text("[${log.timestamp}] ${log.message}", style = MaterialTheme.typography.bodySmall, color = c)
         }
     }
@@ -368,48 +413,55 @@ fun GradientBackground(content: @Composable () -> Unit) {
             VideoBackground(
                 videoUri = videoUri!!,
                 alpha = bgAlpha,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             )
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(themeBg.copy(alpha = 0.15f), surface.copy(alpha = 0.15f))
-                        )
-                    )
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush =
+                                Brush.verticalGradient(
+                                    colors = listOf(themeBg.copy(alpha = 0.15f), surface.copy(alpha = 0.15f)),
+                                ),
+                        ),
             )
         } else if (hasImage) {
-            val painter = rememberAsyncImagePainter(
-                ImageRequest.Builder(LocalContext.current)
-                    .data(imageUri)
-                    .crossfade(true)
-                    .build()
-            )
+            val painter =
+                rememberAsyncImagePainter(
+                    ImageRequest.Builder(LocalContext.current)
+                        .data(imageUri)
+                        .crossfade(true)
+                        .build(),
+                )
             Image(
                 painter = painter,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize().graphicsLayer(alpha = bgAlpha),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
             )
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(themeBg.copy(alpha = 0.15f), surface.copy(alpha = 0.15f))
-                        )
-                    )
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush =
+                                Brush.verticalGradient(
+                                    colors = listOf(themeBg.copy(alpha = 0.15f), surface.copy(alpha = 0.15f)),
+                                ),
+                        ),
             )
         } else {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(themeBg, surface)
-                        )
-                    )
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush =
+                                Brush.verticalGradient(
+                                    colors = listOf(themeBg, surface),
+                                ),
+                        ),
             )
         }
         Box(modifier = Modifier.fillMaxSize()) { content() }
@@ -420,32 +472,34 @@ fun GradientBackground(content: @Composable () -> Unit) {
 private fun VideoBackground(
     videoUri: String,
     alpha: Float,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val player = remember(videoUri) {
-        ExoPlayer.Builder(context)
-            .build()
-            .apply {
-                setMediaItem(MediaItem.fromUri(videoUri))
-                repeatMode = Player.REPEAT_MODE_ALL
-                volume = 0f
-                prepare()
-                playWhenReady = true
-            }
-    }
+    val player =
+        remember(videoUri) {
+            ExoPlayer.Builder(context)
+                .build()
+                .apply {
+                    setMediaItem(MediaItem.fromUri(videoUri))
+                    repeatMode = Player.REPEAT_MODE_ALL
+                    volume = 0f
+                    prepare()
+                    playWhenReady = true
+                }
+        }
 
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_PAUSE -> player.pause()
-                Lifecycle.Event.ON_RESUME -> player.play()
-                Lifecycle.Event.ON_DESTROY -> player.release()
-                else -> {}
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_PAUSE -> player.pause()
+                    Lifecycle.Event.ON_RESUME -> player.play()
+                    Lifecycle.Event.ON_DESTROY -> player.release()
+                    else -> {}
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
@@ -461,23 +515,24 @@ private fun VideoBackground(
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             }
         },
-        modifier = modifier
+        modifier = modifier,
     )
     Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 1f - alpha)))
 }
 
-val GLITCH_NAMES = listOf(
-    "WuWaConfig",
-    "Rover's Tool",
-    "Config Forge",
-    "Pulse Engine",
-    "Wave Weaver",
-    "Crystal Core",
-    "Echo Terminal",
-    "Signal Boost",
-    "Resonance Kit",
-    "Tuning Fork"
-)
+val GLITCH_NAMES =
+    listOf(
+        "WuWaConfig",
+        "Rover's Tool",
+        "Config Forge",
+        "Pulse Engine",
+        "Wave Weaver",
+        "Crystal Core",
+        "Echo Terminal",
+        "Signal Boost",
+        "Resonance Kit",
+        "Tuning Fork",
+    )
 
 @Composable
 fun GlitchText(
@@ -485,7 +540,7 @@ fun GlitchText(
     fontWeight: FontWeight = FontWeight.Bold,
     intervalMs: Long = 30000L,
     names: List<String> = GLITCH_NAMES,
-    style: androidx.compose.ui.text.TextStyle? = null
+    style: androidx.compose.ui.text.TextStyle? = null,
 ) {
     var currentIndex by remember { mutableStateOf(0) }
     var displayText by remember { mutableStateOf(names[0]) }
@@ -535,12 +590,13 @@ fun GlitchText(
 
     val offsetX by animateFloatAsState(
         targetValue = if (glitchActive) shakeOffsetX else 0f,
-        animationSpec = if (glitchActive) tween(80) else spring(dampingRatio = 0.3f)
+        animationSpec = if (glitchActive) tween(80) else spring(dampingRatio = 0.3f),
     )
 
-    val finalMod = modifier.then(
-        if (glitchActive) Modifier.offset(x = offsetX.dp) else Modifier
-    )
+    val finalMod =
+        modifier.then(
+            if (glitchActive) Modifier.offset(x = offsetX.dp) else Modifier,
+        )
     if (style != null) {
         Text(text = displayText, fontWeight = fontWeight, style = style, modifier = finalMod)
     } else {
@@ -552,15 +608,16 @@ fun GlitchText(
 fun AnimatedListItem(
     index: Int,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     AnimatedVisibility(
         visible = true,
-        enter = slideInVertically(
-            initialOffsetY = { it / 2 },
-            animationSpec = tween(delayMillis = index * 40, durationMillis = 300)
-        ) + fadeIn(animationSpec = tween(delayMillis = index * 40, durationMillis = 300)),
-        modifier = modifier
+        enter =
+            slideInVertically(
+                initialOffsetY = { it / 2 },
+                animationSpec = tween(delayMillis = index * 40, durationMillis = 300),
+            ) + fadeIn(animationSpec = tween(delayMillis = index * 40, durationMillis = 300)),
+        modifier = modifier,
     ) {
         content()
     }

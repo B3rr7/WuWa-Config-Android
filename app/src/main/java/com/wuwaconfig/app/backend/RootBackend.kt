@@ -10,59 +10,73 @@ class RootBackend : AccessBackend {
     override var isConnected: Boolean = false
         private set
 
-    override suspend fun connect(): Result<Unit> = withContext(Dispatchers.IO) {
-        LogRepository.add("Root: checking su access...")
-        try {
-            val process = ProcessBuilder("su", "-c", "echo ROOT_OK")
-                .redirectErrorStream(true)
-                .start()
-            val output = process.inputStream.bufferedReader().readText().trim()
-            val exited = process.waitFor(10, TimeUnit.SECONDS)
-            if (!exited) { process.destroyForcibly(); LogRepository.add("Root check timed out", LogLevel.ERROR); return@withContext Result.failure(Exception("Root check timed out")) }
-            val exitCode = process.exitValue()
-            if (exitCode == 0 && output == "ROOT_OK") {
-                isConnected = true
-                LogRepository.add("Root access granted", LogLevel.SUCCESS)
-                Result.success(Unit)
-            } else {
-                LogRepository.add("Root access denied: $output", LogLevel.ERROR)
-                Result.failure(Exception(output.ifBlank { "Root access denied" }))
+    override suspend fun connect(): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            LogRepository.add("Root: checking su access...")
+            try {
+                val process =
+                    ProcessBuilder("su", "-c", "echo ROOT_OK")
+                        .redirectErrorStream(true)
+                        .start()
+                val output = process.inputStream.bufferedReader().readText().trim()
+                val exited = process.waitFor(10, TimeUnit.SECONDS)
+                if (!exited) {
+                    process.destroyForcibly()
+                    LogRepository.add("Root check timed out", LogLevel.ERROR)
+                    return@withContext Result.failure(Exception("Root check timed out"))
+                }
+                val exitCode = process.exitValue()
+                if (exitCode == 0 && output == "ROOT_OK") {
+                    isConnected = true
+                    LogRepository.add("Root access granted", LogLevel.SUCCESS)
+                    Result.success(Unit)
+                } else {
+                    LogRepository.add("Root access denied: $output", LogLevel.ERROR)
+                    Result.failure(Exception(output.ifBlank { "Root access denied" }))
+                }
+            } catch (e: Exception) {
+                LogRepository.add("Root not available: ${e.message}", LogLevel.ERROR)
+                Result.failure(Exception("Root not available: ${e.message}"))
             }
-        } catch (e: Exception) {
-            LogRepository.add("Root not available: ${e.message}", LogLevel.ERROR)
-            Result.failure(Exception("Root not available: ${e.message}"))
         }
-    }
 
     override fun disconnect() {
         LogRepository.add("Root: disconnect")
         isConnected = false
     }
 
-
-    override suspend fun executeShellCommand(command: String): Result<String> = withContext(Dispatchers.IO) {
-        LogRepository.add("Root shell: ${command.take(120)}")
-        try {
-            val process = ProcessBuilder("su", "-c", command)
-                .redirectErrorStream(true)
-                .start()
-            val output = process.inputStream.bufferedReader().readText()
-            val exited = process.waitFor(10, TimeUnit.SECONDS)
-            if (!exited) { process.destroyForcibly(); LogRepository.add("Root shell timed out", LogLevel.ERROR); return@withContext Result.failure(Exception("Command timed out: $command")) }
-            val exitCode = process.exitValue()
-            if (exitCode != 0) {
-                LogRepository.add("Root shell failed (exit $exitCode): ${output.take(100)}", LogLevel.ERROR)
-                Result.failure(Exception(output.trim().ifEmpty { "Command failed with exit code $exitCode" }))
-            } else {
-                Result.success(output.trim())
+    override suspend fun executeShellCommand(command: String): Result<String> =
+        withContext(Dispatchers.IO) {
+            LogRepository.add("Root shell: ${command.take(120)}")
+            try {
+                val process =
+                    ProcessBuilder("su", "-c", command)
+                        .redirectErrorStream(true)
+                        .start()
+                val output = process.inputStream.bufferedReader().readText()
+                val exited = process.waitFor(10, TimeUnit.SECONDS)
+                if (!exited) {
+                    process.destroyForcibly()
+                    LogRepository.add("Root shell timed out", LogLevel.ERROR)
+                    return@withContext Result.failure(Exception("Command timed out: $command"))
+                }
+                val exitCode = process.exitValue()
+                if (exitCode != 0) {
+                    LogRepository.add("Root shell failed (exit $exitCode): ${output.take(100)}", LogLevel.ERROR)
+                    Result.failure(Exception(output.trim().ifEmpty { "Command failed with exit code $exitCode" }))
+                } else {
+                    Result.success(output.trim())
+                }
+            } catch (e: Exception) {
+                LogRepository.add("Root shell exception: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
             }
-        } catch (e: Exception) {
-            LogRepository.add("Root shell exception: ${e.message}", LogLevel.ERROR)
-            Result.failure(e)
         }
-    }
 
-    override suspend fun pushFile(sourcePath: String, targetPath: String): Result<String> {
+    override suspend fun pushFile(
+        sourcePath: String,
+        targetPath: String,
+    ): Result<String> {
         LogRepository.add("Root push: $sourcePath -> $targetPath")
         val result = executeShellCommand("cp \"$sourcePath\" \"$targetPath\"")
         if (result.isSuccess) LogRepository.add("Root push completed: $targetPath", LogLevel.SUCCESS)
@@ -86,7 +100,7 @@ class RootBackend : AccessBackend {
     }
 
     override suspend fun backupFile(path: String): Result<String> {
-        val backupPath = "${path}.backup_${System.currentTimeMillis()}"
+        val backupPath = "$path.backup_${System.currentTimeMillis()}"
         return executeShellCommand("cp \"$path\" \"$backupPath\"")
     }
 

@@ -5,7 +5,6 @@ import com.wuwaconfig.app.model.LogInfo
 import java.nio.charset.Charset
 
 object LogParser {
-
     fun decryptWuwaLog(data: ByteArray): ByteArray? {
         if (data.size < 3) return null
         if (data[0] != 0x00.toByte() || data[1] != 0x54.toByte() || data[2] != 0x50.toByte()) return null
@@ -34,15 +33,16 @@ object LogParser {
     fun decodeLogBytes(data: ByteArray): Pair<String, Boolean> {
         val decrypted = decryptWuwaLog(data)
         val payload = decrypted ?: data
-        val text = when {
-            payload.size >= 2 && payload[0] == 0xFE.toByte() && payload[1] == 0xFF.toByte() ->
-                payload.copyOfRange(2, payload.size).toString(Charset.forName("UTF-16BE"))
-            payload.size >= 2 && payload[0] == 0xFF.toByte() && payload[1] == 0xFE.toByte() ->
-                payload.copyOfRange(2, payload.size).toString(Charset.forName("UTF-16LE"))
-            looksUtf16Be(payload) -> payload.toString(Charset.forName("UTF-16BE"))
-            looksUtf16Le(payload) -> payload.toString(Charset.forName("UTF-16LE"))
-            else -> payload.toString(Charsets.UTF_8)
-        }
+        val text =
+            when {
+                payload.size >= 2 && payload[0] == 0xFE.toByte() && payload[1] == 0xFF.toByte() ->
+                    payload.copyOfRange(2, payload.size).toString(Charset.forName("UTF-16BE"))
+                payload.size >= 2 && payload[0] == 0xFF.toByte() && payload[1] == 0xFE.toByte() ->
+                    payload.copyOfRange(2, payload.size).toString(Charset.forName("UTF-16LE"))
+                looksUtf16Be(payload) -> payload.toString(Charset.forName("UTF-16BE"))
+                looksUtf16Le(payload) -> payload.toString(Charset.forName("UTF-16LE"))
+                else -> payload.toString(Charsets.UTF_8)
+            }
         return text.trimStart('\uFEFF') to (decrypted != null)
     }
 
@@ -66,10 +66,11 @@ object LogParser {
         return zeroes > samples / 5
     }
 
-    private val CONVENE_URL_REGEX = Regex(
-        """https://aki-gm-resources(-oversea)?\.aki-game\.(net|com)/aki/gacha/index\.html#/record[^"\s]*""",
-        RegexOption.IGNORE_CASE
-    )
+    private val CONVENE_URL_REGEX =
+        Regex(
+            """https://aki-gm-resources(-oversea)?\.aki-game\.(net|com)/aki/gacha/index\.html#/record[^"\s]*""",
+            RegexOption.IGNORE_CASE,
+        )
 
     fun extractConveneUrl(text: String): String? {
         return CONVENE_URL_REGEX.find(text)?.value
@@ -112,7 +113,9 @@ object LogParser {
             // ── Counting (single pass) ──
             if ("error pixel format" in l || "non-streamed mips" in l ||
                 "failed to load texture" in l || "out of memory" in l
-            ) textureErrors++
+            ) {
+                textureErrors++
+            }
             if ("out of memory" in l || "gpu oom" in l || "vulkanoom" in l) gpuOom++
             if (Regex("""frame\s*drop|hitch\s*detected|stutter\s*detected""", RegexOption.IGNORE_CASE).containsMatchIn(line)) dropFrames++
             if (Regex("""thermal\s*(?:throttle|limit|event|warning)""", RegexOption.IGNORE_CASE).containsMatchIn(line)) thermalEvents++
@@ -120,7 +123,9 @@ object LogParser {
                 "unreachable" in l || "dns fail" in l || "dns failure" in l ||
                 "socket error" in l || "network fail" in l || "network failure" in l ||
                 "ping loss" in l
-            ) networkErrors++
+            ) {
+                networkErrors++
+            }
 
             // ── Flags ──
             if ("islowmemorymobile: true" in l) isLowMem = true
@@ -134,40 +139,110 @@ object LogParser {
             // ── Field extraction (first match wins) ──
             if (gpu == null) {
                 Regex("""K#GPUFamily\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let { gpu = it.groupValues[1].trim() }
-                if (gpu == null) Regex("""LogInit.*GPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let { gpu = it.groupValues[1].trim() }
-                if (gpu == null) Regex("""(adreno\s*\d+|mali-g\d+|mali-\d+|xclipse\s*\d+|maleoon)""", RegexOption.IGNORE_CASE).find(line)?.let { gpu = it.groupValues[1].trim() }
+                if (gpu == null) {
+                    Regex(
+                        """LogInit.*GPU:\s*([^,\r\n]+)""",
+                        RegexOption.IGNORE_CASE,
+                    ).find(line)?.let { gpu = it.groupValues[1].trim() }
+                }
+                if (gpu == null) {
+                    Regex(
+                        """(adreno\s*\d+|mali-g\d+|mali-\d+|xclipse\s*\d+|maleoon)""",
+                        RegexOption.IGNORE_CASE,
+                    ).find(line)?.let {
+                        gpu = it.groupValues[1].trim()
+                    }
+                }
             }
             if (deviceModel == null) {
-                Regex("""K#DeviceModel\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let { deviceModel = it.groupValues[1].trim() }
-                if (deviceModel == null) Regex("""DeviceModel\s*:\s*([^\r\n,\]]+)""", RegexOption.IGNORE_CASE).find(line)?.let { deviceModel = it.groupValues[1].trim() }
+                Regex(
+                    """K#DeviceModel\s*:\s*([^\r\n]+)""",
+                    RegexOption.IGNORE_CASE,
+                ).find(line)?.let { deviceModel = it.groupValues[1].trim() }
+                if (deviceModel == null) {
+                    Regex("""DeviceModel\s*:\s*([^\r\n,\]]+)""", RegexOption.IGNORE_CASE).find(line)?.let {
+                        deviceModel = it.groupValues[1].trim()
+                    }
+                }
             }
             if (socName == null) {
                 Regex("""(snapdragon|dimensity|exynos|kirin|helio)\s*\w*""", RegexOption.IGNORE_CASE).find(line)?.let { socName = it.value }
             }
             if (socCode == null) Regex("""rHn:(\w+)""", RegexOption.IGNORE_CASE).find(line)?.let { socCode = it.groupValues[1] }
-            if (cpuName == null) Regex("""LogInit.*CPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let { cpuName = it.groupValues[1].trim() }
-            if (ramMb == null) {
-                Regex("""PhysicalMemoryMB:\s*(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let { ramMb = it.groupValues[1].toIntOrNull() }
-                if (ramMb == null) Regex("""Platform has ~\s*([\d.]+)\s*GB""", RegexOption.IGNORE_CASE).find(line)?.let {
-                    ramMb = (it.groupValues[1].toFloatOrNull()?.times(1024))?.toInt()
+            if (cpuName == null) {
+                Regex("""LogInit.*CPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let {
+                    cpuName = it.groupValues[1].trim()
                 }
             }
-            if (androidVersion == null) Regex("""LogInit.*OS:\s*Android\s*\((\d+)\)""", RegexOption.IGNORE_CASE).find(line)?.let { androidVersion = it.groupValues[1] }
-            if (resolution == null) Regex("""Resolution\s+(\d+)\s*[,xX×]?\s*(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let {
-                resolution = "${it.groupValues[1]}x${it.groupValues[2]}"
+            if (ramMb == null) {
+                Regex("""PhysicalMemoryMB:\s*(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let { ramMb = it.groupValues[1].toIntOrNull() }
+                if (ramMb == null) {
+                    Regex("""Platform has ~\s*([\d.]+)\s*GB""", RegexOption.IGNORE_CASE).find(line)?.let {
+                        ramMb = (it.groupValues[1].toFloatOrNull()?.times(1024))?.toInt()
+                    }
+                }
             }
-            if (resolution == null) Regex("""ViewportSize\s+([\d.]+),\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(line)?.let {
-                val w = it.groupValues[1].toFloatOrNull()?.toInt()?.toString() ?: it.groupValues[1]
-                val h = it.groupValues[2].toFloatOrNull()?.toInt()?.toString() ?: it.groupValues[2]
-                resolution = "${w}x${h}"
+            if (androidVersion == null) {
+                Regex("""LogInit.*OS:\s*Android\s*\((\d+)\)""", RegexOption.IGNORE_CASE).find(line)?.let {
+                    androidVersion = it.groupValues[1]
+                }
             }
-            if (deviceProfile == null) Regex("""Selected Device Profile:\s*\[([^\]]+)\]""", RegexOption.IGNORE_CASE).find(line)?.let { deviceProfile = it.groupValues[1] }
-            if (fpsCap == null) Regex("""r\.FramePace\s*:\s*(?:requesting\s+\d+,\s*)?set\s*(?:as\s+)?(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let { fpsCap = it.groupValues[1].toIntOrNull() }
-            if (fpsActual == null) Regex("""AverageFPS\s*[=:]\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(line)?.let { fpsActual = it.groupValues[1].toFloatOrNull() }
-            if (screenPct == null) Regex("""Value remains '(\d+\.?\d*)' .* r\.ScreenPercentage""", RegexOption.IGNORE_CASE).find(line)?.let { screenPct = it.groupValues[1].toFloatOrNull() }
-            if (shadowQ == null) Regex("""Value remains '(\d+)' .* sg\.ShadowQuality""", RegexOption.IGNORE_CASE).find(line)?.let { shadowQ = it.groupValues[1].toIntOrNull() }
-            if (qualityMode == null) Regex("""sg\.KuroRenderQuality\s*=\s*"(.*)"""", RegexOption.IGNORE_CASE).find(line)?.let { qualityMode = it.groupValues[1] }
-            if (kuroPostprocess == null) Regex("""Value remains '(\d+)' .* r\.Mobile\.KuroPostprocess""", RegexOption.IGNORE_CASE).find(line)?.let { kuroPostprocess = it.groupValues[1].toIntOrNull() }
+            if (resolution == null) {
+                Regex("""Resolution\s+(\d+)\s*[,xX×]?\s*(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let {
+                    resolution = "${it.groupValues[1]}x${it.groupValues[2]}"
+                }
+            }
+            if (resolution == null) {
+                Regex("""ViewportSize\s+([\d.]+),\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(line)?.let {
+                    val w = it.groupValues[1].toFloatOrNull()?.toInt()?.toString() ?: it.groupValues[1]
+                    val h = it.groupValues[2].toFloatOrNull()?.toInt()?.toString() ?: it.groupValues[2]
+                    resolution = "${w}x$h"
+                }
+            }
+            if (deviceProfile == null) {
+                Regex("""Selected Device Profile:\s*\[([^\]]+)\]""", RegexOption.IGNORE_CASE).find(line)?.let {
+                    deviceProfile = it.groupValues[1]
+                }
+            }
+            if (fpsCap == null) {
+                Regex(
+                    """r\.FramePace\s*:\s*(?:requesting\s+\d+,\s*)?set\s*(?:as\s+)?(\d+)""",
+                    RegexOption.IGNORE_CASE,
+                ).find(line)?.let {
+                    fpsCap = it.groupValues[1].toIntOrNull()
+                }
+            }
+            if (fpsActual == null) {
+                Regex("""AverageFPS\s*[=:]\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(line)?.let {
+                    fpsActual = it.groupValues[1].toFloatOrNull()
+                }
+            }
+            if (screenPct == null) {
+                Regex(
+                    """Value remains '(\d+\.?\d*)' .* r\.ScreenPercentage""",
+                    RegexOption.IGNORE_CASE,
+                ).find(line)?.let {
+                    screenPct = it.groupValues[1].toFloatOrNull()
+                }
+            }
+            if (shadowQ == null) {
+                Regex("""Value remains '(\d+)' .* sg\.ShadowQuality""", RegexOption.IGNORE_CASE).find(line)?.let {
+                    shadowQ = it.groupValues[1].toIntOrNull()
+                }
+            }
+            if (qualityMode == null) {
+                Regex("""sg\.KuroRenderQuality\s*=\s*"(.*)"""", RegexOption.IGNORE_CASE).find(line)?.let {
+                    qualityMode = it.groupValues[1]
+                }
+            }
+            if (kuroPostprocess == null) {
+                Regex(
+                    """Value remains '(\d+)' .* r\.Mobile\.KuroPostprocess""",
+                    RegexOption.IGNORE_CASE,
+                ).find(line)?.let {
+                    kuroPostprocess = it.groupValues[1].toIntOrNull()
+                }
+            }
 
             // ── CVar extraction ──
             Regex("""Setting CVar \[\[([^:]+):([^\]]+)\]\]""", RegexOption.IGNORE_CASE).find(line)?.let {
@@ -181,13 +256,14 @@ object LogParser {
             if (gameApi == null) {
                 Regex("""LogRHI:\s*Initializing\s+(\S+(?:\s+\S+)*?)\s*RHI""", RegexOption.IGNORE_CASE).find(line)?.let { m ->
                     val rhi = m.groupValues[1]
-                    gameApi = when {
-                        "Vulkan" in rhi -> "Vulkan"
-                        "OpenGL" in rhi -> "OpenGL ES"
-                        "DirectX" in rhi -> "DirectX"
-                        "Metal" in rhi -> "Metal"
-                        else -> null
-                    }
+                    gameApi =
+                        when {
+                            "Vulkan" in rhi -> "Vulkan"
+                            "OpenGL" in rhi -> "OpenGL ES"
+                            "DirectX" in rhi -> "DirectX"
+                            "Metal" in rhi -> "Metal"
+                            else -> null
+                        }
                 }
             }
         }
@@ -208,22 +284,25 @@ object LogParser {
                 }
             }
 
-        val vulkanStatus = when (gameApi) {
-            "Vulkan" -> "available"
-            "OpenGL ES" -> "not_available"
-            else -> when {
-                hasVulkanRhi -> "available"
-                hasOpenGl -> "not_available"
+        val vulkanStatus =
+            when (gameApi) {
+                "Vulkan" -> "available"
+                "OpenGL ES" -> "not_available"
+                else ->
+                    when {
+                        hasVulkanRhi -> "available"
+                        hasOpenGl -> "not_available"
+                        else -> null
+                    }
+            }
+        val api =
+            gameApi ?: when {
+                hasVulkan -> "Vulkan"
+                hasOpenGl -> "OpenGL ES"
+                hasDirectX -> "DirectX"
+                hasMetal -> "Metal"
                 else -> null
             }
-        }
-        val api = gameApi ?: when {
-            hasVulkan -> "Vulkan"
-            hasOpenGl -> "OpenGL ES"
-            hasDirectX -> "DirectX"
-            hasMetal -> "Metal"
-            else -> null
-        }
 
         return LogInfo(
             gpu = gpu,
@@ -251,7 +330,7 @@ object LogParser {
             forbiddenCvars = forbiddenCvars ?: 0,
             thermalEvents = thermalEvents,
             networkErrors = networkErrors,
-            activeCvars = activeCvars
+            activeCvars = activeCvars,
         )
     }
 

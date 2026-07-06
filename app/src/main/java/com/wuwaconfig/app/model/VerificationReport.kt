@@ -18,7 +18,7 @@ enum class CvarCategory(val displayName: String) {
     WORLD("World & Navigation"),
     SCALABILITY("Scalability"),
     SYSTEM("Engine System"),
-    UNKNOWN("Other")
+    UNKNOWN("Other"),
 }
 
 data class CvarDetail(
@@ -26,7 +26,7 @@ data class CvarDetail(
     val isMonitored: Boolean,
     val gameDefault: String?,
     val matchesDefault: Boolean,
-    val category: CvarCategory = CvarCategory.UNKNOWN
+    val category: CvarCategory = CvarCategory.UNKNOWN,
 )
 
 data class VerificationReport(
@@ -34,7 +34,7 @@ data class VerificationReport(
     val rejected: Set<String>,
     val recognizedCount: Int,
     val totalCount: Int,
-    val cvarDetails: Map<String, CvarDetail> = emptyMap()
+    val cvarDetails: Map<String, CvarDetail> = emptyMap(),
 ) {
     val acceptedRatio: Float get() = if (totalCount > 0) recognizedCount.toFloat() / totalCount else 0f
     val redundantCount: Int get() = cvarDetails.values.count { it.matchesDefault }

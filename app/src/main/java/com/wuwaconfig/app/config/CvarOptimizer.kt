@@ -4,7 +4,6 @@ import com.wuwaconfig.app.model.DeployComparison
 import com.wuwaconfig.app.model.LogInfo
 
 object CvarOptimizer {
-
     fun getGPUTier(gpu: String?): String {
         val g = gpu?.lowercase() ?: return "unknown"
         return when {
@@ -39,15 +38,16 @@ object CvarOptimizer {
         val flod: Double,
         val detail: Int,
         val lod_bias: Int,
-        val grasscull: Int
+        val grasscull: Int,
     )
 
-    fun toPresetProfile(opt: OptimizedProfile): PresetProfile = PresetProfile(
-        screen = opt.screen, shadow = opt.shadow, shadowRes = opt.shadowRes,
-        ssr = opt.ssr, mipbias = opt.mipbias, streaming = opt.streaming,
-        vd = opt.vd, flod = opt.flod, detail = opt.detail,
-        lod_bias = opt.lod_bias, grasscull = opt.grasscull
-    )
+    fun toPresetProfile(opt: OptimizedProfile): PresetProfile =
+        PresetProfile(
+            screen = opt.screen, shadow = opt.shadow, shadowRes = opt.shadowRes,
+            ssr = opt.ssr, mipbias = opt.mipbias, streaming = opt.streaming,
+            vd = opt.vd, flod = opt.flod, detail = opt.detail,
+            lod_bias = opt.lod_bias, grasscull = opt.grasscull,
+        )
 
     fun optimizeProfile(info: LogInfo): OptimizedProfile {
         val tier = getGPUTier(info.gpu)
@@ -59,110 +59,124 @@ object CvarOptimizer {
         val isHardLimited = hasOom || (hasThermal && tier in listOf("mid_low", "low", "unknown"))
         val isConstrained = hasThermal || hasTextureErrors || ram < 6000
 
-        val screen = when {
-            isHardLimited -> 50
-            isConstrained && tier == "flagship" -> 80
-            isConstrained -> 60
-            tier == "flagship" -> 100
-            tier == "high" -> 100
-            tier == "mid_high" -> 80
-            tier == "mid" -> 80
-            else -> 60
-        }
+        val screen =
+            when {
+                isHardLimited -> 50
+                isConstrained && tier == "flagship" -> 80
+                isConstrained -> 60
+                tier == "flagship" -> 100
+                tier == "high" -> 100
+                tier == "mid_high" -> 80
+                tier == "mid" -> 80
+                else -> 60
+            }
 
-        val shadow = when {
-            isHardLimited -> 0
-            isConstrained && tier == "flagship" -> 2
-            isConstrained -> 0
-            tier == "flagship" -> 5
-            tier == "high" -> 4
-            tier == "mid_high" -> 2
-            tier == "mid" -> 2
-            else -> 0
-        }
+        val shadow =
+            when {
+                isHardLimited -> 0
+                isConstrained && tier == "flagship" -> 2
+                isConstrained -> 0
+                tier == "flagship" -> 5
+                tier == "high" -> 4
+                tier == "mid_high" -> 2
+                tier == "mid" -> 2
+                else -> 0
+            }
 
-        val shadowRes = when {
-            shadow >= 4 -> 2048
-            shadow >= 2 -> 1024
-            shadow >= 1 -> 512
-            else -> 256
-        }
+        val shadowRes =
+            when {
+                shadow >= 4 -> 2048
+                shadow >= 2 -> 1024
+                shadow >= 1 -> 512
+                else -> 256
+            }
 
-        val ssr = when {
-            isHardLimited || (isConstrained && tier !in listOf("flagship", "high")) -> 0
-            tier == "flagship" && ram >= 8000 -> 4
-            tier == "high" && ram >= 8000 -> 2
-            tier in listOf("flagship", "high") -> 1
-            else -> 0
-        }
+        val ssr =
+            when {
+                isHardLimited || (isConstrained && tier !in listOf("flagship", "high")) -> 0
+                tier == "flagship" && ram >= 8000 -> 4
+                tier == "high" && ram >= 8000 -> 2
+                tier in listOf("flagship", "high") -> 1
+                else -> 0
+            }
 
-        val mipbias = when {
-            isHardLimited || ram < 4000 -> 3
-            ram < 6000 -> 3
-            ram < 8000 -> 0
-            else -> 0
-        }
+        val mipbias =
+            when {
+                isHardLimited || ram < 4000 -> 3
+                ram < 6000 -> 3
+                ram < 8000 -> 0
+                else -> 0
+            }
 
-        val streaming: Double = when {
-            isHardLimited -> 0.3
-            ram < 4000 -> 0.5
-            ram < 6000 -> 1.0
-            ram < 8000 -> 2.0
-            tier == "flagship" -> 4.0
-            tier == "high" -> 3.0
-            else -> 2.0
-        }
+        val streaming: Double =
+            when {
+                isHardLimited -> 0.3
+                ram < 4000 -> 0.5
+                ram < 6000 -> 1.0
+                ram < 8000 -> 2.0
+                tier == "flagship" -> 4.0
+                tier == "high" -> 3.0
+                else -> 2.0
+            }
 
-        val vd: Double = when {
-            isHardLimited -> 0.3
-            tier == "flagship" -> 3.0
-            tier == "high" -> 2.0
-            tier == "mid_high" -> 1.5
-            else -> 0.5
-        }
+        val vd: Double =
+            when {
+                isHardLimited -> 0.3
+                tier == "flagship" -> 3.0
+                tier == "high" -> 2.0
+                tier == "mid_high" -> 1.5
+                else -> 0.5
+            }
 
-        val flod: Double = when {
-            isHardLimited -> 0.4
-            tier == "flagship" -> 3.0
-            tier == "high" -> 2.5
-            tier == "mid_high" -> 2.0
-            else -> 0.6
-        }
+        val flod: Double =
+            when {
+                isHardLimited -> 0.4
+                tier == "flagship" -> 3.0
+                tier == "high" -> 2.5
+                tier == "mid_high" -> 2.0
+                else -> 0.6
+            }
 
-        val detail = when {
-            isHardLimited -> 0
-            isConstrained && tier !in listOf("flagship", "high") -> 0
-            tier == "flagship" -> 2
-            tier == "high" -> 2
-            tier == "mid_high" -> 1
-            tier == "mid" -> 1
-            else -> 0
-        }
+        val detail =
+            when {
+                isHardLimited -> 0
+                isConstrained && tier !in listOf("flagship", "high") -> 0
+                tier == "flagship" -> 2
+                tier == "high" -> 2
+                tier == "mid_high" -> 1
+                tier == "mid" -> 1
+                else -> 0
+            }
 
-        val lod_bias = when {
-            isHardLimited -> 5
-            detail == 0 -> 3
-            else -> 0
-        }
+        val lod_bias =
+            when {
+                isHardLimited -> 5
+                detail == 0 -> 3
+                else -> 0
+            }
 
-        val grasscull = when {
-            isHardLimited -> 1500
-            detail == 0 -> 4500
-            tier == "flagship" -> 30000
-            tier == "high" -> 20000
-            tier == "mid_high" -> 15000
-            else -> 15000
-        }
+        val grasscull =
+            when {
+                isHardLimited -> 1500
+                detail == 0 -> 4500
+                tier == "flagship" -> 30000
+                tier == "high" -> 20000
+                tier == "mid_high" -> 15000
+                else -> 15000
+            }
 
         return OptimizedProfile(
             screen = screen, shadow = shadow, shadowRes = shadowRes,
             ssr = ssr, mipbias = mipbias, streaming = streaming,
             vd = vd, flod = flod, detail = detail,
-            lod_bias = lod_bias, grasscull = grasscull
+            lod_bias = lod_bias, grasscull = grasscull,
         )
     }
 
-    fun adjustProfile(current: OptimizedProfile, comparison: DeployComparison): OptimizedProfile {
+    fun adjustProfile(
+        current: OptimizedProfile,
+        comparison: DeployComparison,
+    ): OptimizedProfile {
         val fpsDelta = comparison.fpsDelta ?: 0f
         val oomDelta = comparison.oomDelta ?: 0
         val thermalDelta = comparison.thermalDelta ?: 0
@@ -196,7 +210,7 @@ object CvarOptimizer {
                 flod = newFlod,
                 detail = newDetail,
                 lod_bias = if (newDetail == 0) 3 else current.lod_bias,
-                grasscull = if (newDetail == 0) 4500 else current.grasscull
+                grasscull = if (newDetail == 0) 4500 else current.grasscull,
             )
         }
 
@@ -208,10 +222,19 @@ object CvarOptimizer {
             return current.copy(
                 screen = newScreen,
                 shadow = newShadow,
-                shadowRes = when (newShadow) { 4, 5 -> 2048; 2, 3 -> 1024; else -> 256 },
+                shadowRes =
+                    when (newShadow) {
+                        4, 5 -> 2048
+                        2, 3 -> 1024
+                        else -> 256
+                    },
                 ssr = newSsr,
                 detail = newDetail,
-                grasscull = when { newDetail == 2 && current.grasscull < 20000 -> 30000; else -> current.grasscull }
+                grasscull =
+                    when {
+                        newDetail == 2 && current.grasscull < 20000 -> 30000
+                        else -> current.grasscull
+                    },
             )
         }
 

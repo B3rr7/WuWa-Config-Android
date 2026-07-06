@@ -6,22 +6,30 @@ import com.wuwaconfig.app.model.GachaApiResponse
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaPool
 import com.wuwaconfig.app.model.GachaRecord
+import com.wuwaconfig.app.model.PityPrediction
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.Locale
-import com.wuwaconfig.app.model.PityPrediction
 
 object GachaApi {
+    private val STANDARD_CHARACTERS =
+        setOf(
+            "Calcharo",
+            "Verina",
+            "Lingyang",
+            "Jianxin",
+            "Encore",
+        )
 
-    private val STANDARD_CHARACTERS = setOf(
-        "Calcharo", "Verina", "Lingyang", "Jianxin", "Encore"
-    )
-
-    private val STANDARD_WEAPONS = setOf(
-        "Static Mist", "Everbright Polestar", "Pulsation Bracer",
-        "Boson Astrolabe", "Emerald of Genesis", "Abyssal Surge"
-    )
+    private val STANDARD_WEAPONS =
+        setOf(
+            "Static Mist",
+            "Everbright Polestar",
+            "Pulsation Bracer",
+            "Boson Astrolabe",
+            "Emerald of Genesis",
+            "Abyssal Surge",
+        )
 
     private val CHARACTER_POOLS = setOf("1", "7", "10")
 
@@ -38,10 +46,11 @@ object GachaApi {
 
     fun parseUrl(url: String): GachaUrlParams? {
         val fragment = url.substringAfter("#/record?")
-        val params = fragment.split("&").associate {
-            val parts = it.split("=", limit = 2)
-            parts[0] to (parts.getOrNull(1) ?: "")
-        }
+        val params =
+            fragment.split("&").associate {
+                val parts = it.split("=", limit = 2)
+                parts[0] to (parts.getOrNull(1) ?: "")
+            }
         val playerId = params["player_id"] ?: return null
         val recordId = params["record_id"] ?: return null
         val cardPoolId = params["resources_id"] ?: return null
@@ -66,14 +75,15 @@ object GachaApi {
             val poolsWithData = mutableListOf<String>()
 
             for (pool in GachaPool.ALL) {
-                val body = mapOf(
-                    "playerId" to params.playerId,
-                    "recordId" to params.recordId,
-                    "cardPoolId" to params.cardPoolId,
-                    "cardPoolType" to pool.type,
-                    "serverId" to params.serverId,
-                    "languageCode" to params.languageCode,
-                )
+                val body =
+                    mapOf(
+                        "playerId" to params.playerId,
+                        "recordId" to params.recordId,
+                        "cardPoolId" to params.cardPoolId,
+                        "cardPoolType" to pool.type,
+                        "serverId" to params.serverId,
+                        "languageCode" to params.languageCode,
+                    )
 
                 val result = postRequest(endpoint, body)
                 if (result.isFailure) continue
@@ -98,30 +108,38 @@ object GachaApi {
                 if (poolRecords.isEmpty()) continue
 
                 val isCharacterBanner = pool.type in CHARACTER_POOLS
-                val pred = if (isCharacterBanner) {
-                    calcCharacterPrediction(poolRecords, pool)
-                } else if (pool.type == "2") {
-                    calcWeaponPrediction(poolRecords, pool)
-                } else null
+                val pred =
+                    if (isCharacterBanner) {
+                        calcCharacterPrediction(poolRecords, pool)
+                    } else if (pool.type == "2") {
+                        calcWeaponPrediction(poolRecords, pool)
+                    } else {
+                        null
+                    }
                 if (pred != null) predictions.add(pred)
             }
 
-            Result.success(GachaData(
-                records = records.sortedByDescending { it.time },
-                poolsWithData = poolsWithData,
-                totalPulls = totalPulls,
-                fiveStars = fiveStars,
-                fourStars = fourStars,
-                avgPity5 = pity5,
-                avgPity4 = pity4,
-                predictions = predictions,
-            ))
+            Result.success(
+                GachaData(
+                    records = records.sortedByDescending { it.time },
+                    poolsWithData = poolsWithData,
+                    totalPulls = totalPulls,
+                    fiveStars = fiveStars,
+                    fourStars = fourStars,
+                    avgPity5 = pity5,
+                    avgPity4 = pity4,
+                    predictions = predictions,
+                ),
+            )
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    private fun postRequest(endpoint: String, body: Map<String, String>): Result<GachaApiResponse> {
+    private fun postRequest(
+        endpoint: String,
+        body: Map<String, String>,
+    ): Result<GachaApiResponse> {
         return try {
             val conn = URL(endpoint).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -146,19 +164,22 @@ object GachaApi {
             val message = map["message"] as? String ?: ""
             val dataRaw = map["data"] as? List<Map<String, Any?>> ?: emptyList()
 
-            val records = dataRaw.mapNotNull { item ->
-                try {
-                    GachaRecord(
-                        cardPoolType = (item["cardPoolType"] as? String) ?: return@mapNotNull null,
-                        resourceId = (item["resourceId"] as? Number)?.toLong() ?: 0L,
-                        qualityLevel = (item["qualityLevel"] as? Number)?.toInt() ?: 0,
-                        resourceType = item["resourceType"] as? String ?: "",
-                        name = item["name"] as? String ?: "",
-                        count = (item["count"] as? Number)?.toInt() ?: 1,
-                        time = item["time"] as? String ?: "",
-                    )
-                } catch (_: Exception) { null }
-            }
+            val records =
+                dataRaw.mapNotNull { item ->
+                    try {
+                        GachaRecord(
+                            cardPoolType = (item["cardPoolType"] as? String) ?: return@mapNotNull null,
+                            resourceId = (item["resourceId"] as? Number)?.toLong() ?: 0L,
+                            qualityLevel = (item["qualityLevel"] as? Number)?.toInt() ?: 0,
+                            resourceType = item["resourceType"] as? String ?: "",
+                            name = item["name"] as? String ?: "",
+                            count = (item["count"] as? Number)?.toInt() ?: 1,
+                            time = item["time"] as? String ?: "",
+                        )
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
 
             Result.success(GachaApiResponse(code = code, message = message, data = records))
         } catch (e: Exception) {
@@ -166,7 +187,10 @@ object GachaApi {
         }
     }
 
-    private fun calculateAvgPity(records: List<GachaRecord>, rarity: Int): Double {
+    private fun calculateAvgPity(
+        records: List<GachaRecord>,
+        rarity: Int,
+    ): Double {
         val rarities = records.filter { it.qualityLevel == rarity }
         if (rarities.isEmpty()) return 0.0
 
@@ -184,7 +208,10 @@ object GachaApi {
         return groups.average()
     }
 
-    private fun isStandardFive(name: String, resourceType: String): Boolean {
+    private fun isStandardFive(
+        name: String,
+        resourceType: String,
+    ): Boolean {
         return if (resourceType == "Resonator") {
             name in STANDARD_CHARACTERS
         } else {
@@ -199,7 +226,10 @@ object GachaApi {
         return sorted.size - lastFourIndex - 1
     }
 
-    private fun calcCharacterPrediction(records: List<GachaRecord>, pool: GachaPool): PityPrediction {
+    private fun calcCharacterPrediction(
+        records: List<GachaRecord>,
+        pool: GachaPool,
+    ): PityPrediction {
         val HARD_PITY = 80
         val SOFT_PITY_START = 66
         val sorted = records.sortedBy { it.time }
@@ -224,34 +254,44 @@ object GachaApi {
             pullsSinceLastFive = sorted.size
         }
 
-        val status = if (fiveStarRecords.isEmpty()) "Unknown"
-            else if (isLastFiveStandard) "Guaranteed"
-            else "50/50"
-
-        val nearbyFives = fiveStarRecords.filter {
-            it.name !in STANDARD_CHARACTERS && it.name !in STANDARD_WEAPONS
-        }
-        val avgCharPity = if (nearbyFives.size >= 2) {
-            val pityGroups = mutableListOf<Int>()
-            var cnt = 0
-            for (rec in sorted) {
-                cnt++
-                if (rec.qualityLevel == 5 && rec in nearbyFives) {
-                    pityGroups.add(cnt)
-                    cnt = 0
-                }
+        val status =
+            if (fiveStarRecords.isEmpty()) {
+                "Unknown"
+            } else if (isLastFiveStandard) {
+                "Guaranteed"
+            } else {
+                "50/50"
             }
-            if (pityGroups.isNotEmpty()) pityGroups.average().toInt() else HARD_PITY
-        } else HARD_PITY
+
+        val nearbyFives =
+            fiveStarRecords.filter {
+                it.name !in STANDARD_CHARACTERS && it.name !in STANDARD_WEAPONS
+            }
+        val avgCharPity =
+            if (nearbyFives.size >= 2) {
+                val pityGroups = mutableListOf<Int>()
+                var cnt = 0
+                for (rec in sorted) {
+                    cnt++
+                    if (rec.qualityLevel == 5 && rec in nearbyFives) {
+                        pityGroups.add(cnt)
+                        cnt = 0
+                    }
+                }
+                if (pityGroups.isNotEmpty()) pityGroups.average().toInt() else HARD_PITY
+            } else {
+                HARD_PITY
+            }
 
         val isInSoftPity = pullsSinceLastFive >= SOFT_PITY_START
         val pullsUntilHardPity = maxOf(HARD_PITY - pullsSinceLastFive, 0)
 
-        val estimated = if (isInSoftPity) {
-            maxOf(SOFT_PITY_START - pullsSinceLastFive + 4, 1) + 6
-        } else {
-            maxOf(avgCharPity - pullsSinceLastFive, 1)
-        }
+        val estimated =
+            if (isInSoftPity) {
+                maxOf(SOFT_PITY_START - pullsSinceLastFive + 4, 1) + 6
+            } else {
+                maxOf(avgCharPity - pullsSinceLastFive, 1)
+            }
 
         val pulls4 = calcPullsSinceLastFourStar(sorted)
 
@@ -272,7 +312,10 @@ object GachaApi {
         )
     }
 
-    private fun calcWeaponPrediction(records: List<GachaRecord>, pool: GachaPool): PityPrediction {
+    private fun calcWeaponPrediction(
+        records: List<GachaRecord>,
+        pool: GachaPool,
+    ): PityPrediction {
         val HARD_PITY = 70
         val SOFT_PITY_START = 57
         val sorted = records.sortedBy { it.time }
@@ -296,11 +339,12 @@ object GachaApi {
 
         val isInSoftPity = pullsSinceLastFive >= SOFT_PITY_START
         val pullsUntilHardPity = maxOf(HARD_PITY - pullsSinceLastFive, 0)
-        val estimated = if (isInSoftPity) {
-            maxOf(SOFT_PITY_START - pullsSinceLastFive + 4, 1) + 4
-        } else {
-            maxOf(65 - pullsSinceLastFive, 1)
-        }
+        val estimated =
+            if (isInSoftPity) {
+                maxOf(SOFT_PITY_START - pullsSinceLastFive + 4, 1) + 4
+            } else {
+                maxOf(65 - pullsSinceLastFive, 1)
+            }
 
         val pulls4 = calcPullsSinceLastFourStar(sorted)
 

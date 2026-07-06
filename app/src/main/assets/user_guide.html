@@ -276,17 +276,20 @@
 </ol>
 <p><strong>Auto-backup setting:</strong> Toggle in Settings → Generation &amp; History.</p>
 
-<h3>4.3 Actions</h3>
-<ul>
-<li><strong>Delete Config Files</strong> — removes all 5 INI files from the game directory</li>
+<h3>4.3 Quick Actions</h3>
+<p>Organized in professional order:</p>
+<ol>
+<li><strong>Profile</strong> — view player data (UID, server, level, tower floor, version)</li>
+<li><strong>Battle Stats</strong> — combat telemetry parsed from Client.log</li>
+<li><strong>Pity Tracker</strong> — fetch gacha history and pity predictions</li>
+<li><strong>Backups</strong> — manage saved config snapshots with per-file selection</li>
 <li><strong>Collect Client.log</strong> — reads and saves the game's encrypted log to <code>Downloads/WuWaConfig/Client.log</code></li>
 <li><strong>Config Generator</strong> — navigate to the full config generation UI</li>
-<li><strong>Backups</strong> — manage saved config snapshots</li>
-<li><strong>Pity Tracker</strong> — fetch gacha history</li>
-<li><strong>Profile</strong> — view player data</li>
-<li><strong>Battle Stats</strong> — combat telemetry</li>
-<li><strong>App Log</strong> — open the full log viewer</li>
-</ul>
+<li><strong>INI Editor</strong> — edit any of the 5 monitored INI files directly on-device</li>
+<li><strong>App Log</strong> — open the full log viewer with search and filter</li>
+</ol>
+<p>Below the main actions, a <strong>Clean Config Files</strong> button (NeonRed) opens a dialog with per-file checkboxes: <strong>Clean</strong> strips CVars while preserving <code>[Core.System]</code> paths, or <strong>Delete</strong> removes selected INI files entirely.</p>
+<p><strong>Auto-sync on Connect:</strong> Every time you connect to the device, the app automatically checks all 5 INI MD5s against KuroConfigMonitor.hash and fixes any desync before you do anything.</p>
 
 <h3>4.4 Recent Log</h3>
 <p>Shows the last 5 log entries. Tap to open the full Log Viewer.</p>
@@ -298,9 +301,25 @@
 <li>Comparison status (compared / not yet compared)</li>
 <li>Tap to open the full History screen</li>
 </ul>
-</section>
 
-<section id="s5">
+<h3>4.6 INI Editor</h3>
+<p>Edit any of the 5 monitored INI files directly on-device:</p>
+<ol>
+<li>Tap <strong>INI Editor</strong> button → file list of all 5 INI files</li>
+<li>Tap a file → reads current content from device into a monospace text editor</li>
+<li>Edit CVars freely — add, change, or remove any values</li>
+<li>Tap <strong>Save</strong> → pushes to device, refreshes KuroConfigMonitor hash</li>
+<li>Success popup confirms write + hash refresh</li>
+</ol>
+<p><strong>Auto-sync on open:</strong> When you enter the INI Editor, the app reads all 5 INIs, computes their MD5s, and refreshes the hash file if any mismatch is detected — prevents desync before you start editing.</p>
+
+<h3>4.7 Clean Config Files</h3>
+<p>Replaces the old <strong>Delete Config Files</strong>. Instead of deleting INIs entirely, strips CVar values while preserving critical structure:</p>
+<ul>
+<li><strong>Clean</strong> — strips all CVar values. Engine.ini keeps only <code>[Core.System]</code> paths. Other INIs keep section headers only. Game regenerates defaults on next boot.</li>
+<li><strong>Delete</strong> — removes selected INI files entirely via <code>rm -f</code>. Game creates fresh versions on next launch.</li>
+</ul>
+<p>Both actions use the <strong>hash snapshot + reconcile</strong> pattern: saves hash file before modifying, compares afterward to detect concurrent game access, and always recomputes from actual files.</p>
 <h2>5. Config Generator</h2>
 <p>The core feature — analyze your device, tune settings, and deploy optimized configs.</p>
 
@@ -404,9 +423,10 @@
 <li>Configure all options</li>
 <li>Tap <strong>Generate</strong> — creates all selected INI files</li>
 <li><strong>Review screen</strong> shows generated text in a monospace editor</li>
-<li>Tap <strong>Deploy to Device</strong> — pushes files, refreshes KuroConfigMonitor hash</li>
+<li>Tap <strong>Deploy to Device</strong> — pushes files, uses hash snapshot+reconcile to detect concurrent game access, refreshes KuroConfigMonitor hash</li>
 <li><strong>Verify</strong> — app pulls Client.log and cross-references deployed CVars</li>
 </ol>
+<p><strong>Hash integrity:</strong> Before every deploy, edit, or clean operation, the app snapshots the current hash file. After the operation, it compares the snapshot against the live file. If the game modified the hash during the operation (concurrent access), the app logs a warning and reconciles. If unchanged, it safely updates. All paths verify actual INI MD5s match the stored hashes.</p>
 </section>
 
 <section id="s6">
@@ -645,9 +665,19 @@
 <li>Split into <code>printf '%s'</code> chunks (~4000 bytes)</li>
 <li>Written to <code>/data/local/tmp/wuwaconfig_{ts}_{rand}.b64</code></li>
 <li>Decoded via <code>base64 -d</code></li>
-<li>Temp file deleted</li>
+<li>Temp file deleted (<code>rm -f /data/local/tmp/wuwaconfig_*.b64</code> before every push)</li>
 <li>MD5 verified</li>
 <li>Retried once on failure</li>
+</ol>
+<p><strong>Hash file safety (7 mechanisms):</strong></p>
+<ol>
+<li><strong>Adaptive hash patching</strong> — preserves <code>ModifyCount</code>, unknown fields (<code>Signature=</code>, <code>Version=</code>), formatting, and non-monitored sections</li>
+<li><strong>Atomic write</strong> — pushes to <code>.new</code> temp file, then <code>mv</code> renames — crash mid-write never corrupts live file</li>
+<li><strong>Zero stale temp files</strong> — cleans up base64 artifacts before every push</li>
+<li><strong>ModifyCount never incremented</strong> — reads existing count, preserves it as-is</li>
+<li><strong>Snapshot + Reconcile</strong> — before any config op, snapshots hash file. After op, compares vs current to detect concurrent game access. Recomputes actual INI MD5s regardless.</li>
+<li><strong>Auto-sync on Connect</strong> — runs <code>syncConfigHashes()</code> every time you connect, auto-fixes desync</li>
+<li><strong>Auto-sync on Editor open</strong> — reads all 5 INIs, compares MD5s against hash file, refreshes if mismatched</li>
 </ol>
 </section>
 
