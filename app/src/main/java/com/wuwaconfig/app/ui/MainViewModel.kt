@@ -673,6 +673,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
+                        .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                 } else {
                     addLog("FAILED: ${result.exceptionOrNull()?.message}")
                 }
@@ -1065,6 +1066,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     _deployResult.value = result.getOrThrow()
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
+                        .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                     if (opts.generateEngine) {
                         addLog("Verifying deployed CVars against ConfigMonitor...")
                         _readingProgress.value = 50
@@ -1198,6 +1200,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _customDeploySuccess.value = "${selected.size} file(s) deployed: ${selected.joinToString(", ")}"
                     loadBackups()
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
+                        .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                 } else {
                     addLog("FAILED: ${result.exceptionOrNull()?.message}")
                 }
@@ -1222,6 +1225,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     loadBackups()
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
+                        .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                 } else {
                     addLog(result.exceptionOrNull()?.message ?: "Clean failed")
                 }
@@ -1246,6 +1250,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     loadBackups()
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
+                        .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                 } else {
                     addLog(result.exceptionOrNull()?.message ?: "Delete failed")
                 }
@@ -1261,7 +1266,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun syncConfigHashes(onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             addLog("Hash sync: checking device config hashes...")
-            val md5 = java.security.MessageDigest.getInstance("MD5")
             val hashContent = app.backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
             if (hashContent.isBlank()) {
                 addLog("Hash sync: no hash file found, creating fresh...")
@@ -1272,8 +1276,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             var needsRefresh = false
             for (name in GamePaths.MONITORED_FILES) {
                 val path = "${GamePaths.TARGET_DIR}/$name"
-                val content = app.backend.readFile(path).getOrDefault("")
-                val actualHash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+                val fileHash = app.backend.executeShellCommand("md5sum ${com.wuwaconfig.app.backend.shQuote(path)} 2>/dev/null | cut -d' ' -f1")
+                    .getOrNull()?.trim()?.take(32)
+                val actualHash = if (fileHash != null && fileHash.length == 32) {
+                    fileHash
+                } else {
+                    val content = app.backend.readFile(path).getOrDefault("")
+                    val fallback = java.security.MessageDigest.getInstance("MD5").digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+                    addLog("Hash sync: md5sum unavailable for $name, using local fallback", LogLevel.WARNING)
+                    fallback
+                }
                 val storedHash = extractHash(hashContent, name)
                 if (storedHash != null && storedHash != actualHash) {
                     addLog("Hash sync: $name hash mismatch (stored=$storedHash, actual=$actualHash)", LogLevel.WARNING)

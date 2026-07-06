@@ -118,13 +118,20 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
                     return lastErr
                 }
             }
-            val decodeResult =
-                client.executeShellCommand(
-                    "base64 -d ${shQuote(encodedPath)} > ${shQuote(targetPath)}; rm -f ${shQuote(encodedPath)}",
-                )
+            val decodeCmd = "base64 -d ${shQuote(encodedPath)} > ${shQuote(targetPath)}; rm -f ${shQuote(encodedPath)}"
+            var decodeResult = client.executeShellCommand(decodeCmd)
+            if (decodeResult.isFailure) {
+                val altDecode = client.executeShellCommandWithRunAs(GAME_PKG, decodeCmd)
+                if (altDecode.isSuccess) decodeResult = altDecode
+            }
             if (decodeResult.isFailure) return decodeResult
+
             val verifyCmd = "md5sum ${shQuote(targetPath)} 2>/dev/null | cut -d' ' -f1"
-            val remoteMd5 = client.executeShellCommand(verifyCmd).getOrNull()?.trim()
+            var remoteMd5 = client.executeShellCommand(verifyCmd).getOrNull()?.trim()
+            if (remoteMd5 == null || remoteMd5.length != 32) {
+                val altMd5 = client.executeShellCommandWithRunAs(GAME_PKG, verifyCmd).getOrNull()?.trim()
+                if (altMd5 != null && altMd5.length == 32) remoteMd5 = altMd5
+            }
             if (remoteMd5 != null && remoteMd5.length == 32) {
                 if (remoteMd5 != localMd5) {
                     client.executeShellCommand("rm -f ${shQuote(targetPath)}")
@@ -132,10 +139,18 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
                 }
             } else {
                 val sizeCmd = "wc -c < ${shQuote(targetPath)} 2>/dev/null"
-                val remoteSize = client.executeShellCommand(sizeCmd).getOrNull()?.trim()?.toLongOrNull()
+                var remoteSize = client.executeShellCommand(sizeCmd).getOrNull()?.trim()?.toLongOrNull()
+                if (remoteSize == null) {
+                    val altSize = client.executeShellCommandWithRunAs(GAME_PKG, sizeCmd).getOrNull()?.trim()?.toLongOrNull()
+                    if (altSize != null) remoteSize = altSize
+                }
                 if (remoteSize != null && remoteSize != bytes.size.toLong()) {
                     client.executeShellCommand("rm -f ${shQuote(targetPath)}")
                     return Result.failure(Exception("Size mismatch after push: local=${bytes.size} remote=$remoteSize"))
+                }
+                if (remoteSize == null) {
+                    client.executeShellCommand("rm -f ${shQuote(targetPath)}")
+                    return Result.failure(Exception("Cannot verify file after push — file may not exist"))
                 }
             }
             LogRepository.add("ADB push completed: $targetPath", LogLevel.SUCCESS)

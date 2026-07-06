@@ -597,8 +597,16 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                 val updates = mutableMapOf<String, Map<String, String>>()
                 for (name in GamePaths.MONITORED_FILES) {
                     val path = "${GamePaths.TARGET_DIR}/$name"
-                    val content = backend.readFile(path).getOrDefault("")
-                    val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+                    val fileHash = backend.executeShellCommand("md5sum ${shQuote(path)} 2>/dev/null | cut -d' ' -f1")
+                        .getOrNull()?.trim()?.take(32)
+                    val hash = if (fileHash != null && fileHash.length == 32) {
+                        fileHash
+                    } else {
+                        val content = backend.readFile(path).getOrDefault("")
+                        val fallback = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+                        LogRepository.add("ConfigManager: md5sum unavailable for $name, using local fallback", LogLevel.WARNING)
+                        fallback
+                    }
 
                     var prevCount: Int? = null
                     var prevTime = ""
