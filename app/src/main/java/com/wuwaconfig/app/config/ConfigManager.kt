@@ -18,6 +18,8 @@ import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.model.VerificationReport
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -29,6 +31,7 @@ import java.util.zip.GZIPInputStream
 
 class ConfigManager(private val context: Context, private val backend: AccessBackend, backupDirPath: String? = null) {
     private val gson = Gson()
+    private val hashMutex = Mutex()
 
     private val backupDir: File =
         File(backupDirPath ?: File(context.filesDir, "backups").absolutePath).also {
@@ -579,7 +582,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
-    suspend fun refreshConfigHashes(): Result<String> =
+    suspend fun refreshConfigHashes(): Result<String> = hashMutex.withLock {
         withContext(Dispatchers.IO) {
             try {
                 LogRepository.add("ConfigManager: refreshing config hashes")
@@ -597,24 +600,29 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                     val content = backend.readFile(path).getOrDefault("")
                     val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
 
-                    var prevCount = 0
+                    var prevCount: Int? = null
+                    var prevTime = ""
                     var inSection = false
+                    val iniSectionRegex = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
                     for (line in existingLines) {
                         val t = line.trim()
-                        if (t.equals("[$name]", ignoreCase = false)) {
+                        if (t.equals("[$name]", ignoreCase = true)) {
                             inSection = true
                             continue
                         }
-                        if (inSection && t.startsWith("[") && t.endsWith("]")) break
+                        if (inSection && t.matches(iniSectionRegex)) break
                         if (inSection && t.startsWith("ModifyCount=")) {
-                            prevCount = t.removePrefix("ModifyCount=").toIntOrNull() ?: 0
+                            prevCount = t.removePrefix("ModifyCount=").toIntOrNull()
+                        }
+                        if (inSection && t.startsWith("LastModifiedTime=")) {
+                            prevTime = t.removePrefix("LastModifiedTime=").trim()
                         }
                     }
                     updates[name] =
                         mapOf(
                             "Hash" to hash,
-                            "ModifyCount" to prevCount.toString(),
-                            "LastModifiedTime" to now,
+                            "ModifyCount" to (prevCount?.toString() ?: "0"),
+                            "LastModifiedTime" to (prevTime.ifBlank { now }),
                         )
                 }
 
@@ -636,7 +644,11 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                     val eq = trimmed.indexOf('=')
                     if (eq <= 0) return false
                     val key = trimmed.substring(0, eq).trim()
-                    return key in listOf("Hash", "ModifyCount", "LastModifiedTime") && !seenKeys.add(trimmed)
+                    val isDuplicate = key in listOf("Hash", "ModifyCount", "LastModifiedTime") && !seenKeys.add(trimmed)
+                    if (isDuplicate) {
+                        LogRepository.add("ConfigManager: dropped duplicate $key in section [$currentSection]", LogLevel.WARNING)
+                    }
+                    return isDuplicate
                 }
 
                 if (hasExistingContent) {
@@ -710,7 +722,12 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                     backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
                     throw hashPushError ?: Exception("Failed to push hash file")
                 }
-                backend.executeShellCommand("mv ${shQuote(hashTempPath)} ${shQuote(GamePaths.HASH_MONITOR_PATH)}")
+                val mvResult = backend.executeShellCommand("mv ${shQuote(hashTempPath)} ${shQuote(GamePaths.HASH_MONITOR_PATH)}")
+                if (mvResult.isFailure) {
+                    backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
+                    LogRepository.add("ConfigManager: atomic rename failed, .new temp cleaned up", LogLevel.ERROR)
+                    throw mvResult.exceptionOrNull() ?: Exception("Failed to atomically rename hash file")
+                }
                 tempFile.delete()
 
                 val verifyResult = backend.readFile(GamePaths.HASH_MONITOR_PATH)
@@ -721,8 +738,8 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                         LogRepository.add("ConfigManager: hashes refreshed and verified", LogLevel.SUCCESS)
                         Result.success("Config hashes synced & verified")
                     } else {
-                        Log.w("ConfigManager", "Hash file read-back mismatch")
-                        LogRepository.add("ConfigManager: hash verify mismatch", LogLevel.WARNING)
+                        Log.e("ConfigManager", "Hash file read-back MISMATCH — hash may be corrupt")
+                        LogRepository.add("ConfigManager: hash verify MISMATCH", LogLevel.ERROR)
                         Result.success("Config hashes synced (verify mismatch)")
                     }
                 } else {
@@ -736,6 +753,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                 Result.failure(e)
             }
         }
+    }
 
     data class HashFileSnapshot(
         val content: String,
@@ -744,7 +762,12 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
 
     suspend fun snapshotHashFile(): Result<HashFileSnapshot> =
         withContext(Dispatchers.IO) {
-            val content = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
+            val result = backend.readFile(GamePaths.HASH_MONITOR_PATH)
+            if (result.isFailure) {
+                LogRepository.add("ConfigManager: hash snapshot FAILED: ${result.exceptionOrNull()?.message}", LogLevel.ERROR)
+                return@withContext Result.failure(result.exceptionOrNull()!!)
+            }
+            val content = result.getOrThrow()
             LogRepository.add("ConfigManager: hash snapshot taken (${content.length} chars)")
             Result.success(HashFileSnapshot(content, System.currentTimeMillis()))
         }
@@ -776,13 +799,14 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             try {
                 val content = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
                 if (content.isBlank()) return@withContext Result.failure(Exception("No hash file on device"))
+                val monitoredNames = GamePaths.MONITORED_FILES.toSet()
                 val results = mutableListOf<com.wuwaconfig.app.model.ConfigHashInfo>()
                 var currentFile = ""
                 for (line in content.lines()) {
                     val trimmed = line.trim()
                     if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
                         currentFile = trimmed.removePrefix("[").removeSuffix("]")
-                    } else if (trimmed.startsWith("ModifyCount=") && currentFile.isNotEmpty()) {
+                    } else if (trimmed.startsWith("ModifyCount=") && currentFile.isNotEmpty() && currentFile in monitoredNames) {
                         val count = trimmed.removePrefix("ModifyCount=").toIntOrNull() ?: 0
                         results.add(com.wuwaconfig.app.model.ConfigHashInfo(currentFile, count))
                     }

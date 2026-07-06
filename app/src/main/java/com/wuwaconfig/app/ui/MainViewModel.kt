@@ -937,6 +937,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val result = configManager.readConfigModifyCounts()
             if (result.isSuccess) {
                 _configModifyCounts.value = result.getOrThrow().associate { it.fileName to it.modifyCount }
+            } else {
+                _configModifyCounts.value = emptyMap()
+                addLog("Modify counts unavailable: ${result.exceptionOrNull()?.message}", LogLevel.WARNING)
             }
         }
     }
@@ -1295,13 +1298,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         fileName: String,
     ): String? {
         var inSection = false
+        val iniSectionRegex = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
         for (line in hashContent.lines()) {
             val t = line.trim()
-            if (t.equals("[$fileName]", ignoreCase = false)) {
+            if (t.equals("[$fileName]", ignoreCase = true)) {
                 inSection = true
                 continue
             }
-            if (inSection && t.startsWith("[") && t.endsWith("]")) break
+            if (inSection && t.matches(iniSectionRegex)) break
             if (inSection && t.startsWith("Hash=")) return t.removePrefix("Hash=").trim()
         }
         return null
