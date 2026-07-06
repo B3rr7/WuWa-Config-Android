@@ -1,301 +1,228 @@
-<!-- wuthering waves config, wuwa fps boost, engine.ini optimization, unreal engine 4 mobile config, kuro games optimization, android game booster, mobile game config editor, gacha pity tracker, battle stats analyzer, fps unlock 120fps, graphics tuning, device profile config, scalability ini, hardware ini, gameusersettings ini, config generator android, wuthering waves android optimization, wuwa mobile config, wuwa lag fix android, wuthering waves stuttering fix, client log decryptor, wuwa engine ini tweak, deviceprofiles ini tutorial, increase wuwa fps, mobile gaming performance, vulkan shader cache optimization, wuthering waves 120fps, fps drop fix mobile, thermal throttling solution, kurogames config tool, snapdragon gaming optimization, adreno gpu tuning, mali gpu optimization, low end device booster, smartbrain scoring, configmonitor hash, cvar editor android, auto tune wizard, battle statistics, wuthering waves benchmark, wuwa config generator, android game booster wuwa, wuthering waves android optimization, wuthering waves 3.4 cyberpunk, wuwa version 3.4 config, kuro config monitor, wuwa graphics preset, mobile unreal engine tweaks, wuthering waves performance 2026, android data folder access, shizuku game config, adb wireless debugging game, wuwa startup config, engine ini mobile, gameusersettings fps unlock, wuthering waves low memory fix, wuwa texture streaming, cvar optimization android, wuwa config for poco, wuwa config for redmi, wuwa config for xiaomi, wuwa config for samsung, wuwa config for oneplus, wuwa config for realme, wuwa config for vivo, wuwa config for oppo, wuwa config for honor, wuwa config for huawei, wuwa config for nothing phone, wuwa config for motorola, wuwa config for asus rog, wuwa config for lenovo, wuwa poco x6 pro config, wuwa poco x5 pro config, wuwa poco f5 config, wuwa poco f6 config, wuwa redmi note 12 config, wuwa redmi note 13 config, wuwa samsung s23 config, wuwa samsung s24 config, wuwa oneplus 12 config, wuwa realme gt config, wuwa vivo x100 config, poco wuthering waves optimization, redmi wuthering waves performance, xiaomi wuwa fps boost, samsung galaxy wuwa config, galaxy s24 wuthering waves settings, poco f5 wuthering waves engine ini, poco f6 wuthering waves graphics, redmi note 13 wuthering waves lag fix, wuwa optimization snapdragon 8 gen 2, wuwa optimization snapdragon 8 gen 3, wuwa optimization dimensity 8300, wuwa optimization dimensity 9200, wuwa optimization kirin 9000 -->
-# WuWaConfig — Wuthering Waves Config Toolkit
+<div align="center">
+  <img src="app_logo.webp" alt="WuWaConfig" width="192" height="192"/>
+  <h1 align="center">WuWaConfig</h1>
+  <p align="center">
+    <strong>Wuthering Waves Android Config Toolkit</strong>
+    <br />
+    FPS boost · Graphics tuning · Smart Auto-optimization · Pity Tracker · Battle Stats
+  </p>
+  <p>
+    <a href="https://github.com/B3rr7/WuWa-Config-Android/releases"><img src="https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download%20APK&color=7B2FFF&style=for-the-badge&logo=android" alt="Release"/></a>
+    <a href="https://github.com/B3rr7/WuWa-Config-Android/releases"><img src="https://img.shields.io/github/downloads/B3rr7/WuWa-Config-Android/total?color=00D9FF&style=for-the-badge&logo=github" alt="Downloads"/></a>
+    <a href="https://github.com/B3rr7/WuWa-Config-Android/blob/main/LICENSE"><img src="https://img.shields.io/github/license/B3rr7/WuWa-Config-Android?color=FF3B6F&style=for-the-badge" alt="License"/></a>
+    <br />
+    <a href="https://github.com/B3rr7/WuWa-Config-Android/actions"><img src="https://img.shields.io/github/actions/workflow/status/B3rr7/WuWa-Config-Android/build.yml?branch=main&label=Build&logo=github&style=flat-square" alt="Build"/></a>
+    <a href="https://github.com/B3rr7/WuWa-Config-Android/stargazers"><img src="https://img.shields.io/github/stars/B3rr7/WuWa-Config-Android?style=flat-square&logo=github&color=FFD700" alt="Stars"/></a>
+    <a href="https://t.me/Yt_Player42"><img src="https://img.shields.io/badge/Telegram-Channel-2CA5E0?style=flat-square&logo=telegram" alt="Telegram"/></a>
+    <a href="https://discord.gg/5WP9nN2e2s"><img src="https://img.shields.io/badge/Discord-Server-5865F2?style=flat-square&logo=discord" alt="Discord"/></a>
+    <a href="https://www.youtube.com/@Player42_g"><img src="https://img.shields.io/badge/YouTube-Player42_g-FF0000?style=flat-square&logo=youtube" alt="YouTube"/></a>
+  </p>
+</div>
 
-[![Release](https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
+<br />
 
-Android app for **Wuthering Waves (WuWa) performance optimization** — analyzes your device log, generates optimized Engine.ini configs for FPS boost and graphics tuning, and deploys them via ADB/Shizuku/Root. Includes CVar tuning, SmartBrain scoring, Pity Tracker, Battle Stats, and Player Profile. Designed for low-end to flagship Android devices.
-
-> **⚠️ DISCLAIMER**
-> This project is **NOT affiliated with Kuro Games or Wuthering Waves**.
-> It is a fan-made tool for editing game configuration files.
-> Modifying game files may be subject to the game's Terms of Service.
-> **Use at your own risk.** The creator is not responsible for any account actions, bans, or issues that may arise.
-
----
-
-## Table of Contents
-
-1. [Installation & First Run](#installation--first-run)
-2. [Access Methods](#access-methods-how-to-connect)
-3. [Screens](#screens)
-   - [Home](#home)
-   - [Config Generator](#config-generator)
-   - [Pity Tracker](#pity-tracker)
-   - [Player Profile](#player-profile)
-   - [Battle Stats](#battle-stats)
-   - [Backup & Restore](#backup--restore)
-   - [Settings](#settings)
-4. [Project Structure](#project-structure)
-5. [Tech Stack](#tech-stack)
-6. [Links](#links)
+> **⚠️ DISCLAIMER** This project is **NOT affiliated with Kuro Games or Wuthering Waves**. Fan-made tool for editing game configuration files. Modifying game files may be subject to the game's Terms of Service. **Use at your own risk.**
 
 ---
 
-## Installation & First Run
+## ✨ Features at a Glance
 
-1. **Download** the latest APK from [Releases](https://github.com/B3rr7/WuWa-Config-Android/releases).
-2. **Install** on your Android device (enable "Install from unknown sources").
-3. **Open** the app — accept Terms of Use.
-4. **Grant storage permission** when prompted (for backups).
-5. **Connect** using one of the 4 access methods below.
-
----
-
-## Access Methods (How to Connect)
-
-The app needs to read/write game config files in `Android/data/com.kurogame.wutheringwaves.global/`.
-
-### 🔧 ADB (In-App Wireless Debugging)
-**Best for:** Non-rooted users. App implements ADB wire protocol directly — connects to localhost ADB daemon. (maybe broken yeat)
-
-**Setup:**
-- Enable **Wireless Debugging** in Developer Options
-- Tap **Connect** in app — auto-scans ports 37000-44000
-- Accept RSA fingerprint on phone
-- On Android 16+, may need re-pair after reboot (auto key regeneration handled)
-
-### 📱 Shizuku
-**Best for:** Non-rooted users with Shizuku installed.
-
-**Setup:**
-1. Install [Shizuku](https://shizuku.rikka.app/)
-2. Start Shizuku service
-3. Select **Shizuku** mode in app → **Permit** → **Connect**
-
-### 🦸 Root
-**Best for:** Rooted devices (Magisk, KernelSU, APatch).
-
-**Setup:**
-1. Select **Root** mode
-2. **Test Root** → grant in root manager
-3. **Connect**
-
-### 📂 SAF (Storage Access Framework)
-**Best for:** Quick one-off edits. Limited — no shell access, no config generator.
-
-**Setup:**
-1. Select **SAF** mode → **Pick Dir**
-2. Navigate to `Android/data/com.kurogame.wutheringwaves.global/files/UE4Game/Client/Client/Saved/Config/Android`
-3. **Allow**
+| Category | Feature |
+|----------|---------|
+| 🚀 **FPS Boost** | 5 presets (Potato → Ultra), 120 FPS unlock, Vulkan toggle, thermal throttling fixes |
+| 🧠 **Smart Auto-Optimize** | Analyzes device (GPU/RAM/FPS/thermal), scores 0-100, recommends best preset |
+| ⚡ **Auto-Tune Wizard** | Multi-round benchmark → deploy → test → adjust → repeat until target FPS hit |
+| 🎨 **Graphics Tuning** | Shadow quality, SSR, bloom, fog, CA, outlines, radial blur, HZB occlusion, texture streaming |
+| 🔍 **CVar Editor** | Full INI editor with auto-sync, hash reconciliation, 3100+ CVar database reference |
+| 💾 **Backup & Restore** | Per-file selection, auto-backup before deploy with scope dialog |
+| 🔗 **4 Access Methods** | ADB (in-app), Shizuku, Root, SAF — no PC needed |
+| 📊 **Pity Tracker** | Fetches gacha history from Kuro's API, calculates soft/hard pity, 50/50 status |
+| 📈 **Battle Stats** | Combat analytics from Client.log: dodges, deaths, echo skills, stamina, teleports |
+| 👤 **Player Profile** | UID, server, tower floor, rogue score, battle pass status, config summary |
+| 🔐 **Undetectable** | Adaptive hash patching preserves ModifyCount, unknown fields, formatting. Snapshot+reconcile detects game interference |
+| 📁 **Public Storage** | All files saved to `Downloads/WuWaConfig/` — accessible from any file manager |
 
 ---
 
-## Screens
+## 📲 Installation
 
-### Home
+```
+1. Download latest .apk from Releases
+2. Install (enable "Unknown sources")
+3. Accept Terms
+4. Grant storage permission
+5. Connect via ADB / Shizuku / Root / SAF
+```
 
-- **Backend Status** — current access method, connection state. Tap chip to cycle methods.
-- **Manual ADB** — enter IP:port for Wireless Debugging
-- **Custom Config** — pick `.ini` files to apply (Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini). When <5 files uploaded, Backup Scope dialog asks: back up all 5 or only overwritten files. Success popup with green checkmark after deploy.
-- **Clean Config Files** (NeonRed) — strips all CVar values from all 5 INI files while preserving `[Core.System]` Engine content paths. Game regenerates defaults on next boot.
-- **Auto-sync on Connect** — every time you connect, app auto-checks `KuroConfigMonitor.hash` vs actual INI MD5s, fixes desync before you do anything.
-- **Quick Actions** — Profile, Battle Stats, Pity Tracker, Backups, Collect Client.log, Config Generator, INI Editor, App Log
-- **Real-time log viewer** with color-coded messages, save icon to export to `Downloads/WuWaConfig/`
+<div align="center">
+  <a href="https://github.com/B3rr7/WuWa-Config-Android/releases"><img src="https://img.shields.io/badge/⬇%20DOWNLOAD%20APK-7B2FFF?style=for-the-badge&logo=android&logoColor=white" alt="Download"/></a>
+</div>
 
-> All user-facing files (saved logs, collected Client.log, config backups) are stored in `Downloads/WuWaConfig/` — accessible from any file manager.
+---
 
-### Config Generator
+## 🔌 Access Methods
 
-#### 1. Analyze Device
-- **Device Log** — reads `Client.log` from device (chunked, XOR-decrypted). Shows animated progress with cyberpunk glitch effect.
-- **Import Log** — pick a saved `.log` file for offline analysis
-- **Analysis displays**: device model, GPU, API, Android version, RAM, FPS, thermal events, texture errors, OOM, forbidden CVars, active CVars
+### 🔧 ADB (Wireless Debugging) — *No Root*
+App implements the ADB wire protocol directly — no external ADB binary.
 
-#### 2. Smart Brain Scoring
-Algorithm evaluates device from 0-100:
+> **Setup:** Enable Wireless Debugging → tap Connect → accept RSA fingerprint
+
+### 📱 Shizuku — *No Root*
+Uses Shizuku API via reflection for elevated shell access.
+
+> **Setup:** Install [Shizuku](https://shizuku.rikka.app/) → start service → select Shizuku → Permit → Connect
+
+### 🦸 Root — *Full Access*
+Direct `su -c` shell via ProcessBuilder.
+
+> **Setup:** Select Root → Test Root → grant in root manager → Connect
+
+### 📂 SAF — *No Shell, No Generator*
+Storage Access Framework — read/write only. Best for quick one-off INI edits.
+
+> **Setup:** Select SAF → Pick Dir → navigate to game config folder → Allow
+
+---
+
+## 🧠 Smart Brain Scoring
+
+Analyzes device from `Client.log` and scores each preset 0-100:
 
 | Signal | Impact |
 |--------|--------|
-| GPU tier | +30 to -20 |
-| RAM | +8 to -15 |
-| Vulkan | +8 |
-| FPS drops | -6 to -18 |
-| Thermal throttling | -5 to -20 |
-| GPU OOM | -12 to -30 |
-| Frame drops | -5 to -10 |
-| Forbidden CVars | -5 each (can toggle off) |
-| Unknown CVars | -5 if >5 in log |
-| Active CVars differ from game defaults | +5 if well-optimized, -8 if room to improve |
-| Combined signals | -5 to -6 |
+| 🖥 GPU tier | ±30 |
+| 💾 RAM | ±15 |
+| ⚡ Vulkan | +8 |
+| 📉 FPS drops | −6 to −18 |
+| 🌡 Thermal events | −5 to −20 |
+| 💥 GPU OOM | −12 to −30 |
+| 🔄 Frame drops | −5 to −10 |
+| 🚫 Forbidden CVars | −5 each (toggle off) |
+| ✅ Active optimization | +5 optimized / −8 room to improve |
 
-**Recommendations:** Ultra (80+), High (75+ / 70+), Balanced (55+ / 40+), Performance (<40), Potato (≤20 or OOM ≥2)
-
-#### 3. Presets
-| Preset | Screen % | Shadow | SSR | View Dist | Foliage LOD |
-|--------|----------|--------|-----|-----------|-------------|
-| POTATO | 50% | 0 (128) | 0 | 0.3 | 0.4 |
-| PERFORMANCE | 60% | 0 | 0 | 0.5 | 0.7 |
-| BALANCED | 100% | 2 | 1 | 1.5 | 2.0 |
-| HIGH | 100% | 4 | 2 | 2.0 | 2.5 |
-| ULTRA | 100% | 5 | 4 | 3.0 | 3.0 |
-
-#### 4. Options
-120 FPS unlock, Ultra quality unlock, VSync, Auto cooling, Force Vulkan safety, HZB occlusion, Disable fog/CA/outlines/blur/bloom/auto-exposure/SSR, Allow restricted CVars, Hardware.ini generation with device-tier CVars
-
-#### 5. Game Mode
-Overworld / Domain & Tower
-
-#### 6. Files to Generate
-Toggle each: Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini
-
-#### 7. Generate
-Single button — generates configs with automatic CVar optimization: redundant lines matching game defaults are commented out (`; REDUNDANT`), and unknown CVars not in the UE4 binary dump are flagged (`; UNKNOWN CVar`). Shows review dialog with monospace text editor. Edit CVars inline, then deploy from dialog or close without deploying.
-
-#### 8. Deploy
-Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Uses **hash snapshot + reconcile** pattern: saves hash file before deploy, compares afterward to detect concurrent game access, always recomputes from actual files. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge with color-coded tag chips: **N redundant** (matches game defaults), **N unknown** (not in UE4 binary dump), **N monitored** (ConfigMonitor-tracked).
-
-#### 9. Auto-Tune Wizard
-Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via logcat → adjusts preset/options → redeploys until target FPS reached.
-
-### Pity Tracker
-
-- **Fetch Gacha History** — reads Client.log for Convene URL, auto-retries up to 6 times (10s apart). Parses URL and fetches full pull history from Kuro's gacha API.
-- **Summary**: total pulls, ★5/★4 counts, avg pity per rarity
-- **Per-pool breakdown**: pulls per banner type, ★5/★4 counts per pool
-- **Pity Prediction**: per-banner 50/50 or Guaranteed status, last ★5 details, estimated next ★5 pity, soft pity detection (≥66 ★5 / ≥57 ★4), hard pity countdown, 4★ tracking
-- **Result History**: last fetch result saved locally with 12-hour auto-expiry. Load or clear from the history banner.
-- **Background Polling**: start foreground service to keep polling while app is minimized. Posts notification when URL found.
-
-### Player Profile
-
-- **Read-only** — zero footprint, game cannot detect
-- **UID, Server, Level** header
-- **Game Progress**: Tower floor, Weekly Rogue score, Battle Pass status
-- **Game Info**: Version, Language, Login device ID, Last login time
-- **Config bars**: Engine.ini / DeviceProfiles.ini / GameUserSettings.ini setting counts
-- **Cached** — profile data stored locally. Auto-shown on revisit; Refresh button re-fetches from device.
-
-### Battle Stats
-
-- Parses `Client.log` for CN keyword battle counters
-- Cards: **Combat**, **Exploration**, **Economy**, **Social**, **System**
-- Each shows stat chips with current values
-- Requires gameplay for non-zero data
-
-### Backup & Restore
-
-- **Per-file selection** — both create and restore allow picking which .ini files to include via checkboxes
-- **Create Backup** — dialog shows checkboxes for all 5 INI files (default: all checked). Only checked files are read from device and saved.
-- **Restore Backup** — "Restore" opens dialog with the backup's files as checkboxes (default: all checked). Only checked files are pushed to device.
-- **Auto-backup** — created before any config write; when <5 files uploaded, asks whether to back up all 5 or only the files being overwritten
-- **Delete** — remove old backups
-- Also saved as `.ini` files in `Downloads/WuWaConfig/Backups/{name}/` for browsing
-
-### Settings
-
-- **Theme**: System / Light / Dark
-- **Custom Background**: Image (jpg/png/gif) or Video (MP4). Opacity slider 5-70%. 15% gradient overlay. Persistent URI.
-- **Backup Directory** changer (also mirrored to `Downloads/WuWaConfig/`)
-- **Device info**: Chipset, RAM, API level
-- **App version**, Links (GitHub, YouTube, Telegram, Discord)
+**Recommended preset:** Ultra (≥80), High (≥70), Balanced (≥40), Performance (<40), Potato (≤20 or OOM)
 
 ---
 
-## Project Structure
+## 🎮 Presets
+
+| Preset | Screen% | Shadow | SSR | View Dist | Foliage LOD |
+|--------|---------|--------|-----|-----------|-------------|
+| 🥔 **POTATO** | 50% | Off (128) | Off | 0.3 | 0.4 |
+| ⚡ **PERFORMANCE** | 60% | Off | Off | 0.5 | 0.7 |
+| ⚖️ **BALANCED** | 80% | Medium | Low | 1.5 | 2.0 |
+| 🔥 **HIGH** | 100% | High | High | 2.0 | 2.5 |
+| 💎 **ULTRA** | 100% | Epic | Ultra | 3.0 | 3.0 |
+
+---
+
+## 🔬 CVar Database
+
+3 reference files extracted directly from the game binary:
+
+| File | Lines | Source |
+|------|-------|--------|
+| `libUE4_cvars.txt` | ~3100 | All CVars from `libUE4.so` UTF-16 strings |
+| `config_monitor_cvars.txt` | 569 | CVars KuroConfigMonitor tracks |
+| `config_monitor_values.txt` | 568 | Game default values for monitored CVars |
+
+The generator cross-references against these to:
+- ✅ Comment out redundant CVars matching defaults (`; REDUNDANT`)
+- ⚠️ Flag unknown CVars not in UE4 binary (`; UNKNOWN CVar`)
+- 🎯 Only deploy CVars that actually affect the engine
+
+**33 forbidden CVars** are stripped automatically (game ignores them anyway).
+
+---
+
+## 🛡 Detection Avoidance
+
+| Mechanism | How it works |
+|-----------|-------------|
+| **Adaptive hash patching** | Reads existing `KuroConfigMonitor.hash`, patches only `Hash=` & `LastModifiedTime=`, preserves `ModifyCount=`, unknown fields, formatting |
+| **Atomic write** | Writes to `.new` temp → `mv` rename — crash never corrupts live file |
+| **Zero stale temps** | `rm -f /data/local/tmp/wuwaconfig_*.b64` before every push |
+| **ModifyCount preserved** | Never incremented — no cumulative trail from testing |
+| **Snapshot + Reconcile** | Every config op captures pre-hash → compares → detects game interference |
+| **Auto-sync** | On connect and INI Editor open, auto-checks/fixes hash desync |
+
+---
+
+## 📂 Project Structure
 
 ```
-app/
-└── src/main/java/com/wuwaconfig/app/
-    ├── MainActivity.kt           # Navigation (10 screens), permissions
-    ├── WuWaConfigApp.kt          # Application class, backend holder, background settings
-    ├── adb/
-    │   ├── AdbProtocol.kt        # Wire protocol message encode/decode
-    │   ├── AdbClient.kt          # TCP client, auth handshake, shell, drainTrailingWrte
-    │   ├── AdbCrypto.kt          # RSA key generation, signing, SSH format
-    │   └── PortScanner.kt        # Port scan 37000-44000 + 5555, 30s cache
-    ├── backend/
-    │   ├── AccessBackend.kt      # Interface + AccessMethod enum
-    │   ├── AdbBackend.kt         # ADB shell, run-as fallback, push via base64
-    │   ├── RootBackend.kt        # su -c, 10s timeout
-    │   ├── ShizukuBackend.kt     # Shizuku API (reflection), 15s timeout
-    │   └── SafBackend.kt         # DocumentFile, empty-path filter, 3-strategy fallback
-    ├── config/
-    │   ├── ConfigGenerator.kt    # INI generation, CVar overrides, CvarDatabase optimization, Scalability.ini
-    │   ├── CvarDatabase.kt       # Loads 3 CVar files from assets (libUE4_cvars.txt, config_monitor_cvars.txt, config_monitor_values.txt), lookup + optimization + SmartBrain scoring
-    │   ├── CvarCategorizer.kt    # Pure CVar categorization logic (standalone object, testable without Android)
-    │   ├── CvarOptimizer.kt      # Per-device profile optimizer (Advanced Gen mode)
-    │   ├── ConfigManager.kt      # Device I/O, backups, logs, profiles, battle stats, hashes, pushSingleFile, cleanIniContent, snapshotHashFile + reconcileAfterModify
-    │   ├── DeployHistoryStore.kt # Deploy history JSON persistence (20 records max)
-    │   ├── LogParser.kt          # XOR decryption, Convene URL extract, battle stat parse
-    │   ├── SmartBrain.kt         # Scoring engine, recommendation
-    │   ├── ForbiddenCvars.kt    # 33 known Kuro restricted CVars + strip/filter helpers
-    │   ├── BenchmarkTuner.kt     # Auto-tune: FPS capture, preset adjustment
-    │   ├── GachaApi.kt           # Gacha API client (HTTP POST, pity calc, predictions)
-    │   ├── GachaHistoryStore.kt  # Local gacha history persistence (12hr TTL)
-    │   ├── ProfileStore.kt       # Profile cache persistence
-    │   └── ChipsetDetector.kt    # Local SoC detection
-    ├── model/
-    │   ├── GachaRecord.kt        # GachaRecord, GachaPool, GachaData, PityPrediction, GachaHistoryEntry
-    │   ├── PlayerProfile.kt      # Profile data class
-    │   ├── BattleStats.kt        # BattleStats data class
-    │   ├── DeployRecord.kt       # DeployRecord + DeployComparison for deploy history
-    │   ├── LogInfo.kt            # Parsed log data
-    │   ├── LogRepository.kt      # Global log singleton with rotating file
-    │   ├── PresetModels.kt       # CvarEntry, GameMode, GeneratorOptions (5 file toggles + allowRestrictedCvars), GeneratedIni
-    │   ├── GamePaths.kt          # Directory paths, hash monitor config
-    │   ├── ConfigPreset.kt       # ConfigFile, ConfigBackup
-    │   └── VerificationReport.kt # Deploy verification: accepted/rejected CVars + CvarDetail (isKnown, isMonitored, gameDefault, matchesDefault)
-    ├── service/
-    │   ├── AdbConnectionService.kt  # ADB foreground service
-    │   └── GachaPollService.kt      # Background gacha polling service
-    └── ui/
-        ├── MainViewModel.kt      # Shared ViewModel (~880 lines)
-        ├── components/
-        │   └── Components.kt     # GlassCard, GradientBackground, GlitchText, GlassButton, etc.
-        ├── screens/
-        │   ├── HomeScreen.kt     # Backend control, custom config (with backup scope dialog + success popup), clean config, actions (Profile → Battle Stats → Pity → Backups → Collect Log → Config Gen → INI Editor → App Log), log viewer, deploy history card
-        │   ├── ConfigGenScreen.kt # Analysis, presets, options, advanced per-device tuning, auto-tune, verification
-        │   ├── PityScreen.kt     # Gacha fetcher, summary, predictions, history
-        │   ├── ProfileScreen.kt  # Player profile view (cached)
-        │   ├── BattleStatsScreen.kt # Battle stats from Client.log
-        │   ├── BackupScreen.kt   # Backup list + CRUD with per-file selection
-        │   ├── HistoryScreen.kt  # Deploy history viewer with comparison
-        │   ├── IniEditorScreen.kt # Full-screen monospace text editor for any of the 5 monitored INI files. Push + hash refresh on save. Auto-syncs hashes on open.
-        │   ├── LogsScreen.kt     # Full-screen log viewer with search/filter
-        │   ├── SettingsScreen.kt # Theme, backgrounds, info, deploy history toggle
-        │   ├── SetupScreen.kt    # First-run setup
-        │   └── TermsScreen.kt    # Terms of use
-        └── theme/
-            ├── Color.kt          # Neon palette + glass colors
-            ├── Theme.kt          # Dark/Light Material3 schemes
-            └── Type.kt           # Typography
+com.wuwaconfig.app/
+├── WuWaConfigApp.kt          # Application singleton, backend holder
+├── MainActivity.kt           # NavHost (14 routes), permissions
+├── adb/                      # Custom ADB wire protocol (4 files)
+│   ├── AdbProtocol.kt        # Binary message framing (CNXN/OPEN/WRTE/AUTH)
+│   ├── AdbClient.kt          # TCP socket, RSA auth, shell exec
+│   ├── AdbCrypto.kt          # 2048-bit RSA key management
+│   └── PortScanner.kt        # ADB port discovery (37000-44000)
+├── backend/                  # 4 AccessBackend implementations
+│   ├── AdbBackend.kt         # Wireless ADB (base64 chunk push)
+│   ├── ShizukuBackend.kt     # Shizuku API via reflection
+│   ├── RootBackend.kt        # su -c shell
+│   └── SafBackend.kt         # Storage Access Framework
+├── config/                   # Core logic (14 files, ~4900 lines)
+│   ├── ConfigGenerator.kt    # INI generation engine (1515 lines)
+│   ├── ConfigManager.kt      # Device I/O, hashes, backups (1057 lines)
+│   ├── CvarDatabase.kt       # 3 CVar reference files from assets
+│   ├── CvarCategorizer.kt    # Pure CVar classification (18 categories)
+│   ├── CvarOptimizer.kt      # Per-device profile optimizer
+│   ├── SmartBrain.kt         # Scoring engine (0-100)
+│   ├── BenchmarkTuner.kt     # Auto-tune state machine
+│   ├── LogParser.kt          # XOR decryption + log analysis
+│   ├── GachaApi.kt           # Kuro gacha API HTTP client
+│   ├── ForbiddenCvars.kt     # 33 forbidden CVars
+│   └── ...stores & utilities
+├── model/                    # 12 data classes
+├── service/                  # Foreground services (ADB, GachaPoll)
+└── ui/                       # Compose UI (13 screens)
+    ├── MainViewModel.kt      # Single ViewModel (~1395 lines)
+    ├── components/            # GlassCard, GlitchText, etc.
+    ├── screens/               # 13 screens
+    └── theme/                 # Neon colors, dark/light themes
 ```
 
 ---
 
-## Tech Stack
+## 🛠 Tech Stack
 
-- **Language:** Kotlin
-- **UI:** Jetpack Compose + Material 3
-- **Architecture:** MVVM (ViewModel + StateFlow)
-- **Navigation:** Jetpack Navigation Compose
-- **Image loading:** Coil
-- **Video playback:** Media3 ExoPlayer
-- **Backends:** Root / ADB (in-app protocol) / Shizuku API / SAF
-- **Serialization:** Gson
-- **Min SDK:** 26 | **Target SDK:** 34
-
----
-
-## Links
-
-- [GitHub](https://github.com/B3rr7/WuWa-Config-Android)
-- [YouTube (@Player42_g)](https://www.youtube.com/@Player42_g)
-- [Telegram](https://t.me/Yt_Player42)
-- [Discord](https://discord.gg/5WP9nN2e2s)
+| Layer | Technology |
+|-------|-----------|
+| **Language** | Kotlin 1.9.22 |
+| **UI** | Jetpack Compose + Material 3 |
+| **Architecture** | MVVM (single ViewModel + StateFlow) |
+| **Navigation** | Jetpack Navigation Compose |
+| **Image loading** | Coil |
+| **Video playback** | Media3 ExoPlayer |
+| **Serialization** | Gson |
+| **Build** | Gradle + AGP 8.2.2 |
+| **Min SDK / Target** | 26 / 34 |
+| **ADB protocol** | In-app (no external binary) |
 
 ---
 
-## Topics
+## 🔗 Links
 
-Set these topics on the repo for better search visibility: `wuthering-waves`, `wuwa`, `android`, `fps-boost`, `engine-ini`, `config-optimizer`, `gacha-tracker`, `pity-calculator`, `kuro-games`, `mobile-gaming`, `performance`, `android-optimization`, `ue4`, `unreal-engine-4`, `adb`, `shizuku`, `gaming-tool`
-
-Additional keywords: `game-config-tool`, `fps-unlock`, `graphics-tuning`, `cvars-editor`, `client-log-analyzer`, `wuthering-waves-android`, `smart-brain-scoring`, `config-monitor`, `kuro-config`, `mobile-game-booster`, `gacha-history`, `genshin-alternative`, `open-world-mobile`, `wuwa-mobile-config`, `wuthering-waves-optimization`, `engine-ini-tweak`, `deviceprofiles-ini`, `vulkan-optimization`, `thermal-fix`, `low-end-booster`, `auto-tune-wizard`, `fps-benchmark`, `snapdragon-gaming`, `adreno-tuning`, `mali-gpu-config`, `shizuku-tool`, `adb-config-deploy`, `kuro-monitor-hash`, `cvar-database`
+| | |
+|---|-----|
+| <img src="https://github.com/fluidicon.png" width="16"/> **Source** | [github.com/B3rr7/WuWa-Config-Android](https://github.com/B3rr7/WuWa-Config-Android) |
+| <img src="https://www.youtube.com/favicon.ico" width="16"/> **YouTube** | [@Player42_g](https://www.youtube.com/@Player42_g) |
+| ✈️ **Telegram** | [t.me/Yt_Player42](https://t.me/Yt_Player42) |
+| 🎮 **Discord** | [discord.gg/5WP9nN2e2s](https://discord.gg/5WP9nN2e2s) |
 
 ---
 
-## License
+## 🏷 Topics
 
-[MIT](LICENSE)
+`wuthering-waves` `wuwa` `android` `fps-boost` `engine-ini` `config-optimizer` `gacha-tracker` `pity-calculator` `kuro-games` `mobile-gaming` `performance` `android-optimization` `ue4` `unreal-engine-4` `adb` `shizuku` `gaming-tool` `fps-unlock` `graphics-tuning` `cvars-editor` `client-log-analyzer` `mobile-game-booster` `gacha-history` `open-world-mobile` `thermal-fix` `low-end-booster` `auto-tune` `fps-benchmark` `snapdragon-gaming` `adreno-tuning` `mali-gpu-config` `vulkan-optimization`
 
-Copyright (c) 2026 Player42
+---
+
+<div align="center">
+  <sub>Built with ❤️ by <a href="https://github.com/B3rr7">Player42</a></sub>
+  <br />
+  <sub>Copyright © 2026 Player42 — <a href="LICENSE">MIT License</a></sub>
+</div>
