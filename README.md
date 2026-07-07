@@ -311,7 +311,7 @@ app/
 
 ## Topics
 
-Set these topics on the repo for better search visibility: `wuthering-waves`, `wuwa`, `android`, `fps-boost`, `engine-ini`, `config-optimizer`, `gacha-tracker`, `pity-calculator`, `kuro-games`, `mobile-gaming`, `performance`, `android-optimization`, `ue4`, `unreal-engine-4`, `adb`, `shizuku`, `gaming-tool`
+These topics on the repo for better search visibility: `wuthering-waves`, `wuwa`, `android`, `fps-boost`, `engine-ini`, `config-optimizer`, `gacha-tracker`, `pity-calculator`, `kuro-games`, `mobile-gaming`, `performance`, `android-optimization`, `ue4`, `unreal-engine-4`, `adb`, `shizuku`, `gaming-tool`
 
 Additional keywords: `game-config-tool`, `fps-unlock`, `graphics-tuning`, `cvars-editor`, `client-log-analyzer`, `wuthering-waves-android`, `smart-brain-scoring`, `config-monitor`, `kuro-config`, `mobile-game-booster`, `gacha-history`, `genshin-alternative`, `open-world-mobile`, `wuwa-mobile-config`, `wuthering-waves-optimization`, `engine-ini-tweak`, `deviceprofiles-ini`, `vulkan-optimization`, `thermal-fix`, `low-end-booster`, `auto-tune-wizard`, `fps-benchmark`, `snapdragon-gaming`, `adreno-tuning`, `mali-gpu-config`, `shizuku-tool`, `adb-config-deploy`, `kuro-monitor-hash`, `cvar-database`
 
