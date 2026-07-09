@@ -44,6 +44,16 @@ fun LogsScreen(
         }
     }
 
+    val logsFeedback by viewModel.logsFeedback.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(logsFeedback) {
+        logsFeedback?.let {
+            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
+            viewModel.clearLogsFeedback()
+        }
+    }
+
     val filtered by remember {
         derivedStateOf {
             var list = logs.toList()
@@ -81,6 +91,7 @@ fun LogsScreen(
                         ),
                 )
             },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
         ) { padding ->
             Column(

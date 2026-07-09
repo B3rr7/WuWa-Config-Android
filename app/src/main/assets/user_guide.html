@@ -198,6 +198,7 @@
 <h3>3.1 ADB (Wireless Debugging) — Recommended</h3>
 <p><strong>Best for:</strong> Non-rooted users. The app implements the ADB wire protocol directly — no external ADB binary needed.</p>
 <p><strong>Setup:</strong></p>
+<p><strong>Option A — In-app (no PC):</strong></p>
 <ol>
 <li>Go to <strong>Developer Options</strong> on your phone</li>
 <li>Enable <strong>Wireless Debugging</strong></li>
@@ -205,6 +206,17 @@
 <li>Back in the app, tap <strong>Connect</strong> — it auto-scans ports 37000–44000</li>
 <li>Accept the RSA fingerprint prompt on your phone</li>
 </ol>
+<p><strong>Option B — PC commands:</strong></p>
+<p><em>Requirements: USB Debugging ON in Developer Options, phone connected via USB.</em></p>
+<p><strong>Enable:</strong></p>
+<pre>adb tcpip 5555
+adb connect 192.168.x.x:5555</pre>
+<p><strong>Disable:</strong></p>
+<pre>adb disconnect 192.168.x.x:5555
+adb usb</pre>
+<p>If multiple devices: <code>adb -s 192.168.x.x:5555 usb</code></p>
+<p><strong>No PC?</strong> Reboot your phone — ADB TCP mode clears on boot. The app's <strong>Disconnect</strong> button only closes the app socket, not the phone port.</p>
+<p>Then tap <strong>Connect</strong> in the app — it finds port 5555 automatically.</p>
 <p><strong>Troubleshooting:</strong></p>
 <ul>
 <li>On Android 16+, you may need to re-pair after reboot</li>
@@ -822,9 +834,7 @@
 </table>
 
 <h3>16.3 Client.log Decryption</h3>
-<p>The game's <code>Client.log</code> is XOR-encrypted. The decryption uses:</p>
-<pre>LUT[i] = i xor (0xA5 if i%2==1 else 0xEF)</pre>
-<p>Log starts with 3-byte header <code>00 54 50</code> (\0TP). Strip header, apply LUT, detect encoding.</p>
+<p>The game's <code>Client.log</code> is encrypted and decrypted automatically by the app.</p>
 
 <h3>16.4 Log Reading for Large Files</h3>
 <p>For files &gt;1MB, adaptive chunking: 1 chunk per 5MB, min 5, max 30, each 1MB via <code>dd</code>, gzip-compressed. ~20% coverage of a 100MB file, ~6MB wire transfer.</p>

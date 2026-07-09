@@ -1,4 +1,4 @@
-<!-- wuthering waves config, wuwa fps boost, engine.ini optimization, unreal engine 4 mobile config, kuro games optimization, android game booster, mobile game config editor, gacha pity tracker, battle stats analyzer, fps unlock 120fps, graphics tuning, device profile config, scalability ini, hardware ini, gameusersettings ini, config generator android, wuthering waves android optimization, wuwa mobile config, wuwa lag fix android, wuthering waves stuttering fix, client log decryptor, wuwa engine ini tweak, deviceprofiles ini tutorial, increase wuwa fps, mobile gaming performance, vulkan shader cache optimization, wuthering waves 120fps, fps drop fix mobile, thermal throttling solution, kurogames config tool, snapdragon gaming optimization, adreno gpu tuning, mali gpu optimization, low end device booster, smartbrain scoring, configmonitor hash, cvar editor android, auto tune wizard, battle statistics, wuthering waves benchmark, wuwa config generator, android game booster wuwa, wuthering waves android optimization, wuthering waves 3.4 cyberpunk, wuwa version 3.4 config, kuro config monitor, wuwa graphics preset, mobile unreal engine tweaks, wuthering waves performance 2026, android data folder access, shizuku game config, adb wireless debugging game, wuwa startup config, engine ini mobile, gameusersettings fps unlock, wuthering waves low memory fix, wuwa texture streaming, cvar optimization android, wuwa config for poco, wuwa config for redmi, wuwa config for xiaomi, wuwa config for samsung, wuwa config for oneplus, wuwa config for realme, wuwa config for vivo, wuwa config for oppo, wuwa config for honor, wuwa config for huawei, wuwa config for nothing phone, wuwa config for motorola, wuwa config for asus rog, wuwa config for lenovo, wuwa poco x6 pro config, wuwa poco x5 pro config, wuwa poco f5 config, wuwa poco f6 config, wuwa redmi note 12 config, wuwa redmi note 13 config, wuwa samsung s23 config, wuwa samsung s24 config, wuwa oneplus 12 config, wuwa realme gt config, wuwa vivo x100 config, poco wuthering waves optimization, redmi wuthering waves performance, xiaomi wuwa fps boost, samsung galaxy wuwa config, galaxy s24 wuthering waves settings, poco f5 wuthering waves engine ini, poco f6 wuthering waves graphics, redmi note 13 wuthering waves lag fix, wuwa optimization snapdragon 8 gen 2, wuwa optimization snapdragon 8 gen 3, wuwa optimization dimensity 8300, wuwa optimization dimensity 9200, wuwa optimization kirin 9000 -->
+<!-- wuthering waves config, wuwa fps boost, engine.ini optimization, unreal engine 4 mobile config, kuro games optimization, android game booster, mobile game config editor, gacha pity tracker, battle stats analyzer, fps unlock 120fps, graphics tuning, device profile config, scalability ini, hardware ini, gameusersettings ini, config generator android, wuthering waves android optimization, wuwa mobile config, wuwa lag fix android, wuthering waves stuttering fix, wuwa engine ini tweak, deviceprofiles ini tutorial, increase wuwa fps, mobile gaming performance, vulkan shader cache optimization, wuthering waves 120fps, fps drop fix mobile, thermal throttling solution, kurogames config tool, snapdragon gaming optimization, adreno gpu tuning, mali gpu optimization, low end device booster, smartbrain scoring, configmonitor hash, cvar editor android, auto tune wizard, battle statistics, wuthering waves benchmark, wuwa config generator, android game booster wuwa, wuthering waves android optimization, wuthering waves 3.4 cyberpunk, wuwa version 3.4 config, kuro config monitor, wuwa graphics preset, mobile unreal engine tweaks, wuthering waves performance 2026, android data folder access, shizuku game config, adb wireless debugging game, wuwa startup config, engine ini mobile, gameusersettings fps unlock, wuthering waves low memory fix, wuwa texture streaming, cvar optimization android, wuwa config for poco, wuwa config for redmi, wuwa config for xiaomi, wuwa config for samsung, wuwa config for oneplus, wuwa config for realme, wuwa config for vivo, wuwa config for oppo, wuwa config for honor, wuwa config for huawei, wuwa config for nothing phone, wuwa config for motorola, wuwa config for asus rog, wuwa config for lenovo, wuwa poco x6 pro config, wuwa poco x5 pro config, wuwa poco f5 config, wuwa poco f6 config, wuwa redmi note 12 config, wuwa redmi note 13 config, wuwa samsung s23 config, wuwa samsung s24 config, wuwa oneplus 12 config, wuwa realme gt config, wuwa vivo x100 config, poco wuthering waves optimization, redmi wuthering waves performance, xiaomi wuwa fps boost, samsung galaxy wuwa config, galaxy s24 wuthering waves settings, poco f5 wuthering waves engine ini, poco f6 wuthering waves graphics, redmi note 13 wuthering waves lag fix, wuwa optimization snapdragon 8 gen 2, wuwa optimization snapdragon 8 gen 3, wuwa optimization dimensity 8300, wuwa optimization dimensity 9200, wuwa optimization kirin 9000 -->
 # WuWaConfig — Wuthering Waves Config Toolkit
 
 [![Release](https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
@@ -49,9 +49,31 @@ The app needs to read/write game config files in `Android/data/com.kurogame.wuth
 **Best for:** Non-rooted users. App implements ADB wire protocol directly — connects to localhost ADB daemon. (maybe broken yeat)
 
 **Setup:**
+
+**Option A — In-app auto-connect (no PC needed):**
 - Enable **Wireless Debugging** in Developer Options
 - Tap **Connect** in app — auto-scans ports 37000-44000
 - Accept RSA fingerprint on phone
+
+**Option B — PC commands:**
+
+*Requirements: USB Debugging ON in Developer Options, phone connected via USB.*
+
+**Enable ADB:**
+```bash
+adb tcpip 5555                  # switch to TCP mode (USB connected)
+adb connect 192.168.x.x:5555    # your device ip:port number
+```
+
+**Disable ADB:**
+```bash
+adb disconnect 192.168.x.x:5555  # close wireless session, your device ip:port number
+adb usb                          # switch back to USB-only
+```
+If you have multiple devices (USB + wireless): `adb -s 192.168.x.x:5555 usb`
+
+**No PC?** Just **reboot your phone** — ADB TCP mode is cleared on boot. The app's **Disconnect** button only closes the socket; a reboot fully closes the port.
+
 - On Android 16+, may need re-pair after reboot (auto key regeneration handled)
 
 ### 📱 Shizuku
@@ -97,7 +119,7 @@ The app needs to read/write game config files in `Android/data/com.kurogame.wuth
 ### Config Generator
 
 #### 1. Analyze Device
-- **Device Log** — reads `Client.log` from device (chunked, XOR-decrypted). Shows animated progress with cyberpunk glitch effect.
+- **Device Log** — reads `Client.log` from device (chunked, decrypted). Shows animated progress with cyberpunk glitch effect.
 - **Import Log** — pick a saved `.log` file for offline analysis
 - **Analysis displays**: device model, GPU, API, Android version, RAM, FPS, thermal events, texture errors, OOM, forbidden CVars, active CVars
 
@@ -167,7 +189,7 @@ Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via l
 
 ### Battle Stats
 
-- **100% file coverage** — contiguous `dd` partition reads across all cores, XOR-decrypted per partition. No more spaced sampling gaps.
+- **100% file coverage** — contiguous `dd` partition reads across all cores, decrypted per partition. No more spaced sampling gaps.
 - **Global version patterns** — battle counters, deaths, role changes, teleports, stamina, dodges, echoes, and ultimates matched from real global Client.log
 - Cards: **Combat**, **Exploration**, **Economy**, **Social**, **System**
 - Each shows stat chips with current values
@@ -217,7 +239,7 @@ app/
     │   ├── CvarOptimizer.kt      # Per-device profile optimizer (Advanced Gen mode)
     │   ├── ConfigManager.kt      # Device I/O, backups, logs, profiles, battle stats, hashes, pushSingleFile, cleanIniContent, snapshotHashFile + reconcileAfterModify
     │   ├── DeployHistoryStore.kt # Deploy history JSON persistence (20 records max)
-    │   ├── LogParser.kt          # XOR decryption, Convene URL extract, battle stat parse
+    │   ├── LogParser.kt          # Log decryption, Convene URL extract, battle stat parse
     │   ├── SmartBrain.kt         # Scoring engine, recommendation
     │   ├── ForbiddenCvars.kt    # Kuro restricted CVars + strip/filter helpers (called in ConfigGenerator before deploy when restricted CVars are OFF)
     │   ├── BenchmarkTuner.kt     # Auto-tune: FPS capture, preset adjustment

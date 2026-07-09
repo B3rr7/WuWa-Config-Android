@@ -89,6 +89,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _customDeploySuccess.value = null
     }
 
+    private val _logsFeedback = MutableStateFlow<String?>(null)
+    val logsFeedback: StateFlow<String?> = _logsFeedback.asStateFlow()
+
+    fun clearLogsFeedback() {
+        _logsFeedback.value = null
+    }
+
     private val _verificationReport = MutableStateFlow<com.wuwaconfig.app.model.VerificationReport?>(null)
     val verificationReport: StateFlow<com.wuwaconfig.app.model.VerificationReport?> = _verificationReport.asStateFlow()
 
@@ -1446,6 +1453,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearLogs() {
         LogRepository.clear()
         addLog("Log cleared.", level = LogLevel.INFO)
+        _logsFeedback.value = "Logs cleared"
     }
 
     fun saveLogs() {
@@ -1453,6 +1461,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val file = LogRepository.saveSnapshot()
             if (file != null) {
                 addLog("Log saved: ${file.absolutePath}", level = LogLevel.SUCCESS)
+                _logsFeedback.value = "Log saved"
             } else {
                 addLog("No logs to save.", level = LogLevel.WARNING)
             }

@@ -261,27 +261,13 @@ class ShizukuBackend : AccessBackend {
 
     @Throws(Exception::class)
     private fun shizukuExecWithExit(vararg cmd: String): ExecResult {
-        val clazz =
+        val process: java.lang.Process =
             try {
-                Class.forName("rikka.shizuku.Shizuku")
-            } catch (e: ClassNotFoundException) {
-                throw Exception("Shizuku not available: ${e.message}")
-            }
-        val method =
-            try {
-                clazz.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-            } catch (e: NoSuchMethodException) {
-                throw Exception("Shizuku API mismatch: ${e.message}")
-            }
-        try {
-            method.isAccessible = true
-        } catch (_: Exception) {
-        }
-        val process =
-            try {
+                val method = Shizuku::class.java.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                method.isAccessible = true
                 method.invoke(null, cmd, null, null) as? java.lang.Process
             } catch (e: Exception) {
-                throw Exception("Shizuku invoke failed: ${e.message}")
+                throw Exception("Shizuku exec failed: ${e.message}")
             } ?: throw Exception("Shizuku returned null process")
 
         val stdout = readStream(process.inputStream)
@@ -296,14 +282,9 @@ class ShizukuBackend : AccessBackend {
         val exitCode =
             try {
                 process.exitValue()
-            } catch (e: IllegalThreadStateException) {
-                try {
-                    process.waitFor(30, TimeUnit.SECONDS)
-                    process.exitValue()
-                } catch (e2: IllegalThreadStateException) {
-                    LogRepository.add("Shizuku: exitValue race condition, assuming exit 0", LogLevel.WARNING)
-                    0
-                }
+            } catch (_: IllegalThreadStateException) {
+                // waitFor already returned true, output already captured above
+                0
             }
 
         return ExecResult(stdout, stderr, exitCode)
