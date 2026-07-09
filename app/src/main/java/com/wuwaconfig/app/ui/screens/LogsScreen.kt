@@ -18,9 +18,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,20 +30,31 @@ fun LogsScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
 ) {
-    val logs by viewModel.logs.collectAsState()
+    val logs = LogRepository.entries
     var filterLevel by remember { mutableStateOf<LogLevel?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+    var debouncedQuery by remember { mutableStateOf("") }
 
-    val filtered =
-        remember(logs, filterLevel, searchQuery) {
-            var list = logs
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isEmpty()) {
+            debouncedQuery = ""
+        } else {
+            delay(300)
+            debouncedQuery = searchQuery
+        }
+    }
+
+    val filtered by remember {
+        derivedStateOf {
+            var list = logs.toList()
             if (filterLevel != null) list = list.filter { it.level == filterLevel }
-            if (searchQuery.isNotBlank()) {
-                val q = searchQuery.lowercase()
+            if (debouncedQuery.isNotBlank()) {
+                val q = debouncedQuery.lowercase()
                 list = list.filter { it.message.lowercase().contains(q) }
             }
             list
         }
+    }
 
     GradientBackground {
         Scaffold(
@@ -161,8 +174,14 @@ fun LogsScreen(
                     }
                 } else {
                     val listState = rememberLazyListState()
+                    val isAtBottom by remember {
+                        derivedStateOf {
+                            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                            last != null && last.index >= listState.layoutInfo.totalItemsCount - 3
+                        }
+                    }
                     LaunchedEffect(filtered.size) {
-                        if (filterLevel == null && searchQuery.isBlank()) {
+                        if (filterLevel == null && searchQuery.isBlank() && isAtBottom) {
                             listState.animateScrollToItem(filtered.size - 1)
                         }
                     }
@@ -171,7 +190,7 @@ fun LogsScreen(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(1.dp),
                     ) {
-                        itemsIndexed(filtered.reversed(), key = { index, log -> "${index}_${log.hashCode()}" }) { _, log ->
+                        itemsIndexed(filtered.reversed(), key = { _, log -> log.id }) { _, log ->
                             val c =
                                 when (log.level) {
                                     LogLevel.SUCCESS -> NeonGreen

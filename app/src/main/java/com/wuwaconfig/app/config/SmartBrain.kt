@@ -12,55 +12,7 @@ data class BrainRecommendation(
 )
 
 object SmartBrain {
-    fun getGPUTier(gpu: String?): String {
-        if (gpu == null) return "unknown"
-        val g = gpu.lowercase()
-        return when {
-            Regex("""adreno.*8[3-9]\d|adreno.*8[12]\d""").containsMatchIn(g) -> "flagship"
-            Regex("""tensor\s*g[34]""").containsMatchIn(g) -> "flagship"
-            Regex("""dimensity\s*9[3-9]\d\d?""").containsMatchIn(g) -> "flagship"
-
-            Regex("""adreno.*7[5-9]\d|adreno.*8[0]\d""").containsMatchIn(g) -> "high"
-            Regex("""tensor\s*g[12]""").containsMatchIn(g) -> "high"
-            Regex("""dimensity\s*(9[0-2]\d|8[5-9]\d)""").containsMatchIn(g) -> "high"
-            Regex("""exynos\s*2200""").containsMatchIn(g) -> "high"
-            Regex("""kirin\s*9000""").containsMatchIn(g) -> "high"
-            Regex("""mali-g[78]\d\d|mali-g9""").containsMatchIn(g) -> "high"
-
-            Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""").containsMatchIn(g) -> "mid_high"
-            Regex("""dimensity\s*(8[0-4]\d|7[3-9]\d)""").containsMatchIn(g) -> "mid_high"
-            Regex("""tensor""").containsMatchIn(g) -> "mid_high"
-            Regex("""exynos\s*2[1-3]00""").containsMatchIn(g) -> "mid_high"
-            Regex("""kirin\s*9[1-9]\d\d?""").containsMatchIn(g) -> "mid_high"
-            Regex("""xclipse""").containsMatchIn(g) -> "mid_high"
-
-            Regex("""adreno.*6[0-4]\d|mali-g[6-7]\d\d|mali-g615""").containsMatchIn(g) -> "mid"
-            Regex("""dimensity\s*[0-9]{3}""").containsMatchIn(g) -> "mid"
-            Regex("""exynos\s*[0-9]{4}""").containsMatchIn(g) -> "mid"
-            Regex("""kirin\s*[0-9]{4}""").containsMatchIn(g) -> "mid"
-
-            Regex("""adreno.*5\d\d|mali-g5[0-9]\d|mali-g57""").containsMatchIn(g) -> "mid_low"
-
-            Regex("""adreno.*[34]\d\d|mali-g[34]""").containsMatchIn(g) -> "low"
-            else -> "unknown"
-        }
-    }
-
-    fun getGPUFamily(gpu: String?): String? {
-        if (gpu == null) return null
-        val g = gpu.lowercase()
-        val adreno = Regex("""adreno\s*(?:\s*\(tm\))?\s*(\d)""", RegexOption.IGNORE_CASE).find(g)
-        if (adreno != null) return "Adreno_${adreno.groupValues[1]}xx"
-        val mali = Regex("""mali-g(\d)""", RegexOption.IGNORE_CASE).find(g)
-        if (mali != null) return "Mali_G${mali.groupValues[1]}xx"
-        if (g.contains("xclipse")) return "Xclipse"
-        if (g.contains("power")) return "PowerVR"
-        if (g.contains("tensor")) return "Tensor"
-        if (g.contains("exynos")) return "Exynos"
-        if (g.contains("dimensity")) return "Dimensity"
-        if (g.contains("kirin")) return "Kirin"
-        return null
-    }
+    fun getGPUTier(gpu: String?): String = CvarOptimizer.getGPUTier(gpu)
 
     private data class ResInfo(val width: Int, val height: Int?)
 
@@ -75,12 +27,12 @@ object SmartBrain {
     private fun hasCvar(
         cvars: Map<String, String>,
         key: String,
-    ): Boolean = cvars.any { it.key.contains(key, ignoreCase = true) }
+    ): Boolean = cvars.any { it.key.equals(key, ignoreCase = true) }
 
     private fun cvarValue(
         cvars: Map<String, String>,
         key: String,
-    ): String? = cvars.entries.firstOrNull { it.key.contains(key, ignoreCase = true) }?.value
+    ): String? = cvars.entries.firstOrNull { it.key.equals(key, ignoreCase = true) }?.value
 
     fun scoreRecommendation(
         info: LogInfo,

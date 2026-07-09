@@ -66,11 +66,15 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         LogRepository.add("ADB shell: ${command.take(120)}")
         val result = client.executeShellCommand(command)
         if (result.isFailure && result.exceptionOrNull()?.message?.contains("Permission denied") == true) {
-            LogRepository.add("ADB shell permission denied, retrying with run-as", LogLevel.WARNING)
+            LogRepository.add("ADB shell permission denied — paths under /storage/emulated/0/ should be accessible via ADB shell on Android 11+. Some OEMs block this.", LogLevel.WARNING)
             val alt = client.executeShellCommandWithRunAs(GAME_PKG, command)
             if (alt.isSuccess) {
                 LogRepository.add("ADB shell succeeded via run-as", LogLevel.SUCCESS)
                 return alt
+            }
+            val runAsMsg = alt.exceptionOrNull()?.message ?: ""
+            if (runAsMsg.contains("not debuggable", ignoreCase = true)) {
+                LogRepository.add("ADB: run-as unavailable — game package is not debuggable. Use Shizuku or Root backend.", LogLevel.ERROR)
             }
         }
         if (result.isFailure) {
@@ -215,5 +219,14 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
             return client.executeShellCommandWithRunAs(GAME_PKG, "cat ${shQuote(path)}")
         }
         return result
+    }
+
+    override suspend fun readFileBytes(path: String): Result<ByteArray> {
+        val b64Cmd = "base64 -w0 ${shQuote(path)}"
+        var b64 = client.executeShellCommand(b64Cmd)
+        if (b64.isFailure) {
+            b64 = client.executeShellCommandWithRunAs(GAME_PKG, b64Cmd)
+        }
+        return b64.map { Base64.decode(it.trim(), Base64.DEFAULT) }
     }
 }

@@ -51,6 +51,7 @@ import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.LogEntry
 import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -375,15 +376,13 @@ fun LogViewer(
 }
 
 @Composable
-fun MiniLogViewer(
-    logs: List<LogEntry>,
-    modifier: Modifier = Modifier,
-) {
-    if (logs.isEmpty()) return
+fun MiniLogViewer(modifier: Modifier = Modifier) {
+    val logEntries = LogRepository.entries
+    if (logEntries.isEmpty()) return
     GlassCard(modifier = modifier, accentColor = NeonAmber) {
         Text("Status", style = MaterialTheme.typography.labelMedium, color = NeonAmber.copy(alpha = 0.7f))
         Spacer(Modifier.height(6.dp))
-        logs.takeLast(5).forEach { log ->
+        logEntries.takeLast(5).forEach { log ->
             val c =
                 when (log.level) {
                     LogLevel.SUCCESS -> NeonGreen

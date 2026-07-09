@@ -1,16 +1,5 @@
 package com.wuwaconfig.app.model
 
-data class PresetsFile(
-    val android: Map<String, PresetTier> = emptyMap(),
-    val pc: Map<String, PresetTier> = emptyMap(),
-)
-
-data class PresetTier(
-    val settings: Map<String, Any> = emptyMap(),
-    val deviceprofiles: Map<String, Any> = emptyMap(),
-    val gameusersettings: Map<String, Any> = emptyMap(),
-)
-
 enum class GameMode(val label: String) {
     Overworld("Overworld"),
     Domain("Domain / Tower"),
@@ -62,9 +51,4 @@ data class GeneratedIni(
     val gameUserSettings: String = "",
     val scalability: String = "",
     val hardware: String = "",
-)
-
-data class ModeConfig(
-    val preset: String = "balanced",
-    val options: GeneratorOptions = GeneratorOptions(),
 )

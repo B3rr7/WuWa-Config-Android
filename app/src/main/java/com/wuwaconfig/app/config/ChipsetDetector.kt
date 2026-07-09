@@ -44,14 +44,4 @@ object ChipsetDetector {
             codename = Build.DEVICE,
         )
     }
-
-    fun getTargetConfigKey(chipset: ChipsetInfo): String {
-        return when {
-            chipset.isSnapdragon -> "snapdragon"
-            chipset.isMediatek -> "mediatek"
-            chipset.isExynos -> "exynos"
-            chipset.isTensor -> "tensor"
-            else -> "generic"
-        }
-    }
 }

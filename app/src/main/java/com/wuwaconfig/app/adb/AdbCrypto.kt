@@ -3,13 +3,12 @@ package com.wuwaconfig.app.adb
 import android.content.Context
 import android.util.Base64
 import android.util.Log
+import androidx.security.crypto.EncryptedFile
+import androidx.security.crypto.MasterKey
 import java.io.File
 import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.KeyPairGenerator
-import java.security.MessageDigest
-import java.security.PrivateKey
-import java.security.PublicKey
 import java.security.Signature
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
@@ -25,25 +24,77 @@ class AdbCrypto(private val context: Context) {
     private val privateKeyFile: File
         get() = File(context.filesDir, "adbkey")
 
+    private val masterKey by lazy {
+        MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+    }
+
     init {
         loadOrGenerateKeys()
     }
 
+    private fun buildEncryptedFile(file: File): EncryptedFile {
+        return EncryptedFile.Builder(
+            context,
+            file,
+            masterKey,
+            EncryptedFile.FileEncryptionScheme.AES256_GCM_HKDF_4KB,
+        ).build()
+    }
+
+    private fun readEncryptedBytes(file: File): ByteArray? {
+        return try {
+            buildEncryptedFile(file).openFileInput().use { it.readBytes() }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun writeEncryptedBytes(
+        file: File,
+        bytes: ByteArray,
+    ) {
+        file.parentFile?.mkdirs()
+        buildEncryptedFile(file).openFileOutput().use { it.write(bytes) }
+    }
+
     private fun loadOrGenerateKeys() {
-        if (privateKeyFile.exists() && publicKeyFile.exists()) {
+        val pkFile = privateKeyFile
+        val pubFile = publicKeyFile
+
+        val privateBytes = readEncryptedBytes(pkFile)
+        val publicBytes = readEncryptedBytes(pubFile)
+        if (privateBytes != null && publicBytes != null) {
             try {
-                val privateBytes = privateKeyFile.readBytes()
-                val publicBytes = publicKeyFile.readBytes()
                 val keyFactory = KeyFactory.getInstance("RSA")
                 val privateKey = keyFactory.generatePrivate(PKCS8EncodedKeySpec(privateBytes))
                 val publicKey = keyFactory.generatePublic(X509EncodedKeySpec(publicBytes))
                 keyPair = KeyPair(publicKey, privateKey)
-                Log.d(TAG, "Keys loaded from ${privateKeyFile.absolutePath}")
                 return
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load existing keys, generating new ones", e)
+                Log.e(TAG, "Failed to load encrypted keys", e)
             }
         }
+
+        // Migration: read existing plaintext keys, re-save encrypted
+        if (pkFile.exists() && pubFile.exists()) {
+            try {
+                val ptPrivate = pkFile.readBytes()
+                val ptPublic = pubFile.readBytes()
+                val keyFactory = KeyFactory.getInstance("RSA")
+                val privateKey = keyFactory.generatePrivate(PKCS8EncodedKeySpec(ptPrivate))
+                val publicKey = keyFactory.generatePublic(X509EncodedKeySpec(ptPublic))
+                keyPair = KeyPair(publicKey, privateKey)
+                writeEncryptedBytes(pkFile, ptPrivate)
+                writeEncryptedBytes(pubFile, ptPublic)
+                Log.d(TAG, "Migrated ADB keys from plaintext to encrypted storage")
+                return
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to migrate existing keys, generating new ones", e)
+            }
+        }
+
         generateNewKeys()
     }
 
@@ -53,15 +104,10 @@ class AdbCrypto(private val context: Context) {
         generator.initialize(2048)
         keyPair = generator.generateKeyPair()
 
-        privateKeyFile.parentFile?.mkdirs()
-        privateKeyFile.writeBytes(keyPair!!.private.encoded)
-        publicKeyFile.writeBytes(keyPair!!.public.encoded)
-        Log.d(TAG, "Keys saved to ${privateKeyFile.parentFile?.absolutePath}")
+        writeEncryptedBytes(privateKeyFile, keyPair!!.private.encoded)
+        writeEncryptedBytes(publicKeyFile, keyPair!!.public.encoded)
+        Log.d(TAG, "Keys saved encrypted via EncryptedFile")
     }
-
-    fun getPublicKey(): PublicKey = keyPair!!.public
-
-    fun getPrivateKey(): PrivateKey = keyPair!!.private
 
     fun getAdbFormattedPublicKey(): ByteArray {
         val rsaPubKey = keyPair!!.public as java.security.interfaces.RSAPublicKey
@@ -103,15 +149,6 @@ class AdbCrypto(private val context: Context) {
         val sig = signature.sign()
         Log.d(TAG, "Signature: ${sig.size}B")
         return sig
-    }
-
-    fun getPublicKeyMd5(): String {
-        val md5 = MessageDigest.getInstance("MD5")
-        md5.update(keyPair!!.public.encoded)
-        val digest = md5.digest()
-        val hex = digest.joinToString(":") { "%02X".format(it) }
-        Log.d(TAG, "Public key MD5: $hex")
-        return hex
     }
 
     fun regenerateKeys() {

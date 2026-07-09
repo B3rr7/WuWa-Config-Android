@@ -39,7 +39,6 @@ fun ProfileScreen(
     val profile by viewModel.playerProfile.collectAsState()
     val profileLoading by viewModel.profileLoading.collectAsState()
     val backendStatus by viewModel.backendStatus.collectAsState()
-    val logs by viewModel.logs.collectAsState()
     val configModifyCounts by viewModel.configModifyCounts.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -138,7 +137,7 @@ fun ProfileScreen(
                     }
                 }
 
-                MiniLogViewer(logs)
+                MiniLogViewer()
 
                 Spacer(Modifier.height(16.dp))
             }
@@ -334,12 +333,24 @@ private fun ConfigSummarySection(
         )
         Spacer(Modifier.height(12.dp))
 
-        val maxCount = maxOf(profile.engineSettingCount, profile.deviceProfileCount, profile.gameUserSettingCount, 1)
+        val maxCount =
+            maxOf(
+                profile.engineSettingCount,
+                profile.deviceProfileCount,
+                profile.gameUserSettingCount,
+                profile.scalabilitySettingCount,
+                profile.hardwareSettingCount,
+                1,
+            )
         ConfigBar("Engine.ini", profile.engineSettingCount, maxCount, NeonCyan)
         Spacer(Modifier.height(8.dp))
         ConfigBar("DeviceProfiles.ini", profile.deviceProfileCount, maxCount, NeonPurple)
         Spacer(Modifier.height(8.dp))
         ConfigBar("GameUserSettings.ini", profile.gameUserSettingCount, maxCount, NeonPink)
+        Spacer(Modifier.height(8.dp))
+        ConfigBar("Scalability.ini", profile.scalabilitySettingCount, maxCount, NeonAmber)
+        Spacer(Modifier.height(8.dp))
+        ConfigBar("Hardware.ini", profile.hardwareSettingCount, maxCount, Color(0xFFAA88FF))
 
         if (configModifyCounts.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))

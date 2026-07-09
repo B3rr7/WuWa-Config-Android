@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.gson.Gson
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.config.ConfigManager
@@ -103,7 +104,7 @@ class GachaPollService : Service() {
                                     if (data.isSuccess) {
                                         val d = data.getOrThrow()
                                         LogRepository.add("GachaPollService: fetched ${d.totalPulls} records", LogLevel.SUCCESS)
-                                        sendBroadcast(
+                                        LocalBroadcastManager.getInstance(this@GachaPollService).sendBroadcast(
                                             Intent("com.wuwaconfig.app.GACHA_DATA_READY").apply {
                                                 putExtra("totalPulls", d.totalPulls)
                                                 putExtra("fiveStars", d.fiveStars)

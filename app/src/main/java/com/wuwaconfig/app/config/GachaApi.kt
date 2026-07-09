@@ -12,6 +12,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object GachaApi {
+    // Standard pool characters/weapons — Kuro adds new ones each patch.
+    // When a limited 5★ ends its banner it enters the standard pool.
+    // These lists WILL go stale — update each patch or derive from API response.
+    // A more robust approach: any limited 5★ not seen in the last 2 banners is standard.
     private val STANDARD_CHARACTERS =
         setOf(
             "Calcharo",

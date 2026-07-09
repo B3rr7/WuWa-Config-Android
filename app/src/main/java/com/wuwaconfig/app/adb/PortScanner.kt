@@ -23,11 +23,6 @@ object PortScanner {
     @JvmStatic var lastAdbPort: Int? = null
         private set
 
-    fun clearCache() {
-        cachedIp = null
-        cacheTimestamp = 0
-    }
-
     data class ScanResult(val host: String, val port: Int)
 
     fun getDeviceIp(): String {

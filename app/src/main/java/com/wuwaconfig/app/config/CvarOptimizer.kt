@@ -10,18 +10,28 @@ object CvarOptimizer {
             Regex("""adreno.*8[3-9]\d|adreno.*8[12]\d""").containsMatchIn(g) -> "flagship"
             Regex("""tensor\s*g[34]""").containsMatchIn(g) -> "flagship"
             Regex("""dimensity\s*9[3-9]\d\d?""").containsMatchIn(g) -> "flagship"
+
             Regex("""adreno.*7[5-9]\d|adreno.*8[0]\d""").containsMatchIn(g) -> "high"
             Regex("""tensor\s*g[12]""").containsMatchIn(g) -> "high"
             Regex("""dimensity\s*(9[0-2]\d|8[5-9]\d)""").containsMatchIn(g) -> "high"
             Regex("""exynos\s*2200""").containsMatchIn(g) -> "high"
             Regex("""kirin\s*9000""").containsMatchIn(g) -> "high"
             Regex("""mali-g[78]\d\d|mali-g9""").containsMatchIn(g) -> "high"
+
             Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""").containsMatchIn(g) -> "mid_high"
             Regex("""dimensity\s*(8[0-4]\d|7[3-9]\d)""").containsMatchIn(g) -> "mid_high"
+            Regex("""tensor""").containsMatchIn(g) -> "mid_high"
+            Regex("""exynos\s*2[1-3]00""").containsMatchIn(g) -> "mid_high"
+            Regex("""kirin\s*9[1-9]\d\d?""").containsMatchIn(g) -> "mid_high"
             Regex("""xclipse""").containsMatchIn(g) -> "mid_high"
+
             Regex("""adreno.*6[0-4]\d|mali-g[6-7]\d\d|mali-g615""").containsMatchIn(g) -> "mid"
             Regex("""dimensity\s*[0-9]{3}""").containsMatchIn(g) -> "mid"
+            Regex("""exynos\s*[0-9]{4}""").containsMatchIn(g) -> "mid"
+            Regex("""kirin\s*[0-9]{4}""").containsMatchIn(g) -> "mid"
+
             Regex("""adreno.*5\d\d|mali-g5[0-9]\d|mali-g57""").containsMatchIn(g) -> "mid_low"
+
             Regex("""adreno.*[34]\d\d|mali-g[34]""").containsMatchIn(g) -> "low"
             else -> "unknown"
         }

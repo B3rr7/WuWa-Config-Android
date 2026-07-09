@@ -327,14 +327,14 @@ object LogParser {
             textureErrors = textureErrors,
             gpuOom = gpuOom,
             dropFrames = dropFrames,
-            forbiddenCvars = forbiddenCvars ?: 0,
+            forbiddenCvars = forbiddenCvars,
             thermalEvents = thermalEvents,
             networkErrors = networkErrors,
             activeCvars = activeCvars,
         )
     }
 
-    fun parseBattleStats(text: String): BattleStats {
+    fun parseBattleStatsLines(lines: List<String>): BattleStats {
         var battles = 0
         var echoesCollected = 0
         var dodgeForward = 0
@@ -349,20 +349,20 @@ object LogParser {
         var echoTransformUsed = 0
         var monthCards = 0
 
-        for (line in text.lines()) {
+        for (line in lines) {
             when {
-                "切换玩家状态: 进入战斗造成伤害" in line -> battles++
+                "切换玩家战斗音乐状态: 进入战斗" in line -> battles++
                 "初次幻象收服" in line || "初次幻象捕捉" in line -> echoesCollected++
                 "极限闪避前闪" in line -> dodgeForward++
                 "极限闪避后闪" in line -> dodgeBack++
                 "极限闪避反击" in line -> dodgeCounter++
-                "前台角色死亡进行切人" in line -> deaths++
-                "角色下场" in line && "立即隐藏" in line -> roleChanges++
-                "传送:完成" in line -> teleports++
+                "执行角色死亡逻辑" in line -> deaths++
+                "角色下场" in line -> roleChanges++
+                "传送:" in line && "完成" in line -> teleports++
                 "进入倒地状态" in line -> staggers++
                 line.contains("当前体力数据") && "UPs:" in line -> {
-                    val m = Regex("UPs:(\\d+)").find(line)
-                    if (m != null) staminaUsed += m.groupValues[1].toIntOrNull() ?: 0
+                    val matches = Regex("UPs:(\\d+)").findAll(line)
+                    staminaUsed += matches.sumOf { it.groupValues[1].toIntOrNull() ?: 0 }
                 }
                 "召唤系幻象的出生特效" in line -> echoSkillsUsed++
                 "变身幻象" in line -> echoTransformUsed++
@@ -384,7 +384,11 @@ object LogParser {
             echoSkillsUsed = echoSkillsUsed,
             echoTransformUsed = echoTransformUsed,
             monthCards = monthCards,
-            logSizeBytes = text.length.toLong(),
         )
+    }
+
+    fun parseBattleStats(text: String): BattleStats {
+        val stats = parseBattleStatsLines(text.lines())
+        return stats.copy(logSizeBytes = text.length.toLong())
     }
 }

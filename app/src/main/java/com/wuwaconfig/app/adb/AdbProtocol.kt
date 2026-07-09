@@ -123,21 +123,6 @@ object AdbProtocol {
         return AdbMessage(OPEN, localId, 0, "$destination\u0000".encodeToByteArray())
     }
 
-    fun createWriteMessage(
-        localId: Int,
-        remoteId: Int,
-        data: ByteArray,
-    ): AdbMessage {
-        return AdbMessage(WRTE, localId, remoteId, data)
-    }
-
-    fun createCloseMessage(
-        localId: Int,
-        remoteId: Int,
-    ): AdbMessage {
-        return AdbMessage(CLSE, localId, remoteId, ByteArray(0))
-    }
-
     fun createOkMessage(
         localId: Int,
         remoteId: Int,

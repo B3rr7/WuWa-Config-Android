@@ -3,7 +3,7 @@
 
 [![Release](https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
 
-Android app for **Wuthering Waves (WuWa) performance optimization** — analyzes your device log, generates optimized Engine.ini configs for FPS boost and graphics tuning, and deploys them via ADB/Shizuku/Root. Includes CVar tuning, SmartBrain scoring, Pity Tracker, Battle Stats, and Player Profile. Designed for low-end to flagship Android devices.
+Android app for **Wuthering Waves (WuWa) performance optimization** — analyzes your device log, generates optimized Engine.ini configs for FPS boost and graphics tuning, and deploys them via ADB/Shizuku/Root. Includes CVar tuning, SmartBrain scoring, Pity Tracker, Battle Stats, and Player Profile. Designed for low-end to flagship Android devices. 🔒 **Privacy-first:** No analytics, no telemetry, no data sent to third parties. Only connects to localhost ADB and Kuro's official gacha API (user-initiated).
 
 > **⚠️ DISCLAIMER**
 > This project is **NOT affiliated with Kuro Games or Wuthering Waves**.
@@ -113,7 +113,7 @@ Algorithm evaluates device from 0-100:
 | Thermal throttling | -5 to -20 |
 | GPU OOM | -12 to -30 |
 | Frame drops | -5 to -10 |
-| Forbidden CVars | -5 each (can toggle off) |
+| Forbidden CVars | -5 each (can toggle off — when OFF, also stripped from generated INIs before deploy) |
 | Unknown CVars | -5 if >5 in log |
 | Active CVars differ from game defaults | +5 if well-optimized, -8 if room to improve |
 | Combined signals | -5 to -6 |
@@ -142,7 +142,7 @@ Toggle each: Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.i
 Single button — generates configs with automatic CVar optimization: redundant lines matching game defaults are commented out (`; REDUNDANT`), and unknown CVars not in the UE4 binary dump are flagged (`; UNKNOWN CVar`). Shows review dialog with monospace text editor. Edit CVars inline, then deploy from dialog or close without deploying.
 
 #### 8. Deploy
-Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Uses **hash snapshot + reconcile** pattern: saves hash file before deploy, compares afterward to detect concurrent game access, always recomputes from actual files. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge with color-coded tag chips: **N redundant** (matches game defaults), **N unknown** (not in UE4 binary dump), **N monitored** (ConfigMonitor-tracked).
+Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Uses **hash snapshot + reconcile** pattern: saves hash file before deploy, compares afterward to detect concurrent game access, always recomputes from actual files. `ModifyCount` is capped at 8 to avoid suspicion. When "Allow restricted CVars" is OFF, forbidden CVars are stripped from all 5 INIs before push. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge with color-coded tag chips: **N redundant** (matches game defaults), **N unknown** (not in UE4 binary dump), **N monitored** (ConfigMonitor-tracked).
 
 #### 9. Auto-Tune Wizard
 Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via logcat → adjusts preset/options → redeploys until target FPS reached.
@@ -167,10 +167,11 @@ Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via l
 
 ### Battle Stats
 
-- Parses `Client.log` for CN keyword battle counters
+- **100% file coverage** — contiguous `dd` partition reads across all cores, XOR-decrypted per partition. No more spaced sampling gaps.
+- **Global version patterns** — battle counters, deaths, role changes, teleports, stamina, dodges, echoes, and ultimates matched from real global Client.log
 - Cards: **Combat**, **Exploration**, **Economy**, **Social**, **System**
 - Each shows stat chips with current values
-- Requires gameplay for non-zero data
+- No cache — always re-reads from device for fresh data
 
 ### Backup & Restore
 
@@ -218,7 +219,7 @@ app/
     │   ├── DeployHistoryStore.kt # Deploy history JSON persistence (20 records max)
     │   ├── LogParser.kt          # XOR decryption, Convene URL extract, battle stat parse
     │   ├── SmartBrain.kt         # Scoring engine, recommendation
-    │   ├── ForbiddenCvars.kt    # 33 known Kuro restricted CVars + strip/filter helpers
+    │   ├── ForbiddenCvars.kt    # Kuro restricted CVars + strip/filter helpers (called in ConfigGenerator before deploy when restricted CVars are OFF)
     │   ├── BenchmarkTuner.kt     # Auto-tune: FPS capture, preset adjustment
     │   ├── GachaApi.kt           # Gacha API client (HTTP POST, pity calc, predictions)
     │   ├── GachaHistoryStore.kt  # Local gacha history persistence (12hr TTL)

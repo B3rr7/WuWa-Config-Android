@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.wuwaconfig.app.adb.PortScanner
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.*
 import com.wuwaconfig.app.ui.theme.*
@@ -69,7 +70,6 @@ fun HomeScreen(
 ) {
     val backendStatus by viewModel.backendStatus.collectAsState()
     val backups by viewModel.backups.collectAsState()
-    val logs by viewModel.logs.collectAsState()
     val isApplying by viewModel.isApplying.collectAsState()
     val deployRecords by viewModel.deployRecords.collectAsState()
     val deployHistoryEnabled by viewModel.deployHistoryEnabled.collectAsState()
@@ -694,59 +694,7 @@ fun HomeScreen(
                     }
                 }
 
-                // --- Recent Log ---
-                item {
-                    GlassCard(
-                        modifier = Modifier.clickable { onNavigateToLogs() },
-                        accentColor = NeonCyan,
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .size(8.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(NeonCyan.copy(alpha = 0.8f)),
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("Recent Log", style = MaterialTheme.typography.titleSmall, color = NeonCyan, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.weight(1f))
-                            Text(
-                                "${logs.size} entries",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(
-                                Icons.Default.ChevronRight,
-                                contentDescription = "View all",
-                                tint = NeonCyan.copy(alpha = 0.6f),
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        if (logs.isEmpty()) {
-                            Text(
-                                "No logs yet.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                            )
-                        } else {
-                            Column {
-                                logs.takeLast(5).forEach { log ->
-                                    val c =
-                                        when (log.level) {
-                                            LogLevel.SUCCESS -> NeonGreen
-                                            LogLevel.ERROR -> NeonRed
-                                            LogLevel.WARNING -> NeonAmber
-                                            LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
-                                    Text("[${log.timestamp}] ${log.message}", style = MaterialTheme.typography.bodySmall, color = c)
-                                }
-                            }
-                        }
-                    }
-                }
+                item { RecentLogCard(onNavigateToLogs = onNavigateToLogs) }
             }
         }
     }
@@ -959,17 +907,43 @@ fun HomeScreen(
         AlertDialog(
             onDismissRequest = { viewModel.clearCustomDeploySuccess() },
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(32.dp)) },
-            title = { Text("Deployed Successfully", color = NeonGreen, fontWeight = FontWeight.Bold) },
+            icon = {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = NeonGreen,
+                    modifier = Modifier.size(48.dp),
+                )
+            },
+            title = {
+                Text(
+                    "✓ Files Deployed",
+                    color = NeonGreen,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+            },
             text = {
-                Column {
-                    Text(msg, style = MaterialTheme.typography.bodyMedium)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Config files written and KuroConfigMonitor hash refreshed.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        msg,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = NeonGreen.copy(alpha = 0.1f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            "Config files written to device and KuroConfigMonitor hash refreshed.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = NeonGreen.copy(alpha = 0.8f),
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -981,8 +955,64 @@ fun HomeScreen(
                             contentColor = NeonGreen,
                         ),
                     shape = RoundedCornerShape(10.dp),
-                ) { Text("OK", fontWeight = FontWeight.Bold) }
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                ) { Text("OK", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp)) }
             },
         )
+    }
+}
+
+@Composable
+private fun RecentLogCard(onNavigateToLogs: () -> Unit) {
+    val logs = LogRepository.entries
+    GlassCard(
+        modifier = Modifier.clickable { onNavigateToLogs() },
+        accentColor = NeonCyan,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(NeonCyan.copy(alpha = 0.8f)),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("Recent Log", style = MaterialTheme.typography.titleSmall, color = NeonCyan, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            Text(
+                "${logs.size} entries",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "View all",
+                tint = NeonCyan.copy(alpha = 0.6f),
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        if (logs.isEmpty()) {
+            Text(
+                "No logs yet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+            )
+        } else {
+            Column {
+                logs.takeLast(5).forEach { log ->
+                    val c =
+                        when (log.level) {
+                            LogLevel.SUCCESS -> NeonGreen
+                            LogLevel.ERROR -> NeonRed
+                            LogLevel.WARNING -> NeonAmber
+                            LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    Text("[${log.timestamp}] ${log.message}", style = MaterialTheme.typography.bodySmall, color = c)
+                }
+            }
+        }
     }
 }

@@ -10,7 +10,7 @@ fun computeMd5(file: File): String {
     return digest.joinToString("") { "%02x".format(it) }
 }
 
-const val PUSH_RETRY_COUNT = 1
+const val PUSH_RETRY_COUNT = 2
 
 const val MAX_ARG_STRLEN = 4096
 private const val PRINTF_OVERHEAD = 15 // "printf '%s' " + " >> "

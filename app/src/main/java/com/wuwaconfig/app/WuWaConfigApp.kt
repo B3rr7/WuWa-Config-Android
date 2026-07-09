@@ -1,6 +1,7 @@
 package com.wuwaconfig.app
 
 import android.app.Application
+import android.os.Environment
 import com.wuwaconfig.app.adb.AdbCrypto
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.AccessMethod
@@ -12,6 +13,7 @@ import com.wuwaconfig.app.config.ConfigGenerator
 import com.wuwaconfig.app.config.CvarDatabase
 import com.wuwaconfig.app.config.DeployHistoryStore
 import com.wuwaconfig.app.model.LogRepository
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -50,6 +52,7 @@ class WuWaConfigApp : Application() {
         instance = this
         _backend = null
         LogRepository.init()
+        cleanupOldClientLogs()
         cvarDatabase = CvarDatabase(assets)
         configGenerator = ConfigGenerator(cvarDatabase)
         appScope.launch { cvarDatabase.load() }
@@ -73,6 +76,21 @@ class WuWaConfigApp : Application() {
             AccessMethod.SHIZUKU -> ShizukuBackend()
             AccessMethod.ROOT -> RootBackend()
             AccessMethod.SAF -> SafBackend(this).also { it.restoreTreeUri() }
+        }
+    }
+
+    private fun cleanupOldClientLogs() {
+        val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+        val dirs =
+            listOf(
+                File(filesDir, "backups"),
+                File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WuWaConfig"),
+            )
+        for (dir in dirs) {
+            val file = File(dir, "Client.log")
+            if (file.exists() && file.lastModified() < cutoff) {
+                file.delete()
+            }
         }
     }
 

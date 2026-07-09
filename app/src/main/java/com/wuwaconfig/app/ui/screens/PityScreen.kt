@@ -34,7 +34,6 @@ fun PityScreen(
     val conveneUrlLoading by viewModel.conveneUrlLoading.collectAsState()
     val gachaData by viewModel.gachaData.collectAsState()
     val gachaLoading by viewModel.gachaLoading.collectAsState()
-    val logs by viewModel.logs.collectAsState()
     val backendStatus by viewModel.backendStatus.collectAsState()
     val gachaHistory by viewModel.gachaHistory.collectAsState()
 
@@ -154,7 +153,7 @@ fun PityScreen(
                 }
 
                 item {
-                    MiniLogViewer(logs)
+                    MiniLogViewer()
                 }
 
                 item { Spacer(Modifier.height(16.dp)) }

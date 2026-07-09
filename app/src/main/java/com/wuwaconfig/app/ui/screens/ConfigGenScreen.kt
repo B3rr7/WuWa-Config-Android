@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
@@ -94,6 +95,8 @@ fun ConfigGenScreen(
     var tunerState by remember { mutableStateOf(TunerState()) }
     var showGoPlayDialog by remember { mutableStateOf(false) }
     var showResultDialog by remember { mutableStateOf(false) }
+    var showDeployDialog by remember { mutableStateOf(false) }
+    var deployDialogMessage by remember { mutableStateOf("") }
 
     val logPickerLauncher =
         rememberLauncherForActivityResult(
@@ -109,7 +112,6 @@ fun ConfigGenScreen(
             }
         }
 
-    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     fun runDeployAndWait() {
@@ -236,7 +238,8 @@ fun ConfigGenScreen(
 
     LaunchedEffect(deployResult) {
         deployResult?.let {
-            scope.launch { snackbarHostState.showSnackbar(it) }
+            deployDialogMessage = it
+            showDeployDialog = true
             viewModel.clearDeployResult()
         }
     }
@@ -267,7 +270,6 @@ fun ConfigGenScreen(
                         ),
                 )
             },
-            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
         ) { padding ->
             LazyColumn(
@@ -609,6 +611,64 @@ fun ConfigGenScreen(
             },
         )
     }
+
+    if (showDeployDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeployDialog = false },
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            icon = {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = NeonGreen,
+                    modifier = Modifier.size(48.dp),
+                )
+            },
+            title = {
+                Text(
+                    "✓ Config Deployed",
+                    color = NeonGreen,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+            },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        deployDialogMessage,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = NeonGreen.copy(alpha = 0.1f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            "Config files written to device and KuroConfigMonitor hash refreshed.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = NeonGreen.copy(alpha = 0.8f),
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showDeployDialog = false },
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = NeonGreen.copy(alpha = 0.15f),
+                            contentColor = NeonGreen,
+                        ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                ) { Text("OK", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp)) }
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -847,13 +907,30 @@ private fun AnalysisPanel(
 
         if (logInfo != null && !isApplying) {
             val info = logInfo
+            val hasData =
+                info.gpu != null || info.deviceModel != null || info.cpuName != null ||
+                    info.ramMb != null || info.androidVersion != null
+
             Spacer(Modifier.height(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                DetailRow("Device", info.deviceModel ?: info.cpuName ?: "-")
-                DetailRow("GPU", info.gpu ?: "-")
-                DetailRow("API", info.gameApi ?: info.api ?: "-")
-                DetailRow("Android", info.androidVersion?.let { "Android $it" } ?: "-")
-                DetailRow("RAM", info.ramMb?.let { "$it MB" } ?: "-")
+            if (hasData) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    DetailRow("Device", info.deviceModel ?: info.cpuName ?: "-")
+                    DetailRow("GPU", info.gpu ?: "-")
+                    DetailRow("API", info.gameApi ?: info.api ?: "-")
+                    DetailRow("Android", info.androidVersion?.let { "Android $it" } ?: "-")
+                    DetailRow("RAM", info.ramMb?.let { "$it MB" } ?: "-")
+                }
+            } else {
+                Text(
+                    "No device data could be extracted from the log.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                )
+                Text(
+                    "The log may be from a very short session, or the format may have changed in a game update.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                )
             }
 
             val issues = mutableListOf<Pair<String, Int>>()

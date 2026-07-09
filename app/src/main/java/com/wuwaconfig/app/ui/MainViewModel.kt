@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
@@ -25,13 +26,12 @@ import com.wuwaconfig.app.config.GachaApi
 import com.wuwaconfig.app.config.GachaHistoryStore
 import com.wuwaconfig.app.config.ProfileStore
 import com.wuwaconfig.app.model.BattleStats
+import com.wuwaconfig.app.model.BattleStatsStore
 import com.wuwaconfig.app.model.ConfigBackup
-import com.wuwaconfig.app.model.DeployComparison
 import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.GamePaths
-import com.wuwaconfig.app.model.LogEntry
 import com.wuwaconfig.app.model.LogInfo
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
@@ -71,8 +71,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _backups = MutableStateFlow<List<ConfigBackup>>(emptyList())
     val backups: StateFlow<List<ConfigBackup>> = _backups.asStateFlow()
 
-    val logs: StateFlow<List<LogEntry>> = LogRepository.entries
-
     private val _deployResult = MutableStateFlow<String?>(null)
     val deployResult: StateFlow<String?> = _deployResult.asStateFlow()
 
@@ -100,19 +98,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _deployRecords = MutableStateFlow<List<DeployRecord>>(DeployHistoryStore.getAllRecords())
     val deployRecords: StateFlow<List<DeployRecord>> = _deployRecords.asStateFlow()
 
-    private val _deployComparison = MutableStateFlow<DeployComparison?>(null)
-    val deployComparison: StateFlow<DeployComparison?> = _deployComparison.asStateFlow()
-
     private val _deployHistoryEnabled = MutableStateFlow(prefs.getBoolean("deploy_history", true))
     val deployHistoryEnabled: StateFlow<Boolean> = _deployHistoryEnabled.asStateFlow()
 
     fun clearDeployResult() {
         _deployResult.value = null
-    }
-
-    fun clearConveneUrl() {
-        _conveneUrl.value = null
-        _gachaData.value = null
     }
 
     private val _editingFileName = MutableStateFlow<String?>(null)
@@ -166,7 +156,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             addLog("INI Editor: saving $fileName to device")
             val preSnapshot = configManager.snapshotHashFile().getOrNull()
             configManager.pushSingleFile(fileName, content) { /* progress */ }
-                .onSuccess { msg ->
+                .onSuccess {
                     addLog("INI Editor: $fileName pushed, refreshing hashes...", LogLevel.SUCCESS)
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { hashMsg ->
                         addLog("$fileName saved. $hashMsg", LogLevel.SUCCESS)
@@ -254,7 +244,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             DeployHistoryStore.updateOutcome(id, parsed, logText.take(2048))
             _deployRecords.value = DeployHistoryStore.getAllRecords()
             val comparison = DeployHistoryStore.compare(id)
-            _deployComparison.value = comparison
             if (comparison != null) {
                 val lines = mutableListOf<String>()
                 comparison.fpsDelta?.let { lines.add("FPS: ${if (it >= 0) "+" else ""}${"%.1f".format(it)}") }
@@ -332,12 +321,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun postAcceptInit() {
         loadBackups()
         try {
-            val filter = IntentFilter("com.wuwaconfig.app.GACHA_DATA_READY")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                getApplication<Application>().registerReceiver(gachaReceiver, filter, Context.RECEIVER_EXPORTED)
-            } else {
-                getApplication<Application>().registerReceiver(gachaReceiver, filter)
-            }
+            LocalBroadcastManager.getInstance(getApplication()).registerReceiver(
+                gachaReceiver,
+                IntentFilter("com.wuwaconfig.app.GACHA_DATA_READY"),
+            )
         } catch (_: Exception) {
         }
         _gachaHistory.value = GachaHistoryStore.load(getApplication())
@@ -738,6 +725,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _battleStats = MutableStateFlow<BattleStats?>(null)
     val battleStats: StateFlow<BattleStats?> = _battleStats.asStateFlow()
+    private val _battleStatsFromCache = MutableStateFlow(false)
+    val battleStatsFromCache: StateFlow<Boolean> = _battleStatsFromCache.asStateFlow()
 
     private val _battleStatsLoading = MutableStateFlow(false)
     val battleStatsLoading: StateFlow<Boolean> = _battleStatsLoading.asStateFlow()
@@ -752,18 +741,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
             _isApplying.value = true
+            _logAnalysis.value = null
+            _brainRecommendation.value = null
             try {
                 _readingProgress.value = 0
-                addLog("Reading Client.log from device...")
-                val result =
-                    configManager.readClientLogTextWithMetadata { pct ->
-                        _readingProgress.value = pct
-                    }
+                addLog("Pulling full Client.log from device...")
+                _readingProgress.value = 10
+                val result = configManager.readFullClientLogWithMetadata()
                 if (result.isSuccess) {
-                    _readingProgress.value = 95
+                    _readingProgress.value = 60
                     val (text, decrypted) = result.getOrThrow()
                     addLog(if (decrypted) "Encrypted log detected; decrypted successfully." else "Plain log detected.")
-                    doAnalyzeLogText(text, allowRestrictedCvars)
+
+                    _readingProgress.value = 75
+                    val initialInfo = withContext(Dispatchers.Default) { com.wuwaconfig.app.config.LogParser.parseLog(text) }
+                    val analysisText =
+                        if (initialInfo.gpu == null && initialInfo.deviceModel == null && initialInfo.cpuName == null && initialInfo.ramMb == null) {
+                            addLog("No device data in current log, checking backup logs...")
+                            _readingProgress.value = 80
+                            val backupResult = configManager.readFullLatestBackupLog()
+                            if (backupResult.isSuccess) {
+                                val (backupText, _) = backupResult.getOrThrow()
+                                addLog("Merging backup log with current log for complete analysis")
+                                "$backupText\n$text"
+                            } else {
+                                addLog("Backup log not available: ${backupResult.exceptionOrNull()?.message}", LogLevel.WARNING)
+                                text
+                            }
+                        } else {
+                            text
+                        }
+                    _readingProgress.value = 95
+                    doAnalyzeLogText(analysisText, allowRestrictedCvars)
                 } else {
                     addLog("FAILED: ${result.exceptionOrNull()?.message}")
                 }
@@ -805,6 +814,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         text: String,
         allowRestrictedCvars: Boolean = true,
     ) {
+        _logAnalysis.value = null
+        _brainRecommendation.value = null
         try {
             addLog("Parsing log...")
             val info =
@@ -820,6 +831,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             _brainRecommendation.value = brain
             addLog("Brain recommends: ${brain.preset} (score: ${brain.score})")
+
+            withContext(Dispatchers.Default) {
+                val battleStats = com.wuwaconfig.app.config.LogParser.parseBattleStats(text)
+                BattleStatsStore.save(getApplication(), battleStats)
+            }
+            addLog("Battle stats cached for quick viewing")
         } catch (e: Exception) {
             addLog("CRASH: ${e.message}")
             Log.e("WuWaConfig", "doAnalyzeLogText crashed", e)
@@ -908,30 +925,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun openConveneUrl(url: String) {
-        try {
-            val intent =
-                Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            getApplication<android.app.Application>().startActivity(intent)
-        } catch (e: Exception) {
-            addLog("Failed to open URL: ${e.message}")
-        }
-    }
-
-    fun copyToClipboard(text: String) {
-        try {
-            val ctx = getApplication<android.app.Application>()
-            val clip = android.content.ClipData.newPlainText("label", text)
-            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            cm.setPrimaryClip(clip)
-            addLog("Copied to clipboard")
-        } catch (e: Exception) {
-            addLog("Copy failed: ${e.message}")
-        }
-    }
-
     fun loadConfigModifyCounts() {
         if (!_backendStatus.value.connected) return
         viewModelScope.launch {
@@ -970,6 +963,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _profileLoading.value = false
             }
         }
+    }
+
+    fun loadBattleStatsFromCache(): Boolean {
+        val cached = BattleStatsStore.load(getApplication())
+        if (cached != null) {
+            _battleStats.value = cached
+            _battleStatsFromCache.value = true
+            return true
+        }
+        return false
+    }
+
+    fun refreshBattleStats() {
+        BattleStatsStore.clear(getApplication())
+        _battleStats.value = null
+        _battleStatsFromCache.value = false
+        loadBattleStats()
     }
 
     fun loadBattleStats() {
@@ -1263,6 +1273,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private suspend fun computeIniHash(name: String): Result<String> {
+        val path = "${GamePaths.TARGET_DIR}/$name"
+        val bytesResult = app.backend.readFileBytes(path)
+        if (bytesResult.isFailure) {
+            addLog("Hash sync: readFileBytes FAILED for $name: ${bytesResult.exceptionOrNull()?.message}", LogLevel.ERROR)
+            return Result.failure(bytesResult.exceptionOrNull()!!)
+        }
+        val bytes = bytesResult.getOrThrow()
+        val md5 = java.security.MessageDigest.getInstance("MD5")
+        val hash = md5.digest(bytes).joinToString("") { "%02x".format(it) }
+        addLog("Hash sync: computed hash for $name = $hash (${bytes.size} bytes)")
+        return Result.success(hash)
+    }
+
     fun syncConfigHashes(onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             addLog("Hash sync: checking device config hashes...")
@@ -1275,17 +1299,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             var needsRefresh = false
             for (name in GamePaths.MONITORED_FILES) {
-                val path = "${GamePaths.TARGET_DIR}/$name"
-                val fileHash = app.backend.executeShellCommand("md5sum ${com.wuwaconfig.app.backend.shQuote(path)} 2>/dev/null | cut -d' ' -f1")
-                    .getOrNull()?.trim()?.take(32)
-                val actualHash = if (fileHash != null && fileHash.length == 32) {
-                    fileHash
-                } else {
-                    val content = app.backend.readFile(path).getOrDefault("")
-                    val fallback = java.security.MessageDigest.getInstance("MD5").digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
-                    addLog("Hash sync: md5sum unavailable for $name, using local fallback", LogLevel.WARNING)
-                    fallback
+                val actualHashResult = computeIniHash(name)
+                if (actualHashResult.isFailure) {
+                    addLog("Hash sync: SKIPPING $name — cannot compute hash", LogLevel.ERROR)
+                    needsRefresh = true
+                    continue
                 }
+                val actualHash = actualHashResult.getOrThrow()
                 val storedHash = extractHash(hashContent, name)
                 if (storedHash != null && storedHash != actualHash) {
                     addLog("Hash sync: $name hash mismatch (stored=$storedHash, actual=$actualHash)", LogLevel.WARNING)
@@ -1293,6 +1313,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } else if (storedHash == null) {
                     addLog("Hash sync: $name has no stored hash", LogLevel.WARNING)
                     needsRefresh = true
+                } else {
+                    addLog("Hash sync: $name hash OK ($actualHash)")
                 }
             }
             if (needsRefresh) {

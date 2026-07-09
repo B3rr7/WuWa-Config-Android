@@ -3,6 +3,7 @@ package com.wuwaconfig.app.backend
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
+import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +15,7 @@ import java.io.InputStreamReader
 class SafBackend(private val context: Context) : AccessBackend {
     private var _treeUri: Uri? = null
     private val prefs = context.getSharedPreferences("wuwaconfig", Context.MODE_PRIVATE)
-    private val knownRoot = com.wuwaconfig.app.model.GamePaths.TARGET_DIR
+    private val knownRoot = GamePaths.TARGET_DIR
 
     val treeUri: Uri?
         get() = _treeUri
@@ -176,6 +177,20 @@ class SafBackend(private val context: Context) : AccessBackend {
                 Result.success(text)
             } catch (e: Exception) {
                 LogRepository.add("SAF read failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
+
+    override suspend fun readFileBytes(path: String): Result<ByteArray> =
+        withContext(Dispatchers.IO) {
+            LogRepository.add("SAF readFileBytes: $path")
+            try {
+                val doc = resolveDocument(path) ?: return@withContext Result.failure(Exception("Not found: $path"))
+                val bytes = readDocumentBytes(doc)
+                LogRepository.add("SAF readFileBytes completed: ${bytes.size} bytes")
+                Result.success(bytes)
+            } catch (e: Exception) {
+                LogRepository.add("SAF readFileBytes failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
             }
         }

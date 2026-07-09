@@ -25,7 +25,7 @@ data class PresetProfile(
 )
 
 val PRESETS =
-    mutableMapOf(
+    mapOf(
         "potato" to PresetProfile(50, 0, 128, 0, 3, 0.3, 0.3, 0.4, 0, 5, 1500),
         "performance" to PresetProfile(60, 0, 256, 0, 3, 0.5, 0.5, 0.6, 0, 3, 4500),
         "balanced" to PresetProfile(80, 2, 1024, 1, 0, 2.0, 1.5, 2.0, 1, 0, 15000),
@@ -277,10 +277,29 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val sc = if (opts.generateScalability) buildAndroidScalabilityIni(p, opts) else ""
         val hw = if (opts.generateHardware) buildAndroidHardwareIni(p, opts, logInfo, preset) else ""
         val deduplicatedEngine = deduplicateIniText(optimizedEngine)
-        val cvarNames = extractCvarNames(deduplicatedEngine)
+        var finalEngine = deduplicatedEngine
+        var finalDp = dp
+        var finalGus = gus
+        var finalSc = sc
+        var finalHw = hw
+        if (!opts.allowRestrictedCvars) {
+            finalEngine = ForbiddenCvars.stripForbiddenCvars(deduplicatedEngine)
+            finalDp = ForbiddenCvars.stripForbiddenCvars(dp)
+            finalGus = ForbiddenCvars.stripForbiddenCvars(gus)
+            finalSc = if (sc.isNotBlank()) ForbiddenCvars.stripForbiddenCvars(sc) else sc
+            finalHw = if (hw.isNotBlank()) ForbiddenCvars.stripForbiddenCvars(hw) else hw
+            val strippedCount =
+                deduplicatedEngine.lines().size - finalEngine.lines().size +
+                    dp.lines().size - finalDp.lines().size +
+                    gus.lines().size - finalGus.lines().size
+            if (strippedCount > 0) {
+                LogRepository.add("ConfigGenerator: stripped $strippedCount forbidden CVar(s) (restricted CVars OFF)", LogLevel.WARNING)
+            }
+        }
+        val cvarNames = extractCvarNames(finalEngine)
         LogRepository.add("ConfigGenerator: generation complete", LogLevel.SUCCESS)
         return GenerateResult(
-            ini = GeneratedIni(engine = deduplicatedEngine, deviceProfiles = dp, gameUserSettings = gus, scalability = sc, hardware = hw),
+            ini = GeneratedIni(engine = finalEngine, deviceProfiles = finalDp, gameUserSettings = finalGus, scalability = finalSc, hardware = finalHw),
             cvarNames = cvarNames,
             activePreset = preset,
         )
@@ -911,7 +930,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 if (hasVulkan || opts.vulkan) {
                     add("r.Vulkan.RobustBufferAccess=1")
                     add("r.Vulkan.DescriptorSetLayoutMode=2")
-                    add("r.Vulkan.PipelineLRUCapactiy=128")
+                    add("r.Vulkan.PipelineLRUCapacity=128")
                 } else {
                     add("; Vulkan not detected")
                 }
@@ -1420,38 +1439,6 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         ).joinToString("\n")
     }
 
-    fun parseDeviceProfileEntries(dpIni: String): List<CvarEntry> {
-        val entries = mutableListOf<CvarEntry>()
-        for (line in dpIni.lines()) {
-            val trimmed = line.trim()
-            val prefix = "+CVars="
-            val idx = trimmed.indexOf(prefix)
-            if (idx < 0) continue
-            val kv = trimmed.substring(idx + prefix.length).trim()
-            val eq = kv.indexOf('=')
-            if (eq > 0) {
-                entries.add(CvarEntry(key = kv.substring(0, eq).trim(), value = kv.substring(eq + 1).trim(), category = "DeviceProfiles"))
-            }
-        }
-        return entries
-    }
-
-    fun parseGameUserSettingsEntries(gusIni: String): List<CvarEntry> {
-        val entries = mutableListOf<CvarEntry>()
-        for (line in gusIni.lines()) {
-            val trimmed = line.trim()
-            if (trimmed.startsWith("[")) continue
-            if (trimmed.startsWith(";") || trimmed.startsWith("#")) continue
-            val eq = trimmed.indexOf('=')
-            if (eq > 0) {
-                val key = trimmed.substring(0, eq).trim()
-                val value = trimmed.substring(eq + 1).trim()
-                if (key.isNotEmpty()) entries.add(CvarEntry(key = key, value = value, category = "GameUserSettings"))
-            }
-        }
-        return entries
-    }
-
     fun parseCvarEntries(
         engineIni: String,
         logInfo: LogInfo = LogInfo(),
@@ -1476,14 +1463,6 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             }
         }
         return entries
-    }
-
-    fun importCvarsFromLog(logInfo: LogInfo = LogInfo()): Map<String, String> {
-        val logCvars = logInfo.activeCvars
-        if (logCvars.isEmpty()) return emptyMap()
-        return logCvars.filterKeys { key ->
-            key.startsWith("r.") || key.startsWith("sg.") || key.startsWith("fx.") || key.startsWith("foliage.")
-        }
     }
 
     fun applyCvarOverrides(

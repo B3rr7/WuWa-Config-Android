@@ -15,4 +15,22 @@ data class BattleStats(
     val echoTransformUsed: Int = 0,
     val monthCards: Int = 0,
     val logSizeBytes: Long = 0,
-)
+) {
+    operator fun plus(other: BattleStats): BattleStats =
+        BattleStats(
+            battles = battles + other.battles,
+            echoesCollected = echoesCollected + other.echoesCollected,
+            dodgeForward = dodgeForward + other.dodgeForward,
+            dodgeBack = dodgeBack + other.dodgeBack,
+            dodgeCounter = dodgeCounter + other.dodgeCounter,
+            deaths = deaths + other.deaths,
+            roleChanges = roleChanges + other.roleChanges,
+            teleports = teleports + other.teleports,
+            staggers = staggers + other.staggers,
+            staminaUsed = staminaUsed + other.staminaUsed,
+            echoSkillsUsed = echoSkillsUsed + other.echoSkillsUsed,
+            echoTransformUsed = echoTransformUsed + other.echoTransformUsed,
+            monthCards = monthCards + other.monthCards,
+            logSizeBytes = logSizeBytes + other.logSizeBytes,
+        )
+}

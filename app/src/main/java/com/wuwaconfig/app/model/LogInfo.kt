@@ -2,17 +2,13 @@ package com.wuwaconfig.app.model
 
 data class LogInfo(
     val gpu: String? = null,
-    val gpuFamily: String? = null,
     val gpuTier: String? = null,
-    val glVersion: String? = null,
-    val driverVersion: String? = null,
     val deviceModel: String? = null,
     val socName: String? = null,
     val socCode: String? = null,
     val cpuName: String? = null,
     val ramMb: Int? = null,
     val androidVersion: String? = null,
-    val os: String? = null,
     val resolution: String? = null,
     val gameApi: String? = null,
     val api: String? = null,

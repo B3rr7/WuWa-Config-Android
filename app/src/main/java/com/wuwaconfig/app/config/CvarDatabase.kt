@@ -46,34 +46,41 @@ class CvarDatabase(private val assets: AssetManager) {
     private fun ensureLoaded() {
         if (_allCvars != null) return
         LogRepository.add("CvarDatabase: loading from assets (synchronous fallback)")
-        _allCvars =
-            assets.open("cvars/libUE4_cvars.txt").bufferedReader().readLines()
-                .map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
-        _monitoredCvars =
-            assets.open("cvars/config_monitor_cvars.txt").bufferedReader().readLines()
-                .map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
-        _defaultValues =
-            assets.open("cvars/config_monitor_values.txt").bufferedReader().readLines()
-                .mapNotNull { line ->
-                    val trimmed = line.trim()
-                    if (trimmed.isBlank()) return@mapNotNull null
-                    val eq = trimmed.indexOf('=')
-                    if (eq <= 0) return@mapNotNull null
-                    trimmed.substring(0, eq).trim().lowercase() to trimmed.substring(eq + 1).trim()
-                }.toMap()
+        try {
+            _allCvars =
+                assets.open("cvars/libUE4_cvars.txt").bufferedReader().readLines()
+                    .map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
+            _monitoredCvars =
+                assets.open("cvars/config_monitor_cvars.txt").bufferedReader().readLines()
+                    .map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
+            _defaultValues =
+                assets.open("cvars/config_monitor_values.txt").bufferedReader().readLines()
+                    .mapNotNull { line ->
+                        val trimmed = line.trim()
+                        if (trimmed.isBlank()) return@mapNotNull null
+                        val eq = trimmed.indexOf('=')
+                        if (eq <= 0) return@mapNotNull null
+                        trimmed.substring(0, eq).trim().lowercase() to trimmed.substring(eq + 1).trim()
+                    }.toMap()
+        } catch (e: Exception) {
+            LogRepository.add("CvarDatabase: ASSETS LOAD FAILED: ${e.message}", LogLevel.ERROR)
+            _allCvars = emptySet()
+            _monitoredCvars = emptySet()
+            _defaultValues = emptyMap()
+        }
     }
 
     val allCvars: Set<String> get() {
         ensureLoaded()
-        return _allCvars!!
+        return _allCvars ?: emptySet()
     }
     val monitoredCvars: Set<String> get() {
         ensureLoaded()
-        return _monitoredCvars!!
+        return _monitoredCvars ?: emptySet()
     }
     val defaultValues: Map<String, String> get() {
         ensureLoaded()
-        return _defaultValues!!
+        return _defaultValues ?: emptyMap()
     }
 
     fun isKnown(key: String): Boolean = key.lowercase() in allCvars
@@ -102,24 +109,6 @@ class CvarDatabase(private val assets: AssetManager) {
             matchesDefault = gd != null && gd == value,
             category = categorize(key),
         )
-    }
-
-    fun getCvarsByCategory(cvars: Map<String, String>): Map<CvarCategory, List<Pair<String, String>>> {
-        val result = mutableMapOf<CvarCategory, MutableList<Pair<String, String>>>()
-        for ((key, value) in cvars) {
-            val cat = categorize(key)
-            result.getOrPut(cat) { mutableListOf() }.add(key to value)
-        }
-        return result
-    }
-
-    fun categoryCounts(cvars: Set<String>): Map<CvarCategory, Int> {
-        val result = mutableMapOf<CvarCategory, Int>()
-        for (key in cvars) {
-            val cat = categorize(key)
-            result[cat] = (result[cat] ?: 0) + 1
-        }
-        return result
     }
 
     fun optimizeIniText(text: String): String {

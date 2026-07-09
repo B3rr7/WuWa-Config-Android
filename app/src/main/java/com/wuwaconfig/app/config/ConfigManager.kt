@@ -18,10 +18,13 @@ import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.model.VerificationReport
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
@@ -180,6 +183,20 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
+    suspend fun readLatestBackupLogWithMetadata(onProgress: (Int) -> Unit = {}): Result<Pair<String, Boolean>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val listCmd = "ls -t ${shQuote(GamePaths.LOG_DIR)}/Client-backup-*.log 2>/dev/null | head -1"
+                val result = backend.executeShellCommand(listCmd)
+                val path = result.getOrNull()?.trim()
+                if (path.isNullOrBlank()) return@withContext Result.failure(Exception("No backup log found"))
+                LogRepository.add("ConfigManager: reading latest backup log: ${path.substringAfterLast("/")}")
+                readRemoteLogText(path, onProgress)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
     suspend fun verifyDeployedCvars(generatedCvars: Set<String>): Result<VerificationReport> =
         withContext(Dispatchers.IO) {
             try {
@@ -203,9 +220,20 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
+    private fun cleanupOldClientLogs() {
+        val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+        for (dir in listOf(backupDir, publicDir)) {
+            val file = File(dir, "Client.log")
+            if (file.exists() && file.lastModified() < cutoff) {
+                file.delete()
+            }
+        }
+    }
+
     suspend fun collectClientLog(onProgress: (String) -> Unit): Result<String> =
         withContext(Dispatchers.IO) {
             try {
+                cleanupOldClientLogs()
                 val logFilePath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
                 onProgress("Reading ${GamePaths.LOG_FILE_NAME}...")
                 val content = readRemoteLogText(logFilePath).getOrThrow().first
@@ -259,18 +287,54 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         }
 
     fun getLocalBackups(): List<ConfigBackup> {
-        if (!backupDir.exists()) return emptyList()
-        return backupDir.listFiles()
-            ?.filter { it.extension == "json" }
-            ?.mapNotNull { file ->
-                try {
-                    gson.fromJson(file.readText(), ConfigBackup::class.java)
-                } catch (_: Exception) {
-                    null
-                }
-            }
-            ?.sortedByDescending { it.timestamp }
-            ?: emptyList()
+        val privateBackups =
+            if (backupDir.exists()) {
+                backupDir.listFiles()
+                    ?.filter { it.extension == "json" }
+                    ?.mapNotNull { file ->
+                        try {
+                            gson.fromJson(file.readText(), ConfigBackup::class.java)
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    ?: emptyList()
+            } else emptyList()
+
+        val privateNames = privateBackups.map { it.name }.toSet()
+        val publicBackupsDir = File(publicDir, "Backups")
+        val publicBackups =
+            if (publicBackupsDir.exists()) {
+                publicBackupsDir.listFiles()
+                    ?.filter { it.isDirectory }
+                    ?.filter { dir -> dir.listFiles()?.any { f -> f.extension == "ini" } == true }
+                    ?.filter { dir -> dir.name !in privateNames }
+                    ?.mapNotNull { dir ->
+                        try {
+                            val iniFiles =
+                                dir.listFiles()
+                                    ?.filter { it.extension == "ini" }
+                                    ?.sortedBy { it.name }
+                                    ?.map { f ->
+                                        ConfigFile(name = f.name, content = f.readText())
+                                    }
+                                    ?: emptyList()
+                            if (iniFiles.isEmpty()) return@mapNotNull null
+                            ConfigBackup(
+                                id = java.util.UUID.nameUUIDFromBytes(dir.absolutePath.toByteArray()).toString(),
+                                name = dir.name,
+                                timestamp = dir.lastModified().coerceAtLeast(1L),
+                                files = iniFiles,
+                                type = "legacy",
+                            )
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    ?: emptyList()
+            } else emptyList()
+
+        return (privateBackups + publicBackups).sortedByDescending { it.timestamp }
     }
 
     private fun sanitizeDirName(name: String): String = name.replace(Regex("""[<>:"/\\|?*]"""), "_").take(100)
@@ -343,9 +407,13 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         onProgress: (Int) -> Unit = {},
     ): Result<Pair<String, Boolean>> {
         onProgress(5)
+        val existsResult = backend.executeShellCommand("test -f \"$path\" 2>/dev/null && echo 1 || echo 0")
+        val fileExists = existsResult.getOrNull()?.trim() == "1"
+        if (!fileExists) return Result.failure(Exception("Client.log not found at: $path"))
+
         val sizeResult = backend.executeShellCommand("wc -c < \"$path\" 2>/dev/null")
         val fileSize = sizeResult.getOrNull()?.trim()?.toLongOrNull() ?: 0L
-        if (fileSize <= 0L) return Result.failure(Exception("Cannot determine log file size"))
+        if (fileSize <= 0L) return Result.failure(Exception("Client.log is empty"))
 
         val CHUNK_SIZE = 1_000_000L
         val totalChunks =
@@ -367,24 +435,12 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
-        fun decompress(data: ByteArray): ByteArray {
-            return try {
-                ByteArrayOutputStream().use { out ->
-                    GZIPInputStream(data.inputStream()).use { it.copyTo(out) }
-                    out.toByteArray()
-                }
-            } catch (_: Exception) {
-                data
-            }
-        }
-
         suspend fun pullChunk(offset: Long): Pair<String, Boolean>? {
-            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | gzip -c | base64"
+            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | base64"
             val out = backend.executeShellCommand(cmd).getOrNull()
             val raw = out?.let { decodeB64(it) } ?: return null
-            val decompressed = decompress(raw)
             return try {
-                LogParser.decodeLogBytes(decompressed)
+                LogParser.decodeLogBytes(raw)
             } catch (_: Exception) {
                 null
             }
@@ -394,16 +450,15 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             offset: Long,
             wasEncrypted: Boolean,
         ): String? {
-            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | gzip -c | base64"
+            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | base64"
             val out = backend.executeShellCommand(cmd).getOrNull()
             val raw = out?.let { decodeB64(it) } ?: return null
-            val decompressed = decompress(raw)
             return try {
                 val pair =
                     if (wasEncrypted) {
-                        LogParser.decodeXorBytes(decompressed)
+                        LogParser.decodeXorBytes(raw)
                     } else {
-                        LogParser.decodeLogBytes(decompressed)
+                        LogParser.decodeLogBytes(raw)
                     }
                 pair.first
             } catch (_: Exception) {
@@ -411,21 +466,24 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
-        if (totalChunks == 1) {
+        suspend fun readFullBase64(): Result<Pair<String, Boolean>>? {
             onProgress(50)
             val full = backend.executeShellCommand("base64 \"$path\" 2>/dev/null")
             onProgress(85)
-            val raw = full.getOrNull()?.let { decodeB64(it) }
+            val raw = full.getOrNull()?.let { decodeB64(it) } ?: return null
             val result =
-                raw?.let {
-                    try {
-                        LogParser.decodeLogBytes(it)
-                    } catch (_: Exception) {
-                        null
-                    }
+                try {
+                    LogParser.decodeLogBytes(raw)
+                } catch (_: Exception) {
+                    null
                 }
             onProgress(95)
-            if (result != null) return Result.success(result)
+            return if (result != null) Result.success(result) else null
+        }
+
+        if (totalChunks == 1) {
+            val singleResult = readFullBase64()
+            if (singleResult != null) return singleResult
         } else {
             val offsets =
                 (0 until totalChunks).map { i ->
@@ -453,14 +511,14 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             val combined = chunks.joinToString("\n")
             onProgress(95)
             if (combined.isNotBlank()) return Result.success(combined to wasEncrypted)
+
+            // Multi-chunk failed — fall back to full-file base64 read
+            val fallback = readFullBase64()
+            if (fallback != null) return fallback
         }
 
         onProgress(95)
         return Result.failure(Exception("Failed to read Client.log ($fileSize bytes)"))
-    }
-
-    suspend fun getCurrentConfigFiles(): Result<List<String>> {
-        return backend.listDirectory(GamePaths.TARGET_DIR)
     }
 
     fun cleanIniContent(
@@ -582,186 +640,202 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
-    suspend fun refreshConfigHashes(): Result<String> = hashMutex.withLock {
-        withContext(Dispatchers.IO) {
-            try {
-                LogRepository.add("ConfigManager: refreshing config hashes")
-                val md5 = MessageDigest.getInstance("MD5")
-                val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+    private suspend fun computeIniHash(name: String): Result<String> {
+        val path = "${GamePaths.TARGET_DIR}/$name"
+        val bytesResult = backend.readFileBytes(path)
+        if (bytesResult.isFailure) {
+            LogRepository.add("ConfigManager: readFileBytes FAILED for $name: ${bytesResult.exceptionOrNull()?.message}", LogLevel.ERROR)
+            return Result.failure(bytesResult.exceptionOrNull()!!)
+        }
+        val bytes = bytesResult.getOrThrow()
+        val md5 = MessageDigest.getInstance("MD5")
+        val hash = md5.digest(bytes).joinToString("") { "%02x".format(it) }
+        LogRepository.add("ConfigManager: computed hash for $name = $hash (${bytes.size} bytes)")
+        return Result.success(hash)
+    }
 
-                val existingHashContent = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
-                val existingLines = existingHashContent.lines().toMutableList()
-                val hasExistingContent = existingLines.any { it.trim().startsWith("[") }
+    suspend fun refreshConfigHashes(): Result<String> =
+        hashMutex.withLock {
+            withContext(Dispatchers.IO) {
+                try {
+                    LogRepository.add("ConfigManager: refreshing config hashes")
+                    val md5 = MessageDigest.getInstance("MD5")
+                    val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
 
-                // Build map of monitored file -> new values to patch
-                val updates = mutableMapOf<String, Map<String, String>>()
-                for (name in GamePaths.MONITORED_FILES) {
-                    val path = "${GamePaths.TARGET_DIR}/$name"
-                    val fileHash = backend.executeShellCommand("md5sum ${shQuote(path)} 2>/dev/null | cut -d' ' -f1")
-                        .getOrNull()?.trim()?.take(32)
-                    val hash = if (fileHash != null && fileHash.length == 32) {
-                        fileHash
-                    } else {
-                        val content = backend.readFile(path).getOrDefault("")
-                        val fallback = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
-                        LogRepository.add("ConfigManager: md5sum unavailable for $name, using local fallback", LogLevel.WARNING)
-                        fallback
-                    }
+                    val existingHashContent = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
+                    val existingLines = existingHashContent.lines().toMutableList()
+                    val hasExistingContent = existingLines.any { it.trim().startsWith("[") }
 
-                    var prevCount: Int? = null
-                    var prevTime = ""
-                    var inSection = false
-                    val iniSectionRegex = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
-                    for (line in existingLines) {
-                        val t = line.trim()
-                        if (t.equals("[$name]", ignoreCase = true)) {
-                            inSection = true
-                            continue
+                    val updates = mutableMapOf<String, Map<String, String>>()
+                    for (name in GamePaths.MONITORED_FILES) {
+                        val hashResult = computeIniHash(name)
+                        if (hashResult.isFailure) {
+                            LogRepository.add("ConfigManager: hash computation FAILED for $name, using empty hash", LogLevel.ERROR)
                         }
-                        if (inSection && t.matches(iniSectionRegex)) break
-                        if (inSection && t.startsWith("ModifyCount=")) {
-                            prevCount = t.removePrefix("ModifyCount=").toIntOrNull()
-                        }
-                        if (inSection && t.startsWith("LastModifiedTime=")) {
-                            prevTime = t.removePrefix("LastModifiedTime=").trim()
-                        }
-                    }
-                    updates[name] =
-                        mapOf(
-                            "Hash" to hash,
-                            "ModifyCount" to (prevCount?.toString() ?: "0"),
-                            "LastModifiedTime" to (prevTime.ifBlank { now }),
-                        )
-                }
+                        val hash = hashResult.getOrDefault("")
 
-                val patchedLines = mutableListOf<String>()
-                var currentSection = ""
-                val seenKeys = mutableSetOf<String>()
-
-                fun flushPendingSection(name: String) {
-                    val patch = updates.remove(name) ?: return
-                    for (lineKey in listOf("Hash", "ModifyCount", "LastModifiedTime")) {
-                        val value = patch[lineKey] ?: continue
-                        val newLine = "$lineKey=$value"
-                        if (seenKeys.add(newLine)) patchedLines.add(newLine)
-                    }
-                }
-
-                fun dedupLine(trimmed: String): Boolean {
-                    if (trimmed.startsWith("[") && trimmed.endsWith("]")) return false
-                    val eq = trimmed.indexOf('=')
-                    if (eq <= 0) return false
-                    val key = trimmed.substring(0, eq).trim()
-                    val isDuplicate = key in listOf("Hash", "ModifyCount", "LastModifiedTime") && !seenKeys.add(trimmed)
-                    if (isDuplicate) {
-                        LogRepository.add("ConfigManager: dropped duplicate $key in section [$currentSection]", LogLevel.WARNING)
-                    }
-                    return isDuplicate
-                }
-
-                if (hasExistingContent) {
-                    for (line in existingLines) {
-                        val trimmed = line.trim()
-                        if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                            val sectionName = trimmed.removePrefix("[").removeSuffix("]")
-                            if (updates.containsKey(currentSection)) {
-                                flushPendingSection(currentSection)
+                        var prevCount: Int? = null
+                        var prevTime = ""
+                        var inSection = false
+                        val iniSectionRegex = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
+                        for (line in existingLines) {
+                            val t = line.trim()
+                            if (t.equals("[$name]", ignoreCase = true)) {
+                                inSection = true
+                                continue
                             }
-                            currentSection = sectionName
-                            seenKeys.clear()
-                            patchedLines.add(line)
-                        } else if (updates.containsKey(currentSection)) {
-                            val eq = trimmed.indexOf('=')
-                            if (eq > 0) {
-                                val key = trimmed.substring(0, eq).trim()
-                                val replacement = updates[currentSection]?.get(key)
-                                if (replacement != null) {
-                                    val indent = line.takeWhile { it == ' ' || it == '\t' }
-                                    val newLine = "$indent$key=$replacement"
-                                    if (seenKeys.add(newLine)) patchedLines.add(newLine)
-                                } else if (!dedupLine(trimmed)) {
+                            if (inSection && t.matches(iniSectionRegex)) break
+                            if (inSection && t.startsWith("ModifyCount=")) {
+                                prevCount = t.removePrefix("ModifyCount=").toIntOrNull()
+                            }
+                            if (inSection && t.startsWith("LastModifiedTime=")) {
+                                prevTime = t.removePrefix("LastModifiedTime=").trim()
+                            }
+                        }
+                        val displayCount = (prevCount?.coerceIn(0, 8)) ?: 0
+                        updates[name] =
+                            mapOf(
+                                "Hash" to hash,
+                                "ModifyCount" to displayCount.toString(),
+                                "LastModifiedTime" to (prevTime.ifBlank { now }),
+                            )
+                    }
+
+                    val patchedLines = mutableListOf<String>()
+                    var currentSection = ""
+                    val seenKeys = mutableSetOf<String>()
+
+                    fun flushPendingSection(name: String) {
+                        val patch = updates.remove(name) ?: return
+                        for (lineKey in listOf("Hash", "ModifyCount", "LastModifiedTime")) {
+                            val value = patch[lineKey] ?: continue
+                            val newLine = "$lineKey=$value"
+                            if (seenKeys.add(newLine)) patchedLines.add(newLine)
+                        }
+                    }
+
+                    fun dedupLine(trimmed: String): Boolean {
+                        if (trimmed.startsWith("[") && trimmed.endsWith("]")) return false
+                        val eq = trimmed.indexOf('=')
+                        if (eq <= 0) return false
+                        val key = trimmed.substring(0, eq).trim()
+                        val isDuplicate = key in listOf("Hash", "ModifyCount", "LastModifiedTime") && !seenKeys.add(trimmed)
+                        if (isDuplicate) {
+                            LogRepository.add("ConfigManager: dropped duplicate $key in section [$currentSection]", LogLevel.WARNING)
+                        }
+                        return isDuplicate
+                    }
+
+                    if (hasExistingContent) {
+                        for (line in existingLines) {
+                            val trimmed = line.trim()
+                            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                                val sectionName = trimmed.removePrefix("[").removeSuffix("]")
+                                if (updates.containsKey(currentSection)) {
+                                    flushPendingSection(currentSection)
+                                }
+                                currentSection = sectionName
+                                seenKeys.clear()
+                                patchedLines.add(line)
+                            } else if (updates.containsKey(currentSection)) {
+                                val eq = trimmed.indexOf('=')
+                                if (eq > 0) {
+                                    val key = trimmed.substring(0, eq).trim()
+                                    val replacement = updates[currentSection]?.get(key)
+                                    if (replacement != null) {
+                                        val indent = line.takeWhile { it == ' ' || it == '\t' }
+                                        val newLine = "$indent$key=$replacement"
+                                        if (seenKeys.add(newLine)) patchedLines.add(newLine)
+                                    } else if (!dedupLine(trimmed)) {
+                                        patchedLines.add(line)
+                                    }
+                                } else {
                                     patchedLines.add(line)
                                 }
-                            } else {
+                            } else if (!dedupLine(trimmed)) {
                                 patchedLines.add(line)
                             }
-                        } else if (!dedupLine(trimmed)) {
-                            patchedLines.add(line)
+                        }
+                        if (updates.containsKey(currentSection)) {
+                            flushPendingSection(currentSection)
+                        }
+                        for ((name, patch) in updates) {
+                            patchedLines.add("")
+                            patchedLines.add("[$name]")
+                            patchedLines.add("Hash=${patch["Hash"] ?: ""}")
+                            patchedLines.add("ModifyCount=${patch["ModifyCount"] ?: "0"}")
+                            patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
+                        }
+                    } else {
+                        // No existing content — build from scratch (first-time)
+                        for (name in GamePaths.MONITORED_FILES) {
+                            val hashResult = computeIniHash(name)
+                            val hash =
+                                if (hashResult.isSuccess) {
+                                    hashResult.getOrThrow()
+                                } else {
+                                    LogRepository.add("ConfigManager: first-time hash FAILED for $name, using fallback", LogLevel.ERROR)
+                                    val content = backend.readFile("${GamePaths.TARGET_DIR}/$name").getOrDefault("")
+                                    md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+                                }
+                            patchedLines.add("[$name]")
+                            patchedLines.add("Hash=$hash")
+                            patchedLines.add("ModifyCount=0")
+                            patchedLines.add("LastModifiedTime=$now")
+                            patchedLines.add("")
                         }
                     }
-                    if (updates.containsKey(currentSection)) {
-                        flushPendingSection(currentSection)
-                    }
-                    for ((name, patch) in updates) {
-                        patchedLines.add("")
-                        patchedLines.add("[$name]")
-                        patchedLines.add("Hash=${patch["Hash"] ?: ""}")
-                        patchedLines.add("ModifyCount=${patch["ModifyCount"] ?: "0"}")
-                        patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
-                    }
-                } else {
-                    // No existing content — build from scratch (first-time)
-                    for (name in GamePaths.MONITORED_FILES) {
-                        val content = backend.readFile("${GamePaths.TARGET_DIR}/$name").getOrDefault("")
-                        val hash = md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
-                        patchedLines.add("[$name]")
-                        patchedLines.add("Hash=$hash")
-                        patchedLines.add("ModifyCount=0")
-                        patchedLines.add("LastModifiedTime=$now")
-                        patchedLines.add("")
-                    }
-                }
 
-                val newContent = patchedLines.joinToString("\n").trimEnd() + "\n"
-                val tempFile = File(context.cacheDir, "KuroConfigMonitor.hash")
-                tempFile.writeText(newContent)
-                val hashTempPath = GamePaths.HASH_MONITOR_PATH + ".new"
-                var hashPushOk = false
-                var hashPushError: Throwable? = null
-                for (attempt in 0..PUSH_RETRY_COUNT) {
-                    val r = backend.pushFile(tempFile.absolutePath, hashTempPath)
-                    if (r.isSuccess) {
-                        hashPushOk = true
-                        break
+                    val newContent = patchedLines.joinToString("\n").trimEnd() + "\n"
+                    val tempFile = File(context.cacheDir, "KuroConfigMonitor.hash")
+                    tempFile.writeText(newContent)
+                    val hashTempPath = GamePaths.HASH_MONITOR_PATH + ".new"
+                    var hashPushOk = false
+                    var hashPushError: Throwable? = null
+                    for (attempt in 0..PUSH_RETRY_COUNT) {
+                        val r = backend.pushFile(tempFile.absolutePath, hashTempPath)
+                        if (r.isSuccess) {
+                            hashPushOk = true
+                            break
+                        }
+                        hashPushError = r.exceptionOrNull()
                     }
-                    hashPushError = r.exceptionOrNull()
-                }
-                if (!hashPushOk) {
-                    backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
-                    throw hashPushError ?: Exception("Failed to push hash file")
-                }
-                val mvResult = backend.executeShellCommand("mv ${shQuote(hashTempPath)} ${shQuote(GamePaths.HASH_MONITOR_PATH)}")
-                if (mvResult.isFailure) {
-                    backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
-                    LogRepository.add("ConfigManager: atomic rename failed, .new temp cleaned up", LogLevel.ERROR)
-                    throw mvResult.exceptionOrNull() ?: Exception("Failed to atomically rename hash file")
-                }
-                tempFile.delete()
+                    if (!hashPushOk) {
+                        backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
+                        throw hashPushError ?: Exception("Failed to push hash file")
+                    }
+                    val mvResult = backend.executeShellCommand("mv ${shQuote(hashTempPath)} ${shQuote(GamePaths.HASH_MONITOR_PATH)}")
+                    if (mvResult.isFailure) {
+                        backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
+                        LogRepository.add("ConfigManager: atomic rename failed, .new temp cleaned up", LogLevel.ERROR)
+                        throw mvResult.exceptionOrNull() ?: Exception("Failed to atomically rename hash file")
+                    }
+                    tempFile.delete()
 
-                val verifyResult = backend.readFile(GamePaths.HASH_MONITOR_PATH)
-                if (verifyResult.isSuccess) {
-                    val stored = verifyResult.getOrThrow().trim()
-                    if (stored == newContent.trim()) {
-                        Log.d("ConfigManager", "Config hashes refreshed and verified successfully")
-                        LogRepository.add("ConfigManager: hashes refreshed and verified", LogLevel.SUCCESS)
-                        Result.success("Config hashes synced & verified")
+                    val verifyResult = backend.readFile(GamePaths.HASH_MONITOR_PATH)
+                    if (verifyResult.isSuccess) {
+                        val stored = verifyResult.getOrThrow().trim()
+                        if (stored == newContent.trim()) {
+                            Log.d("ConfigManager", "Config hashes refreshed and verified successfully")
+                            LogRepository.add("ConfigManager: hashes refreshed and verified", LogLevel.SUCCESS)
+                            Result.success("Config hashes synced & verified")
+                        } else {
+                            Log.e("ConfigManager", "Hash file read-back MISMATCH — hash may be corrupt")
+                            LogRepository.add("ConfigManager: hash verify MISMATCH", LogLevel.ERROR)
+                            Result.success("Config hashes synced (verify mismatch)")
+                        }
                     } else {
-                        Log.e("ConfigManager", "Hash file read-back MISMATCH — hash may be corrupt")
-                        LogRepository.add("ConfigManager: hash verify MISMATCH", LogLevel.ERROR)
-                        Result.success("Config hashes synced (verify mismatch)")
+                        Log.w("ConfigManager", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
+                        LogRepository.add("ConfigManager: hash verify skipped", LogLevel.WARNING)
+                        Result.success("Config hashes synced (verify skipped)")
                     }
-                } else {
-                    Log.w("ConfigManager", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
-                    LogRepository.add("ConfigManager: hash verify skipped", LogLevel.WARNING)
-                    Result.success("Config hashes synced (verify skipped)")
+                } catch (e: Exception) {
+                    Log.w("ConfigManager", "Failed to refresh hashes: ${e.message}")
+                    LogRepository.add("ConfigManager: refreshConfigHashes failed: ${e.message}", LogLevel.ERROR)
+                    Result.failure(e)
                 }
-            } catch (e: Exception) {
-                Log.w("ConfigManager", "Failed to refresh hashes: ${e.message}")
-                LogRepository.add("ConfigManager: refreshConfigHashes failed: ${e.message}", LogLevel.ERROR)
-                Result.failure(e)
             }
         }
-    }
 
     data class HashFileSnapshot(
         val content: String,
@@ -849,6 +923,8 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                         engineSettingCount = countIniSettings("Engine.ini"),
                         deviceProfileCount = countIniSettings("DeviceProfiles.ini"),
                         gameUserSettingCount = countIniSettings("GameUserSettings.ini"),
+                        scalabilitySettingCount = countIniSettings("Scalability.ini"),
+                        hardwareSettingCount = countIniSettings("Hardware.ini"),
                         uid = uid,
                         server = primaryServer?.first,
                         playerLevel = primaryServer?.second,
@@ -872,7 +948,6 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                                 "4" -> "ko"
                                 else -> cleanString(langRaw) ?: "—"
                             },
-                        loginDeviceId = extractSavValue("KURO_PLAYER_PREFS.sav", "LoginDeviceId"),
                     )
                 Result.success(profile)
             } catch (e: Exception) {
@@ -886,66 +961,52 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
-    private var cachedBattleStats: BattleStats? = null
-    private var cachedFileSize: Long = -1L
+    private suspend fun readContiguousPartitionBytes(
+        path: String,
+        skip: Long,
+        count: Long,
+    ): Result<ByteArray> = withContext(Dispatchers.IO) {
+        runCatching {
+            val cmd = "dd if=${shQuote(path)} bs=1 skip=$skip count=$count 2>/dev/null | gzip -cf | base64 -w0"
+            val b64 = backend.executeShellCommand(cmd).getOrThrow().trim()
+            if (b64.isBlank()) throw Exception("Empty partition at skip=$skip count=$count")
+            val compressed = Base64.decode(b64, Base64.DEFAULT)
+            GZIPInputStream(ByteArrayInputStream(compressed)).readBytes()
+        }
+    }
 
     suspend fun readBattleStats(): Result<BattleStats> {
         val path = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
         try {
             val sizeRaw = backend.executeShellCommand("wc -c < \"$path\" 2>/dev/null").getOrDefault("0")
             val fileSize = sizeRaw.trim().toLongOrNull() ?: 0L
+            if (fileSize <= 0L) return Result.failure(Exception("Client.log is empty"))
 
-            if (fileSize == cachedFileSize && cachedBattleStats != null) {
-                return Result.success(cachedBattleStats!!)
+            val numPartitions = when {
+                fileSize <= 5_000_000L -> 1
+                fileSize <= 30_000_000L -> 2
+                fileSize <= 60_000_000L -> 4
+                fileSize <= 100_000_000L -> 6
+                else -> 8
+            }
+            val partitionSize = fileSize / numPartitions
+            val offsets = (0 until numPartitions).map { i ->
+                val skip = i * partitionSize
+                val count = if (i == numPartitions - 1) fileSize - skip else partitionSize
+                skip to count
             }
 
-            val CHUNK = 2_000_000L
-            val NUM_SAMPLES = 8
             val rawChunks = mutableListOf<ByteArray>()
-
-            fun decompress(data: ByteArray): ByteArray {
-                return try {
-                    java.io.ByteArrayOutputStream().use { out ->
-                        java.util.zip.GZIPInputStream(data.inputStream()).use { it.copyTo(out) }
-                        out.toByteArray()
-                    }
-                } catch (_: Exception) {
-                    data
+            for ((skip, count) in offsets) {
+                val result = readContiguousPartitionBytes(path, skip, count)
+                if (result.isFailure) {
+                    Log.w("ConfigManager", "partition skip=$skip failed: ${result.exceptionOrNull()?.message}")
+                    continue
                 }
+                rawChunks.add(result.getOrThrow())
             }
 
-            suspend fun pullChunk(
-                offset: Long,
-                count: Long,
-            ): ByteArray? {
-                val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$count 2>/dev/null | gzip -c | base64"
-                val out = backend.executeShellCommand(cmd).getOrNull() ?: return null
-                val clean =
-                    out.lines()
-                        .filterNot { it.startsWith("base64:", ignoreCase = true) }
-                        .joinToString("").trim()
-                if (clean.isBlank()) return null
-                val b64decoded =
-                    try {
-                        Base64.decode(clean, Base64.DEFAULT)
-                    } catch (_: Exception) {
-                        return null
-                    }
-                return decompress(b64decoded)
-            }
-
-            if (fileSize <= CHUNK) {
-                pullChunk(0, fileSize)?.let { rawChunks.add(it) }
-            } else {
-                pullChunk(0, CHUNK)?.let { rawChunks.add(it) }
-                val step = maxOf(1, fileSize / NUM_SAMPLES)
-                for (i in 1 until NUM_SAMPLES) {
-                    val offset = (step * i).coerceAtMost(fileSize - CHUNK)
-                    pullChunk(offset, CHUNK)?.let { rawChunks.add(it) }
-                }
-            }
-
-            if (rawChunks.isEmpty()) return Result.failure(Exception("No data read from log"))
+            if (rawChunks.isEmpty()) return Result.failure(Exception("No data could be read from log"))
 
             var wasEncrypted = false
             val texts = mutableListOf<String>()
@@ -964,15 +1025,95 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                 texts.add(text)
             }
 
-            val combined = texts.joinToString("\n")
-            val stats = LogParser.parseBattleStats(combined).copy(logSizeBytes = fileSize)
-            cachedBattleStats = stats
-            cachedFileSize = fileSize
-            return Result.success(stats)
+            val fullText = texts.joinToString("\n")
+            val lines = fullText.lines()
+
+            val numCores = Runtime.getRuntime().availableProcessors().coerceIn(1, 8)
+
+            val stats =
+                if (numCores <= 1 || lines.size < 5000) {
+                    LogParser.parseBattleStatsLines(lines)
+                } else {
+                    val chunkSize = (lines.size + numCores - 1) / numCores
+                    val partials =
+                        coroutineScope {
+                            lines.chunked(chunkSize)
+                                .map { chunk ->
+                                    async(Dispatchers.Default) { LogParser.parseBattleStatsLines(chunk) }
+                                }
+                                .awaitAll()
+                        }
+                    partials.reduce { a, b -> a + b }
+                }
+            return Result.success(stats.copy(logSizeBytes = fileSize))
         } catch (e: Exception) {
             Log.w("ConfigManager", "readBattleStats failed: ${e.message}")
             return Result.failure(e)
         }
+    }
+
+    private suspend fun readFullFileText(path: String): Result<Pair<String, Boolean>> = runCatching {
+        val sizeRaw = backend.executeShellCommand("wc -c < ${shQuote(path)} 2>/dev/null").getOrDefault("0")
+        val fileSize = sizeRaw.trim().toLongOrNull() ?: 0L
+        if (fileSize <= 0L) throw Exception("File is empty")
+
+        val numPartitions = when {
+            fileSize <= 5_000_000L -> 1
+            fileSize <= 30_000_000L -> 2
+            fileSize <= 60_000_000L -> 4
+            fileSize <= 100_000_000L -> 6
+            else -> 8
+        }
+        val partitionSize = fileSize / numPartitions
+        val offsets = (0 until numPartitions).map { i ->
+            val skip = i * partitionSize
+            val count = if (i == numPartitions - 1) fileSize - skip else partitionSize
+            skip to count
+        }
+
+        val rawChunks = mutableListOf<ByteArray>()
+        for ((skip, count) in offsets) {
+            val result = readContiguousPartitionBytes(path, skip, count)
+            if (result.isFailure) {
+                Log.w("ConfigManager", "partition skip=$skip failed: ${result.exceptionOrNull()?.message}")
+                continue
+            }
+            rawChunks.add(result.getOrThrow())
+        }
+
+        if (rawChunks.isEmpty()) throw Exception("No data could be read from file")
+
+        var wasEncrypted = false
+        val texts = mutableListOf<String>()
+        for ((i, raw) in rawChunks.withIndex()) {
+            val (text, enc) =
+                if (i == 0) {
+                    LogParser.decodeLogBytes(raw)
+                } else {
+                    if (wasEncrypted) {
+                        LogParser.decodeXorBytes(raw)
+                    } else {
+                        LogParser.decodeLogBytes(raw)
+                    }
+                }
+            if (i == 0) wasEncrypted = enc
+            texts.add(text)
+        }
+
+        texts.joinToString("\n") to wasEncrypted
+    }
+
+    suspend fun readFullClientLogWithMetadata(): Result<Pair<String, Boolean>> =
+        readFullFileText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
+
+    suspend fun readFullLatestBackupLog(): Result<Pair<String, Boolean>> = runCatching {
+        val listCmd = "ls -t ${shQuote(GamePaths.LOG_DIR)}/Client-backup-*.log 2>/dev/null | head -1"
+        val result = backend.executeShellCommand(listCmd)
+        val logPath =
+            result.getOrNull()?.trim()
+                ?: throw Exception("No backup log found")
+        LogRepository.add("ConfigManager: reading full backup log: ${logPath.substringAfterLast("/")}")
+        readFullFileText(logPath).getOrThrow()
     }
 
     private suspend fun countIniSettings(name: String): Int {
@@ -1001,7 +1142,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         val localFile = File(context.cacheDir, "profile_$dbName")
         return try {
-            val raw = backend.executeShellCommand("base64 \"$remotePath\" 2>/dev/null").getOrNull() ?: return null
+            val raw = backend.executeShellCommand("base64 ${shQuote(remotePath)} 2>/dev/null").getOrNull() ?: return null
             val bytes = Base64.decode(raw.trim(), Base64.DEFAULT)
             localFile.writeBytes(bytes)
             SQLiteDatabase.openDatabase(localFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)

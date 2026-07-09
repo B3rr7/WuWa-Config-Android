@@ -1,18 +1,16 @@
 package com.wuwaconfig.app.model
 
 import android.os.Environment
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import androidx.compose.runtime.mutableStateListOf
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 object LogRepository {
-    private val _entries = mutableListOf<LogEntry>()
-    private val _entriesFlow = MutableStateFlow<List<LogEntry>>(emptyList())
-    val entries: StateFlow<List<LogEntry>> = _entriesFlow.asStateFlow()
+    val entries = mutableStateListOf<LogEntry>()
 
     private var logFile: File? = null
     private val lock = Any()
@@ -29,7 +27,7 @@ object LogRepository {
                     "WuWaConfig/logs",
                 ).also { it.mkdirs() }
             logFile = File(dir, "app.log")
-            loadFromDisk()
+            runBlocking(Dispatchers.IO) { loadFromDisk() }
         }
     }
 
@@ -39,17 +37,15 @@ object LogRepository {
     ) {
         val entry = LogEntry(message, timestamp(), level)
         synchronized(lock) {
-            _entries.add(entry)
-            if (_entries.size > MAX_ENTRIES) _entries.removeAt(0)
-            _entriesFlow.value = _entries.toList()
+            entries.add(entry)
+            if (entries.size > MAX_ENTRIES) entries.removeAt(0)
         }
         appendToDisk(entry)
     }
 
     fun clear() {
         synchronized(lock) {
-            _entries.clear()
-            _entriesFlow.value = emptyList()
+            entries.clear()
         }
         try {
             logFile?.writeText("")
@@ -66,7 +62,7 @@ object LogRepository {
             ).also { it.mkdirs() }
         val file = File(dir, fileName)
         synchronized(lock) {
-            val content = _entries.joinToString("\n") { lineFormat(it) }
+            val content = entries.joinToString("\n") { lineFormat(it) }
             file.writeText(content)
         }
         return file
@@ -82,12 +78,11 @@ object LogRepository {
         try {
             val file = logFile ?: return
             if (!file.exists()) return
-            val entries =
+            val items =
                 file.readLines().takeLast(MAX_ENTRIES).mapNotNull { line ->
                     parseLine(line)
                 }
-            _entries.addAll(entries)
-            _entriesFlow.value = _entries.toList()
+            entries.addAll(items)
         } catch (_: Exception) {
         }
     }
@@ -119,10 +114,16 @@ object LogRepository {
             val dir = logFile?.parentFile ?: return
             val file1 = File(dir, "app.1.log")
             val file2 = File(dir, "app.2.log")
+            val tmp = File(dir, "app.rot")
             file2.delete()
-            file1.copyTo(file2, overwrite = true)
-            file1.delete()
-            logFile?.copyTo(file1, overwrite = true)
+            file1.takeIf { it.exists() }?.let {
+                it.copyTo(tmp, overwrite = true)
+                tmp.renameTo(file2)
+            }
+            logFile?.takeIf { it.exists() }?.let {
+                it.copyTo(tmp, overwrite = true)
+                tmp.renameTo(file1)
+            }
             logFile?.writeText("")
         } catch (_: Exception) {
         }

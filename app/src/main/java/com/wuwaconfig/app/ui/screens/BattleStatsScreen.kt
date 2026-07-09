@@ -36,8 +36,12 @@ fun BattleStatsScreen(
 ) {
     val stats by viewModel.battleStats.collectAsState()
     val loading by viewModel.battleStatsLoading.collectAsState()
+    val fromCache by viewModel.battleStatsFromCache.collectAsState()
     val backendStatus by viewModel.backendStatus.collectAsState()
-    val logs by viewModel.logs.collectAsState()
+
+    LaunchedEffect(Unit) {
+        if (stats == null) viewModel.loadBattleStatsFromCache()
+    }
 
     GradientBackground {
         Scaffold(
@@ -96,6 +100,35 @@ fun BattleStatsScreen(
                     }
                 } else {
                     val s = stats ?: return@Column
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (fromCache) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = NeonCyan.copy(alpha = 0.15f),
+                            ) {
+                                Text(
+                                    "Cached from analysis",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    color = NeonCyan,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        } else {
+                            Spacer(Modifier)
+                        }
+                        TextButton(
+                            onClick = { viewModel.refreshBattleStats() },
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Refresh", color = NeonGreen, fontSize = 13.sp)
+                        }
+                    }
                     BattleStatsHeader(s)
                     BattleStatsContent(s)
                 }
@@ -120,7 +153,7 @@ fun BattleStatsScreen(
                     ) { Text("Refresh", fontWeight = FontWeight.Bold) }
                 }
 
-                MiniLogViewer(logs)
+                MiniLogViewer()
 
                 Spacer(Modifier.height(16.dp))
             }

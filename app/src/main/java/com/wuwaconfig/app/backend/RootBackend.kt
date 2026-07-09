@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.backend
 
+import android.util.Base64
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.Dispatchers
@@ -107,4 +108,17 @@ class RootBackend : AccessBackend {
     override suspend fun readFile(path: String): Result<String> {
         return executeShellCommand("cat \"$path\"")
     }
+
+    override suspend fun readFileBytes(path: String): Result<ByteArray> =
+        withContext(Dispatchers.IO) {
+            val b64 = executeShellCommand("base64 -w0 \"$path\"")
+            if (b64.isFailure) return@withContext Result.failure(b64.exceptionOrNull()!!)
+            try {
+                val bytes = Base64.decode(b64.getOrThrow(), Base64.DEFAULT)
+                Result.success(bytes)
+            } catch (e: Exception) {
+                LogRepository.add("Root: readFileBytes base64 decode failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
 }

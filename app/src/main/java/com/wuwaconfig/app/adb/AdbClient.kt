@@ -1,7 +1,15 @@
 package com.wuwaconfig.app.adb
 
 import android.util.Log
+import com.wuwaconfig.app.backend.shQuote
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.OutputStream
@@ -21,7 +29,39 @@ class AdbClient(private val crypto: AdbCrypto) {
 
     private val instanceId = System.identityHashCode(this)
 
+    private val keepaliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var keepaliveJob: Job? = null
+    private var lastActivityMs = 0L
+
     val isConnected: Boolean get() = connected
+
+    private fun startKeepalive() {
+        lastActivityMs = System.currentTimeMillis()
+        keepaliveJob?.cancel()
+        keepaliveJob =
+            keepaliveScope.launch {
+                while (isActive && connected) {
+                    delay(15_000L)
+                    if (!connected) break
+                    if (System.currentTimeMillis() - lastActivityMs > 25_000L) {
+                        Log.d("AdbClient", "keepalive[$instanceId]: sending heartbeat")
+                        val sock = socket
+                        if (sock != null && sock.isConnected && !sock.isClosed) {
+                            executeShellCommand("echo ping").onFailure {
+                                Log.w("AdbClient", "keepalive[$instanceId]: heartbeat failed, marking disconnected")
+                                connected = false
+                            }
+                        } else {
+                            connected = false
+                        }
+                    }
+                }
+            }
+    }
+
+    private fun markActivity() {
+        lastActivityMs = System.currentTimeMillis()
+    }
 
     suspend fun connect(
         port: Int,
@@ -36,6 +76,7 @@ class AdbClient(private val crypto: AdbCrypto) {
                         connect(InetSocketAddress(host, port), 7000)
                         soTimeout = readTimeoutMs
                         keepAlive = true
+                        tcpNoDelay = true
                     }
                 input = socket!!.getInputStream()
                 output = socket!!.getOutputStream()
@@ -44,6 +85,8 @@ class AdbClient(private val crypto: AdbCrypto) {
                 Log.d("AdbClient", "connect[$instanceId]: auth result = ${result.isSuccess}")
                 if (result.isSuccess) {
                     connected = true
+                    startKeepalive()
+                    markActivity()
                     Log.d("AdbClient", "connect[$instanceId]: SUCCESS")
                     Result.success(Unit)
                 } else {
@@ -129,6 +172,7 @@ class AdbClient(private val crypto: AdbCrypto) {
         withContext(Dispatchers.IO) {
             Log.d("AdbClient", "shell[$instanceId]: connected=$connected cmd=$command")
             if (!connected) return@withContext Result.failure(Exception("Not connected to ADB"))
+            markActivity()
             val out = output ?: return@withContext Result.failure(Exception("ADB output not initialized"))
             val inp = input ?: return@withContext Result.failure(Exception("ADB input not initialized"))
             try {
@@ -210,14 +254,27 @@ class AdbClient(private val crypto: AdbCrypto) {
         pkg: String,
         command: String,
     ): Result<String> {
-        return executeShellCommand("run-as $pkg $command")
-    }
-
-    suspend fun pushFile(
-        sourcePath: String,
-        targetPath: String,
-    ): Result<String> {
-        return executeShellCommand("cp \"$sourcePath\" \"$targetPath\"")
+        val result = executeShellCommand("run-as $pkg $command 2>/dev/null; echo EXIT:\$?")
+        if (result.isSuccess) {
+            val output = result.getOrThrow()
+            val lines = output.lines()
+            val exitLine = lines.lastOrNull { it.startsWith("EXIT:") }
+            if (exitLine != null) {
+                val exitCode = exitLine.removePrefix("EXIT:").trim().toIntOrNull() ?: -1
+                if (exitCode != 0) {
+                    val errorHint =
+                        if (exitCode == 1) {
+                            "Package not debuggable — run-as cannot be used for production apps. Use Shizuku or Root."
+                        } else {
+                            "run-as failed with exit code $exitCode"
+                        }
+                    return Result.failure(Exception("$errorHint (pkg=$pkg)"))
+                }
+                val cleanOut = lines.filterNot { it.startsWith("EXIT:") }.joinToString("\n")
+                return Result.success(cleanOut)
+            }
+        }
+        return result
     }
 
     suspend fun ensureDirectoryExists(dirPath: String): Result<String> {
@@ -244,6 +301,8 @@ class AdbClient(private val crypto: AdbCrypto) {
     fun disconnect() {
         Log.d("AdbClient", "disconnect[$instanceId]")
         connected = false
+        keepaliveJob?.cancel()
+        keepaliveScope.cancel()
         try {
             socket?.close()
         } catch (_: Exception) {
@@ -260,6 +319,4 @@ class AdbClient(private val crypto: AdbCrypto) {
         input = null
         output = null
     }
-
-    private fun shQuote(value: String): String = "'${value.replace("'", "'\"'\"'")}'"
 }

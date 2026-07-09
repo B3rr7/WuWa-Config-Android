@@ -38,4 +38,6 @@ interface AccessBackend {
     suspend fun backupFile(path: String): Result<String>
 
     suspend fun readFile(path: String): Result<String>
+
+    suspend fun readFileBytes(path: String): Result<ByteArray>
 }
