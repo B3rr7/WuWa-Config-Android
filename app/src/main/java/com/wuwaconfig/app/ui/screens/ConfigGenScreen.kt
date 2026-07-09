@@ -31,6 +31,7 @@ import com.wuwaconfig.app.config.TunerStage
 import com.wuwaconfig.app.config.TunerState
 import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratorOptions
+import com.wuwaconfig.app.model.LogAnalysisStore
 import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
@@ -122,7 +123,7 @@ fun ConfigGenScreen(
             tunerState = tunerState.copy(stage = TunerStage.DEPLOYING)
             BenchmarkTuner.saveState(tunerState)
 
-            val generated = viewModel.configGenerator.generate(preset, opts)
+            val generated = viewModel.configGenerator.generate(preset, opts, logInfo = logInfo ?: com.wuwaconfig.app.model.LogInfo())
             viewModel.deployGeneratedConfigs(generated, opts)
             var waitMs = 0
             while (viewModel.isApplying.value && waitMs < 30000) {
@@ -228,6 +229,7 @@ fun ConfigGenScreen(
                 else -> {}
             }
         }
+        viewModel.restoreAnalysisFromCache()
     }
 
     LaunchedEffect(brain) {
@@ -433,7 +435,7 @@ fun ConfigGenScreen(
                                             useAdvancedGen = useAdvancedGen,
                                             optimizeWithCvarDb = optimizeWithCvarDb,
                                         )
-                                    val generated = viewModel.configGenerator.generate(selectedPreset, opts)
+                                    val generated = viewModel.configGenerator.generate(selectedPreset, opts, logInfo = logInfo ?: com.wuwaconfig.app.model.LogInfo())
                                     reviewEngineText = generated.engine
                                     reviewDeviceProfilesText = generated.deviceProfiles
                                     reviewGameUserSettingsText = generated.gameUserSettings

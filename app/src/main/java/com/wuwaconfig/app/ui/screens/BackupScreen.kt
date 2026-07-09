@@ -40,6 +40,15 @@ fun BackupScreen(
     var selectedCreateFiles by remember { mutableStateOf(ALL_INI_FILES.toSet()) }
     var restoreTarget by remember { mutableStateOf<ConfigBackup?>(null) }
     var selectedRestoreFiles by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val backupFeedback by viewModel.backupFeedback.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(backupFeedback) {
+        backupFeedback?.let {
+            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
+            viewModel.clearBackupFeedback()
+        }
+    }
 
     GradientBackground {
         Scaffold(
@@ -58,6 +67,7 @@ fun BackupScreen(
                         ),
                 )
             },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
         ) { padding ->
             if (backups.isEmpty()) {

@@ -34,6 +34,26 @@ fun HistoryScreen(
     val deployRecords by viewModel.deployRecords.collectAsState()
     val backendStatus by viewModel.backendStatus.collectAsState()
     val isApplying by viewModel.isApplying.collectAsState()
+    var showClearAllDialog by remember { mutableStateOf(false) }
+
+    if (showClearAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearAllDialog = false },
+            title = { Text("Clear All Records?") },
+            text = { Text("This will delete all ${deployRecords.size} deploy history records. This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearDeployHistory()
+                        showClearAllDialog = false
+                    },
+                ) { Text("Clear All", color = NeonRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearAllDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
 
     GradientBackground {
         Scaffold(
@@ -68,10 +88,27 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(vertical = 16.dp),
                 ) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            GlassButton(
+                                onClick = { showClearAllDialog = true },
+                                accentColor = NeonRed,
+                                contentColor = Color.White,
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Clear All", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                     itemsIndexed(deployRecords) { _, record ->
                         DeployHistoryCard(
                             record = record,
                             isConnected = backendStatus.connected && !isApplying,
+                            onDelete = { viewModel.deleteDeployRecord(record.id) },
                             onCompare = { viewModel.compareDeployOutcome(record.id) },
                             onRetune = { viewModel.retuneAndDeploy(record.id) },
                         )
@@ -86,6 +123,7 @@ fun HistoryScreen(
 private fun DeployHistoryCard(
     record: DeployRecord,
     isConnected: Boolean,
+    onDelete: () -> Unit,
     onCompare: () -> Unit,
     onRetune: () -> Unit = {},
 ) {
@@ -96,10 +134,20 @@ private fun DeployHistoryCard(
     val comparison = if (record.hasOutcome) record.comparison() else null
 
     GlassCard(accentColor = if (record.hasOutcome) NeonGreen else NeonBlue) {
-        GlassCardHeader(
-            title = "${record.presetName.uppercase()} — $dateStr",
-            accentColor = if (record.hasOutcome) NeonGreen else NeonBlue,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GlassCardHeader(
+                title = "${record.presetName.uppercase()} — $dateStr",
+                accentColor = if (record.hasOutcome) NeonGreen else NeonBlue,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = NeonRed.copy(alpha = 0.7f))
+            }
+        }
         Spacer(Modifier.height(8.dp))
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

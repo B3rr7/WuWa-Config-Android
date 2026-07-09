@@ -6,6 +6,10 @@ val DarkBg = Color(0xFF0A0A1A)
 val DarkSurface = Color(0xFF12122A)
 val CardSurface = Color(0xFF1A1A3A)
 
+val LightBg = Color(0xFFF4F5F8)
+val LightSurface = Color(0xFFFFFFFF)
+val LightSurfaceVariant = Color(0xFFEBEDF2)
+
 val GlassCardBg = Color(0x1AFFFFFF)
 val GlassCardBorder = Color(0x28FFFFFF)
 val GlassSurface = Color(0x12FFFFFF)

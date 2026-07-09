@@ -27,6 +27,7 @@ import com.wuwaconfig.app.config.GachaHistoryStore
 import com.wuwaconfig.app.config.ProfileStore
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.BattleStatsStore
+import com.wuwaconfig.app.model.LogAnalysisStore
 import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.GachaData
@@ -70,6 +71,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _backups = MutableStateFlow<List<ConfigBackup>>(emptyList())
     val backups: StateFlow<List<ConfigBackup>> = _backups.asStateFlow()
+
+    private val _backupFeedback = MutableStateFlow<String?>(null)
+    val backupFeedback: StateFlow<String?> = _backupFeedback.asStateFlow()
+
+    fun clearBackupFeedback() {
+        _backupFeedback.value = null
+    }
 
     private val _deployResult = MutableStateFlow<String?>(null)
     val deployResult: StateFlow<String?> = _deployResult.asStateFlow()
@@ -228,6 +236,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setDeployHistoryEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("deploy_history", enabled).apply()
         _deployHistoryEnabled.value = enabled
+    }
+
+    fun deleteDeployRecord(id: String) {
+        DeployHistoryStore.deleteRecord(id)
+        _deployRecords.value = DeployHistoryStore.getAllRecords()
+        addLog("Deleted deploy record")
+    }
+
+    fun clearDeployHistory() {
+        DeployHistoryStore.clear()
+        _deployRecords.value = DeployHistoryStore.getAllRecords()
+        addLog("Cleared all deploy history")
     }
 
     fun compareDeployOutcome(id: String) {
@@ -627,21 +647,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         name: String,
         selectedFiles: Set<String>? = null,
     ) {
-        Log.d("MainViewModel", "createBackup: name='$name' selectedFiles=$selectedFiles connected=${_backendStatus.value.connected}")
-        if (_isApplying.value || !_backendStatus.value.connected) {
-            Log.d("MainViewModel", "createBackup: not connected, returning")
-            return
-        }
+        if (_isApplying.value || !_backendStatus.value.connected) return
         viewModelScope.launch {
-            addLog("Creating backup: $name...")
-            Log.d("MainViewModel", "createBackup: calling configManager.createBackup")
-            val result = configManager.createBackup(name, selectedFiles = selectedFiles)
-            Log.d("MainViewModel", "createBackup: result success=${result.isSuccess} error=${result.exceptionOrNull()?.message}")
-            if (result.isSuccess) {
-                addLog("Backup created")
-                loadBackups()
-            } else {
-                addLog("Backup failed: ${result.exceptionOrNull()?.message}")
+            _isApplying.value = true
+            try {
+                addLog("Creating backup: $name...")
+                val result = configManager.createBackup(name, selectedFiles = selectedFiles)
+                if (result.isSuccess) {
+                    addLog("Backup created")
+                    _backupFeedback.value = "Backup '$name' created (${selectedFiles?.size ?: 5} files)"
+                    loadBackups()
+                } else {
+                    _backupFeedback.value = "Backup failed: ${result.exceptionOrNull()?.message}"
+                }
+            } catch (e: Exception) {
+                _backupFeedback.value = "Backup failed: ${e.message}"
+            } finally {
+                _isApplying.value = false
             }
         }
     }
@@ -659,16 +681,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val result = configManager.restoreBackup(backup, { msg -> addLog(msg) }, selectedFiles = selectedFiles)
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
+                    _backupFeedback.value = "Backup '${backup.name}' restored"
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
                         .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                 } else {
-                    addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                    _backupFeedback.value = "Restore failed: ${result.exceptionOrNull()?.message}"
                 }
             } catch (e: Exception) {
-                addLog("CRASH: ${e.message}")
+                _backupFeedback.value = "Restore failed: ${e.message}"
                 Log.e("WuWaConfig", "restoreBackup crashed", e)
             } finally {
                 _isApplying.value = false
+                loadBackups()
             }
         }
     }
@@ -835,11 +859,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             withContext(Dispatchers.Default) {
                 val battleStats = com.wuwaconfig.app.config.LogParser.parseBattleStats(text)
                 BattleStatsStore.save(getApplication(), battleStats)
+                LogAnalysisStore.save(getApplication(), info, brain, allowRestrictedCvars)
             }
-            addLog("Battle stats cached for quick viewing")
+            addLog("Analysis cached for quick viewing")
         } catch (e: Exception) {
             addLog("CRASH: ${e.message}")
             Log.e("WuWaConfig", "doAnalyzeLogText crashed", e)
+        }
+    }
+
+    fun restoreAnalysisFromCache() {
+        val cached = LogAnalysisStore.load(getApplication())
+        if (cached != null) {
+            _logAnalysis.value = cached.logInfo
+            _brainRecommendation.value = cached.brainRecommendation
         }
     }
 
@@ -1102,14 +1135,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     if (_deployHistoryEnabled.value) {
-                        addLog("Capturing baseline for deploy history...")
-                        val baselineResult = configManager.readClientLogContent()
-                        val baselineLog =
+                        val cachedLogInfo = _logAnalysis.value ?: LogAnalysisStore.load(getApplication())?.logInfo
+                        val baselinePair: Pair<LogInfo, String> = if (cachedLogInfo != null) {
+                            cachedLogInfo to ""
+                        } else {
+                            addLog("Reading device log for deploy history baseline...")
+                            val baselineResult = configManager.readClientLogContent()
                             if (baselineResult.isSuccess) {
-                                com.wuwaconfig.app.config.LogParser.parseLog(baselineResult.getOrThrow())
+                                val text = baselineResult.getOrThrow()
+                                com.wuwaconfig.app.config.LogParser.parseLog(text) to text.take(2048)
                             } else {
-                                LogInfo()
+                                LogInfo() to ""
                             }
+                        }
+                        val baselineLog = baselinePair.first
+                        val baselineSnippet = baselinePair.second
                         val report = _verificationReport.value
                         val fileList = mutableListOf<String>()
                         if (opts.generateEngine) fileList.add("Engine.ini")
@@ -1135,7 +1175,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 baselineThermal = baselineLog.thermalEvents,
                                 baselineOom = baselineLog.gpuOom,
                                 baselineDrops = baselineLog.dropFrames,
-                                baselineClientLogSnippet = if (baselineResult.isSuccess) baselineResult.getOrThrow().take(2048) else "",
+                                baselineClientLogSnippet = baselineSnippet,
                                 optimizedProfile = retuneProfile ?: if (opts.useAdvancedGen) com.wuwaconfig.app.config.CvarOptimizer.optimizeProfile(baselineLog) else null,
                             )
                         DeployHistoryStore.addRecord(record)

@@ -67,7 +67,7 @@ fun GlassCard(
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val cardStart = if (isLight) MaterialTheme.colorScheme.surface else accentColor.copy(alpha = 0.06f)
     val cardEnd = if (isLight) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.02f)
-    val borderColor = if (isLight) accentColor.copy(alpha = 0.32f) else accentColor.copy(alpha = 0.15f)
+    val borderColor = if (isLight) accentColor.copy(alpha = 0.35f) else accentColor.copy(alpha = 0.15f)
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -77,7 +77,7 @@ fun GlassCard(
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
-        elevation = CardDefaults.cardElevation(if (isLight) 1.dp else 0.dp),
+        elevation = CardDefaults.cardElevation(if (isLight) 3.dp else 0.dp),
     ) {
         Box(
             modifier =
@@ -135,7 +135,7 @@ fun GlassButton(
     content: @Composable RowScope.() -> Unit,
 ) {
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
-    val buttonContainer = if (isLight) accentColor.copy(alpha = 0.16f) else accentColor.copy(alpha = 0.12f)
+    val buttonContainer = if (isLight) accentColor.copy(alpha = 0.20f) else accentColor.copy(alpha = 0.12f)
     val disabledContainer = if (isLight) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.04f)
     val disabledContent = if (isLight) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f) else Color.White.copy(alpha = 0.25f)
     val resolvedContentColor = if (isLight) accentColor else contentColor
@@ -196,7 +196,7 @@ fun GlassOutlinedButton(
 ) {
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val disabledContent = if (isLight) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f) else Color.White.copy(alpha = 0.25f)
-    val borderColor = if (isLight) accentColor.copy(alpha = 0.55f) else accentColor.copy(alpha = 0.3f)
+    val borderColor = if (isLight) accentColor.copy(alpha = 0.65f) else accentColor.copy(alpha = 0.3f)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(

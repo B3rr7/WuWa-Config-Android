@@ -585,28 +585,6 @@ fun HomeScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                                 )
                             }
-                            ElevatedButton(
-                                onClick = onNavigateToLogs,
-                                modifier = Modifier.fillMaxWidth().height(84.dp),
-                                enabled = true,
-                                shape = RoundedCornerShape(8.dp),
-                                colors =
-                                    ButtonDefaults.elevatedButtonColors(
-                                        containerColor = NeonCyan.copy(alpha = 0.08f),
-                                        contentColor = NeonCyan,
-                                    ),
-                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
-                            ) {
-                                Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(22.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Text("App Log", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.weight(1f))
-                                Text(
-                                    "Full",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                                )
-                            }
                             if (isApplying) {
                                 GlassOutlinedButton(
                                     onClick = { viewModel.cancelOperation() },

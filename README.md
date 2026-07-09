@@ -250,7 +250,7 @@ app/
         │   ├── ProfileScreen.kt  # Player profile view (cached)
         │   ├── BattleStatsScreen.kt # Battle stats from Client.log
         │   ├── BackupScreen.kt   # Backup list + CRUD with per-file selection
-        │   ├── HistoryScreen.kt  # Deploy history viewer with comparison
+        │   ├── HistoryScreen.kt  # Deploy history viewer with comparison, per-record delete, clear all
         │   ├── IniEditorScreen.kt # Full-screen monospace text editor for any of the 5 monitored INI files. Push + hash refresh on save. Auto-syncs hashes on open.
         │   ├── LogsScreen.kt     # Full-screen log viewer with search/filter
         │   ├── SettingsScreen.kt # Theme, backgrounds, info, deploy history toggle
