@@ -127,7 +127,7 @@ fun PityScreen(
                 if (gachaData != null) {
                     item { GachaSummary(gachaData!!) }
                     if (gachaData!!.predictions.isNotEmpty()) {
-                        item { PredictionSection(gachaData!!.predictions, gachaData!!.records) }
+                        item { PredictionSection(gachaData!!.predictions) }
                     }
                     if (gachaData!!.predictions.isEmpty()) {
                         item {
@@ -231,10 +231,7 @@ private fun GachaSummary(data: GachaData) {
 }
 
 @Composable
-private fun PredictionSection(
-    predictions: List<PityPrediction>,
-    @Suppress("UNUSED_PARAMETER") allRecords: List<GachaRecord>,
-) {
+private fun PredictionSection(predictions: List<PityPrediction>) {
     for (pred in predictions) {
         val accent =
             when (pred.status) {

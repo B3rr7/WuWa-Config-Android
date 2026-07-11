@@ -3,7 +3,6 @@ package com.wuwaconfig.app.model
 data class ConfigFile(
     val name: String,
     val content: String,
-    val targetPath: String = "",
 )
 
 data class ConfigBackup(

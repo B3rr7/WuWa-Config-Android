@@ -8,7 +8,6 @@ data class DeployRecord(
     val presetName: String,
     val generationMethod: String = "classic",
     val filesDeployed: List<String> = emptyList(),
-    val cvarCount: Int = 0,
     val acceptedCount: Int = 0,
     val totalCount: Int = 0,
     val redundantCount: Int = 0,

@@ -922,7 +922,16 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("r.RHICmdAsyncRHIThreadDispatch=1")
                 add("")
                 add("; ── THERMAL & STABILITY ──────────────────────────────")
-                add("r.Kuro.AutoCoolEnable=${if (opts.cool) 1 else 0}")
+                if (opts.disableAutoAdjust) {
+                    add("; Auto quality adjustment disabled by user")
+                    add("r.Kuro.AutoCoolEnable=0")
+                    add("r.Kuro.AutoCoolUIEnable=0")
+                    add("r.Kuro.AutoExposure=0")
+                    add("t.MaxFPS=${opts.fps}")
+                } else {
+                    add("r.Kuro.AutoCoolEnable=${if (opts.cool) 1 else 0}")
+                    add("r.Kuro.AutoCoolUIEnable=${if (opts.cool) 1 else 0}")
+                }
                 if (dt.hasThermalIssues) {
                     add("; Thermal throttle detected in log — applying safeguards")
                     add("r.Kuro.ThermalControlMode=1")
@@ -1007,6 +1016,33 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                     add("a.URO.ForceAnimRate=0")
                     add("")
                 }
+                if (opts.experimentalCvars) {
+                    add("; ── EXPERIMENTAL CVars (verified on Adreno 618) ─────")
+                    add("r.renderswitch.water=0")
+                    add("r.renderswitch.hlod=0")
+                    add("r.renderswitch.character=0")
+                    add("r.renderswitch.gridhlod=0")
+                    add("r.kuro.hidehlod=1")
+                    add("r.kuro.waterraindrop=0")
+                    add("r.kuro.enablekurovolumegodray=0")
+                    add("r.kuro.temporaryenablefsr=0")
+                    add("r.kuro.lensflarecolorthresholdrange=999")
+                    add("r.kuro.grassinteractionrange=0")
+                    add("r.kuro.basepassvelocity=1")
+                    add("r.mobile.enablewater=0")
+                    add("r.mobile.usescreenpassssr=0")
+                    add("r.mobile.hzb=1")
+                    add("r.mobile.enablemobiledeferredlighting=0")
+                    add("r.mobile.enablelandscapessr=0")
+                    add("r.imp.kuroimposterskipifiobusy=1")
+                    add("r.kuro.landscapeusemodifiedlod=2")
+                    add("r.mobile.enableoutlinevelocity=0")
+                    add("r.kuro.kurodisabletoonvelocity=1")
+                    add("r.mobile.basepassvelocity=0")
+                    add("r.mobile.rendervelocity=0")
+                    add("r.mobile.enablestaticmeshvelocity=0")
+                    add("")
+                }
                 add("[/Script/Engine.StreamingSettings]")
                 add("s.TimeLimitExceededMultiplier=1.5")
                 add("s.AsyncLoadingThreadEnabled=1")
@@ -1014,6 +1050,15 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("")
                 add("[/Script/Engine.GarbageCollectionSettings]")
                 add("gc.LowMemory.TimeBetweenPurgingPendingLevels=20")
+                add("")
+                if (opts.enableGSR) {
+                    add("; ── GAME SUPER RESOLUTION (GSR Upscaling) ───────")
+                    add("[/Script/GSRTUModule.GSRSettings]")
+                    add("r.sgsr2.enabled=1")
+                    add("r.sgsr2.history=1")
+                    add("r.sgsr2.tunemipbias=0")
+                    add("")
+                }
             }
         return lines.joinToString("\n")
     }
@@ -1383,22 +1428,106 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val aaQ = if (p.detail > 0) 2 else 1
         val shaQ = if (p.detail > 1) 3 else 2
 
-        return listOf(
-            "; WuWa Scalability.ini — WuWaConfig",
-            "",
-            "[ScalabilitySettings]",
-            "ResolutionQuality=${p.screen}.0",
-            "ViewDistanceQuality=$viewQ",
-            "AntiAliasingQuality=$aaQ",
-            "ShadowQuality=$shadowQ",
-            "PostProcessQuality=$postQ",
-            "TextureQuality=$texQ",
-            "EffectsQuality=$fxQ",
-            "FoliageQuality=$folQ",
-            "ShadingQuality=$shaQ",
-            "KuroRenderQuality=$kuroQ",
-            "KuroLocalRenderQuality=0",
-        ).joinToString("\n")
+        val header =
+            listOf(
+                "; WuWa Scalability.ini — WuWaConfig",
+                "",
+                "[ScalabilitySettings]",
+                "ResolutionQuality=${p.screen}.0",
+                "ViewDistanceQuality=$viewQ",
+                "AntiAliasingQuality=$aaQ",
+                "ShadowQuality=$shadowQ",
+                "PostProcessQuality=$postQ",
+                "TextureQuality=$texQ",
+                "EffectsQuality=$fxQ",
+                "FoliageQuality=$folQ",
+                "ShadingQuality=$shaQ",
+                "KuroRenderQuality=$kuroQ",
+                "KuroLocalRenderQuality=0",
+            )
+
+        val sections =
+            listOf(
+                listOf("", "[ViewDistanceQuality@0]", "r.ViewDistanceScale=0.70", "r.SkeletalMeshLODBias=0", "r.NeverOcclusionTestDistance=0"),
+                listOf("", "[ViewDistanceQuality@1]", "r.ViewDistanceScale=0.85", "r.SkeletalMeshLODBias=0"),
+                listOf("", "[ViewDistanceQuality@2]", "r.ViewDistanceScale=1.0", "r.SkeletalMeshLODBias=0"),
+                listOf("", "[ViewDistanceQuality@3]", "r.ViewDistanceScale=1.0", "r.SkeletalMeshLODBias=0"),
+                listOf("", "[AntiAliasingQuality@0]", "r.PostProcessAAQuality=0", "r.MotionBlurQuality=0", "r.AmbientOcclusionLevels=-1", "r.AmbientOcclusionMaxQuality=0"),
+                listOf("", "[AntiAliasingQuality@1]", "r.PostProcessAAQuality=2", "r.MotionBlurQuality=1"),
+                listOf("", "[AntiAliasingQuality@2]", "r.PostProcessAAQuality=3", "r.MotionBlurQuality=2"),
+                listOf("", "[AntiAliasingQuality@3]", "r.PostProcessAAQuality=3", "r.MotionBlurQuality=3", "r.AmbientOcclusionLevels=0"),
+                listOf("", "[ShadowQuality@0]", "r.ShadowQuality=1", "r.Shadow.CSM.MaxCascades=1", "r.Shadow.CSM.MaxMobileCascades=1", "r.Shadow.MaxResolution=128", "r.LightFunctionQuality=0"),
+                listOf("", "[ShadowQuality@1]", "r.ShadowQuality=2", "r.Shadow.CSM.MaxCascades=3", "r.Shadow.MaxResolution=256", "r.LightFunctionQuality=1", "r.Shadow.MobileDistributionOverride=3.0"),
+                listOf("", "[ShadowQuality@2]", "r.ShadowQuality=2", "r.Shadow.CSM.MaxCascades=3", "r.Shadow.MaxResolution=512", "r.LightFunctionQuality=1", "r.Shadow.CacheDirectLightShadow=3", "r.Shadow.MobileDistributionOverride=2.5"),
+                listOf("", "[ShadowQuality@3]", "r.ShadowQuality=2", "r.Shadow.CSM.MaxCascades=3", "r.Shadow.MaxResolution=512", "r.LightFunctionQuality=1", "r.Shadow.CacheDirectLightShadow=3", "r.Shadow.MobileDistributionOverride=2.0"),
+                listOf("", "[PostProcessQuality@0]", "r.MotionBlurQuality=0", "r.RenderTargetPoolMin=300", "r.AmbientOcclusionRadiusScale=1.2"),
+                listOf("", "[PostProcessQuality@1]", "r.MotionBlurQuality=1", "r.RenderTargetPoolMin=400"),
+                listOf("", "[PostProcessQuality@2]", "r.MotionBlurQuality=2", "r.RenderTargetPoolMin=500"),
+                listOf("", "[PostProcessQuality@3]", "r.MotionBlurQuality=3", "r.RenderTargetPoolMin=600"),
+                listOf(
+                    "", "[TextureQuality@0]",
+                    "r.Streaming.MipBias=16", "r.Streaming.PoolSize=300",
+                    "r.Streaming.PoolSizeForMeshes=300", "r.Streaming.Boost=0.3",
+                    "r.Streaming.MaxNumTexturesToStreamPerFrame=1",
+                    "r.TranslucencyLightingVolumeDim=24", "r.VT.MaxAnisotropy=4",
+                ),
+                listOf("", "[TextureQuality@1]", "r.Streaming.MipBias=8", "r.Streaming.PoolSize=400", "r.Streaming.PoolSizeForMeshes=400", "r.Streaming.Boost=0.5"),
+                listOf("", "[TextureQuality@2]", "r.Streaming.MipBias=4", "r.Streaming.PoolSize=600", "r.Streaming.PoolSizeForMeshes=600", "r.Streaming.Boost=0.8"),
+                listOf("", "[TextureQuality@3]", "r.Streaming.MipBias=0", "r.Streaming.PoolSize=800", "r.Streaming.PoolSizeForMeshes=800", "r.Streaming.Boost=1.0"),
+                listOf("", "[EffectsQuality@0]", "r.DetailMode=0", "r.SSR.Quality=0", "r.SSR.HalfResSceneColor=1", "r.RefractionQuality=0", "r.SceneColorFormat=2", "r.TranslucencyVolumeBlur=0"),
+                listOf("", "[EffectsQuality@1]", "r.DetailMode=1", "r.SSR.Quality=1", "r.SSR.HalfResSceneColor=1", "r.RefractionQuality=1"),
+                listOf("", "[EffectsQuality@2]", "r.DetailMode=2", "r.SSR.Quality=2", "r.SSR.HalfResSceneColor=0", "r.RefractionQuality=2"),
+                listOf("", "[FoliageQuality@0]", "foliage.DensityScale=1.0", "foliage.DensityType=0", "foliage.DensityScaleLOD.DensityType=0", "foliage.DensityScaleLOD.DistanceType=0", "grass.DensityScale=0.8", "grass.CullDistanceScale=0.8"),
+                listOf("", "[FoliageQuality@1]", "foliage.DensityScale=1.0", "foliage.DensityType=1", "foliage.DensityScaleLOD.DensityType=1", "foliage.DensityScaleLOD.DistanceType=1", "grass.DensityScale=1.0", "grass.CullDistanceScale=0.9"),
+                listOf("", "[FoliageQuality@2]", "foliage.DensityScale=1.0", "foliage.DensityType=2", "foliage.DensityScaleLOD.DensityType=2", "foliage.DensityScaleLOD.DistanceType=2", "grass.DensityScale=1.0", "grass.CullDistanceScale=1.0"),
+                listOf("", "[ShadingQuality@2]", "r.HairStrands.SkyAO.SampleCount=4", "r.HairStrands.SkyLighting.IntegrationType=2", "r.HairStrands.Visibility.MSAA.SamplePerPixel=4"),
+                listOf("", "[ShadingQuality@3]", "r.HairStrands.SkyAO.SampleCount=4", "r.HairStrands.SkyLighting.IntegrationType=2", "r.HairStrands.Visibility.MSAA.SamplePerPixel=4"),
+                listOf(
+                    "", "[KuroRenderQuality@0]",
+                    "KuroRenderQuality.LevelName=极致性能",
+                    "r.StaticMeshLODDistanceScale=3",
+                    "r.ScreenSizeCullRatioFactor=150",
+                    "r.DrawKuroPPLensflare=0",
+                    "r.Kuro.NpcDisappearDistance=1000",
+                    "r.Kuro.SkeletalMesh.LODDistanceScale=0.2",
+                    "r.Kuro.FloatingStaticMeshTickFactor=2.4",
+                    "r.Kuro.FlickerLightActorTickFactor=12.0",
+                    "r.Kuro.MaterialDesktopQualityShoulderRender=0",
+                    "r.Kuro.GlobalPointCloudStreamEnabled=0",
+                    "foliage.DensityType=0",
+                    "foliage.DensityScaleLOD.Switch=0",
+                ),
+                listOf(
+                    "", "[KuroRenderQuality@3]",
+                    "KuroRenderQuality.LevelName=画质优先",
+                    "r.StaticMeshLODDistanceScale=1",
+                    "r.ScreenSizeCullRatioFactor=40",
+                    "r.DrawKuroPPLensflare=1",
+                    "r.Kuro.NpcDisappearDistance=1800",
+                    "r.Kuro.SkeletalMesh.LODDistanceScale=0.6",
+                    "r.Kuro.FloatingStaticMeshTickFactor=1.2",
+                    "r.Kuro.FlickerLightActorTickFactor=2.4",
+                    "r.Kuro.MaterialDesktopQualityShoulderRender=3",
+                    "r.Kuro.GlobalPointCloudStreamEnabled=0",
+                    "foliage.DensityType=1",
+                    "foliage.DensityScaleLOD.Switch=0",
+                ),
+                listOf(
+                    "", "[KuroLocalRenderQuality@0]",
+                    "KuroRenderQuality.LevelName=极致性能",
+                    "r.StaticMeshLODDistanceScale=3",
+                    "r.ScreenSizeCullRatioFactor=150",
+                    "r.DrawKuroPPLensflare=0",
+                    "r.Kuro.NpcDisappearDistance=1000",
+                    "r.Kuro.SkeletalMesh.LODDistanceScale=0.2",
+                    "r.Kuro.FloatingStaticMeshTickFactor=2.4",
+                    "r.Kuro.FlickerLightActorTickFactor=12.0",
+                    "r.Kuro.MaterialDesktopQualityShoulderRender=0",
+                    "r.Kuro.GlobalPointCloudStreamEnabled=0",
+                ),
+            )
+
+        return (header + sections.flatten()).joinToString("\n")
     }
 
     private fun buildAndroidHardwareIni(

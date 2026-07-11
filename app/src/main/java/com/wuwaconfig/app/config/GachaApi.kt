@@ -173,7 +173,6 @@ object GachaApi {
                     try {
                         GachaRecord(
                             cardPoolType = (item["cardPoolType"] as? String) ?: return@mapNotNull null,
-                            resourceId = (item["resourceId"] as? Number)?.toLong() ?: 0L,
                             qualityLevel = (item["qualityLevel"] as? Number)?.toInt() ?: 0,
                             resourceType = item["resourceType"] as? String ?: "",
                             name = item["name"] as? String ?: "",

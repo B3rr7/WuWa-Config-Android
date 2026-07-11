@@ -13,7 +13,6 @@ object LogAnalysisStore {
     data class CachedAnalysis(
         val logInfo: LogInfo,
         val brainRecommendation: BrainRecommendation?,
-        val allowRestrictedCvars: Boolean,
         val timestamp: Long,
     )
 
@@ -21,9 +20,8 @@ object LogAnalysisStore {
         context: Context,
         logInfo: LogInfo,
         brainRecommendation: BrainRecommendation?,
-        allowRestrictedCvars: Boolean,
     ) {
-        val cached = CachedAnalysis(logInfo, brainRecommendation, allowRestrictedCvars, System.currentTimeMillis())
+        val cached = CachedAnalysis(logInfo, brainRecommendation, System.currentTimeMillis())
         File(context.filesDir, FILE_NAME).writeText(gson.toJson(cached))
     }
 

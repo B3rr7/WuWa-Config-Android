@@ -19,7 +19,5 @@ data class LogEntry(
         private val counter = AtomicLong(0)
 
         fun nextId() = counter.incrementAndGet()
-
-        fun resetCounter() = counter.set(0)
     }
 }

@@ -6,11 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
-import android.os.Build
 import android.util.Log
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.WuWaConfigApp
@@ -27,12 +26,12 @@ import com.wuwaconfig.app.config.GachaHistoryStore
 import com.wuwaconfig.app.config.ProfileStore
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.BattleStatsStore
-import com.wuwaconfig.app.model.LogAnalysisStore
 import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.GamePaths
+import com.wuwaconfig.app.model.LogAnalysisStore
 import com.wuwaconfig.app.model.LogInfo
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
@@ -170,7 +169,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _iniEditorError.value = null
             addLog("INI Editor: saving $fileName to device")
             val preSnapshot = configManager.snapshotHashFile().getOrNull()
-            configManager.pushSingleFile(fileName, content) { /* progress */ }
+            configManager.pushSingleFile(fileName, content) {}
                 .onSuccess {
                     addLog("INI Editor: $fileName pushed, refreshing hashes...", LogLevel.SUCCESS)
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { hashMsg ->
@@ -866,7 +865,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             withContext(Dispatchers.Default) {
                 val battleStats = com.wuwaconfig.app.config.LogParser.parseBattleStats(text)
                 BattleStatsStore.save(getApplication(), battleStats)
-                LogAnalysisStore.save(getApplication(), info, brain, allowRestrictedCvars)
+                LogAnalysisStore.save(getApplication(), info, brain)
             }
             addLog("Analysis cached for quick viewing")
         } catch (e: Exception) {
@@ -1143,18 +1142,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     if (_deployHistoryEnabled.value) {
                         val cachedLogInfo = _logAnalysis.value ?: LogAnalysisStore.load(getApplication())?.logInfo
-                        val baselinePair: Pair<LogInfo, String> = if (cachedLogInfo != null) {
-                            cachedLogInfo to ""
-                        } else {
-                            addLog("Reading device log for deploy history baseline...")
-                            val baselineResult = configManager.readClientLogContent()
-                            if (baselineResult.isSuccess) {
-                                val text = baselineResult.getOrThrow()
-                                com.wuwaconfig.app.config.LogParser.parseLog(text) to text.take(2048)
+                        val baselinePair: Pair<LogInfo, String> =
+                            if (cachedLogInfo != null) {
+                                cachedLogInfo to ""
                             } else {
-                                LogInfo() to ""
+                                addLog("Reading device log for deploy history baseline...")
+                                val baselineResult = configManager.readClientLogContent()
+                                if (baselineResult.isSuccess) {
+                                    val text = baselineResult.getOrThrow()
+                                    com.wuwaconfig.app.config.LogParser.parseLog(text) to text.take(2048)
+                                } else {
+                                    LogInfo() to ""
+                                }
                             }
-                        }
                         val baselineLog = baselinePair.first
                         val baselineSnippet = baselinePair.second
                         val report = _verificationReport.value
@@ -1172,7 +1172,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 presetName = lastActivePreset,
                                 generationMethod = if (opts.useAdvancedGen) "advanced" else "classic",
                                 filesDeployed = fileList,
-                                cvarCount = lastGeneratedCvars.size,
                                 acceptedCount = report?.recognizedCount ?: 0,
                                 totalCount = report?.totalCount ?: 0,
                                 redundantCount = report?.redundantCount ?: 0,

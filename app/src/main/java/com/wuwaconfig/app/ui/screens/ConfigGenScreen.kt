@@ -31,7 +31,6 @@ import com.wuwaconfig.app.config.TunerStage
 import com.wuwaconfig.app.config.TunerState
 import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratorOptions
-import com.wuwaconfig.app.model.LogAnalysisStore
 import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
@@ -85,6 +84,9 @@ fun ConfigGenScreen(
     var allowRestrictedCvars by remember { mutableStateOf(true) }
     var useAdvancedGen by remember { mutableStateOf(false) }
     var optimizeWithCvarDb by remember { mutableStateOf(true) }
+    var disableAutoAdjust by remember { mutableStateOf(false) }
+    var enableGSR by remember { mutableStateOf(false) }
+    var experimentalCvars by remember { mutableStateOf(false) }
 
     var gameMode by remember { mutableStateOf(GameMode.Overworld) }
     var showReview by remember { mutableStateOf(false) }
@@ -204,6 +206,9 @@ fun ConfigGenScreen(
                 generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
                 importFromLog = false, useAdvancedGen = useAdvancedGen,
                 optimizeWithCvarDb = optimizeWithCvarDb,
+                disableAutoAdjust = disableAutoAdjust,
+                enableGSR = enableGSR,
+                experimentalCvars = experimentalCvars,
             )
         tunerState =
             TunerState(
@@ -305,10 +310,13 @@ fun ConfigGenScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
                                 "potato" to "Dead low-end",
+                                "endurance" to "Long sessions on mid-tier",
                                 "performance" to "Stability first",
+                                "competitive" to "Max clarity, no clutter",
                                 "balanced" to "Daily default",
                                 "high" to "Sharper visuals",
                                 "ultra" to "Flagship devices",
+                                "cinematic" to "Above ultra, flagship only",
                             ).forEach { (preset, description) ->
                                 PresetRow(
                                     name = preset,
@@ -373,6 +381,9 @@ fun ConfigGenScreen(
                         GeneratorSwitch("Disable auto exposure", disableAutoExposure) { disableAutoExposure = it }
                         GeneratorSwitch("Disable SSR/reflections", disableSSR) { disableSSR = it }
                         GeneratorSwitch("Allow restricted CVars", allowRestrictedCvars) { allowRestrictedCvars = it }
+                        GeneratorSwitch("Disable auto quality adjust", disableAutoAdjust) { disableAutoAdjust = it }
+                        GeneratorSwitch("GSR upscaling (low-end)", enableGSR) { enableGSR = it }
+                        GeneratorSwitch("Experimental CVars", experimentalCvars) { experimentalCvars = it }
                     }
                 }
 
@@ -432,8 +443,11 @@ fun ConfigGenScreen(
                                             generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
                                             generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
                                             importFromLog = !userChangedPreset && selectedPreset == brain?.preset,
-                                            useAdvancedGen = useAdvancedGen,
+                                            useAdvancedGen = useAdvancedGen || (logInfo != null && !userChangedPreset && selectedPreset == brain?.preset),
                                             optimizeWithCvarDb = optimizeWithCvarDb,
+                                            disableAutoAdjust = disableAutoAdjust,
+                                            enableGSR = enableGSR,
+                                            experimentalCvars = experimentalCvars,
                                         )
                                     val generated = viewModel.configGenerator.generate(selectedPreset, opts, logInfo = logInfo ?: com.wuwaconfig.app.model.LogInfo())
                                     reviewEngineText = generated.engine
@@ -500,7 +514,7 @@ fun ConfigGenScreen(
         }
     }
 
-    if (showReview && reviewEngineText.isNotEmpty()) {
+    if (showReview && (reviewEngineText.isNotEmpty() || reviewDeviceProfilesText.isNotEmpty() || reviewGameUserSettingsText.isNotEmpty() || reviewScalabilityText.isNotEmpty() || reviewHardwareText.isNotEmpty())) {
         IniReviewDialog(
             engineText = reviewEngineText,
             deviceProfilesText = reviewDeviceProfilesText,
@@ -527,6 +541,9 @@ fun ConfigGenScreen(
                         importFromLog = false,
                         useAdvancedGen = useAdvancedGen,
                         optimizeWithCvarDb = optimizeWithCvarDb,
+                        disableAutoAdjust = disableAutoAdjust,
+                        enableGSR = enableGSR,
+                        experimentalCvars = experimentalCvars,
                     )
                 reviewEngineText = newEngine
                 reviewDeviceProfilesText = newDevice
@@ -691,10 +708,13 @@ private fun IniReviewDialog(
     var hwSrc by remember(hardwareText) { mutableStateOf(hardwareText) }
 
     var tab by remember { mutableStateOf(0) }
-    val tabs = mutableListOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini")
+    val tabs = mutableListOf<String>()
+    if (engineText.isNotBlank()) tabs.add("Engine.ini")
+    if (deviceProfilesText.isNotBlank()) tabs.add("DeviceProfiles.ini")
+    if (gameUserSettingsText.isNotBlank()) tabs.add("GameUserSettings.ini")
     if (scalabilityText.isNotBlank()) tabs.add("Scalability.ini")
     if (hardwareText.isNotBlank()) tabs.add("Hardware.ini")
-    val accents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber, NeonCyan)
+    val accents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber, NeonPink)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -728,23 +748,26 @@ private fun IniReviewDialog(
             }
         },
         text = {
+            val tabLabel = tabs.getOrNull(tab) ?: ""
             val src =
-                when (tab) {
-                    0 -> engineSrc
-                    1 -> dpSrc
-                    2 -> gusSrc
-                    tabs.indexOf("Scalability.ini") -> slSrc
-                    else -> hwSrc
+                when (tabLabel) {
+                    "Engine.ini" -> engineSrc
+                    "DeviceProfiles.ini" -> dpSrc
+                    "GameUserSettings.ini" -> gusSrc
+                    "Scalability.ini" -> slSrc
+                    "Hardware.ini" -> hwSrc
+                    else -> ""
                 }
             val onEdit: (String) -> Unit =
-                when (tab) {
-                    0 -> { v -> engineSrc = v }
-                    1 -> { v -> dpSrc = v }
-                    2 -> { v -> gusSrc = v }
-                    tabs.indexOf("Scalability.ini") -> { v -> slSrc = v }
-                    else -> { v -> hwSrc = v }
+                when (tabLabel) {
+                    "Engine.ini" -> { v -> engineSrc = v }
+                    "DeviceProfiles.ini" -> { v -> dpSrc = v }
+                    "GameUserSettings.ini" -> { v -> gusSrc = v }
+                    "Scalability.ini" -> { v -> slSrc = v }
+                    "Hardware.ini" -> { v -> hwSrc = v }
+                    else -> { _ -> }
                 }
-            val accent = accents[tab.coerceAtMost(accents.lastIndex)]
+            val accent = accents[tab.coerceIn(0, accents.lastIndex)]
             OutlinedTextField(
                 value = src,
                 onValueChange = onEdit,
@@ -1148,9 +1171,12 @@ private fun TagChip(
 private fun presetColor(preset: String): Color =
     when (preset) {
         "potato" -> Color(0xFF8B4513)
+        "endurance" -> NeonPink
         "performance" -> NeonRed
+        "competitive" -> NeonBlue
         "balanced" -> NeonAmber
         "high" -> NeonGreen
         "ultra" -> NeonPurple
+        "cinematic" -> NeonCyan
         else -> NeonCyan
     }

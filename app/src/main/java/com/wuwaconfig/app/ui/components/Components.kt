@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -62,12 +63,15 @@ fun GlassCard(
     modifier: Modifier = Modifier,
     accentColor: Color = NeonCyan,
     shape: Shape = RoundedCornerShape(8.dp),
+    blurRadius: Int = 6,
+    glowWidth: Float = 0.5f,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val cardStart = if (isLight) MaterialTheme.colorScheme.surface else accentColor.copy(alpha = 0.06f)
     val cardEnd = if (isLight) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.02f)
     val borderColor = if (isLight) accentColor.copy(alpha = 0.35f) else accentColor.copy(alpha = 0.15f)
+    val glowColor = accentColor.copy(alpha = if (isLight) 0.12f else 0.06f)
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -86,16 +90,43 @@ fun GlassCard(
                     .background(
                         brush =
                             Brush.horizontalGradient(
-                                colors =
-                                    listOf(
-                                        cardStart,
-                                        cardEnd,
-                                    ),
+                                colors = listOf(cardStart, cardEnd),
                             ),
                         shape = shape,
                     )
-                    .border(0.5.dp, borderColor, shape),
+                    .border(glowWidth.dp, borderColor, shape)
+                    .then(
+                        if (glowWidth > 0f) {
+                            Modifier.graphicsLayer {
+                                shadowElevation = 4f * glowWidth
+                                shape?.let { clip = true }
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
         ) {
+            Box(
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        .blur(blurRadius.dp)
+                        .background(Color.Transparent, shape),
+            )
+            Box(
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        .background(
+                            brush =
+                                Brush.linearGradient(
+                                    colors = listOf(accentColor.copy(alpha = 0.04f), Color.Transparent),
+                                    start = androidx.compose.ui.geometry.Offset.Zero,
+                                    end = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                                ),
+                            shape = shape,
+                        ),
+            )
             Column(modifier = Modifier.padding(16.dp)) {
                 content()
             }

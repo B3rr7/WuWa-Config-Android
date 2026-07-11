@@ -8,8 +8,9 @@ object CvarOptimizer {
         val g = gpu?.lowercase() ?: return "unknown"
         return when {
             Regex("""adreno.*8[3-9]\d|adreno.*8[12]\d""").containsMatchIn(g) -> "flagship"
-            Regex("""tensor\s*g[34]""").containsMatchIn(g) -> "flagship"
+            Regex("""tensor\s*g[345]""").containsMatchIn(g) -> "flagship"
             Regex("""dimensity\s*9[3-9]\d\d?""").containsMatchIn(g) -> "flagship"
+            Regex("""apple\s*(m[34]|a18)""").containsMatchIn(g) -> "flagship"
 
             Regex("""adreno.*7[5-9]\d|adreno.*8[0]\d""").containsMatchIn(g) -> "high"
             Regex("""tensor\s*g[12]""").containsMatchIn(g) -> "high"
@@ -17,6 +18,7 @@ object CvarOptimizer {
             Regex("""exynos\s*2200""").containsMatchIn(g) -> "high"
             Regex("""kirin\s*9000""").containsMatchIn(g) -> "high"
             Regex("""mali-g[78]\d\d|mali-g9""").containsMatchIn(g) -> "high"
+            Regex("""apple\s*(m[12]|a1[67])""").containsMatchIn(g) -> "high"
 
             Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""").containsMatchIn(g) -> "mid_high"
             Regex("""dimensity\s*(8[0-4]\d|7[3-9]\d)""").containsMatchIn(g) -> "mid_high"
@@ -24,11 +26,13 @@ object CvarOptimizer {
             Regex("""exynos\s*2[1-3]00""").containsMatchIn(g) -> "mid_high"
             Regex("""kirin\s*9[1-9]\d\d?""").containsMatchIn(g) -> "mid_high"
             Regex("""xclipse""").containsMatchIn(g) -> "mid_high"
+            Regex("""apple\s*a1[45]""").containsMatchIn(g) -> "mid_high"
 
             Regex("""adreno.*6[0-4]\d|mali-g[6-7]\d\d|mali-g615""").containsMatchIn(g) -> "mid"
             Regex("""dimensity\s*[0-9]{3}""").containsMatchIn(g) -> "mid"
             Regex("""exynos\s*[0-9]{4}""").containsMatchIn(g) -> "mid"
             Regex("""kirin\s*[0-9]{4}""").containsMatchIn(g) -> "mid"
+            Regex("""apple\s*a1[23]""").containsMatchIn(g) -> "mid"
 
             Regex("""adreno.*5\d\d|mali-g5[0-9]\d|mali-g57""").containsMatchIn(g) -> "mid_low"
 

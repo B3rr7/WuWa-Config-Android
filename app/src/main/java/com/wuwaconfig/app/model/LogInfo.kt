@@ -2,7 +2,6 @@ package com.wuwaconfig.app.model
 
 data class LogInfo(
     val gpu: String? = null,
-    val gpuTier: String? = null,
     val deviceModel: String? = null,
     val socName: String? = null,
     val socCode: String? = null,
@@ -19,13 +18,14 @@ data class LogInfo(
     val screenPct: Float? = null,
     val shadowQ: Int? = null,
     val qualityMode: String? = null,
-    val kuroPostprocess: Int? = null,
     val isLowMem: Boolean? = null,
     val textureErrors: Int = 0,
     val gpuOom: Int = 0,
     val dropFrames: Int = 0,
     val forbiddenCvars: Int = 0,
     val thermalEvents: Int = 0,
+    val autoAdjustTriggers: Int = 0,
+    val autoAdjustRecoveries: Int = 0,
     val networkErrors: Int = 0,
     val activeCvars: Map<String, String> = emptyMap(),
 )

@@ -5,7 +5,6 @@ import com.wuwaconfig.app.model.LogRepository
 
 data class BrainRecommendation(
     val preset: String,
-    val confidence: Int,
     val score: Int,
     val signals: List<String>,
     val warnings: List<String>,
@@ -183,6 +182,24 @@ object SmartBrain {
                 signals.add("Network issues x${info.networkErrors}: -5")
             }
         }
+        when {
+            info.autoAdjustTriggers >= 30 -> {
+                score -= 15
+                signals.add("Extreme auto-adjust x${info.autoAdjustTriggers}: -15")
+                warnings.add("Auto quality system triggered ${info.autoAdjustTriggers}x — device struggling heavily")
+            }
+            info.autoAdjustTriggers >= 15 -> {
+                score -= 8
+                signals.add("Frequent auto-adjust x${info.autoAdjustTriggers}: -8")
+            }
+            info.autoAdjustTriggers >= 5 -> {
+                score -= 3
+                signals.add("Occasional auto-adjust x${info.autoAdjustTriggers}: -3")
+            }
+        }
+        if (info.autoAdjustTriggers > 0 && info.autoAdjustTriggers > info.autoAdjustRecoveries * 3) {
+            warnings.add("Auto-adjust unable to stabilize (triggers=${info.autoAdjustTriggers}, recoveries=${info.autoAdjustRecoveries})")
+        }
         info.screenPct?.let { sp ->
             when {
                 sp >= 125f -> {
@@ -337,7 +354,7 @@ object SmartBrain {
 
         val preset = recommendPreset(score, info, tier, isHighRes)
         LogRepository.add("SmartBrain: score=$score, recommended preset='$preset', ${signals.size} signals, ${warnings.size} warnings")
-        return BrainRecommendation(preset, score, score, signals, warnings)
+        return BrainRecommendation(preset, score, signals, warnings)
     }
 
     private fun recommendPreset(
@@ -349,10 +366,15 @@ object SmartBrain {
         return when {
             info.gpuOom >= 2 -> "potato"
             info.isLowMem == true || score <= 20 -> "potato"
+            score >= 85 && info.vulkanStatus == "available" && tier == "flagship" && !isHighRes && info.thermalEvents == 0 -> "cinematic"
             score >= 80 && info.vulkanStatus == "available" && tier == "flagship" && !isHighRes -> "ultra"
             score >= 75 && (tier == "flagship" || tier == "high") && info.vulkanStatus == "available" -> "high"
             score >= 70 && (tier == "flagship" || tier == "high") -> "high"
+            score >= 45 && info.fpsActual != null && info.fpsCap != null && (info.fpsCap - info.fpsActual.toInt()) > 15 -> "competitive"
             score >= 40 -> "balanced"
+            info.autoAdjustTriggers > 10 && score >= 25 -> "endurance"
+            info.thermalEvents >= 3 && score >= 30 -> "endurance"
+            info.autoAdjustTriggers > 10 -> "performance"
             score >= 20 -> "performance"
             else -> "potato"
         }

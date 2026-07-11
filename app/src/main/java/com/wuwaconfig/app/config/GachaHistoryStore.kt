@@ -5,8 +5,6 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
-import com.wuwaconfig.app.model.GachaHistoryPool
-import com.wuwaconfig.app.model.GachaPool
 import java.io.File
 import java.util.UUID
 
@@ -52,18 +50,6 @@ object GachaHistoryStore {
                 avgPity5 = data.avgPity5,
                 avgPity4 = data.avgPity4,
                 predictions = data.predictions,
-                pools =
-                    GachaPool.ALL.mapNotNull { pool ->
-                        val poolRecords = data.records.filter { it.cardPoolType == pool.type }
-                        if (poolRecords.isEmpty()) return@mapNotNull null
-                        GachaHistoryPool(
-                            label = pool.label,
-                            type = pool.type,
-                            pullCount = poolRecords.size,
-                            fiveStars = poolRecords.count { it.qualityLevel == 5 },
-                            fourStars = poolRecords.count { it.qualityLevel == 4 },
-                        )
-                    },
                 fullDataJson = gson.toJson(data),
             )
         getFile(ctx).writeText(gson.toJson(entry))

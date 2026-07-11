@@ -2,7 +2,6 @@ package com.wuwaconfig.app.model
 
 data class GachaRecord(
     val cardPoolType: String,
-    val resourceId: Long,
     val qualityLevel: Int,
     val resourceType: String,
     val name: String,
@@ -75,14 +74,5 @@ data class GachaHistoryEntry(
     val avgPity5: Double,
     val avgPity4: Double,
     val predictions: List<PityPrediction>,
-    val pools: List<GachaHistoryPool>,
     val fullDataJson: String,
-)
-
-data class GachaHistoryPool(
-    val label: String,
-    val type: String,
-    val pullCount: Int,
-    val fiveStars: Int,
-    val fourStars: Int,
 )

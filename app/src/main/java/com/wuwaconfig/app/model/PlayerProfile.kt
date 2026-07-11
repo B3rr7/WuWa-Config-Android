@@ -19,7 +19,4 @@ data class PlayerProfile(
     val battlePassPurchased: Boolean = false,
     val serverLevels: List<Pair<String, Int>> = emptyList(),
     val loopTowerSeason: Int? = null,
-    val secondaryUid: String? = null,
-    val secondaryLevel: Int? = null,
-    val secondaryServer: String? = null,
 )

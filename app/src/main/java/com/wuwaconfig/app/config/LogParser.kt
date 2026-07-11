@@ -14,6 +14,12 @@ object LogParser {
         return body.copyOfRange(bom, body.size)
     }
 
+    fun decryptBackupLog(data: ByteArray): ByteArray? {
+        if (data.size < 3) return null
+        if (data[0] != 0xEF.toByte() || data[1] != 0xBB.toByte() || data[2] != 0xBF.toByte()) return null
+        return applyXorLut(data.copyOfRange(3, data.size))
+    }
+
     fun applyXorLut(data: ByteArray): ByteArray {
         // LUT is NOT self-inverse: LUT(LUT(b)) = b xor 0x4A for ALL b.
         // The game stores plaintext as LUT(plaintext xor 0x4A) so a single pass restores it.
@@ -32,7 +38,8 @@ object LogParser {
 
     fun decodeLogBytes(data: ByteArray): Pair<String, Boolean> {
         val decrypted = decryptWuwaLog(data)
-        val payload = decrypted ?: data
+        val backupDecrypted = if (decrypted == null) decryptBackupLog(data) else null
+        val payload = decrypted ?: backupDecrypted ?: data
         val text =
             when {
                 payload.size >= 2 && payload[0] == 0xFE.toByte() && payload[1] == 0xFF.toByte() ->
@@ -43,7 +50,7 @@ object LogParser {
                 looksUtf16Le(payload) -> payload.toString(Charset.forName("UTF-16LE"))
                 else -> payload.toString(Charsets.UTF_8)
             }
-        return text.trimStart('\uFEFF') to (decrypted != null)
+        return text.trimStart('\uFEFF') to (decrypted != null || backupDecrypted != null)
     }
 
     private fun looksUtf16Be(data: ByteArray): Boolean {
@@ -91,13 +98,14 @@ object LogParser {
         var screenPct: Float? = null
         var shadowQ: Int? = null
         var qualityMode: String? = null
-        var kuroPostprocess: Int? = null
         var isLowMem: Boolean? = null
         var forbiddenCvars: Int? = null
         var textureErrors = 0
         var gpuOom = 0
         var dropFrames = 0
         var thermalEvents = 0
+        var autoAdjustTriggers = 0
+        var autoAdjustRecoveries = 0
         var networkErrors = 0
         val activeCvars = mutableMapOf<String, String>()
         var gameApi: String? = null
@@ -119,6 +127,8 @@ object LogParser {
             if ("out of memory" in l || "gpu oom" in l || "vulkanoom" in l) gpuOom++
             if (Regex("""frame\s*drop|hitch\s*detected|stutter\s*detected""", RegexOption.IGNORE_CASE).containsMatchIn(line)) dropFrames++
             if (Regex("""thermal\s*(?:throttle|limit|event|warning)""", RegexOption.IGNORE_CASE).containsMatchIn(line)) thermalEvents++
+            if (Regex("""自动渲染调节触发前""").containsMatchIn(line)) autoAdjustTriggers++
+            if (Regex("""自动渲染调节恢复前""").containsMatchIn(line)) autoAdjustRecoveries++
             if ("timeout" in l || "connection refused" in l || "connection reset" in l ||
                 "unreachable" in l || "dns fail" in l || "dns failure" in l ||
                 "socket error" in l || "network fail" in l || "network failure" in l ||
@@ -235,21 +245,14 @@ object LogParser {
                     qualityMode = it.groupValues[1]
                 }
             }
-            if (kuroPostprocess == null) {
-                Regex(
-                    """Value remains '(\d+)' .* r\.Mobile\.KuroPostprocess""",
-                    RegexOption.IGNORE_CASE,
-                ).find(line)?.let {
-                    kuroPostprocess = it.groupValues[1].toIntOrNull()
-                }
-            }
-
             // ── CVar extraction ──
             Regex("""Setting CVar \[\[([^:]+):([^\]]+)\]\]""", RegexOption.IGNORE_CASE).find(line)?.let {
-                activeCvars[it.groupValues[1].trim()] = it.groupValues[2].trim()
+                val value = it.groupValues[2].trim().substringBefore(';').trim()
+                activeCvars[it.groupValues[1].trim()] = value
             }
             Regex("""Value remains '([^']+)' .* variable '([^']+)'""", RegexOption.IGNORE_CASE).find(line)?.let {
-                activeCvars[it.groupValues[2].trim()] = it.groupValues[1].trim()
+                val value = it.groupValues[1].trim().substringBefore(';').trim()
+                activeCvars[it.groupValues[2].trim()] = value
             }
 
             // ── Game API from LogRHI line ──
@@ -322,13 +325,14 @@ object LogParser {
             screenPct = screenPct,
             shadowQ = shadowQ,
             qualityMode = qualityMode,
-            kuroPostprocess = kuroPostprocess,
             isLowMem = isLowMem,
             textureErrors = textureErrors,
             gpuOom = gpuOom,
             dropFrames = dropFrames,
             forbiddenCvars = forbiddenCvars,
             thermalEvents = thermalEvents,
+            autoAdjustTriggers = autoAdjustTriggers,
+            autoAdjustRecoveries = autoAdjustRecoveries,
             networkErrors = networkErrors,
             activeCvars = activeCvars,
         )

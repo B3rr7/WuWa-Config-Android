@@ -2,7 +2,6 @@ package com.wuwaconfig.app.model
 
 enum class GameMode(val label: String) {
     Overworld("Overworld"),
-    Domain("Domain / Tower"),
 }
 
 data class CvarEntry(
@@ -10,7 +9,6 @@ data class CvarEntry(
     val value: String,
     val category: String = "",
     val isOverridden: Boolean = false,
-    val originalValue: String = value,
 )
 
 data class GeneratorOptions(
@@ -43,6 +41,9 @@ data class GeneratorOptions(
     val optimizeWithCvarDb: Boolean = true,
     val importFromLog: Boolean = false,
     val useAdvancedGen: Boolean = false,
+    val disableAutoAdjust: Boolean = false,
+    val enableGSR: Boolean = false,
+    val experimentalCvars: Boolean = false,
 )
 
 data class GeneratedIni(

@@ -30,7 +30,6 @@ data class TunerState(
 data class BenchmarkResult(
     val avgFps: Float,
     val minFps: Float,
-    val frameTimeMs: Float,
     val stabilityPct: Float,
 )
 
@@ -39,7 +38,7 @@ object BenchmarkTuner {
     private const val STATE_FILE = "benchmark_tuner_state.json"
     private val FPS_LINE_PATTERN = """(?:FPS|fps|frame.*?rate|avg\s*fps)[:\s]*(\d+\.?\d*)""".toRegex()
 
-    val PRESET_ORDER = listOf("ultra", "high", "balanced", "performance", "potato")
+    val PRESET_ORDER = listOf("cinematic", "ultra", "high", "balanced", "competitive", "endurance", "performance", "potato")
 
     private val gson = Gson()
 
@@ -88,7 +87,6 @@ object BenchmarkTuner {
             BenchmarkResult(
                 avgFps = avg,
                 minFps = min,
-                frameTimeMs = if (avg > 0) 1000f / avg else 0f,
                 stabilityPct = stable,
             ),
         )
