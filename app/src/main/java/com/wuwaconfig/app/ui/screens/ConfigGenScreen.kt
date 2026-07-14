@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -25,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.config.BenchmarkTuner
 import com.wuwaconfig.app.config.RoundResult
 import com.wuwaconfig.app.config.TunerStage
@@ -36,7 +39,10 @@ import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassCardHeader
+import com.wuwaconfig.app.ui.components.GlassDialog
 import com.wuwaconfig.app.ui.components.GlassOutlinedButton
+import com.wuwaconfig.app.ui.components.GlassSwitch
+import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
 import kotlinx.coroutines.delay
@@ -49,57 +55,58 @@ import kotlin.random.Random
 fun ConfigGenScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
+    onNavigateToReviewTune: () -> Unit = {},
 ) {
-    val backendStatus by viewModel.backendStatus.collectAsState()
-    val isApplying by viewModel.isApplying.collectAsState()
-    val readingProgress by viewModel.readingProgress.collectAsState()
-    val logInfo by viewModel.logAnalysis.collectAsState()
-    val brain by viewModel.brainRecommendation.collectAsState()
-    val deployResult by viewModel.deployResult.collectAsState()
-    val verificationReport by viewModel.verificationReport.collectAsState()
+    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
+    val isApplying by viewModel.isApplying.collectAsStateWithLifecycle()
+    val readingProgress by viewModel.readingProgress.collectAsStateWithLifecycle()
+    val logInfo by viewModel.logAnalysis.collectAsStateWithLifecycle()
+    val brain by viewModel.brainRecommendation.collectAsStateWithLifecycle()
+    val deployResult by viewModel.deployResult.collectAsStateWithLifecycle()
+    val verificationReport by viewModel.verificationReport.collectAsStateWithLifecycle()
+    val colorful by viewModel.colorfulUi.collectAsStateWithLifecycle()
+
+    fun tint(color: Color): Color = if (colorful) color else NeonCyan
+
+    val savedOptions = remember { viewModel.loadGeneratorOptions() }
 
     var selectedPreset by remember { mutableStateOf(brain?.preset ?: "balanced") }
-    var fps by remember { mutableStateOf(60) }
-    var unlock120 by remember { mutableStateOf(false) }
-    var unlockUltra by remember { mutableStateOf(true) }
-    var vsync by remember { mutableStateOf(true) }
-    var cooling by remember { mutableStateOf(true) }
-    var vulkan by remember { mutableStateOf(false) }
-    var hzb by remember { mutableStateOf(false) }
-    var fog by remember { mutableStateOf(false) }
-    var ca by remember { mutableStateOf(true) }
-    var disableOutline by remember { mutableStateOf(false) }
-    var disableRadialBlur by remember { mutableStateOf(false) }
-    var disableBloom by remember { mutableStateOf(false) }
-    var disableAutoExposure by remember { mutableStateOf(false) }
-    var disableSSR by remember { mutableStateOf(false) }
+    var fps by remember { mutableStateOf(savedOptions?.fps ?: 60) }
+    var unlock120 by remember { mutableStateOf(savedOptions?.unlock120 ?: false) }
+    var unlockUltra by remember { mutableStateOf(savedOptions?.unlockUltra ?: true) }
+    var vsync by remember { mutableStateOf(savedOptions?.vsync ?: true) }
+    var cooling by remember { mutableStateOf(savedOptions?.cool ?: true) }
+    var vulkan by remember { mutableStateOf(savedOptions?.vulkan ?: false) }
+    var hzb by remember { mutableStateOf(savedOptions?.hzb ?: false) }
+    var fog by remember { mutableStateOf(savedOptions?.fog ?: false) }
+    var ca by remember { mutableStateOf(savedOptions?.ca ?: true) }
+    var disableOutline by remember { mutableStateOf(savedOptions?.disableOutline ?: false) }
+    var disableRadialBlur by remember { mutableStateOf(savedOptions?.disableRadialBlur ?: false) }
+    var disableBloom by remember { mutableStateOf(savedOptions?.disableBloom ?: false) }
+    var disableAutoExposure by remember { mutableStateOf(savedOptions?.disableAutoExposure ?: false) }
+    var disableSSR by remember { mutableStateOf(savedOptions?.disableSSR ?: false) }
     var userChangedPreset by remember { mutableStateOf(false) }
 
-    var generateEngine by remember { mutableStateOf(true) }
-    var generateDeviceProfiles by remember { mutableStateOf(true) }
-    var generateGameUserSettings by remember { mutableStateOf(true) }
-    var generateScalability by remember { mutableStateOf(false) }
-    var generateHardware by remember { mutableStateOf(false) }
+    var generateEngine by remember { mutableStateOf(savedOptions?.generateEngine ?: true) }
+    var generateDeviceProfiles by remember { mutableStateOf(savedOptions?.generateDeviceProfiles ?: true) }
+    var generateGameUserSettings by remember { mutableStateOf(savedOptions?.generateGameUserSettings ?: true) }
+    var generateScalability by remember { mutableStateOf(savedOptions?.generateScalability ?: false) }
+    var generateHardware by remember { mutableStateOf(savedOptions?.generateHardware ?: false) }
 
-    var allowRestrictedCvars by remember { mutableStateOf(true) }
-    var useAdvancedGen by remember { mutableStateOf(false) }
-    var optimizeWithCvarDb by remember { mutableStateOf(true) }
-    var disableAutoAdjust by remember { mutableStateOf(false) }
-    var enableGSR by remember { mutableStateOf(false) }
-    var experimentalCvars by remember { mutableStateOf(false) }
+    var allowRestrictedCvars by remember { mutableStateOf(savedOptions?.allowRestrictedCvars ?: true) }
+    var useAdvancedGen by remember { mutableStateOf(savedOptions?.useAdvancedGen ?: false) }
+    var optimizeWithCvarDb by remember { mutableStateOf(savedOptions?.optimizeWithCvarDb ?: true) }
+    var disableAutoAdjust by remember { mutableStateOf(savedOptions?.disableAutoAdjust ?: false) }
+    var enableGSR by remember { mutableStateOf(savedOptions?.enableGSR ?: false) }
+    var experimentalCvars by remember { mutableStateOf(savedOptions?.experimentalCvars ?: false) }
 
-    var gameMode by remember { mutableStateOf(GameMode.Overworld) }
-    var showReview by remember { mutableStateOf(false) }
-    var reviewEngineText by remember { mutableStateOf("") }
-    var reviewDeviceProfilesText by remember { mutableStateOf("") }
-    var reviewGameUserSettingsText by remember { mutableStateOf("") }
-    var reviewScalabilityText by remember { mutableStateOf("") }
-    var reviewHardwareText by remember { mutableStateOf("") }
+    var gameMode by remember { mutableStateOf(savedOptions?.mode ?: GameMode.Overworld) }
     var tunerState by remember { mutableStateOf(TunerState()) }
     var showGoPlayDialog by remember { mutableStateOf(false) }
     var showResultDialog by remember { mutableStateOf(false) }
     var showDeployDialog by remember { mutableStateOf(false) }
     var deployDialogMessage by remember { mutableStateOf("") }
+    var deployHashSyncMessage by remember { mutableStateOf("") }
 
     val logPickerLauncher =
         rememberLauncherForActivityResult(
@@ -210,6 +217,7 @@ fun ConfigGenScreen(
                 enableGSR = enableGSR,
                 experimentalCvars = experimentalCvars,
             )
+        viewModel.saveGeneratorOptions(opts)
         tunerState =
             TunerState(
                 stage = TunerStage.DEPLOYING, round = 1, preset = selectedPreset,
@@ -246,6 +254,7 @@ fun ConfigGenScreen(
     LaunchedEffect(deployResult) {
         deployResult?.let {
             deployDialogMessage = it
+            deployHashSyncMessage = viewModel.deployHashSync.value ?: ""
             showDeployDialog = true
             viewModel.clearDeployResult()
         }
@@ -254,7 +263,7 @@ fun ConfigGenScreen(
     GradientBackground {
         Scaffold(
             topBar = {
-                TopAppBar(
+                GlassTopBar(
                     title = {
                         Column {
                             Text("Config Generator", fontWeight = FontWeight.Bold)
@@ -265,16 +274,12 @@ fun ConfigGenScreen(
                             )
                         }
                     },
+                    accentColor = NeonCyan,
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonCyan)
                         }
                     },
-                    colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            titleContentColor = NeonCyan,
-                        ),
                 )
             },
             containerColor = Color.Transparent,
@@ -304,8 +309,8 @@ fun ConfigGenScreen(
                 }
 
                 item(key = "preset") {
-                    GlassCard(accentColor = NeonPurple) {
-                        GlassCardHeader("Preset", NeonPurple)
+                    GlassCard(accentColor = tint(NeonPurple)) {
+                        GlassCardHeader("Preset", tint(NeonPurple))
                         Spacer(Modifier.height(10.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
@@ -322,6 +327,7 @@ fun ConfigGenScreen(
                                     name = preset,
                                     description = description,
                                     selected = selectedPreset == preset,
+                                    accent = tint(presetColor(preset)),
                                     onClick = {
                                         selectedPreset = preset
                                         userChangedPreset = true
@@ -333,29 +339,30 @@ fun ConfigGenScreen(
                 }
 
                 item(key = "tuning") {
-                    GlassCard(accentColor = NeonAmber) {
-                        GlassCardHeader("Tuning", NeonAmber)
+                    GlassCard(accentColor = tint(NeonAmber)) {
+                        GlassCardHeader("Tuning", tint(NeonAmber))
                         Spacer(Modifier.height(8.dp))
-                        GeneratorSwitch("Advanced per-device tuning", useAdvancedGen) { useAdvancedGen = it }
-                        GeneratorSwitch("CVar optimization (comment out defaults)", optimizeWithCvarDb) { optimizeWithCvarDb = it }
+                        GeneratorSwitch("Advanced per-device tuning", useAdvancedGen, onCheckedChange = { useAdvancedGen = it }, accentColor = tint(NeonAmber))
+                        GeneratorSwitch("CVar optimization (comment out defaults)", optimizeWithCvarDb, onCheckedChange = { optimizeWithCvarDb = it }, accentColor = tint(NeonGreen))
                     }
                 }
 
                 item(key = "frame_target") {
-                    GlassCard(accentColor = NeonBlue) {
-                        GlassCardHeader("Frame Target", NeonBlue)
+                    GlassCard(accentColor = tint(NeonBlue)) {
+                        GlassCardHeader("Frame Target", tint(NeonBlue))
                         Spacer(Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                             listOf(30, 45, 60, 90, 120).forEach { value ->
+                                val chip = tint(fpsColor(value))
                                 FilterChip(
                                     selected = fps == value,
                                     onClick = { fps = value },
-                                    label = { Text("$value FPS") },
+                                    label = { Text("$value FPS", maxLines = 1) },
                                     modifier = Modifier.weight(1f),
                                     colors =
                                         FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = NeonBlue.copy(alpha = 0.18f),
-                                            selectedLabelColor = NeonBlue,
+                                            selectedContainerColor = chip.copy(alpha = 0.20f),
+                                            selectedLabelColor = chip,
                                         ),
                                 )
                             }
@@ -364,35 +371,37 @@ fun ConfigGenScreen(
                 }
 
                 item(key = "options") {
-                    GlassCard(accentColor = NeonGreen) {
-                        GlassCardHeader("Options", NeonGreen)
+                    GlassCard(accentColor = tint(NeonGreen)) {
+                        GlassCardHeader("Options", tint(NeonGreen))
                         Spacer(Modifier.height(8.dp))
-                        GeneratorSwitch("120 FPS unlock", unlock120) { unlock120 = it }
-                        GeneratorSwitch("Ultra quality unlock", unlockUltra) { unlockUltra = it }
-                        GeneratorSwitch("VSync", vsync) { vsync = it }
-                        GeneratorSwitch("Auto cooling", cooling) { cooling = it }
-                        GeneratorSwitch("Force Vulkan safety CVars", vulkan) { vulkan = it }
-                        GeneratorSwitch("HZB occlusion", hzb) { hzb = it }
-                        GeneratorSwitch("Disable fog", fog) { fog = it }
-                        GeneratorSwitch("Disable chromatic aberration", ca) { ca = it }
-                        GeneratorSwitch("Disable toon outlines", disableOutline) { disableOutline = it }
-                        GeneratorSwitch("Disable radial blur", disableRadialBlur) { disableRadialBlur = it }
-                        GeneratorSwitch("Disable bloom", disableBloom) { disableBloom = it }
-                        GeneratorSwitch("Disable auto exposure", disableAutoExposure) { disableAutoExposure = it }
-                        GeneratorSwitch("Disable SSR/reflections", disableSSR) { disableSSR = it }
-                        GeneratorSwitch("Allow restricted CVars", allowRestrictedCvars) { allowRestrictedCvars = it }
-                        GeneratorSwitch("Disable auto quality adjust", disableAutoAdjust) { disableAutoAdjust = it }
-                        GeneratorSwitch("GSR upscaling (low-end)", enableGSR) { enableGSR = it }
-                        GeneratorSwitch("Experimental CVars", experimentalCvars) { experimentalCvars = it }
+                        GeneratorSwitch("120 FPS unlock", unlock120, onCheckedChange = { unlock120 = it }, accentColor = tint(NeonGreen))
+                        GeneratorSwitch("Ultra quality unlock", unlockUltra, onCheckedChange = { unlockUltra = it }, accentColor = tint(NeonPurple))
+                        GeneratorSwitch("VSync", vsync, onCheckedChange = { vsync = it }, accentColor = tint(NeonBlue))
+                        GeneratorSwitch("Auto cooling", cooling, onCheckedChange = { cooling = it }, accentColor = tint(NeonCyan))
+                        GeneratorSwitch("Force Vulkan safety CVars", vulkan, onCheckedChange = { vulkan = it }, accentColor = tint(NeonBlue))
+                        GeneratorSwitch("HZB occlusion", hzb, onCheckedChange = { hzb = it }, accentColor = tint(NeonCyan))
+                        GeneratorSwitch("Disable fog", fog, onCheckedChange = { fog = it }, accentColor = tint(NeonBlue))
+                        GeneratorSwitch("Disable chromatic aberration", ca, onCheckedChange = { ca = it }, accentColor = tint(NeonPink))
+                        GeneratorSwitch("Disable toon outlines", disableOutline, onCheckedChange = { disableOutline = it }, accentColor = tint(NeonPurple))
+                        GeneratorSwitch("Disable radial blur", disableRadialBlur, onCheckedChange = { disableRadialBlur = it }, accentColor = tint(NeonCyan))
+                        GeneratorSwitch("Disable bloom", disableBloom, onCheckedChange = { disableBloom = it }, accentColor = tint(NeonAmber))
+                        GeneratorSwitch("Disable auto exposure", disableAutoExposure, onCheckedChange = { disableAutoExposure = it }, accentColor = tint(NeonGreen))
+                        GeneratorSwitch("Disable SSR/reflections", disableSSR, onCheckedChange = { disableSSR = it }, accentColor = tint(NeonBlue))
+                        GeneratorSwitch("Allow restricted CVars", allowRestrictedCvars, onCheckedChange = { allowRestrictedCvars = it }, accentColor = tint(NeonRed))
+                        GeneratorSwitch("Disable auto quality adjust", disableAutoAdjust, onCheckedChange = { disableAutoAdjust = it }, accentColor = tint(NeonPink))
+                        GeneratorSwitch("GSR upscaling (low-end)", enableGSR, onCheckedChange = { enableGSR = it }, accentColor = tint(NeonGreen))
+                        GeneratorSwitch("Experimental CVars", experimentalCvars, onCheckedChange = { experimentalCvars = it }, accentColor = tint(NeonRed))
                     }
                 }
 
                 item(key = "game_mode") {
-                    GlassCard(accentColor = NeonBlue) {
-                        GlassCardHeader("Game Mode", NeonBlue)
+                    GlassCard(accentColor = tint(NeonBlue)) {
+                        GlassCardHeader("Game Mode", tint(NeonBlue))
                         Spacer(Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            GameMode.entries.forEach { mode ->
+                            val modeColors = listOf(NeonGreen, NeonBlue, NeonPurple, NeonPink, NeonAmber)
+                            GameMode.entries.forEachIndexed { index, mode ->
+                                val chip = tint(modeColors[index % modeColors.size])
                                 FilterChip(
                                     selected = gameMode == mode,
                                     onClick = { gameMode = mode },
@@ -400,8 +409,8 @@ fun ConfigGenScreen(
                                     modifier = Modifier.weight(1f),
                                     colors =
                                         FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = NeonBlue.copy(alpha = 0.18f),
-                                            selectedLabelColor = NeonBlue,
+                                            selectedContainerColor = chip.copy(alpha = 0.20f),
+                                            selectedLabelColor = chip,
                                         ),
                                 )
                             }
@@ -410,14 +419,14 @@ fun ConfigGenScreen(
                 }
 
                 item(key = "file_toggles") {
-                    GlassCard(accentColor = NeonCyan) {
-                        GlassCardHeader("Files to Generate", NeonCyan)
+                    GlassCard(accentColor = tint(NeonCyan)) {
+                        GlassCardHeader("Files to Generate", tint(NeonCyan))
                         Spacer(Modifier.height(8.dp))
-                        GeneratorSwitch("Engine.ini", generateEngine) { generateEngine = it }
-                        GeneratorSwitch("DeviceProfiles.ini", generateDeviceProfiles) { generateDeviceProfiles = it }
-                        GeneratorSwitch("GameUserSettings.ini", generateGameUserSettings) { generateGameUserSettings = it }
-                        GeneratorSwitch("Scalability.ini", generateScalability) { generateScalability = it }
-                        GeneratorSwitch("Hardware.ini", generateHardware) { generateHardware = it }
+                        GeneratorSwitch("Engine.ini", generateEngine, onCheckedChange = { generateEngine = it }, accentColor = tint(NeonCyan))
+                        GeneratorSwitch("DeviceProfiles.ini", generateDeviceProfiles, onCheckedChange = { generateDeviceProfiles = it }, accentColor = tint(NeonPurple))
+                        GeneratorSwitch("GameUserSettings.ini", generateGameUserSettings, onCheckedChange = { generateGameUserSettings = it }, accentColor = tint(NeonGreen))
+                        GeneratorSwitch("Scalability.ini", generateScalability, onCheckedChange = { generateScalability = it }, accentColor = tint(NeonBlue))
+                        GeneratorSwitch("Hardware.ini", generateHardware, onCheckedChange = { generateHardware = it }, accentColor = tint(NeonPink))
                     }
                 }
 
@@ -449,13 +458,18 @@ fun ConfigGenScreen(
                                             enableGSR = enableGSR,
                                             experimentalCvars = experimentalCvars,
                                         )
+                                    viewModel.saveGeneratorOptions(opts)
                                     val generated = viewModel.configGenerator.generate(selectedPreset, opts, logInfo = logInfo ?: com.wuwaconfig.app.model.LogInfo())
-                                    reviewEngineText = generated.engine
-                                    reviewDeviceProfilesText = generated.deviceProfiles
-                                    reviewGameUserSettingsText = generated.gameUserSettings
-                                    reviewScalabilityText = generated.scalability
-                                    reviewHardwareText = generated.hardware
-                                    showReview = true
+                                    val payload =
+                                        com.wuwaconfig.app.ui.MainViewModel.ReviewTunePayload(
+                                            engine = generated.engine,
+                                            deviceProfiles = generated.deviceProfiles,
+                                            gameUserSettings = generated.gameUserSettings,
+                                            scalability = generated.scalability,
+                                            hardware = generated.hardware,
+                                        )
+                                    viewModel.openReviewTune(payload, opts)
+                                    onNavigateToReviewTune()
                                 },
                                 enabled = !isApplying,
                                 accentColor = NeonCyan,
@@ -512,56 +526,6 @@ fun ConfigGenScreen(
                 }
             }
         }
-    }
-
-    if (showReview && (reviewEngineText.isNotEmpty() || reviewDeviceProfilesText.isNotEmpty() || reviewGameUserSettingsText.isNotEmpty() || reviewScalabilityText.isNotEmpty() || reviewHardwareText.isNotEmpty())) {
-        IniReviewDialog(
-            engineText = reviewEngineText,
-            deviceProfilesText = reviewDeviceProfilesText,
-            gameUserSettingsText = reviewGameUserSettingsText,
-            scalabilityText = reviewScalabilityText,
-            hardwareText = reviewHardwareText,
-            onDismiss = { showReview = false },
-            onRedeploy = { newEngine, newDevice, newSettings, newScalability, newHardware ->
-                val overrides =
-                    viewModel.configGenerator.parseCvarEntries(newEngine)
-                        .filter { it.isOverridden }
-                        .associate { it.key to it.value }
-                val opts =
-                    GeneratorOptions(
-                        fps = fps, unlock120 = unlock120, unlockUltra = unlockUltra,
-                        vsync = vsync, cool = cooling, vulkan = vulkan, hzb = hzb,
-                        fog = fog, ca = ca, disableOutline = disableOutline,
-                        disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
-                        disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
-                        mode = gameMode, cvarOverrides = overrides,
-                        generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
-                        generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-                        generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
-                        importFromLog = false,
-                        useAdvancedGen = useAdvancedGen,
-                        optimizeWithCvarDb = optimizeWithCvarDb,
-                        disableAutoAdjust = disableAutoAdjust,
-                        enableGSR = enableGSR,
-                        experimentalCvars = experimentalCvars,
-                    )
-                reviewEngineText = newEngine
-                reviewDeviceProfilesText = newDevice
-                reviewGameUserSettingsText = newSettings
-                reviewScalabilityText = newScalability
-                reviewHardwareText = newHardware
-                viewModel.deployGeneratedConfigs(
-                    com.wuwaconfig.app.model.GeneratedIni(
-                        engine = newEngine,
-                        deviceProfiles = newDevice,
-                        gameUserSettings = newSettings,
-                        scalability = newScalability,
-                        hardware = newHardware,
-                    ),
-                    opts,
-                )
-            },
-        )
     }
 
     if (showGoPlayDialog) {
@@ -632,9 +596,9 @@ fun ConfigGenScreen(
     }
 
     if (showDeployDialog) {
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showDeployDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            accentColor = NeonGreen,
             icon = {
                 Icon(
                     Icons.Default.CheckCircle,
@@ -643,156 +607,58 @@ fun ConfigGenScreen(
                     modifier = Modifier.size(48.dp),
                 )
             },
-            title = {
-                Text(
-                    "✓ Config Deployed",
-                    color = NeonGreen,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-            },
+            title = { Text("✓ Config Deployed", fontWeight = FontWeight.Bold) },
             text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column {
                     Spacer(Modifier.height(8.dp))
                     Text(
                         deployDialogMessage,
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        style = MaterialTheme.typography.bodyMedium,
                     )
-                    Spacer(Modifier.height(12.dp))
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = NeonGreen.copy(alpha = 0.1f),
-                        modifier = Modifier.fillMaxWidth(),
+                    Spacer(Modifier.height(14.dp))
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(NeonGreen.copy(alpha = 0.10f))
+                                .border(1.dp, NeonGreen.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            "Config files written to device and KuroConfigMonitor hash refreshed.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = NeonGreen.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(12.dp),
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = NeonGreen,
+                            modifier = Modifier.size(20.dp),
                         )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                "Hash sync",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = NeonGreen,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                deployHashSyncMessage.ifBlank { "KuroConfigMonitor hash refreshed." },
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
             },
             confirmButton = {
-                Button(
+                GlassButton(
                     onClick = { showDeployDialog = false },
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = NeonGreen.copy(alpha = 0.15f),
-                            contentColor = NeonGreen,
-                        ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                ) { Text("OK", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp)) }
+                    accentColor = NeonGreen,
+                    contentColor = Color.Black,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                ) { Text("OK", fontWeight = FontWeight.Bold) }
             },
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun IniReviewDialog(
-    engineText: String,
-    deviceProfilesText: String,
-    gameUserSettingsText: String,
-    scalabilityText: String = "",
-    hardwareText: String = "",
-    onDismiss: () -> Unit,
-    onRedeploy: (engine: String, deviceProfiles: String, gameUserSettings: String, scalability: String, hardware: String) -> Unit,
-) {
-    var engineSrc by remember(engineText) { mutableStateOf(engineText) }
-    var dpSrc by remember(deviceProfilesText) { mutableStateOf(deviceProfilesText) }
-    var gusSrc by remember(gameUserSettingsText) { mutableStateOf(gameUserSettingsText) }
-    var slSrc by remember(scalabilityText) { mutableStateOf(scalabilityText) }
-    var hwSrc by remember(hardwareText) { mutableStateOf(hardwareText) }
-
-    var tab by remember { mutableStateOf(0) }
-    val tabs = mutableListOf<String>()
-    if (engineText.isNotBlank()) tabs.add("Engine.ini")
-    if (deviceProfilesText.isNotBlank()) tabs.add("DeviceProfiles.ini")
-    if (gameUserSettingsText.isNotBlank()) tabs.add("GameUserSettings.ini")
-    if (scalabilityText.isNotBlank()) tabs.add("Scalability.ini")
-    if (hardwareText.isNotBlank()) tabs.add("Hardware.ini")
-    val accents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber, NeonPink)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Column {
-                Text("Review & Tune Config", fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                ScrollableTabRow(
-                    selectedTabIndex = tab,
-                    edgePadding = 0.dp,
-                    divider = {},
-                    containerColor = Color.Transparent,
-                ) {
-                    tabs.forEachIndexed { i, label ->
-                        Tab(
-                            selected = tab == i,
-                            onClick = { tab = i },
-                            text = {
-                                Text(
-                                    label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            },
-                            selectedContentColor = accents[i],
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        },
-        text = {
-            val tabLabel = tabs.getOrNull(tab) ?: ""
-            val src =
-                when (tabLabel) {
-                    "Engine.ini" -> engineSrc
-                    "DeviceProfiles.ini" -> dpSrc
-                    "GameUserSettings.ini" -> gusSrc
-                    "Scalability.ini" -> slSrc
-                    "Hardware.ini" -> hwSrc
-                    else -> ""
-                }
-            val onEdit: (String) -> Unit =
-                when (tabLabel) {
-                    "Engine.ini" -> { v -> engineSrc = v }
-                    "DeviceProfiles.ini" -> { v -> dpSrc = v }
-                    "GameUserSettings.ini" -> { v -> gusSrc = v }
-                    "Scalability.ini" -> { v -> slSrc = v }
-                    "Hardware.ini" -> { v -> hwSrc = v }
-                    else -> { _ -> }
-                }
-            val accent = accents[tab.coerceIn(0, accents.lastIndex)]
-            OutlinedTextField(
-                value = src,
-                onValueChange = onEdit,
-                modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp),
-                textStyle =
-                    LocalTextStyle.current.copy(
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        fontSize = 11.sp,
-                    ),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = accent.copy(alpha = 0.4f),
-                        unfocusedBorderColor = accent.copy(alpha = 0.15f),
-                    ),
-            )
-        },
-        confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onDismiss) { Text("Close") }
-                Button(onClick = { onRedeploy(engineSrc, dpSrc, gusSrc, slSrc, hwSrc) }) {
-                    Text("Deploy", fontWeight = FontWeight.Bold)
-                }
-            }
-        },
-    )
 }
 
 @Composable
@@ -815,13 +681,14 @@ private fun PresetRow(
     name: String,
     description: String,
     selected: Boolean,
+    accent: Color,
     onClick: () -> Unit,
 ) {
-    val accent = if (selected) NeonPurple else MaterialTheme.colorScheme.onSurfaceVariant
+    val labelColor = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
-        color = if (selected) NeonPurple.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.03f),
+        color = if (selected) accent.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.03f),
         tonalElevation = 0.dp,
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -829,10 +696,10 @@ private fun PresetRow(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Default.Speed, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Speed, contentDescription = null, tint = labelColor, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(name.uppercase(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = accent)
+                Text(name.uppercase(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = labelColor)
                 Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -844,14 +711,32 @@ private fun GeneratorSwitch(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    accentColor: Color = NeonCyan,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 46.dp)
+                .clickable { onCheckedChange(!checked) },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Normal,
+            letterSpacing = 0.3.sp,
+            color =
+                if (checked) {
+                    accentColor
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                },
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        Spacer(Modifier.width(12.dp))
+        GlassSwitch(checked = checked, onCheckedChange = onCheckedChange, accentColor = accentColor)
     }
 }
 
@@ -1167,6 +1052,16 @@ private fun TagChip(
         )
     }
 }
+
+private fun fpsColor(fps: Int): Color =
+    when (fps) {
+        30 -> NeonRed
+        45 -> NeonAmber
+        60 -> NeonGreen
+        90 -> NeonBlue
+        120 -> NeonPurple
+        else -> NeonCyan
+    }
 
 private fun presetColor(preset: String): Color =
     when (preset) {

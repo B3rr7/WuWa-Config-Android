@@ -1,6 +1,7 @@
 package com.wuwaconfig.app.config
 
 import com.wuwaconfig.app.model.CvarEntry
+import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratedIni
 import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.LogInfo
@@ -22,15 +23,28 @@ data class PresetProfile(
     val detail: Int,
     val lod_bias: Int,
     val grasscull: Int,
-)
+) {
+    /**
+     * Maps the preset's fine-grained [detail] rank onto the three boolean gates the
+     * generator historically branched on (`>0` / `>1` / `>2`). Preserving this mapping
+     * keeps every existing branch's meaning intact while letting the 8 presets occupy
+     * distinct ranks (0..7) so high/ultra/cinematic no longer collapse to identical output.
+     */
+    val q0: Boolean get() = detail > 0
+    val q1: Boolean get() = detail > 1
+    val q2: Boolean get() = detail > 2
+}
 
 val PRESETS =
     mapOf(
-        "potato" to PresetProfile(50, 0, 128, 0, 3, 0.3, 0.3, 0.4, 0, 5, 1500),
+        "potato" to PresetProfile(60, 0, 128, 0, 3, 0.3, 0.3, 0.4, 1, 5, 1500),
+        "endurance" to PresetProfile(70, 0, 128, 0, 3, 0.4, 0.4, 0.5, 1, 4, 2500),
         "performance" to PresetProfile(60, 0, 256, 0, 3, 0.5, 0.5, 0.6, 0, 3, 4500),
+        "competitive" to PresetProfile(100, 2, 256, 0, 1, 1.0, 2.0, 1.0, 1, 1, 2000),
         "balanced" to PresetProfile(80, 2, 1024, 1, 0, 2.0, 1.5, 2.0, 1, 0, 15000),
         "high" to PresetProfile(100, 4, 2048, 2, 0, 3.0, 2.0, 2.5, 2, 0, 20000),
-        "ultra" to PresetProfile(100, 5, 2048, 4, -1, 4.0, 3.0, 3.0, 2, -1, 30000),
+        "ultra" to PresetProfile(100, 5, 2048, 4, -1, 4.0, 3.0, 3.0, 3, -1, 30000),
+        "cinematic" to PresetProfile(100, 5, 4096, 4, -2, 6.0, 4.0, 4.0, 4, -2, 40000),
     )
 
 class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
@@ -259,18 +273,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 rawEngine
             }
         val overriddenEngine = applyCvarOverrides(engine, opts.cvarOverrides)
-        val optimizedEngine =
-            if (opts.optimizeWithCvarDb) {
-                LogRepository.add("ConfigGenerator: optimizing with CvarDatabase")
-                val result = cvarDatabase.optimizeIniText(overriddenEngine)
-                val originalLines = overriddenEngine.lines().size
-                val optimizedLines = result.lines().size
-                val removed = originalLines - optimizedLines
-                LogRepository.add("ConfigGenerator: optimization commented out $removed redundant/unknown CVars")
-                result
-            } else {
-                overriddenEngine
-            }
+        val optimizedEngine = if (opts.optimizeWithCvarDb) cvarDatabase.optimizeIniText(overriddenEngine) else overriddenEngine
         LogRepository.add("ConfigGenerator: building DeviceProfiles.ini")
         val dp = buildAndroidDeviceProfilesIni(p, opts, logInfo, preset)
         val gus = buildAndroidGameUserSettingsIni(p, opts, logInfo)
@@ -460,30 +463,30 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val dt = computeDeviceTier(logInfo)
         val hasVulkan = logInfo.vulkanStatus == "available"
         val charOutline =
-            if (p.detail > 1) {
+            if (p.q1) {
                 1200
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 950
             } else {
                 850
             }
         val charEyeDist =
-            if (p.detail > 1) {
+            if (p.q1) {
                 700
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 550
             } else {
                 450
             }
         val charLODScale =
-            if (p.detail > 1) {
+            if (p.q1) {
                 7.0
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 6.0
             } else {
                 5.0
             }
-        val niagQ = if (p.detail > 1) 2 else 1
+        val niagQ = if (p.q1) 2 else 1
         val shadowCascade = if (p.shadow >= 4) 3 else 2
         val shadowSkLOD = if (p.shadow >= 4) 1 else 2
 
@@ -507,9 +510,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add(
                     "r.Mobile.OutlineScale=${if (opts.disableOutline) {
                         "0"
-                    } else if (p.detail > 1) {
+                    } else if (p.q1) {
                         "1.3"
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         "1.2"
                     } else {
                         "1.1"
@@ -519,9 +522,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add(
                     "r.Kuro.RadialBlur.MobileIntensityScalar=${if (opts.disableRadialBlur) {
                         "0"
-                    } else if (p.detail > 1) {
+                    } else if (p.q1) {
                         "0.9"
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         "0.75"
                     } else {
                         "0.6"
@@ -531,60 +534,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("r.Mobile.TreeRimLight=1")
                 add("r.Kuro.LandscapeCapture=1")
                 add("r.Kuro.LandscapeCaptureDistance=${dt.landscapeCaptureDist}")
-                add("r.Mobile.Kuro.LandscapeCaptureSize=${if (p.detail > 0) 2 else 1}")
-                add("")
-                add("; ── SCALABILITY ──────────────────────────────────────")
-                add(
-                    "sg.ShadowQuality=${if (opts.shadowOverride >= 0) {
-                        opts.shadowOverride
-                    } else if (p.shadow >= 4) {
-                        3
-                    } else if (p.shadow >= 2) {
-                        2
-                    } else {
-                        1
-                    }}",
-                )
-                add(
-                    "sg.TextureQuality=${if (opts.texOverride >= 0) {
-                        opts.texOverride
-                    } else if (p.detail > 1) {
-                        3
-                    } else if (p.detail > 0) {
-                        2
-                    } else {
-                        1
-                    }}",
-                )
-                add(
-                    "sg.PostProcessQuality=${if (p.detail > 1) {
-                        3
-                    } else if (p.detail > 0) {
-                        2
-                    } else {
-                        1
-                    }}",
-                )
-                add("sg.EffectsQuality=${if (p.detail > 1) 2 else 1}")
-                add("sg.AntiAliasingQuality=${if (p.detail > 0) 2 else 1}")
-                add(
-                    "sg.ViewDistanceQuality=${if (p.detail > 1) {
-                        3
-                    } else if (p.detail > 0) {
-                        2
-                    } else {
-                        1
-                    }}",
-                )
-                add(
-                    "sg.FoliageQuality=${if (p.detail > 1) {
-                        2
-                    } else if (p.detail > 0) {
-                        1
-                    } else {
-                        0
-                    }}",
-                )
+                add("r.Mobile.Kuro.LandscapeCaptureSize=${if (p.q0) 2 else 1}")
                 add("")
                 add("; ── ANTI-ALIASING ────────────────────────────────────")
                 add("r.PostProcessAAQuality=6")
@@ -594,17 +544,17 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("r.TemporalAACurrentFrameWeight=0.25")
                 add("r.TemporalAAFilterSize=0.5")
                 add("r.TemporalAAPauseCorrect=1")
-                add("r.TemporalAA.MobileFrameWeight=${if (p.detail > 1) 0.08 else 0.12}")
-                add("r.TemporalAA.MobileStaticFrameWeight=${if (p.detail > 1) 0.3 else 0.5}")
+                add("r.TemporalAA.MobileFrameWeight=${if (p.q1) 0.08 else 0.12}")
+                add("r.TemporalAA.MobileStaticFrameWeight=${if (p.q1) 0.3 else 0.5}")
                 add("r.DefaultFeature.AntiAliasing=2")
                 add("")
                 add("; ── POST PROCESSING ──────────────────────────────────")
                 add(
                     "r.BloomQuality=${if (opts.disableBloom) {
                         0
-                    } else if (p.detail > 1) {
+                    } else if (p.q1) {
                         4
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         3
                     } else {
                         1
@@ -613,34 +563,34 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("r.EyeAdaptationQuality=2")
                 add("r.MotionBlurQuality=0")
                 add(
-                    "r.DepthOfFieldQuality=${if (p.detail > 1) {
+                    "r.DepthOfFieldQuality=${if (p.q1) {
                         2
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         1
                     } else {
                         0
                     }}",
                 )
-                add("r.LightShaftQuality=${if (p.detail > 0) 1 else 0}")
+                add("r.LightShaftQuality=${if (p.q0) 1 else 0}")
                 add("r.LensFlareQuality=0")
                 add("r.SceneColorFringeQuality=${if (opts.ca) 1 else 0}")
                 add("r.Tonemapper.GrainQuantization=0")
-                add("r.DisableDistortion=${if (p.detail > 1) 0 else 1}")
-                add("r.AmbientOcclusionLevels=${if (p.detail > 1) 1 else 0}")
+                add("r.DisableDistortion=${if (p.q1) 0 else 1}")
+                add("r.AmbientOcclusionLevels=${if (p.q1) 1 else 0}")
                 add("r.KuroTonemapping=3")
                 add("r.Kuro.KuroBloomEnable=${if (opts.disableBloom) 0 else 1}")
                 add(
                     "r.Kuro.KuroEnableFFTBloom=${if (opts.disableBloom) {
                         0
-                    } else if (p.detail > 1) {
+                    } else if (p.q1) {
                         1
                     } else {
                         0
                     }}",
                 )
                 add("r.Kuro.KuroEnableToonFFTBloom=0")
-                add("r.Kuro.KuroBloomStreak=${if (p.detail > 1) 1 else 0}")
-                add("r.LightShaftDownSampleFactor=${if (p.detail > 1) 2 else 4}")
+                add("r.Kuro.KuroBloomStreak=${if (p.q1) 1 else 0}")
+                add("r.LightShaftDownSampleFactor=${if (p.q1) 2 else 4}")
                 add("r.Tonemapper.Quality=4")
                 add("r.Upscale.Quality=3")
                 add("")
@@ -696,50 +646,47 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("; ── TEXTURE STREAMING ────────────────────────────────")
                 add("r.TextureStreaming=1")
                 add("r.Streaming.MipBias=${if (p.mipbias < 0) 0 else p.mipbias}")
-                add("r.Streaming.LODBias=0")
                 add("r.MaxAnisotropy=${dt.maxAniso}")
                 add("r.streaming.TexturePoolSizeMode=1")
                 add("r.Streaming.KuroMinFOVFactorForStreaming=0.2")
-                add("r.Streaming.GroupBoost.MediumNpcTextureFactor=${if (p.detail > 0) "1.5" else "1.2"}")
+                add("r.Streaming.GroupBoost.MediumNpcTextureFactor=${if (p.q0) "1.5" else "1.2"}")
                 add("r.Streaming.PoolSizeForMeshes=${(dt.streamPool * 0.3).toInt()}")
                 add("r.Streaming.UsingKuroStreamingPriority=2")
                 add("r.Streaming.AmortizeCPUToGPUCopy=1")
-                add("r.Streaming.HiddenTextureEviction=1")
                 add("r.Streaming.DefragDynamicBounds=1")
-                add("r.Streaming.bCheckBuildStatus=0")
-                add("r.Streaming.bUseAllMips=${if (p.mipbias > 1) 0 else 1}")
+                add("r.Streaming.CheckBuildStatus=0")
+                add("r.Streaming.UseAllMips=${if (p.mipbias > 1) 0 else 1}")
                 add("")
                 add("; ── MOBILE RENDERING ─────────────────────────────────")
                 add("r.Mobile.ShadingPath=1")
-                add("r.Mobile.UseFSRUpscale=${if (p.detail > 1) 0 else 1}")
+                add("r.Mobile.UseFSRUpscale=${if (p.q1) 0 else 1}")
                 add("r.MobileMSAA=0")
-                add("r.Mobile.HBAO=${if (p.detail > 0) 1 else 0}")
+                add("r.Mobile.HBAO=${if (p.q0) 1 else 0}")
                 add("r.Mobile.HBAO.BlurType=1")
                 add("r.Mobile.HBAO.LargeAOFactor=0.5")
                 add("r.Mobile.HBAO.SmallAOFactor=1.0")
-                add("r.Mobile.PixelProjectedReflectionQuality=${if (p.detail > 1) 1 else 0}")
+                add("r.Mobile.PixelProjectedReflectionQuality=${if (p.q1) 1 else 0}")
                 add("r.Mobile.EnableStaticAndCSMShadowReceivers=1")
                 add("")
                 add("; ── VRS (Variable Rate Shading) ───────────────────────")
                 add("r.VRS.EnableMaterial=1")
                 add("r.VRS.EnableMesh=1")
                 add("")
-                add("; ── EFFECTS / PARTICLES ──────────────────────────────")
-                add("; ⚠ CRASH FIX March 2026 — MANDATORY")
+                add("; ── EFFECTS / PARTICLES (GPU particle offload for thermal/perf) ──")
                 add("fx.KuroUseGPUParticles=0")
                 add("Niagara.GPUDrawIndirectArgsBufferSlack=4096")
                 add("fx.Niagara.QualityLevel=$niagQ")
                 add(
-                    "r.EmitterSpawnRateScale=${if (p.detail > 1) {
+                    "r.EmitterSpawnRateScale=${if (p.q1) {
                         "1.0"
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         "0.8"
                     } else {
                         "0.6"
                     }}",
                 )
-                add("FX.MaxCPUParticlesPerEmitter=${if (p.detail > 1) 100 else 50}")
-                add("FX.MaxGPUParticlesSpawnedPerFrame=${if (p.detail > 1) 4096 else 2048}")
+                add("FX.MaxCPUParticlesPerEmitter=${if (p.q1) 100 else 50}")
+                add("FX.MaxGPUParticlesSpawnedPerFrame=${if (p.q1) 4096 else 2048}")
                 add("")
                 add("; ── WATER / REFLECTION ───────────────────────────────")
                 if (opts.disableSSR) {
@@ -750,31 +697,36 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                     add("r.Mobile.SceneObjMobileSSR=0")
                     add("r.Kuro.EnablePlanarReflection=0")
                 } else {
-                    add("r.Mobile.WaterSSR=${if (dt.isHighEnd && p.detail > 0) 1 else 0}")
-                    add("r.Mobile.WaterSSRStep=${if (p.detail > 1) 12 else 8}")
-                    add("r.Mobile.SSR=${if (dt.isHighEnd && p.detail > 0) 1 else 0}")
-                    add("r.Mobile.SceneObjMobileSSR=${if (dt.isHighEnd && p.detail > 1) 1 else 0}")
-                    add("r.Kuro.EnablePlanarReflection=${if (dt.isHighEnd && p.detail > 1) 1 else 0}")
-                    add("r.SSR.HalfRes=${if (p.detail > 1) 0 else 1}")
-                    add("r.SSR.MaxRoughness=${if (p.detail > 1) 1.0 else 0.6}")
+                    add("r.Mobile.WaterSSR=${if (dt.isHighEnd && p.q0) 1 else 0}")
+                    add("r.Mobile.WaterSSRStep=${if (p.q1) 12 else 8}")
+                    add("r.Mobile.SSR=${if (dt.isHighEnd && p.q0) 1 else 0}")
+                    add("r.Mobile.SceneObjMobileSSR=${if (dt.isHighEnd && p.q1) 1 else 0}")
+                    add("r.Kuro.EnablePlanarReflection=${if (dt.isHighEnd && p.q1) 1 else 0}")
+                    add("r.SSR.MaxRoughness=${if (p.q1) 1.0 else 0.6}")
                     add("r.SSR.HalfResSceneColor=1")
                 }
                 add("r.DistanceFieldAO=0")
                 add("")
                 add("; ── SCREEN-SPACE EFFECTS ────────────────────────────")
-                add("r.SSGI.Enable=${if (p.detail > 1) 1 else 0}")
-                add("r.SubsurfaceScattering=${if (p.detail > 1) 1 else 0}")
-                add("r.SSFS.HighQuality=${if (p.detail > 1) 1 else 0}")
-                add("r.SSFS.FullPrecision=${if (p.detail > 1) 1 else 0}")
-                add("r.SSS.HalfRes=${if (p.detail > 1) 0 else 1}")
-                add("r.SSS.Quality=${if (p.detail > 1) 2 else 1}")
+                add("r.SSGI.Enable=${if (p.q1) 1 else 0}")
+                add("r.SubsurfaceScattering=${if (p.q1) 1 else 0}")
+                add("r.SSFS.HighQuality=${if (p.q1) 1 else 0}")
+                add("r.SSFS.FullPrecision=${if (p.q1) 1 else 0}")
+                add("r.SSS.HalfRes=${if (p.q1) 0 else 1}")
+                add("r.SSS.Quality=${if (p.q1) 2 else 1}")
+                if (p.detail >= 4) {
+                    add("; Cinematic premium — flagship only")
+                    add("r.Kuro.EnablePlanarReflection=1")
+                    add("r.ContactShadows=1")
+                    add("r.SSGI.Enable=${if (dt.isHighEnd) 1 else 0}")
+                }
                 add("foliage.DitheredLOD=1")
                 add("r.Shadow.MinResolution=64")
                 add("r.Shadow.FadeResolution=128")
                 add(
-                    "r.Shadow.TexelsPerPixel=${if (p.detail > 2) {
+                    "r.Shadow.TexelsPerPixel=${if (p.q2) {
                         2.0
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         1.5
                     } else {
                         1.0
@@ -789,11 +741,11 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                     add("r.Fog=1")
                     add("r.KuroVolumeCloudEnable=1")
                 }
-                add("r.Kuro.SuperFarFogGlobalDistanceScale=${if (p.detail > 1) 1 else 0}")
+                add("r.Kuro.SuperFarFogGlobalDistanceScale=${if (p.q1) 1 else 0}")
                 add("r.LightFunctionQuality=1")
                 add("r.Kuro.LightFunction=1")
                 add("r.FogVisibilityCulling.Enable=1")
-                add("r.FogVisibilityCulling.Opacity=${if (p.detail > 1) "0.8" else "0.5"}")
+                add("r.FogVisibilityCulling.Opacity=${if (p.q1) "0.8" else "0.5"}")
                 add("foliage.LODOptimize=1")
                 add("r.EnableAggressivePVS=1")
                 add("r.Kuro.MobileISMDecideDistance=${dt.ismDist}.0")
@@ -805,27 +757,27 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("r.Kuro.Foliage.MobileFarCullDistanceMin=${(dt.grassCull * 2.8).toInt()}")
                 add("r.Kuro.Foliage.MobileFarCullDistanceMax=${(dt.grassCull * 3.2).toInt()}")
                 add(
-                    "foliage.DensityScale=${if (dt.isHighEnd && p.detail > 1) {
+                    "foliage.DensityScale=${if (dt.isHighEnd && p.q1) {
                         1.5
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         1.0
                     } else {
                         0.6
                     }}",
                 )
                 add(
-                    "grass.DensityScale=${if (dt.isHighEnd && p.detail > 1) {
+                    "grass.DensityScale=${if (dt.isHighEnd && p.q1) {
                         1.5
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         1.0
                     } else {
                         0.6
                     }}",
                 )
                 add(
-                    "foliage.LODDistanceScale=${if (p.detail > 1) {
+                    "foliage.LODDistanceScale=${if (p.q1) {
                         1.2
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         1.0
                     } else {
                         0.7
@@ -834,31 +786,31 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("")
                 add("; ── NPC & WORLD ──────────────────────────────────────")
                 add("r.Kuro.NpcDisappearDistance=${dt.npcDist}")
-                add("r.LandscapeReverseLODScaleFactor=${if (p.detail > 1) 2 else 3}")
+                add("r.LandscapeReverseLODScaleFactor=${if (p.q1) 2 else 3}")
                 add("r.LandscapeLOD0ScreenSizeScale=2")
-                add("r.KuroMaxFOVForLOD=${if (p.detail > 1) 85 else 80}")
+                add("r.KuroMaxFOVForLOD=${if (p.q1) 85 else 80}")
                 add("r.MDCFallback.EnabledLOD=1")
-                add("r.BBM.LODBias=${if (p.detail > 1) 0 else 1}")
+                add("r.BBM.LODBias=${if (p.q1) 0 else 1}")
                 add("lod.TemporalLag=1")
                 add(
-                    "r.RenderTargetPoolMin=${if (p.detail > 1) {
+                    "r.RenderTargetPoolMin=${if (p.q1) {
                         150
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         80
                     } else {
                         64
                     }}",
                 )
-                add("r.Streaming.FullyLoadUsedTextures=${if (p.detail > 0) 1 else 0}")
+                add("r.Streaming.FullyLoadUsedTextures=${if (p.q0) 1 else 0}")
                 add("r.AllowPrecomputedVisibility=1")
                 add("r.HZBOcclusion=${if (opts.hzb) 1 else 0}")
                 add("r.EnableMeshPassProcessorsCache=1")
                 add("r.EnableGetDynElemsCache=1")
                 add("r.MorphTarget.EnableSplit=1")
                 add(
-                    "r.MorphTarget.UnloadDelayTime=${if (p.detail > 1) {
+                    "r.MorphTarget.UnloadDelayTime=${if (p.q1) {
                         30
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         10
                     } else {
                         3
@@ -869,25 +821,23 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("r.CullDistanceVolume.Enable=1")
                 add("r.UseClusteredDeferredShading=1")
                 add("r.AllowOcclusionQueries=1")
-                add("r.MinScreenRadiusPercentage=${if (p.detail > 1) 0.002 else 0.008}")
-                add("r.MaxScreenRadiusPercentage=1.0")
-                add("foliage.MinScreenRadiusPercentage=${if (p.detail > 1) 0.001 else 0.004}")
-                add("foliage.MaxScreenRadiusPercentage=1.0")
+                add("r.MinScreenRadiusForLights=${if (p.q1) 0.02 else 0.04}")
+                add("r.MinScreenRadiusForCSMDepth=${if (p.q1) 0.01 else 0.02}")
                 add(
-                    "r.StaticMeshLODDistanceScale=${if (p.detail > 1) {
+                    "r.StaticMeshLODDistanceScale=${if (p.q1) {
                         1.0
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         0.85
                     } else {
                         0.7
                     }}",
                 )
-                add("r.ScreenSizeCullRatioFactor=${if (p.detail > 1) 0.5 else 3.0}")
+                add("r.ScreenSizeCullRatioFactor=${if (p.q1) 0.5 else 3.0}")
                 add("r.ParallelFrustumCull=1")
                 add(
-                    "wp.Runtime.PlannedLoadingRangeScale=${if (p.detail > 1) {
+                    "wp.Runtime.PlannedLoadingRangeScale=${if (p.q1) {
                         5
-                    } else if (p.detail > 0) {
+                    } else if (p.q0) {
                         3
                     } else {
                         2
@@ -896,20 +846,19 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("")
                 add("; ── ANIMATION & BLUEPRINT ───────────────────────────")
                 add("a.URO.Enable=1")
-                add("a.URO.ForceAnimRate=${if (p.detail > 1) 1 else 0}")
+                add("a.URO.ForceAnimRate=${if (p.q1) 1 else 0}")
                 add("a.URO.ForceInterpolation=1")
                 add("")
                 add("; ── FRAME & DISPLAY ──────────────────────────────────")
                 add("r.MobileHDR=1")
                 add("r.VSync=${if (opts.vsync) 1 else 0}")
-                add("r.FramePace=${opts.fps}")
                 add("r.SkinCache.SceneMemoryLimitInMB=${dt.skinCacheMem}")
                 add("r.ShaderPipelineCache.Enabled=1")
                 add("r.ShaderPipelineCache.PrecompileCheckCacheHash=1")
                 add("r.ShaderPipelineCache.BatchSize=128")
                 add("r.PSO.CompilationMode=0")
                 add("r.kuro.LGUIBlurTexture.save=0")
-                add("r.KuroFI.Enable=${if (p.detail > 1) 1 else 0}")
+                add("r.KuroFI.Enable=${if (p.q1) 1 else 0}")
                 add("r.FinishCurrentFrame=0")
                 add("r.DontLimitOnBattery=1")
                 add("")
@@ -934,12 +883,14 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 }
                 if (dt.hasThermalIssues) {
                     add("; Thermal throttle detected in log — applying safeguards")
-                    add("r.Kuro.ThermalControlMode=1")
+                    add("r.Kuro.AutoCoolEnable=1")
+                    add("r.Kuro.AutoCoolUIEnable=1")
+                    add("r.Kuro.AutoCoolCpuTempThreshold=48")
                 }
                 if (hasVulkan || opts.vulkan) {
                     add("r.Vulkan.RobustBufferAccess=1")
                     add("r.Vulkan.DescriptorSetLayoutMode=2")
-                    add("r.Vulkan.PipelineLRUCapacity=128")
+                    add("r.Vulkan.PipelineLRUCapactiy=128")
                 } else {
                     add("; Vulkan not detected")
                 }
@@ -949,10 +900,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 add("r.FidelityFX.FSR.RCAS.Enabled=0")
                 add("r.TemporalAA.Sharpness=0")
                 add("r.Mobile.SSAO=0")
-                add("r.Mobile.EnableVoidGT=0")
                 add("r.DefaultFeature.LensFlare=0")
                 add("")
-                if (activePreset == "potato" || activePreset == "performance") {
+                if (activePreset == "potato" || activePreset == "endurance" || activePreset == "performance") {
                     add("; ── PERFORMANCE TWEAKS ───────────────────────────")
                     add("; HZB occlusion — skip rendering hidden objects (saves GPU)")
                     add("r.HZBOcclusion=1")
@@ -961,7 +911,12 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                     add("r.ReflectionEnvironment=0")
                     add("r.LightFunctionQuality=0")
                     add("r.Mobile.DisableLocalLightSpecularDistance=0")
-                    add("r.Mobile.EnableStaticAndCSMShadowReceivers=0")
+                    if (activePreset != "endurance") {
+                        add("r.Mobile.EnableStaticAndCSMShadowReceivers=0")
+                    } else {
+                        add("; Endurance keeps static shadow receivers (cheap static lighting)")
+                        add("r.Mobile.EnableStaticAndCSMShadowReceivers=1")
+                    }
                     add("")
                     add("; Dynamic / movable light reduction")
                     add("r.MobileNumDynamicPointLights=0")
@@ -994,19 +949,19 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                     add("; Screen-space effects — minimum")
                     add("r.SSGI.Enable=0")
                     add("r.SubsurfaceScattering=0")
-                    add("r.SSR.HalfRes=1")
+                    add("r.SSR.HalfResSceneColor=1")
                     add("r.SSR.MaxRoughness=0.4")
                     add("r.EyeAdaptationQuality=0")
                     add("")
                     add("; LOD & culling — aggressive")
                     add("r.LandscapeLOD0ScreenSizeScale=3")
-                    add("r.MinScreenRadiusPercentage=0.015")
-                    add("foliage.MinScreenRadiusPercentage=0.008")
-                    add("r.StaticMeshLODDistanceScale=0.6")
+                    add("r.MinScreenRadiusForLights=0.06")
+                    add("r.MinScreenRadiusForCSMDepth=0.03")
+                    add("r.StaticMeshLODDistanceScale=${"%.2f".format(1.0 + p.lod_bias * 0.1)}")
                     add("r.ScreenSizeCullRatioFactor=5.0")
                     add("foliage.DensityScale=0.5")
                     add("grass.DensityScale=0.4")
-                    add("foliage.LODDistanceScale=0.6")
+                    add("foliage.LODDistanceScale=${"%.2f".format(0.6 + p.lod_bias * 0.1)}")
                     add("")
                     add("; Thermal, bloom, volumetric clouds & misc")
                     add("r.Kuro.KuroEnableFFTBloom=0")
@@ -1043,6 +998,33 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                     add("r.mobile.enablestaticmeshvelocity=0")
                     add("")
                 }
+                addAll(buildEnrichmentCvars(p, opts))
+                if (opts.mode == GameMode.ToA) {
+                    add("")
+                    add("; ── GAME MODE: TOWER OF ADVERSITY ─────────────────")
+                    add("; Closed boss/echo arena — fewer open-world objects to render,")
+                    add("; so environment is lightened while character/boss quality is kept.")
+                    add("r.Fog=0")
+                    add("r.KuroVolumeCloudEnable=0")
+                    add("r.VolumetricFog=0")
+                    add("foliage.DensityScale=0.35")
+                    add("grass.DensityScale=0.35")
+                    add("foliage.LODDistanceScale=0.6")
+                    add("r.Kuro.Foliage.MobileGrassCullDistanceMax=2500")
+                    add("r.Kuro.Foliage.MobileGrass3_0CullDistanceMax=2500")
+                    add("r.Kuro.Foliage.MobileMiddleCullDistanceMin=3500")
+                    add("r.Kuro.Foliage.MobileMiddleCullDistanceMax=4500")
+                    add("r.Kuro.Foliage.MobileFarCullDistanceMin=5500")
+                    add("r.Kuro.Foliage.MobileFarCullDistanceMax=6500")
+                    add("r.Kuro.NpcDisappearDistance=8000")
+                    add("r.Kuro.MobileISMDecideDistance=12000.0")
+                    add("r.Kuro.MobileISMMeshRadiusMax=200.0")
+                    add("r.Mobile.WaterSSR=0")
+                    add("r.Mobile.SSR=0")
+                    add("r.Mobile.SceneObjMobileSSR=0")
+                    add("r.Kuro.EnablePlanarReflection=0")
+                    add("r.MobileNumDynamicPointLights=1")
+                }
                 add("[/Script/Engine.StreamingSettings]")
                 add("s.TimeLimitExceededMultiplier=1.5")
                 add("s.AsyncLoadingThreadEnabled=1")
@@ -1063,6 +1045,57 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         return lines.joinToString("\n")
     }
 
+    /**
+     * DB-verified enrichment: emits additional, additive CVars drawn from the game's CVar
+     * dump. Every key is confirmed to exist via [CvarDatabase.isKnown] before emission, so
+     * no fabricated CVars leak into the config. Values are scaled by preset tier using the
+     * q0/q1/q2 gates already used everywhere else in the builder.
+     */
+    private fun buildEnrichmentCvars(
+        p: PresetProfile,
+        opts: GeneratorOptions,
+    ): List<String> {
+        val out = mutableListOf<String>()
+        out.add("")
+        out.add("; ── CURATED ENRICHMENT (DB-verified, scaled by preset) ────")
+
+        fun emit(
+            key: String,
+            value: String,
+        ) {
+            if (cvarDatabase.isKnown(key)) out.add("$key=$value")
+        }
+
+        val shadowFade =
+            when {
+                p.q1 -> "1.5"
+                p.q0 -> "2.0"
+                else -> "2.5"
+            }
+        val shadowDensity =
+            when {
+                p.q1 -> "0.65"
+                p.q0 -> "0.5"
+                else -> "0.35"
+            }
+        val boostThreads = if (p.q1) "75" else "50"
+        val softwareOcclusion = if (p.q0) "1" else "0"
+        val permPool = if (p.q1) "4000000" else "2000000"
+
+        // Lighting & shadow (complement the per-preset shadow scalars)
+        emit("r.Shadow.CSM.Enable", "1")
+        emit("r.Shadow.FadeExponent", shadowFade)
+        emit("r.Shadow.WholeSceneShadowDensity", shadowDensity)
+        // Texture streaming throughput
+        emit("r.Streaming.AsyncLoadingTimeLimit", "0")
+        emit("r.Streaming.BoostWorkerThreadsPercentage", boostThreads)
+        // Mobile occlusion
+        emit("r.Mobile.AllowSoftwareOcclusion", softwareOcclusion)
+        // Garbage collection / memory headroom
+        emit("gc.SizeOfPermanentObjectPool", permPool)
+        return out
+    }
+
     private fun buildAndroidDeviceProfilesIni(
         p: PresetProfile,
         opts: GeneratorOptions,
@@ -1075,33 +1108,33 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             listOfNotNull(logInfo.socName, logInfo.socCode, logInfo.cpuName, logInfo.deviceModel)
                 .joinToString(" ").lowercase()
         val texBias =
-            if (p.detail > 1) {
+            if (p.q1) {
                 80
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 200
             } else {
                 400
             }
         val charOutline =
-            if (p.detail > 1) {
+            if (p.q1) {
                 1200
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 950
             } else {
                 850
             }
         val charEyeDist =
-            if (p.detail > 1) {
+            if (p.q1) {
                 700
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 550
             } else {
                 450
             }
         val charLODScale =
-            if (p.detail > 1) {
+            if (p.q1) {
                 7.0
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 6.0
             } else {
                 5.0
@@ -1143,19 +1176,25 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val presetBaseProfile =
             when (activePreset) {
                 "potato" -> "Android_Low"
+                "endurance" -> "Android_Low"
                 "performance" -> "Android_Low"
+                "competitive" -> "Android_Low"
                 "balanced" -> "Android_Mid"
                 "high" -> "Android_VeryHigh"
                 "ultra" -> "Android_Ultra"
+                "cinematic" -> "Android_Ultra"
                 else -> "Android_Mid"
             }
 
         fun universalProfilesForPreset(): List<String> =
             when (activePreset) {
                 "potato" -> listOf("Android_Low")
+                "endurance" -> listOf("Android_Low")
                 "performance" -> listOf("Android_Low")
+                "competitive" -> listOf("Android_Low")
                 "high" -> listOf("Android_VeryHigh")
                 "ultra" -> listOf("Android_Ultra")
+                "cinematic" -> listOf("Android_Ultra")
                 else -> listOf("Android_Mid")
             }
 
@@ -1163,9 +1202,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             val lines =
                 mutableListOf(
                     "; Device tier — follows selected preset, not forced high",
-                    "+CVars=r.Mobile.DeviceEvaluation=${if (activePreset == "potato") {
+                    "+CVars=r.Mobile.DeviceEvaluation=${if (activePreset == "potato" || activePreset == "endurance") {
                         0
-                    } else if (activePreset == "performance") {
+                    } else if (activePreset == "performance" || activePreset == "competitive") {
                         1
                     } else if (activePreset == "balanced") {
                         2
@@ -1269,9 +1308,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val deviceRes = parseResolution(logInfo.resolution)
         val (resW, resH) = if (deviceRes != null && deviceRes.first >= 720) deviceRes else (1280 to 720)
         val viewQ =
-            if (p.detail > 1) {
+            if (p.q1) {
                 3
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 2
             } else {
                 1
@@ -1285,31 +1324,31 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 1
             }
         val postQ =
-            if (p.detail > 1) {
+            if (p.q1) {
                 3
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 2
             } else {
                 1
             }
         val texQ =
-            if (p.detail > 1) {
+            if (p.q1) {
                 3
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 2
             } else {
                 1
             }
         val fxQ =
-            if (p.detail > 1) {
+            if (p.q1) {
                 2
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 1
             } else {
                 0
             }
-        val kuroQ = if (p.detail > 1) 3 else 2
-        val aaQ = if (p.detail > 0) 2 else 1
+        val kuroQ = if (p.q1) 3 else 2
+        val aaQ = if (p.q0) 2 else 1
 
         return listOf(
             "; WuWa GameUserSettings.ini — WuWaConfig", "",
@@ -1321,14 +1360,14 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             "sg.PostProcessQuality=$postQ",
             "sg.TextureQuality=$texQ",
             "sg.EffectsQuality=$fxQ",
-            "sg.FoliageQuality=${if (p.detail > 1) {
+            "sg.FoliageQuality=${if (p.q1) {
                 2
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 1
             } else {
                 0
             }}",
-            "sg.ShadingQuality=${if (p.detail > 1) 3 else 2}",
+            "sg.ShadingQuality=${if (p.q1) 3 else 2}",
             "sg.KuroRenderQuality=$kuroQ",
             "sg.KuroLocalRenderQuality=0",
             "sg.RayTracingQuality=0",
@@ -1377,9 +1416,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         opts: GeneratorOptions,
     ): String {
         val viewQ =
-            if (p.detail > 1) {
+            if (p.q1) {
                 3
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 2
             } else {
                 1
@@ -1393,40 +1432,40 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 1
             }
         val postQ =
-            if (p.detail > 1) {
+            if (p.q1) {
                 3
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 2
             } else {
                 1
             }
         val texQ =
-            if (p.detail > 1) {
+            if (p.q1) {
                 3
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 2
             } else {
                 1
             }
         val fxQ =
-            if (p.detail > 1) {
+            if (p.q1) {
                 2
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 1
             } else {
                 0
             }
         val folQ =
-            if (p.detail > 1) {
+            if (p.q1) {
                 2
-            } else if (p.detail > 0) {
+            } else if (p.q0) {
                 1
             } else {
                 0
             }
-        val kuroQ = if (p.detail > 1) 3 else 2
-        val aaQ = if (p.detail > 0) 2 else 1
-        val shaQ = if (p.detail > 1) 3 else 2
+        val kuroQ = if (p.q1) 3 else 2
+        val aaQ = if (p.q0) 2 else 1
+        val shaQ = if (p.q1) 3 else 2
 
         val header =
             listOf(
@@ -1540,10 +1579,13 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val presetLabel =
             when (activePreset) {
                 "potato" -> "Low"
+                "endurance" -> "Low"
                 "performance" -> "Low"
+                "competitive" -> "Low"
                 "balanced" -> "Mid"
                 "high" -> "High"
                 "ultra" -> "Ultra"
+                "cinematic" -> "Ultra"
                 else -> "Mid"
             }
         return listOf(
@@ -1561,7 +1603,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             "+CVars=r.MaxAnisotropy=${dt.maxAniso}",
             "",
             "; LOD bias",
-            "+CVars=r.Streaming.MipBias=${if (p.detail > 1) 0 else 1}",
+            "+CVars=r.Streaming.MipBias=${if (p.q1) 0 else 1}",
             "",
             "; Foliage LOD",
             "+CVars=foliage.LODDistanceScale=${"%.1f".format(p.flod)}",

@@ -22,3 +22,6 @@ val NeonRed = Color(0xFFFF1744)
 val NeonAmber = Color(0xFFFFAB00)
 val NeonBlue = Color(0xFF448AFF)
 val NeonGold = Color(0xFFFFD700)
+
+val GlassDialogBg = Color(0xCC12122A)
+val GlassDialogBorder = Color(0x28FFFFFF)

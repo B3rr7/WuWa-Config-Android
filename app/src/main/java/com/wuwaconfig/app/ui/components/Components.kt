@@ -1,7 +1,14 @@
 package com.wuwaconfig.app.ui.components
 
+import android.app.Activity
+import android.graphics.BlurMaskFilter
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -11,35 +18,57 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -68,10 +97,20 @@ fun GlassCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
-    val cardStart = if (isLight) MaterialTheme.colorScheme.surface else accentColor.copy(alpha = 0.06f)
-    val cardEnd = if (isLight) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.02f)
-    val borderColor = if (isLight) accentColor.copy(alpha = 0.35f) else accentColor.copy(alpha = 0.15f)
-    val glowColor = accentColor.copy(alpha = if (isLight) 0.12f else 0.06f)
+
+    if (isLight) {
+        NeumorphicCard(
+            modifier = modifier,
+            accentColor = accentColor,
+            shape = shape,
+            content = content,
+        )
+        return
+    }
+
+    val cardStart = accentColor.copy(alpha = 0.06f)
+    val cardEnd = Color.White.copy(alpha = 0.02f)
+    val borderColor = accentColor.copy(alpha = 0.15f)
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -81,12 +120,19 @@ fun GlassCard(
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
-        elevation = CardDefaults.cardElevation(if (isLight) 3.dp else 0.dp),
+        elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .graphicsLayer {
+                        if (glowWidth > 0f) {
+                            shadowElevation = 6f * glowWidth
+                            this.shape = shape
+                            clip = true
+                        }
+                    }
                     .background(
                         brush =
                             Brush.horizontalGradient(
@@ -94,25 +140,8 @@ fun GlassCard(
                             ),
                         shape = shape,
                     )
-                    .border(glowWidth.dp, borderColor, shape)
-                    .then(
-                        if (glowWidth > 0f) {
-                            Modifier.graphicsLayer {
-                                shadowElevation = 4f * glowWidth
-                                shape?.let { clip = true }
-                            }
-                        } else {
-                            Modifier
-                        },
-                    ),
+                    .border(glowWidth.dp, borderColor, shape),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .matchParentSize()
-                        .blur(blurRadius.dp)
-                        .background(Color.Transparent, shape),
-            )
             Box(
                 modifier =
                     Modifier
@@ -131,6 +160,354 @@ fun GlassCard(
                 content()
             }
         }
+    }
+}
+
+private val GlassDialogSolid = Color(0xFF1B1B30)
+val NeuBase = Color(0xFFE8ECF3)
+private val NeuDarkShadow = Color(0xFFBAC4D6)
+private val NeuLightShadow = Color(0xFFFFFFFF)
+private val NeuCorner = 22.dp
+
+fun Modifier.neumorphic(
+    cornerRadius: Dp = NeuCorner,
+    elevation: Dp = 7.dp,
+    base: Color = NeuBase,
+    lightShadow: Color = NeuLightShadow,
+    darkShadow: Color = NeuDarkShadow,
+): Modifier =
+    this.drawBehind {
+        val cr = cornerRadius.toPx()
+        val off = elevation.toPx()
+        val blur = elevation.toPx() * 1.6f
+        drawIntoCanvas { canvas ->
+            val paint = androidx.compose.ui.graphics.Paint()
+            val frame = paint.asFrameworkPaint()
+            frame.isAntiAlias = true
+            frame.maskFilter = BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL)
+            frame.color = darkShadow.toArgb()
+            canvas.nativeCanvas.drawRoundRect(off, off, size.width + off, size.height + off, cr, cr, frame)
+            frame.color = lightShadow.toArgb()
+            canvas.nativeCanvas.drawRoundRect(-off, -off, size.width - off, size.height - off, cr, cr, frame)
+        }
+        drawRoundRect(
+            color = base,
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr, cr),
+        )
+    }
+
+@Composable
+private fun NeumorphicCard(
+    modifier: Modifier = Modifier,
+    accentColor: Color,
+    shape: Shape,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val corner = 22.dp
+    val roundShape = RoundedCornerShape(corner)
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(10.dp)
+                .neumorphic(cornerRadius = corner)
+                .clip(roundShape),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .background(
+                        brush =
+                            Brush.linearGradient(
+                                colors = listOf(accentColor.copy(alpha = 0.07f), Color.Transparent),
+                            ),
+                    ),
+        )
+        Column(modifier = Modifier.padding(16.dp)) {
+            content()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GlassTopBar(
+    title: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    accentColor: Color = NeonCyan,
+    navigationIcon: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
+
+    val bar: @Composable () -> Unit = {
+        TopAppBar(
+            title = title,
+            navigationIcon = navigationIcon,
+            actions = actions,
+            colors =
+                TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
+                    titleContentColor = accentColor,
+                    navigationIconContentColor = accentColor,
+                    actionIconContentColor = accentColor,
+                ),
+        )
+    }
+
+    if (isLight) {
+        Box(
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .neumorphic(cornerRadius = 0.dp, elevation = 5.dp),
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        .background(
+                            brush =
+                                Brush.verticalGradient(
+                                    colors = listOf(accentColor.copy(alpha = 0.10f), Color.Transparent),
+                                ),
+                        ),
+            )
+            bar()
+        }
+        return
+    }
+
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(
+                    brush =
+                        Brush.verticalGradient(
+                            colors =
+                                listOf(
+                                    accentColor.copy(alpha = 0.10f),
+                                    Color.White.copy(alpha = 0.02f),
+                                    Color.Transparent,
+                                ),
+                        ),
+                ),
+    ) {
+        bar()
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        brush =
+                            Brush.horizontalGradient(
+                                colors =
+                                    listOf(
+                                        Color.Transparent,
+                                        accentColor.copy(alpha = 0.5f),
+                                        Color.Transparent,
+                                    ),
+                            ),
+                    ),
+        )
+    }
+}
+
+private val TerminalBg = Color(0xFF0C0E14)
+private val TerminalBorder = Color(0xFF1E2530)
+
+@Composable
+fun TerminalLogCard(
+    modifier: Modifier = Modifier,
+    title: String = "recent.log",
+    accentColor: Color = NeonGreen,
+    maxLines: Int = 5,
+    onClick: (() -> Unit)? = null,
+    trailing: @Composable (RowScope.() -> Unit)? = null,
+) {
+    val logs = LogRepository.entries
+    val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
+    val shape = RoundedCornerShape(10.dp)
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .then(if (isLight) Modifier.padding(horizontal = 10.dp) else Modifier)
+                .clip(shape)
+                .background(TerminalBg)
+                .border(1.dp, TerminalBorder, shape)
+                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(Color.White.copy(alpha = 0.03f))
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(7.dp).clip(RoundedCornerShape(4.dp)).background(NeonRed.copy(alpha = 0.85f)))
+            Spacer(Modifier.width(5.dp))
+            Box(Modifier.size(7.dp).clip(RoundedCornerShape(4.dp)).background(NeonAmber.copy(alpha = 0.85f)))
+            Spacer(Modifier.width(5.dp))
+            Box(Modifier.size(7.dp).clip(RoundedCornerShape(4.dp)).background(NeonGreen.copy(alpha = 0.85f)))
+            Spacer(Modifier.width(10.dp))
+            Text(
+                title,
+                fontSize = 10.sp,
+                lineHeight = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                color = Color.White.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.weight(1f))
+            trailing?.invoke(this)
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 12.dp),
+        ) {
+            if (logs.isEmpty()) {
+                Text(
+                    "\u276F no logs yet.",
+                    fontSize = 10.sp,
+                    lineHeight = 18.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = Color.White.copy(alpha = 0.4f),
+                )
+            } else {
+                logs.takeLast(maxLines).forEach { log ->
+                    val c =
+                        when (log.level) {
+                            LogLevel.SUCCESS -> NeonGreen
+                            LogLevel.ERROR -> NeonRed
+                            LogLevel.WARNING -> NeonAmber
+                            LogLevel.INFO -> Color(0xFFB6C2D9)
+                        }
+                    Row {
+                        Text(
+                            "\u276F ",
+                            fontSize = 10.sp,
+                            lineHeight = 18.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = accentColor.copy(alpha = 0.7f),
+                        )
+                        Text(
+                            "[${log.timestamp}] ${log.message}",
+                            fontSize = 10.sp,
+                            lineHeight = 18.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = c,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Themed toggle used throughout the Config Generator.
+ * Dark theme -> frosted glass pill; Light theme -> inset/outset neumorphic pill.
+ */
+@Composable
+fun GlassSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    accentColor: Color = NeonCyan,
+    enabled: Boolean = true,
+) {
+    val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
+
+    val trackWidth = 54.dp
+    val trackHeight = 30.dp
+    val thumbSize = 24.dp
+    val gap = (trackHeight - thumbSize) / 2
+
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) trackWidth - thumbSize - gap else gap,
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        label = "thumbOffset",
+    )
+    val trackShape = RoundedCornerShape(trackHeight / 2)
+
+    if (isLight) {
+        // Neumorphic: soft inset groove track + clearly raised thumb.
+        val grooveTop = if (checked) accentColor.copy(alpha = 0.30f) else NeuDarkShadow.copy(alpha = 0.55f)
+        val grooveBottom = if (checked) accentColor.copy(alpha = 0.14f) else NeuBase
+        val thumbFill =
+            if (!enabled) {
+                Color(0xFFCED4DE)
+            } else if (checked) {
+                accentColor
+            } else {
+                Color.White
+            }
+        Box(
+            modifier =
+                modifier
+                    .width(trackWidth)
+                    .height(trackHeight)
+                    .clip(trackShape)
+                    .background(brush = Brush.verticalGradient(listOf(grooveTop, grooveBottom)))
+                    .border(1.dp, if (checked) accentColor.copy(alpha = 0.45f) else NeuDarkShadow.copy(alpha = 0.7f), trackShape)
+                    .then(if (enabled) Modifier.clickable { onCheckedChange(!checked) } else Modifier),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .offset(x = thumbOffset)
+                        .size(thumbSize)
+                        .shadow(5.dp, CircleShape, clip = false)
+                        .clip(CircleShape)
+                        .background(thumbFill)
+                        .border(1.dp, if (checked) Color.White.copy(alpha = 0.7f) else NeuDarkShadow.copy(alpha = 0.5f), CircleShape),
+            )
+        }
+        return
+    }
+
+    // Dark: frosted glass track with glow when on; bright raised thumb.
+    Box(
+        modifier =
+            modifier
+                .width(trackWidth)
+                .height(trackHeight)
+                .clip(trackShape)
+                .background(
+                    brush =
+                        Brush.horizontalGradient(
+                            colors =
+                                if (checked) {
+                                    listOf(accentColor.copy(alpha = 0.85f), accentColor.copy(alpha = 0.55f))
+                                } else {
+                                    listOf(Color.White.copy(alpha = 0.10f), Color.White.copy(alpha = 0.04f))
+                                },
+                        ),
+                ).border(
+                    1.dp,
+                    if (checked) accentColor.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.22f),
+                    trackShape,
+                ).then(if (enabled) Modifier.clickable { onCheckedChange(!checked) } else Modifier),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .offset(x = thumbOffset)
+                    .size(thumbSize)
+                    .shadow(6.dp, CircleShape, clip = false)
+                    .clip(CircleShape)
+                    .background(if (enabled) Color.White else Color.White.copy(alpha = 0.35f))
+                    .border(1.dp, if (checked) accentColor.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.3f), CircleShape),
+        )
     }
 }
 
@@ -408,22 +785,8 @@ fun LogViewer(
 
 @Composable
 fun MiniLogViewer(modifier: Modifier = Modifier) {
-    val logEntries = LogRepository.entries
-    if (logEntries.isEmpty()) return
-    GlassCard(modifier = modifier, accentColor = NeonAmber) {
-        Text("Status", style = MaterialTheme.typography.labelMedium, color = NeonAmber.copy(alpha = 0.7f))
-        Spacer(Modifier.height(6.dp))
-        logEntries.takeLast(5).forEach { log ->
-            val c =
-                when (log.level) {
-                    LogLevel.SUCCESS -> NeonGreen
-                    LogLevel.ERROR -> NeonRed
-                    LogLevel.WARNING -> NeonAmber
-                    LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
-                }
-            Text("[${log.timestamp}] ${log.message}", style = MaterialTheme.typography.bodySmall, color = c)
-        }
-    }
+    if (LogRepository.entries.isEmpty()) return
+    TerminalLogCard(modifier = modifier, title = "status.log", accentColor = NeonAmber)
 }
 
 @Composable
@@ -431,9 +794,9 @@ fun GradientBackground(content: @Composable () -> Unit) {
     val themeBg = MaterialTheme.colorScheme.background
     val surface = MaterialTheme.colorScheme.surface
     val app = WuWaConfigApp.instance
-    val imageUri by app.backgroundImageUri.collectAsState()
-    val videoUri by app.backgroundVideoUri.collectAsState()
-    val bgAlpha by app.backgroundOpacity.collectAsState()
+    val imageUri by app.backgroundImageUri.collectAsStateWithLifecycle()
+    val videoUri by app.backgroundVideoUri.collectAsStateWithLifecycle()
+    val bgAlpha by app.backgroundOpacity.collectAsStateWithLifecycle()
 
     val hasVideo = videoUri != null
     val hasImage = !hasVideo && imageUri != null
@@ -650,5 +1013,159 @@ fun AnimatedListItem(
         modifier = modifier,
     ) {
         content()
+    }
+}
+
+@Composable
+fun GlassDialog(
+    onDismissRequest: () -> Unit,
+    accentColor: Color = NeonCyan,
+    icon: @Composable (() -> Unit)? = null,
+    title: @Composable (() -> Unit)? = null,
+    text: @Composable (() -> Unit)? = null,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable (() -> Unit)? = null,
+    properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
+) {
+    val view = LocalView.current
+    SideEffect {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (view.context as? Activity)?.window?.decorView?.setRenderEffect(
+                RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
+            )
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (view.context as? Activity)?.window?.decorView?.setRenderEffect(null)
+            }
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = properties,
+    ) {
+        val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
+        val shape = RoundedCornerShape(28.dp)
+        val titleColor = accentColor
+        val bodyColor =
+            if (isLight) Color(0xFF1C1B1F).copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
+
+        if (isLight) {
+            Box(
+                modifier =
+                    Modifier
+                        .widthIn(min = 260.dp, max = 380.dp)
+                        .padding(14.dp)
+                        .neumorphic(cornerRadius = 28.dp, elevation = 9.dp)
+                        .clip(shape)
+                        .border(1.dp, accentColor.copy(alpha = 0.18f), shape),
+            ) {
+                GlassDialogContent(accentColor, isLight, titleColor, bodyColor, icon, title, text, confirmButton, dismissButton)
+            }
+        } else {
+            Box(
+                modifier =
+                    Modifier
+                        .widthIn(min = 260.dp, max = 380.dp)
+                        .shadow(24.dp, shape, clip = false)
+                        .clip(shape)
+                        .background(
+                            brush =
+                                Brush.verticalGradient(
+                                    colors =
+                                        listOf(
+                                            Color.White.copy(alpha = 0.14f),
+                                            Color.White.copy(alpha = 0.06f),
+                                            accentColor.copy(alpha = 0.05f),
+                                        ),
+                                ),
+                            shape = shape,
+                        )
+                        .border(
+                            width = 1.dp,
+                            brush =
+                                Brush.verticalGradient(
+                                    colors =
+                                        listOf(
+                                            Color.White.copy(alpha = 0.4f),
+                                            Color.White.copy(alpha = 0.08f),
+                                            accentColor.copy(alpha = 0.25f),
+                                        ),
+                                ),
+                            shape = shape,
+                        ),
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .matchParentSize()
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(accentColor.copy(alpha = 0.10f), Color.Transparent),
+                                    radius = 700f,
+                                ),
+                            ),
+                )
+                GlassDialogContent(accentColor, isLight, titleColor, bodyColor, icon, title, text, confirmButton, dismissButton)
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlassDialogContent(
+    accentColor: Color,
+    isLight: Boolean,
+    titleColor: Color,
+    bodyColor: Color,
+    icon: @Composable (() -> Unit)?,
+    title: @Composable (() -> Unit)?,
+    text: @Composable (() -> Unit)?,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable (() -> Unit)?,
+) {
+    Column(modifier = Modifier.padding(24.dp)) {
+        icon?.let {
+            Box(
+                modifier =
+                    Modifier
+                        .padding(bottom = 12.dp)
+                        .align(Alignment.CenterHorizontally),
+            ) { it() }
+        }
+        title?.let {
+            CompositionLocalProvider(LocalContentColor provides titleColor) {
+                Box(
+                    modifier =
+                        Modifier
+                            .padding(bottom = 12.dp)
+                            .fillMaxWidth(),
+                ) { it() }
+            }
+        }
+        text?.let {
+            CompositionLocalProvider(LocalContentColor provides bodyColor) {
+                Box(
+                    modifier =
+                        Modifier
+                            .padding(bottom = 20.dp)
+                            .fillMaxWidth(),
+                ) { it() }
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (dismissButton != null) {
+                dismissButton()
+                Spacer(Modifier.width(8.dp))
+            }
+            confirmButton()
+        }
     }
 }

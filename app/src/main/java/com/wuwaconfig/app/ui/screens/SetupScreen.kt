@@ -14,6 +14,7 @@ import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassCardHeader
+import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
 
@@ -28,13 +29,9 @@ fun SetupScreen(
     GradientBackground {
         Scaffold(
             topBar = {
-                TopAppBar(
+                GlassTopBar(
                     title = { Text("Setup", fontWeight = FontWeight.Bold) },
-                    colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            titleContentColor = NeonCyan,
-                        ),
+                    accentColor = NeonCyan,
                 )
             },
             containerColor = Color.Transparent,

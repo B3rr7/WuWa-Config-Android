@@ -16,11 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
+import com.wuwaconfig.app.ui.components.GlassDialog
 import com.wuwaconfig.app.ui.components.GlassOutlinedButton
+import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
 
@@ -32,15 +35,15 @@ fun BackupScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
 ) {
-    val backendStatus by viewModel.backendStatus.collectAsState()
-    val backups by viewModel.backups.collectAsState()
-    val isApplying by viewModel.isApplying.collectAsState()
+    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
+    val backups by viewModel.backups.collectAsStateWithLifecycle()
+    val isApplying by viewModel.isApplying.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
     var backupName by remember { mutableStateOf("") }
     var selectedCreateFiles by remember { mutableStateOf(ALL_INI_FILES.toSet()) }
     var restoreTarget by remember { mutableStateOf<ConfigBackup?>(null) }
     var selectedRestoreFiles by remember { mutableStateOf<Set<String>>(emptySet()) }
-    val backupFeedback by viewModel.backupFeedback.collectAsState()
+    val backupFeedback by viewModel.backupFeedback.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(backupFeedback) {
@@ -53,18 +56,14 @@ fun BackupScreen(
     GradientBackground {
         Scaffold(
             topBar = {
-                TopAppBar(
+                GlassTopBar(
                     title = { Text("Backups", fontWeight = FontWeight.Bold) },
+                    accentColor = NeonPink,
                     navigationIcon = {
                         IconButton(
                             onClick = onBack,
                         ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonPink) }
                     },
-                    colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            titleContentColor = NeonPink,
-                        ),
                 )
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -156,14 +155,12 @@ fun BackupScreen(
         }
 
         if (showCreateDialog) {
-            AlertDialog(
+            GlassDialog(
                 onDismissRequest = {
                     showCreateDialog = false
                     backupName = ""
                 },
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                titleContentColor = NeonPink,
-                textContentColor = MaterialTheme.colorScheme.onSurface,
+                accentColor = NeonPink,
                 title = { Text("Create Backup", color = NeonPink, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
@@ -204,7 +201,7 @@ fun BackupScreen(
                                         ),
                                 )
                                 Spacer(Modifier.width(4.dp))
-                                Text(name, style = MaterialTheme.typography.bodySmall)
+                                Text(name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
@@ -225,23 +222,21 @@ fun BackupScreen(
                                 contentColor = NeonPink,
                             ),
                         shape = RoundedCornerShape(10.dp),
-                    ) { Text("Create") }
+                    ) { Text("Create", color = NeonPink) }
                 },
                 dismissButton = {
                     TextButton(onClick = {
                         showCreateDialog = false
                         backupName = ""
-                    }) { Text("Cancel") }
+                    }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurface) }
                 },
             )
         }
 
         restoreTarget?.let { backup ->
-            AlertDialog(
+            GlassDialog(
                 onDismissRequest = { restoreTarget = null },
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                titleContentColor = NeonPurple,
-                textContentColor = MaterialTheme.colorScheme.onSurface,
+                accentColor = NeonPurple,
                 title = { Text("Restore: ${backup.name}", color = NeonPurple, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
@@ -268,7 +263,7 @@ fun BackupScreen(
                                         ),
                                 )
                                 Spacer(Modifier.width(4.dp))
-                                Text(file.name, style = MaterialTheme.typography.bodySmall)
+                                Text(file.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
@@ -288,10 +283,10 @@ fun BackupScreen(
                                 contentColor = NeonPurple,
                             ),
                         shape = RoundedCornerShape(10.dp),
-                    ) { Text("Restore") }
+                    ) { Text("Restore", color = NeonPurple) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { restoreTarget = null }) { Text("Cancel") }
+                    TextButton(onClick = { restoreTarget = null }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurface) }
                 },
             )
         }

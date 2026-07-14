@@ -21,11 +21,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassOutlinedButton
+import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
 import com.wuwaconfig.app.ui.theme.*
@@ -36,10 +38,10 @@ fun ProfileScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
 ) {
-    val profile by viewModel.playerProfile.collectAsState()
-    val profileLoading by viewModel.profileLoading.collectAsState()
-    val backendStatus by viewModel.backendStatus.collectAsState()
-    val configModifyCounts by viewModel.configModifyCounts.collectAsState()
+    val profile by viewModel.playerProfile.collectAsStateWithLifecycle()
+    val profileLoading by viewModel.profileLoading.collectAsStateWithLifecycle()
+    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
+    val configModifyCounts by viewModel.configModifyCounts.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         if (profile == null && backendStatus.connected) {
@@ -50,18 +52,14 @@ fun ProfileScreen(
     GradientBackground {
         Scaffold(
             topBar = {
-                TopAppBar(
+                GlassTopBar(
                     title = { Text("Player Profile", fontWeight = FontWeight.Bold) },
+                    accentColor = NeonGreen,
                     navigationIcon = {
                         IconButton(
                             onClick = onBack,
                         ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonGreen) }
                     },
-                    colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            titleContentColor = NeonGreen,
-                        ),
                 )
             },
             containerColor = Color.Transparent,

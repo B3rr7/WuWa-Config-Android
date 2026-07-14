@@ -24,6 +24,7 @@ data class DeployRecord(
     val outcomeDrops: Int? = null,
     val outcomeTimestamp: Long? = null,
     val optimizedProfile: CvarOptimizer.OptimizedProfile? = null,
+    val options: com.wuwaconfig.app.model.GeneratorOptions? = null,
 ) {
     val hasOutcome: Boolean get() = outcomeTimestamp != null
 

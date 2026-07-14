@@ -68,6 +68,23 @@ object LogRepository {
         return file
     }
 
+    fun saveSmartBrainReport(text: String): File? {
+        return try {
+            val dir =
+                File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                    "WuWaConfig",
+                ).also { it.mkdirs() }
+            val file = File(dir, "smartbrain_report.txt")
+            file.writeText(text)
+            add("SmartBrain: report saved to ${file.absolutePath}")
+            file
+        } catch (e: Exception) {
+            add("SmartBrain: failed to save report: ${e.message}", LogLevel.WARNING)
+            null
+        }
+    }
+
     private fun timestamp(): String = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
 
     private fun dateStamp(): String = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())

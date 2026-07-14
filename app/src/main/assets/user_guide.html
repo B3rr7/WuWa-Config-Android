@@ -133,14 +133,111 @@
     table { font-size: 12px; }
     th, td { padding: 6px 8px; }
   }
+
+  /* ── Theme toggle button ─────────────────────────────── */
+  #theme-toggle {
+    position: fixed; top: 16px; right: 16px; z-index: 200;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+    color: var(--text);
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    transition: background 0.25s, color 0.25s, border-color 0.25s, box-shadow 0.25s, transform 0.15s;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+  }
+  #theme-toggle:hover { transform: translateY(-1px); border-color: var(--neon-cyan); box-shadow: 0 0 16px rgba(0,229,255,0.25); }
+  #theme-toggle .icon { font-size: 15px; line-height: 1; }
+
+  /* ── LIGHT / GLASSMORPHISM THEME ─────────────────────── */
+  body.light {
+    --bg: #eef2fb;
+    --surface: rgba(255,255,255,0.55);
+    --surface2: rgba(255,255,255,0.65);
+    --neon-cyan: #0091a7;
+    --neon-purple: #7c4dff;
+    --neon-pink: #d81b60;
+    --neon-green: #00a152;
+    --neon-red: #e53935;
+    --neon-amber: #b8860b;
+    --text: #1a1a2e;
+    --text-dim: #5a5a78;
+    --border: rgba(120,130,170,0.25);
+    background:
+      radial-gradient(1100px 700px at 10% -10%, rgba(179,136,255,0.35), transparent 60%),
+      radial-gradient(1000px 700px at 110% 10%, rgba(0,229,255,0.28), transparent 55%),
+      radial-gradient(900px 800px at 50% 120%, rgba(255,64,129,0.20), transparent 55%),
+      linear-gradient(135deg, #eef2fb 0%, #e3e9f7 100%);
+    background-attachment: fixed;
+  }
+  body.light nav {
+    background: var(--surface);
+    backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border-right: 1px solid rgba(255,255,255,0.6);
+    box-shadow: 4px 0 30px rgba(80,90,140,0.12);
+  }
+  body.light nav a:hover { background: rgba(0,145,167,0.08); }
+  body.light h1, body.light h2, body.light h3, body.light nav h2 { animation: none; text-shadow: none; }
+  body.light h2 { border-bottom-color: rgba(120,130,170,0.25); }
+  body.light strong { color: #0e0e1c; }
+  body.light a:hover { text-shadow: none; }
+
+  /* Glass surfaces */
+  body.light pre,
+  body.light table,
+  body.light blockquote {
+    background: var(--surface2);
+    backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow: 0 8px 28px rgba(80,90,140,0.10);
+    border-radius: 12px;
+  }
+  body.light table { overflow: hidden; }
+  body.light th { background: rgba(255,255,255,0.5); color: var(--neon-cyan); }
+  body.light td, body.light th { border-bottom: 1px solid rgba(120,130,170,0.18); }
+  body.light tr:hover { background: rgba(0,145,167,0.05); }
+  body.light code { background: rgba(184,134,11,0.12); color: var(--neon-amber); }
+  body.light pre code { background: transparent; }
+  body.light blockquote { border-left: 3px solid var(--neon-amber); }
+  body.light blockquote p { color: var(--text-dim); }
+  body.light .tag-green { background: rgba(0,161,82,0.15); }
+  body.light .tag-amber { background: rgba(184,134,11,0.15); }
+  body.light .tag-blue { background: rgba(0,145,167,0.15); }
+  body.light .tag-red { background: rgba(229,57,53,0.15); }
+  body.light #theme-toggle {
+    color: var(--text);
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.8);
+    box-shadow: 0 8px 24px rgba(80,90,140,0.18);
+  }
+  body.light ::-webkit-scrollbar-track { background: transparent; }
+  body.light ::-webkit-scrollbar-thumb { background: rgba(120,130,170,0.4); }
+  body.light ::-webkit-scrollbar-thumb:hover { background: var(--neon-cyan); }
 </style>
 </head>
 <body>
+<button id="theme-toggle" type="button" aria-label="Toggle color theme">
+  <span class="icon">☀️</span><span class="label">Light</span>
+</button>
 <nav id="toc"></nav>
 <main>
 <h1>WuWaConfig</h1>
-<p class="sub">Android · Wuthering Waves Config Toolkit</p>
+<p class="sub">Android · Wuthering Waves Config Toolkit · <strong>v1.0.9</strong></p>
 <hr>
+
+<section id="s0">
+<h2>What's New in v1.0.9</h2>
+<ul>
+<li><strong>Cleaner Engine.ini</strong> — redundant scalability group (<code>sg.*</code>) entries removed from Engine.ini. <code>GameUserSettings.ini</code> now holds the active quality-level selectors and <code>Scalability.ini</code> holds the authoritative tuned values, avoiding duplicated/conflicting settings.</li>
+<li><strong>Glassmorphism UI</strong> — refreshed frosted-glass surfaces across the app, with a redesigned neumorphic/glass toggle switch.</li>
+<li><strong>Colorful UI toggle</strong> — Settings option to switch between multi-color accents and a single neon-cyan accent throughout the Config Generator.</li>
+<li><strong>Text Depth slider</strong> — Settings → Theme control to deepen or soften text contrast for readability.</li>
+<li><strong>Backup scope dialog</strong> — clearer choices: back up all 5 INIs, back up only overwritten files, or cancel.</li>
+<li><strong>Snackbar feedback</strong> — clean and delete config actions now confirm success/failure inline on the Home screen.</li>
+<li><strong>User Guide light mode</strong> — this guide now has a light/glassmorphism theme toggle (top-right).</li>
+</ul>
+</section>
 
 <section id="s1">
 <h2>1. Introduction</h2>
@@ -157,7 +254,7 @@
 <ul>
 <li>Analyze your device's <code>Client.log</code> to extract GPU, RAM, FPS, thermal data, OOM events</li>
 <li>Score your device with SmartBrain (0-100 scale) and recommend the optimal preset</li>
-<li>Generate optimized INI configs from 5 presets (Potato→Ultra) or per-device tuning</li>
+<li>Generate optimized INI configs from 8 presets (Potato→Cinematic) or per-device tuning</li>
 <li>Deploy configs via ADB, Shizuku, Root, or SAF</li>
 <li>Backup configs before applying, with per-file selection</li>
 <li>Compare performance before/after with Deploy History</li>
@@ -370,10 +467,13 @@ adb usb</pre>
 <table>
 <tr><th>Preset</th><th>Screen %</th><th>For</th></tr>
 <tr><td>Potato</td><td>50%</td><td>Dead low-end, 4GB RAM or less</td></tr>
+<tr><td>Endurance</td><td>55%</td><td>Long sessions, battery saving</td></tr>
 <tr><td>Performance</td><td>60%</td><td>Stability first, mid-range</td></tr>
+<tr><td>Competitive</td><td>100%</td><td>Max clarity, PvP focus, no clutter</td></tr>
 <tr><td>Balanced</td><td>80%</td><td>Daily default, most devices</td></tr>
 <tr><td>High</td><td>100%</td><td>Sharper visuals, flagship GPUs</td></tr>
 <tr><td>Ultra</td><td>100%</td><td>Flagship devices, best visuals</td></tr>
+<tr><td>Cinematic</td><td>100%</td><td>Above ultra, flagship only, max beauty</td></tr>
 </table>
 
 <h4>Tuning Card</h4>
@@ -434,7 +534,7 @@ adb usb</pre>
 <ol>
 <li>Configure all options</li>
 <li>Tap <strong>Generate</strong> — creates all selected INI files</li>
-<li><strong>Review screen</strong> shows generated text in a monospace editor</li>
+<li><strong>ReviewTune screen</strong> opens — a generated-config reviewer/editor/deploy view with a monospace text editor</li>
 <li>Tap <strong>Deploy to Device</strong> — pushes files, uses hash snapshot+reconcile to detect concurrent game access, refreshes KuroConfigMonitor hash</li>
 <li><strong>Verify</strong> — app pulls Client.log and cross-references deployed CVars</li>
 </ol>
@@ -613,7 +713,7 @@ adb usb</pre>
 <table>
 <tr><th>Section</th><th>CVars</th></tr>
 <tr><td>Character Quality</td><td>LOD, shadow, draw distance</td></tr>
-<tr><td>Scalability</td><td>sg.* values from preset</td></tr>
+<tr><td>Scalability</td><td>Removed in v1.0.9 — <code>sg.*</code> now lives in GameUserSettings.ini <code>[ScalabilityGroups]</code> and Scalability.ini <code>[ScalabilitySettings]</code></td></tr>
 <tr><td>Anti-Aliasing</td><td>TAA parameters, temporal upsampling</td></tr>
 <tr><td>Post Processing</td><td>Bloom, DoF, CA, auto-exposure, AO</td></tr>
 <tr><td>Shadow</td><td>CSM cascades, shadow resolution, distance</td></tr>
@@ -658,7 +758,7 @@ adb usb</pre>
 <li>CVar overrides — user's key=value pairs</li>
 <li>CVar optimization — redundant/unknown CVars commented out</li>
 <li>Deduplication — duplicate keys removed (last wins)</li>
-<li>Forbidden CVar stripping — 33 Kuro-restricted CVars removed</li>
+<li>Forbidden CVar stripping — 31 Kuro-restricted CVars removed</li>
 </ol>
 
 <h3>13.7 Advanced Per-Device Tuning</h3>
@@ -757,10 +857,13 @@ adb usb</pre>
 <tr><th>Score</th><th>Conditions</th><th>Preset</th></tr>
 <tr><td>any</td><td>GPU OOM ≥ 2</td><td><strong>Potato</strong></td></tr>
 <tr><td>any</td><td>Low memory or score ≤ 20</td><td><strong>Potato</strong></td></tr>
+<tr><td>≥ 85</td><td>Flagship GPU + Vulkan + non-4K + no thermal</td><td><strong>Cinematic</strong></td></tr>
 <tr><td>≥ 80</td><td>Flagship GPU + Vulkan + non-4K</td><td><strong>Ultra</strong></td></tr>
 <tr><td>≥ 75</td><td>Flagship/high GPU + Vulkan</td><td><strong>High</strong></td></tr>
 <tr><td>≥ 70</td><td>Flagship/high GPU</td><td><strong>High</strong></td></tr>
+<tr><td>≥ 45</td><td>FPS gap &gt; 15 below cap</td><td><strong>Competitive</strong></td></tr>
 <tr><td>≥ 40</td><td>Fallthrough</td><td><strong>Balanced</strong></td></tr>
+<tr><td>≥ 25</td><td>Auto-adjust &gt; 10 or thermal ≥ 3</td><td><strong>Endurance</strong></td></tr>
 <tr><td>≥ 20</td><td>Fallthrough</td><td><strong>Performance</strong></td></tr>
 <tr><td>&lt; 20</td><td>Fallthrough</td><td><strong>Potato</strong></td></tr>
 </table>
@@ -775,14 +878,14 @@ adb usb</pre>
 <h3>15.2 CVar Database</h3>
 <table>
 <tr><th>File</th><th>Entries</th><th>Description</th></tr>
-<tr><td><code>libUE4_cvars.txt</code></td><td>~3348</td><td>Every registered CVar in Kuro's UE4.26 fork</td></tr>
-<tr><td><code>config_monitor_cvars.txt</code></td><td>569</td><td>CVars tracked by KuroConfigMonitor hash</td></tr>
-<tr><td><code>config_monitor_values.txt</code></td><td>568</td><td>Game's default values for monitored CVars</td></tr>
+<tr><td><code>libUE4_cvars.txt</code></td><td>5237</td><td>Every registered CVar in Kuro's UE4.26 fork</td></tr>
+<tr><td><code>config_monitor_cvars.txt</code></td><td>693</td><td>CVars tracked by KuroConfigMonitor hash</td></tr>
+<tr><td><code>config_monitor_values.txt</code></td><td>693</td><td>Game's default values for monitored CVars</td></tr>
 </table>
 <p>Used for: <code>isKnown()</code>, <code>isMonitored()</code>, <code>gameDefault()</code>, <code>categorize()</code> (18 categories), <code>optimizeIniText()</code>.</p>
 
 <h3>15.3 Forbidden CVars</h3>
-<p>33 CVars the game actively strips/ignores: <code>r.Streaming.Boost</code>, <code>r.ScreenPercentage</code>, <code>r.AFME.Enable</code>, <code>r.DLSSG.Enable</code>, <code>r.FidelityFX.FSR.Enabled</code>, and more.</p>
+<p>31 CVars the game actively strips/ignores: <code>r.Streaming.Boost</code>, <code>r.ScreenPercentage</code>, <code>r.AFME.Enable</code>, <code>r.Streamline.DLSSG.RetainResourcesWhenOff</code>, <code>r.MFRC.Enable</code>, and more.</p>
 
 <h3>15.4 CVar Priority Chain</h3>
 <pre>SetBySystemSettingsIni &gt; SetByDeviceProfile &gt; SetByProjectSetting &gt; SetByScalability</pre>
@@ -853,6 +956,27 @@ adb usb</pre>
 </main>
 
 <script>
+(function() {
+  // ── Theme toggle (dark <-> light glassmorphism) ──
+  var toggle = document.getElementById('theme-toggle');
+  var icon = toggle.querySelector('.icon');
+  var label = toggle.querySelector('.label');
+  function applyTheme(mode) {
+    var light = mode === 'light';
+    document.body.classList.toggle('light', light);
+    icon.textContent = light ? '🌙' : '☀️';
+    label.textContent = light ? 'Dark' : 'Light';
+  }
+  var saved = 'dark';
+  try { saved = localStorage.getItem('wuwa-guide-theme') || 'dark'; } catch (e) {}
+  applyTheme(saved);
+  toggle.addEventListener('click', function() {
+    var next = document.body.classList.contains('light') ? 'dark' : 'light';
+    applyTheme(next);
+    try { localStorage.setItem('wuwa-guide-theme', next); } catch (e) {}
+  });
+})();
+
 (function() {
   const toc = document.getElementById('toc');
   const nav = document.createElement('nav');

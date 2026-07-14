@@ -29,12 +29,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassCardHeader
+import com.wuwaconfig.app.ui.components.GlassDialog
+import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
 import com.wuwaconfig.app.ui.theme.NeonBlue
@@ -46,7 +49,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateToUserGuide: () -> Unit = {},
 ) {
-    val backendStatus by viewModel.backendStatus.collectAsState()
+    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
     val chipset = viewModel.chipsetInfo
     var showBackupDirDialog by remember { mutableStateOf(false) }
     var newBackupDir by remember { mutableStateOf("") }
@@ -75,18 +78,14 @@ fun SettingsScreen(
     GradientBackground {
         Scaffold(
             topBar = {
-                TopAppBar(
+                GlassTopBar(
                     title = { Text("Settings", fontWeight = FontWeight.Bold) },
+                    accentColor = NeonAmber,
                     navigationIcon = {
                         IconButton(
                             onClick = onBack,
                         ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonAmber) }
                     },
-                    colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            titleContentColor = NeonAmber,
-                        ),
                 )
             },
             containerColor = Color.Transparent,
@@ -132,7 +131,7 @@ fun SettingsScreen(
                 GlassCard(accentColor = NeonGreen) {
                     GlassCardHeader("Theme", NeonGreen)
                     Spacer(Modifier.height(8.dp))
-                    val currentTheme by viewModel.themeMode.collectAsState()
+                    val currentTheme by viewModel.themeMode.collectAsStateWithLifecycle()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -158,14 +157,56 @@ fun SettingsScreen(
                             ) { Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) }
                         }
                     }
+                    Spacer(Modifier.height(16.dp))
+                    val textOpacity by viewModel.textOpacity.collectAsStateWithLifecycle()
+                    Text(
+                        "Text Depth",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        "Make all text lighter or deeper for readability",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            "Light",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                        Slider(
+                            value = textOpacity,
+                            onValueChange = { viewModel.setTextOpacity(it) },
+                            valueRange = 0.5f..1f,
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                            colors =
+                                SliderDefaults.colors(
+                                    thumbColor = NeonGreen,
+                                    activeTrackColor = NeonGreen.copy(alpha = 0.6f),
+                                    inactiveTrackColor = Color.White.copy(alpha = 0.1f),
+                                ),
+                        )
+                        Text(
+                            "Deep",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                    }
+                    Text(
+                        "${(textOpacity * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NeonGreen,
+                    )
                 }
 
                 GlassCard(accentColor = NeonPink) {
                     GlassCardHeader("Custom Background", NeonPink)
                     Spacer(Modifier.height(8.dp))
-                    val imageUri by viewModel.backgroundImageUri.collectAsState()
-                    val videoUri by viewModel.backgroundVideoUri.collectAsState()
-                    val bgAlpha by viewModel.backgroundOpacity.collectAsState()
+                    val imageUri by viewModel.backgroundImageUri.collectAsStateWithLifecycle()
+                    val videoUri by viewModel.backgroundVideoUri.collectAsStateWithLifecycle()
+                    val bgAlpha by viewModel.backgroundOpacity.collectAsStateWithLifecycle()
                     val hasBg = imageUri != null || videoUri != null
 
                     Column(modifier = Modifier.fillMaxWidth()) {
@@ -325,7 +366,7 @@ fun SettingsScreen(
                 GlassCard(accentColor = NeonBlue) {
                     GlassCardHeader("Generation & History", NeonBlue)
                     Spacer(Modifier.height(8.dp))
-                    val deployHistoryEnabled by viewModel.deployHistoryEnabled.collectAsState()
+                    val deployHistoryEnabled by viewModel.deployHistoryEnabled.collectAsStateWithLifecycle()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -342,6 +383,27 @@ fun SettingsScreen(
                         Switch(
                             checked = deployHistoryEnabled,
                             onCheckedChange = { viewModel.setDeployHistoryEnabled(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = NeonBlue, checkedTrackColor = NeonBlue.copy(alpha = 0.3f)),
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    val colorfulUi by viewModel.colorfulUi.collectAsStateWithLifecycle()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Colorful UI", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(
+                                "Multi-color presets, toggles & chips (off = single accent)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = colorfulUi,
+                            onCheckedChange = { viewModel.setColorfulUi(it) },
                             colors = SwitchDefaults.colors(checkedThumbColor = NeonBlue, checkedTrackColor = NeonBlue.copy(alpha = 0.3f)),
                         )
                     }
@@ -400,9 +462,9 @@ fun SettingsScreen(
     }
 
     if (showBackupDirDialog) {
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showBackupDirDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            accentColor = NeonCyan,
             title = { Text("Backup Directory", color = NeonCyan, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
@@ -445,9 +507,9 @@ fun SettingsScreen(
     }
 
     if (showRemoveBgDialog) {
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showRemoveBgDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            accentColor = NeonRed,
             title = { Text("Remove Background", color = NeonRed, fontWeight = FontWeight.Bold) },
             text = { Text("Remove the custom background image/video and revert to the default gradient?") },
             confirmButton = {

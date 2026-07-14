@@ -12,6 +12,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -77,6 +78,7 @@ private val LightColorScheme =
 fun WuWaConfigTheme(
     themeMode: String = "system",
     dynamicColor: Boolean = false,
+    textOpacity: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val isDark =
@@ -85,7 +87,7 @@ fun WuWaConfigTheme(
             "light" -> false
             else -> isSystemInDarkTheme()
         }
-    val colorScheme =
+    val baseScheme =
         when {
             dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
                 val context = LocalContext.current
@@ -94,6 +96,23 @@ fun WuWaConfigTheme(
             isDark -> DarkColorScheme
             else -> LightColorScheme
         }
+    val alpha = textOpacity.coerceIn(0.5f, 1f)
+    // Deepen text: lerp the RGB toward the max-contrast color so even dimmed
+    // (.copy(alpha=...)) call-site texts become more readable at higher settings.
+    val contrastTarget = if (isDark) Color.White else Color(0xFF000000)
+    val deepenFraction = ((alpha - 0.75f) / 0.25f).coerceIn(0f, 1f) * 0.4f
+
+    fun tune(base: Color): Color = lerp(base, contrastTarget, deepenFraction).copy(alpha = alpha)
+
+    val colorScheme =
+        baseScheme.copy(
+            onBackground = tune(baseScheme.onBackground),
+            onSurface = tune(baseScheme.onSurface),
+            onSurfaceVariant = tune(baseScheme.onSurfaceVariant),
+            onPrimaryContainer = tune(baseScheme.onPrimaryContainer),
+            onSecondaryContainer = tune(baseScheme.onSecondaryContainer),
+            onTertiaryContainer = tune(baseScheme.onTertiaryContainer),
+        )
 
     val view = LocalView.current
     if (!view.isInEditMode) {

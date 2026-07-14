@@ -17,9 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
 import kotlinx.coroutines.delay
@@ -44,7 +46,7 @@ fun LogsScreen(
         }
     }
 
-    val logsFeedback by viewModel.logsFeedback.collectAsState()
+    val logsFeedback by viewModel.logsFeedback.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(logsFeedback) {
@@ -69,8 +71,9 @@ fun LogsScreen(
     GradientBackground {
         Scaffold(
             topBar = {
-                TopAppBar(
+                GlassTopBar(
                     title = { Text("Log", fontWeight = FontWeight.Bold) },
+                    accentColor = NeonCyan,
                     navigationIcon = {
                         IconButton(
                             onClick = onBack,
@@ -84,11 +87,6 @@ fun LogsScreen(
                             Icon(Icons.Default.DeleteSweep, contentDescription = "Clear", tint = NeonRed)
                         }
                     },
-                    colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            titleContentColor = NeonCyan,
-                        ),
                 )
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },

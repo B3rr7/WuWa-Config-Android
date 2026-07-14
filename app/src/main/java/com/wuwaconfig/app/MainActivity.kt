@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
@@ -38,6 +39,7 @@ import com.wuwaconfig.app.ui.screens.IniEditorScreen
 import com.wuwaconfig.app.ui.screens.LogsScreen
 import com.wuwaconfig.app.ui.screens.PityScreen
 import com.wuwaconfig.app.ui.screens.ProfileScreen
+import com.wuwaconfig.app.ui.screens.ReviewTuneScreen
 import com.wuwaconfig.app.ui.screens.SettingsScreen
 import com.wuwaconfig.app.ui.screens.SetupScreen
 import com.wuwaconfig.app.ui.screens.TermsScreen
@@ -62,10 +64,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val viewModel: MainViewModel = viewModel()
-            val themeMode by viewModel.themeMode.collectAsState()
+            val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+            val textOpacity by viewModel.textOpacity.collectAsStateWithLifecycle()
             var showTerms by remember { mutableStateOf(viewModel.needsTermsAccept()) }
 
-            WuWaConfigTheme(themeMode = themeMode) {
+            WuWaConfigTheme(themeMode = themeMode, textOpacity = textOpacity) {
                 if (showTerms) {
                     TermsScreen(
                         onAccept = {
@@ -213,6 +216,27 @@ fun AppNavigation(viewModel: MainViewModel) {
             ConfigGenScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
+                onNavigateToReviewTune = {
+                    navController.navigate("reviewtune")
+                },
+            )
+        }
+        composable(
+            "reviewtune",
+            enterTransition = navEnter,
+            exitTransition = navExit,
+            popEnterTransition = popEnter,
+            popExitTransition = popExit,
+        ) {
+            val opts by viewModel.reviewTuneOptions.collectAsStateWithLifecycle()
+            ReviewTuneScreen(
+                viewModel = viewModel,
+                generatorOptions = opts,
+                onBack = { navController.popBackStack() },
+                onDeploy = { ini, deployOpts ->
+                    navController.popBackStack()
+                    viewModel.deployGeneratedConfigs(ini, deployOpts)
+                },
             )
         }
         composable(

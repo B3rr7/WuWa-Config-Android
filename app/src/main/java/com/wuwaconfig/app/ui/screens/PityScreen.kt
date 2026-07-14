@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.GachaPool
@@ -20,6 +21,7 @@ import com.wuwaconfig.app.model.PityPrediction
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
+import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
 import com.wuwaconfig.app.ui.theme.*
@@ -30,28 +32,24 @@ fun PityScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
 ) {
-    val conveneUrl by viewModel.conveneUrl.collectAsState()
-    val conveneUrlLoading by viewModel.conveneUrlLoading.collectAsState()
-    val gachaData by viewModel.gachaData.collectAsState()
-    val gachaLoading by viewModel.gachaLoading.collectAsState()
-    val backendStatus by viewModel.backendStatus.collectAsState()
-    val gachaHistory by viewModel.gachaHistory.collectAsState()
+    val conveneUrl by viewModel.conveneUrl.collectAsStateWithLifecycle()
+    val conveneUrlLoading by viewModel.conveneUrlLoading.collectAsStateWithLifecycle()
+    val gachaData by viewModel.gachaData.collectAsStateWithLifecycle()
+    val gachaLoading by viewModel.gachaLoading.collectAsStateWithLifecycle()
+    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
+    val gachaHistory by viewModel.gachaHistory.collectAsStateWithLifecycle()
 
     GradientBackground {
         Scaffold(
             topBar = {
-                TopAppBar(
+                GlassTopBar(
                     title = { Text("Pity Tracker", fontWeight = FontWeight.Bold) },
+                    accentColor = NeonPurple,
                     navigationIcon = {
                         IconButton(
                             onClick = onBack,
                         ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonPurple) }
                     },
-                    colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            titleContentColor = NeonPurple,
-                        ),
                 )
             },
             containerColor = Color.Transparent,

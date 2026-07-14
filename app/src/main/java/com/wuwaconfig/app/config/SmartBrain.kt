@@ -357,6 +357,88 @@ object SmartBrain {
         return BrainRecommendation(preset, score, signals, warnings)
     }
 
+    fun buildReportText(
+        info: LogInfo,
+        rec: BrainRecommendation,
+        cvarDatabase: CvarDatabase,
+    ): String {
+        val sb = StringBuilder()
+        sb.appendLine("=================================================================")
+        sb.appendLine(" WuWaConfig — SmartBrain Device Analysis Report")
+        sb.appendLine("=================================================================")
+        sb.appendLine("Generated: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}")
+        sb.appendLine()
+
+        sb.appendLine("--- DEVICE ---")
+        sb.appendLine("Device model : ${info.deviceModel ?: "unknown"}")
+        sb.appendLine("GPU          : ${info.gpu ?: "unknown"}")
+        sb.appendLine("GPU tier     : ${getGPUTier(info.gpu)}")
+        sb.appendLine("SoC          : ${info.socName ?: "unknown"}${info.socCode?.let { " ($it)" } ?: ""}")
+        sb.appendLine("CPU          : ${info.cpuName ?: "unknown"}")
+        sb.appendLine("RAM          : ${info.ramMb?.let { "$it MB" } ?: "unknown"}")
+        sb.appendLine("Android      : ${info.androidVersion ?: "unknown"}")
+        sb.appendLine("Resolution   : ${info.resolution ?: "unknown"}")
+        sb.appendLine("Graphics API : ${info.api ?: info.gameApi ?: "unknown"}")
+        sb.appendLine("Vulkan       : ${info.vulkanStatus ?: "unknown"}")
+        sb.appendLine("Quality mode : ${info.qualityMode ?: "unknown"}")
+        sb.appendLine("Device profile: ${info.deviceProfile ?: "unknown"}")
+        sb.appendLine()
+
+        sb.appendLine("--- PERFORMANCE SIGNALS ---")
+        sb.appendLine("FPS cap      : ${info.fpsCap ?: "unknown"}")
+        sb.appendLine("FPS actual   : ${info.fpsActual?.let { "%.1f".format(it) } ?: "unknown"}")
+        sb.appendLine("Render scale : ${info.screenPct?.let { "%.1f%%".format(it) } ?: "unknown"}")
+        sb.appendLine("Shadow Q     : ${info.shadowQ ?: "unknown"}")
+        sb.appendLine("Drop frames  : ${info.dropFrames}")
+        sb.appendLine("GPU OOM      : ${info.gpuOom}")
+        sb.appendLine("Texture errs : ${info.textureErrors}")
+        sb.appendLine("Thermal evts : ${info.thermalEvents}")
+        sb.appendLine("Auto-adjust  : ${info.autoAdjustTriggers} triggers / ${info.autoAdjustRecoveries} recoveries")
+        sb.appendLine("Low memory   : ${info.isLowMem ?: "unknown"}")
+        sb.appendLine("Network errs : ${info.networkErrors}")
+        sb.appendLine("Forbidden    : ${info.forbiddenCvars}")
+        sb.appendLine()
+
+        sb.appendLine("--- SCORE ---")
+        sb.appendLine("SmartBrain score     : ${rec.score} / 100")
+        sb.appendLine("Recommended preset   : ${rec.preset}")
+        sb.appendLine()
+
+        sb.appendLine("--- SCORING SIGNALS (${rec.signals.size}) ---")
+        if (rec.signals.isEmpty()) {
+            sb.appendLine("(none)")
+        } else {
+            rec.signals.forEach { sb.appendLine("  • $it") }
+        }
+        sb.appendLine()
+
+        sb.appendLine("--- WARNINGS (${rec.warnings.size}) ---")
+        if (rec.warnings.isEmpty()) {
+            sb.appendLine("(none)")
+        } else {
+            rec.warnings.forEach { sb.appendLine("  ! $it") }
+        }
+        sb.appendLine()
+
+        if (info.activeCvars.isNotEmpty()) {
+            sb.appendLine("--- ACTIVE CVARS (${info.activeCvars.size}) ---")
+            val known = info.activeCvars.keys.count { cvarDatabase.isKnown(it) }
+            val unknown = info.activeCvars.keys.size - known
+            val monitored = info.activeCvars.keys.count { cvarDatabase.isMonitored(it) }
+            sb.appendLine("Known: $known | Unknown: $unknown | Monitored: $monitored")
+            sb.appendLine()
+            info.activeCvars.entries
+                .sortedBy { it.key.lowercase() }
+                .forEach { sb.appendLine("  ${it.key}=${it.value}") }
+            sb.appendLine()
+        }
+
+        sb.appendLine("=================================================================")
+        sb.appendLine(" End of SmartBrain report")
+        sb.appendLine("=================================================================")
+        return sb.toString()
+    }
+
     private fun recommendPreset(
         score: Int,
         info: LogInfo,

@@ -13,13 +13,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.theme.NeonCyan
 import com.wuwaconfig.app.ui.theme.NeonPurple
 
@@ -39,17 +38,14 @@ fun UserGuideScreen(onBack: () -> Unit) {
         }
     Scaffold(
         topBar = {
-            TopAppBar(
+            GlassTopBar(
                 title = { Text("User Guide", color = NeonCyan) },
+                accentColor = NeonCyan,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = NeonPurple)
                     }
                 },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                    ),
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -62,7 +58,7 @@ fun UserGuideScreen(onBack: () -> Unit) {
                     settings.loadWithOverviewMode = true
                     settings.useWideViewPort = true
                     settings.domStorageEnabled = true
-                    loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
+                    loadDataWithBaseURL("https://wuwaconfig.local/", htmlContent, "text/html", "UTF-8", null)
                 }
             },
             modifier =

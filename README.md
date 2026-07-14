@@ -1,15 +1,18 @@
 <!-- wuthering waves config, wuwa fps boost, engine.ini optimization, unreal engine 4 mobile config, kuro games optimization, android game booster, mobile game config editor, gacha pity tracker, battle stats analyzer, fps unlock 120fps, graphics tuning, device profile config, scalability ini, hardware ini, gameusersettings ini, config generator android, wuthering waves android optimization, wuwa mobile config, wuwa lag fix android, wuthering waves stuttering fix, wuwa engine ini tweak, deviceprofiles ini tutorial, increase wuwa fps, mobile gaming performance, vulkan shader cache optimization, wuthering waves 120fps, fps drop fix mobile, thermal throttling solution, kurogames config tool, snapdragon gaming optimization, adreno gpu tuning, mali gpu optimization, low end device booster, smartbrain scoring, configmonitor hash, cvar editor android, auto tune wizard, battle statistics, wuthering waves benchmark, wuwa config generator, android game booster wuwa, wuthering waves android optimization, wuthering waves 3.4 cyberpunk, wuwa version 3.4 config, kuro config monitor, wuwa graphics preset, mobile unreal engine tweaks, wuthering waves performance 2026, android data folder access, shizuku game config, adb wireless debugging game, wuwa startup config, engine ini mobile, gameusersettings fps unlock, wuthering waves low memory fix, wuwa texture streaming, cvar optimization android, wuwa config for poco, wuwa config for redmi, wuwa config for xiaomi, wuwa config for samsung, wuwa config for oneplus, wuwa config for realme, wuwa config for vivo, wuwa config for oppo, wuwa config for honor, wuwa config for huawei, wuwa config for nothing phone, wuwa config for motorola, wuwa config for asus rog, wuwa config for lenovo, wuwa poco x6 pro config, wuwa poco x5 pro config, wuwa poco f5 config, wuwa poco f6 config, wuwa redmi note 12 config, wuwa redmi note 13 config, wuwa samsung s23 config, wuwa samsung s24 config, wuwa oneplus 12 config, wuwa realme gt config, wuwa vivo x100 config, poco wuthering waves optimization, redmi wuthering waves performance, xiaomi wuwa fps boost, samsung galaxy wuwa config, galaxy s24 wuthering waves settings, poco f5 wuthering waves engine ini, poco f6 wuthering waves graphics, redmi note 13 wuthering waves lag fix, wuwa optimization snapdragon 8 gen 2, wuwa optimization snapdragon 8 gen 3, wuwa optimization dimensity 8300, wuwa optimization dimensity 9200, wuwa optimization kirin 9000 -->
-# WuWaConfig — Wuthering Waves Config Toolkit
+# WuWaConfig — Wuthering Waves (WuWa) Config Toolkit & FPS Booster for Android
 
 [![Release](https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
 
-Android app for **Wuthering Waves (WuWa) performance optimization** — analyzes your device log, generates optimized Engine.ini configs for FPS boost and graphics tuning, and deploys them via ADB/Shizuku/Root. Includes CVar tuning, SmartBrain scoring, Pity Tracker, Battle Stats, and Player Profile. Designed for low-end to flagship Android devices. 🔒 **Privacy-first:** No analytics, no telemetry, no data sent to third parties. Only connects to localhost ADB and Kuro's official gacha API (user-initiated).
+WuWaConfig is a free **Android app to boost Wuthering Waves FPS and tune graphics**. It analyzes your device `Client.log`, generates optimized **Engine.ini**, **Scalability.ini**, **GameUserSettings.ini**, **DeviceProfiles.ini**, and **Hardware.ini** configs, and deploys them via ADB (wireless debugging), Shizuku, Root, or SAF. Features include a **CVar editor**, **SmartBrain** device scoring (0-100), 8 performance presets (Potato → Cinematic), **gacha pity tracker**, **battle stats** analyzer, and an **Auto-Tune Wizard**. Works on Snapdragon/Adreno, MediaTek Dimensity/Mali, Exynos, and Tensor phones — from low-end to flagship. 🔒 **Privacy-first:** no analytics, no telemetry, no data sent to third parties. Only connects to localhost ADB and Kuro's official gacha API (user-initiated).
 
 > **⚠️ DISCLAIMER**
 > This project is **NOT affiliated with Kuro Games or Wuthering Waves**.
 > It is a fan-made tool for editing game configuration files.
 > Modifying game files may be subject to the game's Terms of Service.
 > **Use at your own risk.** The creator is not responsible for any account actions, bans, or issues that may arise.
+
+> **📱 PLATFORM**
+> WuWaConfig is an **Android-only app** (Android 8.0+). It is **not available for iPhone or iPad** — iOS cannot install APKs and lacks the Android-only access backends (ADB / Shizuku / Root / SAF) the app relies on. It also cannot run on Windows, macOS, or Linux as a native app; use an Android device or emulator. The landing page and in-app User Guide are web pages viewable on any platform, but the config tool itself requires Android.
 
 ---
 
@@ -46,7 +49,7 @@ Android app for **Wuthering Waves (WuWa) performance optimization** — analyzes
 The app needs to read/write game config files in `Android/data/com.kurogame.wutheringwaves.global/`.
 
 ### 🔧 ADB (In-App Wireless Debugging)
-**Best for:** Non-rooted users. App implements ADB wire protocol directly — connects to localhost ADB daemon. (maybe broken yeat)
+**Best for:** Non-rooted users. App implements ADB wire protocol directly — connects to localhost ADB daemon.
 
 **Setup:**
 
@@ -100,6 +103,19 @@ If you have multiple devices (USB + wireless): `adb -s 192.168.x.x:5555 usb`
 2. Navigate to `Android/data/com.kurogame.wutheringwaves.global/files/UE4Game/Client/Client/Saved/Config/Android`
 3. **Allow**
 
+### Connection Limits
+
+What each access method can do:
+
+| Method | Shell Access | File Push | Log Reading | Config Gen |
+|--------|--------------|-----------|-------------|------------|
+| ADB | ✓ | ✓ | ✓ | ✓ |
+| Shizuku | ✓ | ✓ | ✓ | ✓ |
+| Root | ✓ | ✓ | ✓ | ✓ |
+| SAF | ✗ | ✓ | Limited | ✗ |
+
+> SAF has no shell access, so it cannot read logs or run the config generator — only push INI files via the Storage Access Framework.
+
 ---
 
 ## Screens
@@ -143,13 +159,18 @@ Algorithm evaluates device from 0-100:
 **Recommendations:** Ultra (80+), High (75+ / 70+), Balanced (55+ / 40+), Performance (<40), Potato (≤20 or OOM ≥2)
 
 #### 3. Presets
-| Preset | Screen % | Shadow | SSR | View Dist | Foliage LOD |
-|--------|----------|--------|-----|-----------|-------------|
-| POTATO | 50% | 0 (128) | 0 | 0.3 | 0.4 |
-| PERFORMANCE | 60% | 0 | 0 | 0.5 | 0.7 |
-| BALANCED | 100% | 2 | 1 | 1.5 | 2.0 |
-| HIGH | 100% | 4 | 2 | 2.0 | 2.5 |
-| ULTRA | 100% | 5 | 4 | 3.0 | 3.0 |
+| Preset | Screen % | Shadow | ShadowRes | SSR | MipBias | Streaming | View Dist | Foliage LOD | Detail | LOD Bias | Grass Cull |
+|--------|----------|--------|-----------|-----|---------|-----------|-----------|-------------|--------|----------|------------|
+| POTATO | 50% | 0 | 128 | 0 | 3 | 0.3 | 0.3 | 0.4 | 0 | 5 | 1,500 |
+| ENDURANCE | 55% | 0 | 128 | 0 | 3 | 0.4 | 0.4 | 0.5 | 0 | 4 | 2,500 |
+| PERFORMANCE | 60% | 0 | 256 | 0 | 3 | 0.5 | 0.5 | 0.6 | 0 | 3 | 4,500 |
+| COMPETITIVE | 100% | 0 | 256 | 0 | 1 | 1.0 | 2.0 | 1.0 | 0 | 1 | 2,000 |
+| BALANCED | 80% | 2 | 1,024 | 1 | 0 | 2.0 | 1.5 | 2.0 | 1 | 0 | 15,000 |
+| HIGH | 100% | 4 | 2,048 | 2 | 0 | 3.0 | 2.0 | 2.5 | 2 | 0 | 20,000 |
+| ULTRA | 100% | 5 | 2,048 | 4 | -1 | 4.0 | 3.0 | 3.0 | 3 | -1 | 30,000 |
+| CINEMATIC | 100% | 5 | 4,096 | 4 | -2 | 6.0 | 4.0 | 4.0 | 4 | -2 | 40,000 |
+
+Potato/Performance presets also apply **extra aggressive tweaks**: HZB forced on, ReflectionEnvironment=0, all dynamic lights=0, spotlights disabled, shadow minimum (Quality=1, CSM=1, MaxRes=512, PerObject=256, MinRes=32), DistanceFieldShadowing=0, CapsuleShadows=0, ContactShadows=0, SSGI=0, SubsurfaceScattering=0, SSR half-res, aggressive LOD culling (MinScreenRadius=0.015, ScreenSizeCull=5.0), reduced density (foliage=0.5, grass=0.4).
 
 #### 4. Options
 120 FPS unlock, Ultra quality unlock, VSync, Auto cooling, Force Vulkan safety, HZB occlusion, Disable fog/CA/outlines/blur/bloom/auto-exposure/SSR, Allow restricted CVars, Hardware.ini generation with device-tier CVars
@@ -161,7 +182,7 @@ Overworld / Domain & Tower
 Toggle each: Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini
 
 #### 7. Generate
-Single button — generates configs with automatic CVar optimization: redundant lines matching game defaults are commented out (`; REDUNDANT`), and unknown CVars not in the UE4 binary dump are flagged (`; UNKNOWN CVar`). Shows review dialog with monospace text editor. Edit CVars inline, then deploy from dialog or close without deploying. All generated configs use `FullscreenMode=0` (fullscreen) — the 3D viewport fills the screen while `sg.ResolutionQuality` controls render resolution for performance.
+Single button — generates configs with automatic CVar optimization: redundant lines matching game defaults are commented out (`; REDUNDANT`), and unknown CVars not in the UE4 binary dump are flagged (`; UNKNOWN CVar`). Opens the ReviewTune screen — a generated-config reviewer/editor/deploy view with a monospace text editor. Edit CVars inline, then deploy from the screen or close without deploying. All generated configs use `FullscreenMode=0` (fullscreen) — the 3D viewport fills the screen while `sg.ResolutionQuality` controls render resolution for performance.
 
 #### 8. Deploy
 Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Uses **hash snapshot + reconcile** pattern: saves hash file before deploy, compares afterward to detect concurrent game access, always recomputes from actual files. `ModifyCount` is capped at 8 to avoid suspicion. When "Allow restricted CVars" is OFF, forbidden CVars are stripped from all 5 INIs before push. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge with color-coded tag chips: **N redundant** (matches game defaults), **N unknown** (not in UE4 binary dump), **N monitored** (ConfigMonitor-tracked).
@@ -234,7 +255,7 @@ app/
     │   ├── SafBackend.kt         # DocumentFile, 3-strategy path resolution, persistable tree URI
     │   └── ShellUtils.kt         # shQuote, computeMd5, maxPushChunkSize, PUSH_RETRY_COUNT=2, MAX_ARG_STRLEN=4096
     ├── config/
-    │   ├── ConfigGenerator.kt    # INI generation (1509 lines), 5 presets, Core.System paths, DeviceProfiles chipset mapping
+    │   ├── ConfigGenerator.kt    # INI generation, 8 presets, Core.System paths, DeviceProfiles chipset mapping
     │   ├── CvarDatabase.kt       # Loads 3 CVar files from assets, optimizeIniText (REDUNDANT/UNKNOWN comments)
     │   ├── CvarCategorizer.kt    # Pure CVar categorization (419 lines, standalone object, 3-level matching, 18 categories)
     │   ├── CvarOptimizer.kt      # GPU tier detection, per-device profile optimizer, adjustProfile for retune
@@ -242,7 +263,7 @@ app/
     │   ├── DeployHistoryStore.kt # Deploy history JSON persistence (20 records max, comparison)
     │   ├── LogParser.kt          # Log decryption (XOR LUT), Convene URL extract, battle stat parse, CVar extraction
     │   ├── SmartBrain.kt         # Scoring engine (359 lines), 0-100, ~20 signals, preset recommendation
-    │   ├── ForbiddenCvars.kt     # 37 restricted CVars + variant handling, stripForbiddenCvars (called when restricted OFF)
+    │   ├── ForbiddenCvars.kt     # 31 restricted CVars + variant handling, stripForbiddenCvars (called when restricted OFF)
     │   ├── BenchmarkTuner.kt     # Auto-tune state machine, FPS logcat parsing, preset stepping
     │   ├── GachaApi.kt           # Gacha API client (HTTP POST, 11 pool types, character/weapon pity calc)
     │   ├── GachaHistoryStore.kt  # Local gacha history persistence (12hr TTL)
@@ -273,6 +294,7 @@ app/
         ├── screens/
         │   ├── HomeScreen.kt        # Backend control, custom config (backup scope dialog + success popup), clean config, quick actions, log viewer, deploy history
         │   ├── ConfigGenScreen.kt   # Analysis, presets, options, advanced tuning, auto-tune, verification (1182 lines)
+    │   ├── ReviewTuneScreen.kt # Generated-config reviewer/editor/deploy screen (driven by ReviewTune* StateFlows)
         │   ├── PityScreen.kt        # Gacha fetcher, summary, predictions, per-pool breakdown, history, background polling
         │   ├── ProfileScreen.kt     # Player profile view (cached, UID/server/level/tower/rogue/BP)
         │   ├── BattleStatsScreen.kt # Battle stats from Client.log (combat, exploration, economy, social, system cards)
@@ -288,6 +310,8 @@ app/
             ├── Color.kt          # Neon palette + glass colors
             ├── Theme.kt          # Dark/Light Material3 schemes
             └── Type.kt           # Typography
+    └── util/
+        └── LineDiff.kt          # DiffLine/DiffSummary/DiffResult, LineDiff.compute(old,new), md5Of
 ```
 
 ---

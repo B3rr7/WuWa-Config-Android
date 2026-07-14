@@ -2,6 +2,7 @@ package com.wuwaconfig.app.model
 
 enum class GameMode(val label: String) {
     Overworld("Overworld"),
+    ToA("Tower of Adversity"),
 }
 
 data class CvarEntry(

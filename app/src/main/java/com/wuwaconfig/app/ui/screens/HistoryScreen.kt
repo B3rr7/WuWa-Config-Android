@@ -14,11 +14,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassCardHeader
+import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
 import java.text.SimpleDateFormat
@@ -31,9 +33,9 @@ fun HistoryScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
 ) {
-    val deployRecords by viewModel.deployRecords.collectAsState()
-    val backendStatus by viewModel.backendStatus.collectAsState()
-    val isApplying by viewModel.isApplying.collectAsState()
+    val deployRecords by viewModel.deployRecords.collectAsStateWithLifecycle()
+    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
+    val isApplying by viewModel.isApplying.collectAsStateWithLifecycle()
     var showClearAllDialog by remember { mutableStateOf(false) }
 
     if (showClearAllDialog) {
@@ -58,18 +60,14 @@ fun HistoryScreen(
     GradientBackground {
         Scaffold(
             topBar = {
-                TopAppBar(
+                GlassTopBar(
                     title = { Text("Deploy History", fontWeight = FontWeight.Bold) },
+                    accentColor = NeonAmber,
                     navigationIcon = {
                         IconButton(
                             onClick = onBack,
                         ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonAmber) }
                     },
-                    colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            titleContentColor = NeonAmber,
-                        ),
                 )
             },
             containerColor = Color.Transparent,

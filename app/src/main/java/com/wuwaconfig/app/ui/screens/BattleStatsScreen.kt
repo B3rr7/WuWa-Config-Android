@@ -20,10 +20,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
+import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
 import com.wuwaconfig.app.ui.theme.*
@@ -34,10 +36,10 @@ fun BattleStatsScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
 ) {
-    val stats by viewModel.battleStats.collectAsState()
-    val loading by viewModel.battleStatsLoading.collectAsState()
-    val fromCache by viewModel.battleStatsFromCache.collectAsState()
-    val backendStatus by viewModel.backendStatus.collectAsState()
+    val stats by viewModel.battleStats.collectAsStateWithLifecycle()
+    val loading by viewModel.battleStatsLoading.collectAsStateWithLifecycle()
+    val fromCache by viewModel.battleStatsFromCache.collectAsStateWithLifecycle()
+    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         if (stats == null) viewModel.loadBattleStatsFromCache()
@@ -46,18 +48,14 @@ fun BattleStatsScreen(
     GradientBackground {
         Scaffold(
             topBar = {
-                TopAppBar(
+                GlassTopBar(
                     title = { Text("Battle Stats", fontWeight = FontWeight.Bold) },
+                    accentColor = NeonGreen,
                     navigationIcon = {
                         IconButton(
                             onClick = onBack,
                         ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NeonGreen) }
                     },
-                    colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            titleContentColor = NeonGreen,
-                        ),
                 )
             },
             containerColor = Color.Transparent,

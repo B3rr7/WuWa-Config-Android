@@ -31,6 +31,7 @@ import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.GamePaths
+import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.LogAnalysisStore
 import com.wuwaconfig.app.model.LogInfo
 import com.wuwaconfig.app.model.LogLevel
@@ -81,6 +82,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _deployResult = MutableStateFlow<String?>(null)
     val deployResult: StateFlow<String?> = _deployResult.asStateFlow()
 
+    private val _deployHashSync = MutableStateFlow<String?>(null)
+    val deployHashSync: StateFlow<String?> = _deployHashSync.asStateFlow()
+
     private val _customDeploySuccess = MutableStateFlow<String?>(null)
     val customDeploySuccess: StateFlow<String?> = _customDeploySuccess.asStateFlow()
 
@@ -115,8 +119,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _deployHistoryEnabled = MutableStateFlow(prefs.getBoolean("deploy_history", true))
     val deployHistoryEnabled: StateFlow<Boolean> = _deployHistoryEnabled.asStateFlow()
 
+    private val _colorfulUi = MutableStateFlow(prefs.getBoolean("colorful_ui", true))
+    val colorfulUi: StateFlow<Boolean> = _colorfulUi.asStateFlow()
+
+    fun setColorfulUi(enabled: Boolean) {
+        prefs.edit().putBoolean("colorful_ui", enabled).apply()
+        _colorfulUi.value = enabled
+    }
+
+    private val _textOpacity = MutableStateFlow(prefs.getFloat("text_opacity", 1f))
+    val textOpacity: StateFlow<Float> = _textOpacity.asStateFlow()
+
+    fun setTextOpacity(value: Float) {
+        val clamped = value.coerceIn(0.5f, 1f)
+        prefs.edit().putFloat("text_opacity", clamped).apply()
+        _textOpacity.value = clamped
+    }
+
+    fun saveGeneratorOptions(opts: GeneratorOptions) {
+        try {
+            prefs.edit().putString("last_generator_options", Gson().toJson(opts)).apply()
+        } catch (e: Exception) {
+            Log.e("WuWaConfig", "saveGeneratorOptions failed", e)
+        }
+    }
+
+    fun loadGeneratorOptions(): GeneratorOptions? {
+        return try {
+            val json = prefs.getString("last_generator_options", null) ?: return null
+            Gson().fromJson(json, GeneratorOptions::class.java)
+        } catch (e: Exception) {
+            Log.e("WuWaConfig", "loadGeneratorOptions failed", e)
+            null
+        }
+    }
+
     fun clearDeployResult() {
         _deployResult.value = null
+        _deployHashSync.value = null
     }
 
     private val _editingFileName = MutableStateFlow<String?>(null)
@@ -136,6 +176,77 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearIniEditorSuccess() {
         _iniEditorSuccess.value = null
+    }
+
+    data class ReviewTunePayload(
+        val engine: String = "",
+        val deviceProfiles: String = "",
+        val gameUserSettings: String = "",
+        val scalability: String = "",
+        val hardware: String = "",
+    )
+
+    private val _reviewTunePayload = MutableStateFlow(ReviewTunePayload())
+    val reviewTunePayload: StateFlow<ReviewTunePayload> = _reviewTunePayload.asStateFlow()
+
+    private val _reviewTuneNewFiles = MutableStateFlow<Map<String, String>>(emptyMap())
+    val reviewTuneNewFiles: StateFlow<Map<String, String>> = _reviewTuneNewFiles.asStateFlow()
+
+    private val _reviewTuneCurrentDeviceLoading = MutableStateFlow<String?>(null)
+    val reviewTuneCurrentDeviceLoading: StateFlow<String?> = _reviewTuneCurrentDeviceLoading.asStateFlow()
+
+    private val _reviewTuneCurrentDeviceError = MutableStateFlow<String?>(null)
+    val reviewTuneCurrentDeviceError: StateFlow<String?> = _reviewTuneCurrentDeviceError.asStateFlow()
+
+    private val _reviewTuneCurrentDevice = MutableStateFlow<Map<String, String>>(emptyMap())
+    val reviewTuneCurrentDevice: StateFlow<Map<String, String>> = _reviewTuneCurrentDevice.asStateFlow()
+
+    private val _reviewTuneOptions = MutableStateFlow(GeneratorOptions())
+    val reviewTuneOptions: StateFlow<GeneratorOptions> = _reviewTuneOptions.asStateFlow()
+
+    fun openReviewTune(
+        payload: ReviewTunePayload,
+        options: GeneratorOptions,
+    ) {
+        _reviewTunePayload.value = payload
+        _reviewTuneOptions.value = options
+        _reviewTuneNewFiles.value =
+            mapOf(
+                "Engine.ini" to payload.engine,
+                "DeviceProfiles.ini" to payload.deviceProfiles,
+                "GameUserSettings.ini" to payload.gameUserSettings,
+                "Scalability.ini" to payload.scalability,
+                "Hardware.ini" to payload.hardware,
+            )
+        _reviewTuneCurrentDevice.value = emptyMap()
+        _reviewTuneCurrentDeviceError.value = null
+    }
+
+    fun updateReviewTuneFile(
+        fileName: String,
+        content: String,
+    ) {
+        val cur = _reviewTuneNewFiles.value.toMutableMap()
+        if (cur[fileName] == content) return
+        cur[fileName] = content
+        _reviewTuneNewFiles.value = cur
+    }
+
+    fun reloadDeviceFileForReview(fileName: String) {
+        viewModelScope.launch {
+            _reviewTuneCurrentDeviceLoading.value = fileName
+            _reviewTuneCurrentDeviceError.value = null
+            configManager.readCurrentConfig(fileName)
+                .onSuccess { content ->
+                    val cur = _reviewTuneCurrentDevice.value.toMutableMap()
+                    cur[fileName] = content
+                    _reviewTuneCurrentDevice.value = cur
+                }
+                .onFailure { e ->
+                    _reviewTuneCurrentDeviceError.value = "$fileName: ${e.message ?: "unknown error"}"
+                }
+            _reviewTuneCurrentDeviceLoading.value = null
+        }
     }
 
     fun readIniFile(fileName: String) {
@@ -866,6 +977,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val battleStats = com.wuwaconfig.app.config.LogParser.parseBattleStats(text)
                 BattleStatsStore.save(getApplication(), battleStats)
                 LogAnalysisStore.save(getApplication(), info, brain)
+                val report =
+                    com.wuwaconfig.app.config.SmartBrain.buildReportText(info, brain, cvarDatabase)
+                LogRepository.saveSmartBrainReport(report)
             }
             addLog("Analysis cached for quick viewing")
         } catch (e: Exception) {
@@ -1114,8 +1228,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     _deployResult.value = result.getOrThrow()
-                    configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
-                        .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
+                    configManager.reconcileAfterModify(preSnapshot)
+                        .onSuccess {
+                            addLog(it)
+                            _deployHashSync.value = it
+                        }
+                        .onFailure { e ->
+                            addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR)
+                            _deployHashSync.value = "Hash refresh failed: ${e.message}"
+                        }
                     if (opts.generateEngine) {
                         addLog("Verifying deployed CVars against ConfigMonitor...")
                         _readingProgress.value = 50
@@ -1183,6 +1304,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 baselineDrops = baselineLog.dropFrames,
                                 baselineClientLogSnippet = baselineSnippet,
                                 optimizedProfile = retuneProfile ?: if (opts.useAdvancedGen) com.wuwaconfig.app.config.CvarOptimizer.optimizeProfile(baselineLog) else null,
+                                options = opts,
                             )
                         DeployHistoryStore.addRecord(record)
                         _deployRecords.value = DeployHistoryStore.getAllRecords()
@@ -1279,11 +1401,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val result = configManager.cleanConfigFiles { msg -> addLog(msg) }
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
+                    _backupFeedback.value = "Config files cleaned"
                     loadBackups()
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
                         .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                 } else {
                     addLog(result.exceptionOrNull()?.message ?: "Clean failed")
+                    _backupFeedback.value = "Clean failed: ${result.exceptionOrNull()?.message ?: "unknown error"}"
                 }
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
@@ -1304,11 +1428,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val result = configManager.deleteConfigFiles(selectedFiles)
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
+                    _backupFeedback.value = "Deleted ${selectedFiles.size} config file(s)"
                     loadBackups()
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
                         .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                 } else {
                     addLog(result.exceptionOrNull()?.message ?: "Delete failed")
+                    _backupFeedback.value = "Delete failed: ${result.exceptionOrNull()?.message ?: "unknown error"}"
                 }
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")

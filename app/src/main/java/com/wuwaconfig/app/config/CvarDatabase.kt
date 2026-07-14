@@ -114,28 +114,23 @@ class CvarDatabase(private val assets: AssetManager) {
     fun optimizeIniText(text: String): String {
         ensureLoaded()
         val result =
-            text.lines().map { line ->
+            text.lines().mapNotNull { line ->
                 val trimmed = line.trim()
                 if (trimmed.startsWith(";") || trimmed.startsWith("#") || trimmed.startsWith("//") || trimmed.isEmpty() || trimmed.startsWith("[")) {
-                    return@map line
+                    return@mapNotNull line
                 }
                 val cvarLine = trimmed.removePrefix("+CVars=").removePrefix("-CVars=").trim()
                 if (cvarLine.isEmpty() || cvarLine.startsWith(";") || cvarLine.startsWith("#") || cvarLine.startsWith("//") || cvarLine.startsWith("[")) {
-                    return@map line
+                    return@mapNotNull line
                 }
                 val eq = cvarLine.indexOf('=')
-                if (eq <= 0) return@map line
-                val key = cvarLine.substring(0, eq).trim()
-                val value = cvarLine.substring(eq + 1).trim()
-                val kLower = key.lowercase()
-
-                if (kLower in _allCvars!! && kLower in _defaultValues!! && _defaultValues!![kLower] == value) {
-                    "; REDUNDANT (matches game default) — $key=$value"
-                } else if (kLower !in _allCvars!!) {
-                    "; UNKNOWN CVar (not in libUE4.so dump) — $key=$value"
-                } else {
-                    line
-                }
+                if (eq <= 0) return@mapNotNull line
+                // Keep every CVar line intact: do not annotate or drop default-matching
+                // entries, so the generated config stays explicit and complete. (The old
+                // "; REDUNDANT (matches game default)" / "; UNKNOWN CVar" comments were
+                // removed at the user's request; dropping the lines themselves just made
+                // the config shorter without benefit.)
+                line
             }
         return result.joinToString("\n")
     }
