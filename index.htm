@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WuWaConfig — Wuthering Waves Performance Toolkit for Android</title>
+<meta name="description" content="WuWaConfig — free Android app to boost Wuthering Waves (WuWa) FPS and tune graphics. Generate optimized Engine.ini, Scalability.ini & GameUserSettings.ini configs via ADB, Shizuku, Root, or SAF. SmartBrain scoring, 8 presets, CVar editor, gacha pity tracker, battle stats. Privacy-first, no telemetry.">
+<meta name="keywords" content="wuthering waves, wuwa, fps boost, engine.ini optimization, unreal engine 4 mobile config, kuro games optimization, android game booster, mobile game config editor, gacha pity tracker, battle stats analyzer, fps unlock 120fps, graphics tuning, device profile config, scalability ini, hardware ini, gameusersettings ini, config generator android, wuthering waves android optimization, wuwa mobile config, wuwa lag fix android, wuthering waves stuttering fix, wuwa engine ini tweak, deviceprofiles ini tutorial, increase wuwa fps, mobile gaming performance, vulkan shader cache optimization, wuthering waves 120fps, fps drop fix mobile, thermal throttling solution, kurogames config tool, snapdragon gaming optimization, adreno gpu tuning, mali gpu optimization, low end device booster, smartbrain scoring, configmonitor hash, cvar editor android, auto tune wizard, battle statistics, wuthering waves benchmark, wuwa config generator, android game booster wuwa, wuthering waves android optimization, wuthering waves 3.4 cyberpunk, wuwa version 3.4 config, kuro config monitor, wuwa graphics preset, mobile unreal engine tweaks, wuthering waves performance 2026, android data folder access, shizuku game config, adb wireless debugging game, wuwa startup config, engine ini mobile, gameusersettings fps unlock, wuthering waves low memory fix, wuwa texture streaming, cvar optimization android, wuwa config for poco, wuwa config for redmi, wuwa config for xiaomi, wuwa config for samsung, wuwa config for oneplus, wuwa config for realme, wuwa config for vivo, wuwa config for oppo, wuwa config for honor, wuwa config for huawei, wuwa config for nothing phone, wuwa config for motorola, wuwa config for asus rog, wuwa config for lenovo, wuwa poco x6 pro config, wuwa poco x5 pro config, wuwa poco f5 config, wuwa poco f6 config, wuwa redmi note 12 config, wuwa redmi note 13 config, wuwa samsung s23 config, wuwa samsung s24 config, wuwa oneplus 12 config, wuwa realme gt config, wuwa vivo x100 config">
+<meta name="author" content="Player42">
+<link rel="canonical" href="https://b3rr7.github.io/WuWa-Config-Android/">
+
+<!-- Open Graph -->
+<meta property="og:title" content="WuWaConfig — Wuthering Waves Performance Toolkit">
+<meta property="og:description" content="Android app for Wuthering Waves performance optimization. Analyze, generate, deploy. 5,237 CVar database, 8 presets, 4 access methods. Privacy-first, no telemetry.">
+<meta property="og:url" content="https://b3rr7.github.io/WuWa-Config-Android/">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://b3rr7.github.io/WuWa-Config-Android/og-image.png">
+<meta property="og:site_name" content="WuWaConfig">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="WuWaConfig — Wuthering Waves Performance Toolkit">
+<meta name="twitter:description" content="Android app for Wuthering Waves performance optimization. Analyze, generate, deploy. 5,237 CVar database, 8 presets, 4 access methods. Privacy-first, no telemetry.">
+<meta name="twitter:image" content="https://b3rr7.github.io/WuWa-Config-Android/og-image.png">
+
+<!-- JSON-LD Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "WuWaConfig",
+  "description": "Android app for Wuthering Waves (WuWa) performance optimization. Analyzes device logs, generates optimized Engine.ini configs for FPS boost and graphics tuning, deploys via ADB, Shizuku, Root, or SAF. Includes CVar tuning, SmartBrain scoring, Pity Tracker, Battle Stats, Player Profile, Auto-Tune Wizard. Privacy-first, no analytics, no telemetry.",
+  "url": "https://github.com/B3rr7/WuWa-Config-Android",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Android",
+  "androidMinimumOSVersion": "8.0",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Person", "name": "Player42" },
+  "keywords": "wuthering waves, wuwa, fps boost, engine.ini, android optimization, gacha tracker, battle stats, adb, shizuku, cvar editor",
+  "softwareVersion": "1.0.9",
+  "releaseNotes": "5,237 CVar database from libUE4.so, 23 experimental CVars, SmartBrain scoring 0-100, 4 access methods, 8 presets, Auto-Tune Wizard"
+}
+</script>
+
+<!-- FAQPage Structured Data (rich results) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is WuWaConfig for Wuthering Waves?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "WuWaConfig is a free Android app that optimizes Wuthering Waves (WuWa) performance. It reads your device Client.log, scores your phone with SmartBrain (0-100), generates optimized Engine.ini / Scalability.ini / GameUserSettings.ini configs, and deploys them via ADB, Shizuku, Root, or SAF to boost FPS and tune graphics."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is WuWaConfig safe and does it send my data anywhere?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. WuWaConfig is privacy-first: no analytics, no telemetry, and no data leaves the device except for your own, user-initiated gacha API calls. It only edits local game config files on Android 8+."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I boost Wuthering Waves FPS without root?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use ADB Wireless Debugging or Shizuku in WuWaConfig — both work on non-rooted devices. Connect, run the Config Generator, and WuWaConfig's SmartBrain score reads your actual hardware (GPU tier, RAM, Vulkan, thermal history) to pick the right preset from Potato to Cinematic. Results depend on your device: flagship Snapdragon or Dimensity chips can unlock 120 FPS and run Ultra/Cinematic, while mid-range and low-end phones gain stability and fewer frame drops rather than a huge raw-FPS jump. The app handles 120 FPS unlock, render scale, shadow and streaming tuning automatically based on that hardware profile."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which devices does WuWaConfig support?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Any Android 8+ phone: Snapdragon (Adreno), MediaTek Dimensity (Mali/PowerVR), Exynos, Tensor, and low-end devices. It includes per-chipset presets for Poco, Redmi, Xiaomi, Samsung, OnePlus, Realme, Vivo, Oppo, Nothing, Motorola, Asus ROG, and Lenovo."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the best WuWaConfig preset for Poco X6 Pro and Snapdragon phones?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "On Snapdragon + Adreno devices (Poco X6 Pro, X5 Pro, F5, F6, Samsung, OnePlus), start with Balanced or High and let SmartBrain tune it. Flagship Snapdragons (8 Gen 2/3) can run Ultra or Cinematic with 120 FPS unlock; mid-range chips are smoother on Competitive or Performance for a stable frame rate."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does WuWaConfig work on Samsung Galaxy S23 and S24?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. WuWaConfig supports Samsung Galaxy S23 and S24 (both Snapdragon and Exynos variants) on Android 8+. Connect via Shizuku or ADB Wireless Debugging, pick a preset, and deploy the optimized INI files. Exynos models should start one tier lower than Snapdragon for thermal headroom."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Best WuWaConfig settings for Redmi Note 12, Redmi Note 13 and other budget phones?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "For budget phones like Redmi Note 12/13, Realme, and Motorola, start with the Performance or Endurance preset. These keep render scale, shadows, and streaming conservative to avoid thermal throttling and GPU OOM while still unlocking higher FPS than stock settings."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can WuWaConfig optimize MediaTek Dimensity phones with a Mali GPU?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. WuWaConfig includes per-chipset tuning for MediaTek Dimensity (Mali/PowerVR) devices. Mali GPUs benefit most from lower shadow quality and reduced texture streaming, so Competitive or Balanced is usually the sweet spot; SmartBrain scores your exact GPU tier automatically."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I get 120 FPS in Wuthering Waves with WuWaConfig?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "WuWaConfig's 120 FPS unlock toggle raises the frame-pace cap in GameUserSettings.ini and works on capable Snapdragon or Dimensity flagships via ADB, Shizuku, Root, or SAF. If the device overheats or drops frames, step down a preset (Ultra to High to Balanced) until FPS is stable."
+      }
+    }
+  ]
+}
+</script>
+
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif;
+  background: #0a0a0f;
+  color: #e0e0e0;
+  line-height: 1.6;
+  overflow-x: hidden;
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpolygon points='12,2 21,7 21,17 12,22 3,17 3,7' fill='none' stroke='%23ffb800' stroke-width='.8'/%3E%3Ccircle cx='12' cy='12' r='1.5' fill='%23ffb800' opacity='.9'/%3E%3C/svg%3E") 12 12, auto;
+}
+a, button, .btn, .feature-card, .mini-card, .access-card, .link-card, .step, .signal, .stat-card {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpolygon points='12,2 21,7 21,17 12,22 3,17 3,7' fill='none' stroke='%23ff4466' stroke-width='1'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23ff4466' opacity='.8'/%3E%3C/svg%3E") 12 12, pointer;
+}
+
+/* ===== Animated Background ===== */
+.bg-image {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: url('taoqi.webp') center/cover no-repeat fixed;
+  opacity: .15;
+  pointer-events: none;
+}
+.bg-image-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(135deg, rgba(10,10,15,.85), rgba(10,10,15,.7));
+  pointer-events: none;
+}
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(255, 184, 0, .03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 184, 0, .03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+.bg-glow {
+  position: fixed;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: .3;
+  animation: floatGlow 12s ease-in-out infinite alternate;
+}
+.bg-glow--cyan { top: -200px; right: -100px; background: radial-gradient(circle, rgba(255, 184, 0, .2), transparent 70%); }
+.bg-glow--purple { bottom: -200px; left: -100px; background: radial-gradient(circle, rgba(255, 68, 102, .15), transparent 70%); animation-delay: -6s; }
+@keyframes floatGlow {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(40px, -30px) scale(1.1); }
+}
+
+/* ===== Layout ===== */
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+section { padding: 80px 0; }
+
+/* ===== Typography ===== */
+h1, h2, h3 { font-weight: 700; line-height: 1.2; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.8rem); }
+h2 {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  margin-bottom: 48px;
+  text-align: center;
+  background: linear-gradient(135deg, #ffb800, #ff4466);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+h2::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, #ffb800, #ff4466);
+  margin: 12px auto 0;
+  border-radius: 2px;
+}
+h3 { font-size: 1.25rem; margin-bottom: 8px; color: #ffb800; }
+p { margin-bottom: 16px; color: #a0a0b0; }
+a { color: #ffb800; text-decoration: none; transition: color .2s; }
+a:hover, a:focus { color: #dc143c; }
+::selection { background: rgba(255, 184, 0, .3); color: #fff; }
+
+/* ===== Hero ===== */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 100px 24px 60px;
+  position: relative;
+}
+.hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border: 1px solid rgba(255, 184, 0, .3);
+  border-radius: 100px;
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #ffb800;
+  margin-bottom: 24px;
+  background: rgba(255, 184, 0, .06);
+}
+.hero__badge span { width: 8px; height: 8px; border-radius: 50%; background: #00ff88; display: inline-block; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+.hero h1 {
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #fff 0%, #ffb800 40%, #ff4466 70%, #ffb800 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% auto;
+  animation: shimmer 6s linear infinite;
+}
+@keyframes shimmer { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+.hero p { font-size: 1.15rem; max-width: 640px; margin: 0 auto 32px; color: #808090; }
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all .25s;
+  cursor: pointer;
+  border: none;
+}
+.btn--primary {
+  background: linear-gradient(135deg, #ffb800, #ff4466);
+  color: #fff;
+  box-shadow: 0 0 30px rgba(255, 184, 0, .3);
+}
+.btn--primary:hover, .btn--primary:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 0 50px rgba(255, 184, 0, .5);
+}
+.btn--secondary {
+  background: transparent;
+  color: #ffb800;
+  border: 1px solid rgba(255, 184, 0, .4);
+}
+.btn--secondary:hover, .btn--secondary:focus {
+  background: rgba(255, 184, 0, .08);
+  border-color: #ffb800;
+}
+.hero__meta {
+  margin-top: 48px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  justify-content: center;
+  font-size: .85rem;
+  color: #606070;
+}
+.hero__meta span { display: flex; align-items: center; gap: 6px; }
+
+/* ===== Features Grid ===== */
+.features__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+.feature-card {
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid rgba(255, 255, 255, .06);
+  border-radius: 16px;
+  padding: 28px 24px;
+  transition: all .3s;
+  position: relative;
+  overflow: hidden;
+}
+.feature-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 1px;
+  background: linear-gradient(135deg, transparent 40%, rgba(255, 184, 0, .1), transparent 60%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.feature-card:hover { transform: translateY(-4px); border-color: rgba(255, 184, 0, .2); }
+.feature-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  margin-bottom: 16px;
+  background: rgba(255, 184, 0, .08);
+  color: #ffb800;
+}
+.feature-card p { font-size: .92rem; margin: 0; }
+
+/* ===== Stats ===== */
+.stats__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+  text-align: center;
+}
+.stat-card {
+  background: rgba(255, 255, 255, .02);
+  border: 1px solid rgba(255, 255, 255, .05);
+  border-radius: 16px;
+  padding: 28px 16px;
+  transition: border-color .3s;
+}
+.stat-card:hover { border-color: rgba(255, 184, 0, .15); }
+.stat-card__num {
+  font-size: 2.4rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffb800, #ff4466);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.stat-card__label { font-size: .85rem; color: #606070; margin-top: 4px; }
+
+/* ===== Steps ===== */
+.steps__list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+.step {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  background: rgba(255, 255, 255, .02);
+  border: 1px solid rgba(255, 255, 255, .04);
+  border-radius: 14px;
+  padding: 20px 24px;
+  transition: border-color .3s;
+}
+.step:hover { border-color: rgba(255, 184, 0, .15); }
+.step__num {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: .9rem;
+  background: linear-gradient(135deg, rgba(255, 184, 0, .15), rgba(255, 68, 102, .15));
+  color: #ffb800;
+  border: 1px solid rgba(255, 184, 0, .2);
+}
+.step h3 { margin-bottom: 4px; font-size: 1.05rem; }
+.step p { margin: 0; font-size: .9rem; }
+.step__tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.step__tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: .7rem;
+  font-weight: 500;
+  background: rgba(255, 184, 0, .06);
+  color: #dc143c;
+  border: 1px solid rgba(255, 184, 0, .1);
+}
+
+/* ===== Access Methods ===== */
+.access__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.access-card {
+  background: rgba(255, 255, 255, .02);
+  border: 1px solid rgba(255, 255, 255, .05);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  transition: all .3s;
+}
+.access-card:hover { border-color: rgba(255, 184, 0, .2); transform: translateY(-2px); }
+.access-card__icon { font-size: 2rem; margin-bottom: 10px; }
+.access-card h3 { font-size: 1rem; }
+.access-card p { font-size: .82rem; margin: 4px 0 8px; }
+.access-card__tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 100px;
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.access-card__tag--best { background: rgba(0, 255, 136, .12); color: #00ff88; border: 1px solid rgba(0, 255, 136, .25); }
+.access-card__tag--ok { background: rgba(255, 184, 0, .1); color: #ffb800; border: 1px solid rgba(255, 184, 0, .2); }
+.access-card__tag--limited { background: rgba(255, 200, 0, .1); color: #ffc800; border: 1px solid rgba(255, 200, 0, .2); }
+
+/* ===== Tables ===== */
+.table-wrap { overflow-x: auto; margin-bottom: 24px; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .02);
+  border: 1px solid rgba(255, 255, 255, .06);
+}
+thead { background: rgba(255, 184, 0, .06); }
+th { padding: 14px 16px; font-size: .8rem; text-transform: uppercase; letter-spacing: 1px; color: #ffb800; font-weight: 600; text-align: left; white-space: nowrap; }
+td { padding: 12px 16px; font-size: .88rem; border-top: 1px solid rgba(255, 255, 255, .04); color: #c0c0d0; }
+td:first-child { font-weight: 600; color: #e0e0f0; }
+tr:hover td { background: rgba(255, 184, 0, .02); }
+
+/* ===== Grid sections ===== */
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+
+/* ===== Small cards ===== */
+.mini-card {
+  background: rgba(255, 255, 255, .02);
+  border: 1px solid rgba(255, 255, 255, .04);
+  border-radius: 10px;
+  padding: 16px;
+  transition: all .25s;
+}
+.mini-card:hover { border-color: rgba(255, 184, 0, .12); }
+.mini-card h4 { font-size: .9rem; color: #ffb800; margin-bottom: 6px; }
+.mini-card p { font-size: .82rem; margin: 0; color: #808090; }
+
+/* ===== Signals ===== */
+.signals__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+.signal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, .02);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, .04);
+  font-size: .85rem;
+}
+.signal__impact {
+  font-weight: 600;
+  font-size: .8rem;
+  padding: 2px 10px;
+  border-radius: 100px;
+}
+.signal__impact--pos { color: #00ff88; background: rgba(0, 255, 136, .1); }
+.signal__impact--neg { color: #ff4466; background: rgba(255, 68, 102, .1); }
+.signal__impact--mixed { color: #ffa500; background: rgba(255, 165, 0, .1); }
+
+/* ===== Links ===== */
+.links__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.link-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .02);
+  border: 1px solid rgba(255, 255, 255, .06);
+  transition: all .3s;
+  font-weight: 500;
+}
+.link-card:hover {
+  background: rgba(255, 184, 0, .06);
+  border-color: rgba(255, 184, 0, .25);
+  transform: translateY(-2px);
+}
+
+/* ===== Footer ===== */
+footer {
+  text-align: center;
+  padding: 40px 24px;
+  border-top: 1px solid rgba(255, 255, 255, .04);
+  font-size: .82rem;
+  color: #505060;
+}
+footer a { color: #808090; }
+footer a:hover { color: #ffb800; }
+footer .heart { color: #ff4466; }
+
+/* ===== Misc ===== */
+.disclaimer {
+  max-width: 700px;
+  margin: 0 auto 48px;
+  padding: 16px 20px;
+  border: 1px solid rgba(255, 200, 0, .15);
+  border-radius: 10px;
+  background: rgba(255, 200, 0, .03);
+  font-size: .85rem;
+  color: #b0a080;
+  text-align: center;
+}
+.disclaimer strong { color: #ffc800; }
+.topics__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.topics__list span {
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid rgba(255, 255, 255, .06);
+  border-radius: 100px;
+  font-size: .74rem;
+  color: #707080;
+  transition: all .2s;
+}
+.topics__list span:hover { border-color: rgba(255, 184, 0, .2); color: #ffb800; }
+.legend-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 16px; font-size: .85rem; }
+.section-sub { text-align: center; color: #808090; margin-top: -32px; margin-bottom: 36px; max-width: 600px; margin-left: auto; margin-right: auto; }
+
+/* ===== Tabs ===== */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-bottom: 24px; }
+.tab-btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .02);
+  color: #808090;
+  font-size: .85rem;
+  cursor: pointer;
+  transition: all .2s;
+}
+.tab-btn:hover { border-color: rgba(255, 184, 0, .2); color: #ffb800; }
+.tab-btn--active { background: rgba(255, 184, 0, .1); border-color: rgba(255, 184, 0, .3); color: #ffb800; }
+
+/* ===== Responsive ===== */
+@media (max-width: 600px) {
+  section { padding: 48px 0; }
+  .hero { padding: 80px 16px 40px; min-height: auto; }
+  .hero h1 { font-size: 1.8rem; }
+  .features__grid { grid-template-columns: 1fr; }
+  .step { flex-direction: column; gap: 10px; }
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0a0a0f; }
+::-webkit-scrollbar-thumb { background: #303040; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #505060; }
+
+/* ===== Cursor ===== */
+.cursor-glow {
+  position: fixed;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 184, 0, .08), transparent 70%);
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: width .3s, height .3s, background .3s;
+}
+.cursor-glow--hover {
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(255, 184, 0, .1), rgba(255, 68, 102, .05), transparent 70%);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .cursor-glow { display: none; }
+}
+
+/* ===== Binary Cursor Trail ===== */
+.bit-trail {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9998;
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: #ffb800;
+  text-shadow: 0 0 6px rgba(255, 184, 0, .6);
+  animation: bitFade 1s ease-out forwards;
+}
+body.light .bit-trail { color: #147a7a; text-shadow: 0 0 6px rgba(20, 122, 122, .5); }
+@keyframes bitFade {
+  0% { opacity: .95; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -110%) scale(.7); }
+}
+@media (hover: none) and (pointer: coarse) {
+  .bit-trail { display: none; }
+}
+
+/* ===== Click Ripple ===== */
+.ripple-ring {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  animation: rippleBurst .8s ease-out forwards;
+}
+.ripple-dot {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9997;
+  animation: dotFly 1s ease-out forwards;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+.ripple-spark {
+  position: fixed;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9996;
+  animation: sparkFade .6s ease-out forwards;
+}
+@keyframes rippleBurst {
+  0% { width: 0; height: 0; opacity: .8; border: 3px solid rgba(26, 92, 92, .8); box-shadow: 0 0 20px rgba(26, 92, 92, .3); }
+  40% { opacity: .5; border-color: rgba(255, 68, 102, .5); box-shadow: 0 0 40px rgba(255, 68, 102, .2); }
+  100% { width: 200px; height: 200px; opacity: 0; border: 1px solid rgba(255, 68, 102, 0); box-shadow: 0 0 0 transparent; transform: translate(-100px, -100px); }
+}
+@keyframes dotFly {
+  0% { opacity: 1; transform: scale(1); }
+  60% { opacity: .6; }
+  100% { opacity: 0; transform: scale(0); }
+}
+@keyframes sparkFade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.matrix-char {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9998;
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  text-shadow: 0 0 8px currentColor;
+  transform: translate(-50%, -50%);
+  animation: matrixFly .9s ease-out forwards;
+}
+@keyframes matrixFly {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.6); }
+}
+
+/* ===== Animations ===== */
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(26, 92, 92, .04); }
+  50% { box-shadow: 0 0 20px rgba(26, 92, 92, .08), 0 0 40px rgba(20, 122, 122, .03); }
+}
+@keyframes borderPulse {
+  0%, 100% { border-color: rgba(26, 92, 92, .06); }
+  50% { border-color: rgba(26, 92, 92, .15); }
+}
+
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
+.reveal--visible { opacity: 1; transform: translateY(0); }
+
+.feature-card, .mini-card, .access-card, .stat-card, .signal, .step, .link-card {
+  transition: transform .35s ease, box-shadow .35s ease, border-color .3s ease;
+}
+.feature-card:hover, .mini-card:hover, .access-card:hover, .step:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 184, 0, .25);
+  animation: glowPulse 2.5s ease-in-out infinite;
+}
+.link-card:hover { transform: translateY(-2px); }
+.stat-card:hover { border-color: rgba(255, 184, 0, .15); }
+.signal:hover { border-color: rgba(255, 184, 0, .15); background: rgba(255, 184, 0, .03); }
+table tbody tr { transition: background .2s; }
+.feature-card, .mini-card, .access-card { animation: borderPulse 4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* ===== Theme Toggle Button ===== */
+.theme-toggle {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 1000;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 184, 0, .35);
+  background: rgba(255, 255, 255, .06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #ffb800;
+  font-size: 1.3rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .25s ease, background .25s ease, border-color .25s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .3);
+}
+.theme-toggle:hover { transform: rotate(20deg) scale(1.08); border-color: #ffb800; }
+
+/* ===== Light / Glassmorphism Theme ===== */
+body.light {
+  background: linear-gradient(135deg, #dfe4ee 0%, #d6dced 45%, #e4dcec 100%);
+  color: #1a1c26;
+}
+body.light .bg-image { opacity: .55; }
+body.light .bg-image-overlay {
+  background: linear-gradient(135deg, rgba(223,228,238,.08), rgba(214,220,237,.04), rgba(228,220,236,.06));
+  backdrop-filter: blur(120px) saturate(150%);
+  -webkit-backdrop-filter: blur(120px) saturate(150%);
+}
+body.light .bg-grid { opacity: .4; }
+body.light .bg-glow--cyan { background: radial-gradient(circle, rgba(26, 92, 92, .18), transparent 70%); }
+body.light .bg-glow--purple { background: radial-gradient(circle, rgba(255, 68, 102, .12), transparent 70%); }
+body.light p { color: #16181f; }
+body.light .section-sub { color: #4a6b6b; }
+body.light h2 { background: linear-gradient(135deg, #1a5c5c 0%, #2a6b6b 45%, #147a7a 70%, #1a5c5c 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+body.light h3 { color: #2a6b6b; }
+body.light a { color: #1a5c5c; }
+body.light a:hover, body.light a:focus { color: #d13a5c; }
+body.light .hero p { color: #16181f; }
+body.light .hero__meta { color: #23262f; }
+body.light .hero__badge { color: #1a5c5c; }
+body.light .hero h1 {
+  background: linear-gradient(135deg, #1a5c5c 0%, #2a6b6b 35%, #7fd9bb 55%, #147a7a 75%, #1a5c5c 100%);
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% auto;
+  animation: shimmer 6s linear infinite;
+}
+body.light .theme-toggle { background: rgba(255,255,255,.55); color: #1a5c5c; box-shadow: 0 4px 20px rgba(120,130,160,.25); }
+body.light { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpolygon points='12,2 21,7 21,17 12,22 3,17 3,7' fill='none' stroke='%231a5c5c' stroke-width='.8'/%3E%3Ccircle cx='12' cy='12' r='1.5' fill='%231a5c5c' opacity='.9'/%3E%3C/svg%3E") 12 12, auto; }
+body.light a, body.light button, body.light .btn, body.light .feature-card, body.light .mini-card, body.light .access-card, body.light .link-card, body.light .step, body.light .signal, body.light .stat-card { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpolygon points='12,2 21,7 21,17 12,22 3,17 3,7' fill='none' stroke='%23147a7a' stroke-width='1'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23147a7a' opacity='.8'/%3E%3C/svg%3E") 12 12, pointer; }
+body.light .btn--primary { background: linear-gradient(135deg, #1a5c5c, #147a7a); box-shadow: 0 0 30px rgba(26, 92, 92, .3); color: #fff; }
+body.light .btn--primary:hover, body.light .btn--primary:focus { box-shadow: 0 0 50px rgba(26, 92, 92, .5); }
+body.light .btn--secondary { color: #1a5c5c; border-color: rgba(26, 92, 92, .45); }
+body.light .btn--secondary:hover { background: rgba(26, 92, 92, .12); border-color: #1a5c5c; }
+
+body.light .feature-card,
+body.light .stat-card,
+body.light .step,
+body.light .access-card,
+body.light .mini-card,
+body.light .signal,
+body.light table,
+body.light pre {
+  background: rgba(245, 247, 252, .22);
+  border: 1px solid rgba(255, 255, 255, .4);
+  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  box-shadow: 0 8px 32px rgba(120, 130, 160, .12);
+}
+body.light .feature-card:hover,
+body.light .stat-card:hover,
+body.light .step:hover,
+body.light .access-card:hover,
+body.light .mini-card:hover { border-color: rgba(26, 92, 92, .35); }
+body.light .step__num { background: rgba(255,255,255,.6); color: #1a5c5c; border-color: rgba(26,92,92,.3); }
+body.light thead { background: rgba(26, 92, 92, .12); }
+body.light th { color: #1a5c5c; }
+body.light td { color: #23262f; border-top: 1px solid rgba(120, 130, 160, .15); }
+body.light td:first-child { color: #14161e; }
+body.light tr:hover td { background: rgba(26, 92, 92, .06); }
+body.light .mini-card h4 { color: #2a6b6b; }
+body.light .mini-card p { color: #16181f; }
+body.light .stat-card__label { color: #23262f; }
+body.light .stat-card__num { background: linear-gradient(135deg, #1a5c5c, #147a7a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+body.light footer { color: #23262f; }
+body.light footer a { color: #16181f; }
+body.light .feature-card::before { background: linear-gradient(135deg, transparent 40%, rgba(26, 92, 92, .18), transparent 60%); }
+body.light .disclaimer { border-color: rgba(26, 92, 92, .3); background: rgba(26, 92, 92, .04); }
+body.light .disclaimer strong { color: #147a7a; }
+body.light .access-card__tag--ok { background: rgba(26, 92, 92, .12); color: #1a5c5c; border-color: rgba(26, 92, 92, .3); }
+body.light .access-card__tag--limited { background: rgba(26, 92, 92, .1); color: #147a7a; border-color: rgba(26, 92, 92, .25); }
+body.light .tab-btn:hover { border-color: rgba(26, 92, 92, .35); color: #1a5c5c; }
+body.light .topics__list span:hover { border-color: rgba(26, 92, 92, .3); color: #1a5c5c; }
+body.light footer a:hover { color: #1a5c5c; }
+body.light .access-card:hover { border-color: rgba(26, 92, 92, .3); }
+body.light .signal:hover { border-color: rgba(26, 92, 92, .25); background: rgba(26, 92, 92, .05); }
+body.light ::selection { background: rgba(26, 92, 92, .25); color: #fff; }
+body.light .bg-grid { background-image: linear-gradient(rgba(26, 92, 92, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(26, 92, 92, .04) 1px, transparent 1px); }
+body.light h2::after { background: linear-gradient(90deg, #1a5c5c, #147a7a); }
+body.light [style*="color:#ffb800"] { color: #1a5c5c !important; }
+body.light [style*="color:#ffa500"] { color: #2a6b6b !important; }
+body.light [style*="color:#ff8844"] { color: #147a7a !important; }
+body.light .signal__impact--mixed { color: #147a7a; background: rgba(20, 122, 122, .12); }
+body.light .feature-card__icon { background: rgba(26, 92, 92, .1); color: #1a5c5c; }
+
+/* light-theme cursor & effects */
+body.light .cursor-glow { background: radial-gradient(circle, rgba(26, 92, 92, .18), transparent 70%); }
+body.light .cursor-glow--hover { background: radial-gradient(circle, rgba(20, 122, 122, .2), rgba(26, 92, 92, .12), transparent 70%); }
+body.light .ripple-ring { filter: saturate(160%) brightness(.8); }
+body.light .ripple-dot, body.light .ripple-spark { filter: saturate(160%) brightness(.85); }
+
+/* ===== Global Glassmorphism (both themes) ===== */
+.feature-card,
+.stat-card,
+.step,
+.access-card,
+.mini-card,
+.signal,
+.link-card,
+.hero__badge,
+.disclaimer,
+.tab-btn,
+.topics__list span,
+table {
+  background: rgba(255, 255, 255, .045);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, .1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .25), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+.feature-card, .stat-card, .step, .access-card { background: rgba(255, 255, 255, .05); }
+thead { background: rgba(255, 184, 0, .1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.btn--secondary {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, .04);
+}
+.hero__badge { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+/* light-theme glass tuning */
+body.light .feature-card,
+body.light .stat-card,
+body.light .step,
+body.light .access-card,
+body.light .mini-card,
+body.light .signal,
+body.light .link-card,
+body.light .hero__badge,
+body.light .disclaimer,
+body.light .tab-btn,
+body.light .topics__list span,
+body.light table {
+  background: rgba(245, 247, 252, .22);
+  border: 1px solid rgba(255, 255, 255, .4);
+  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  box-shadow: 0 8px 32px rgba(120, 130, 160, .12), inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+body.light .link-card:hover { background: rgba(26, 92, 92, .14); }
+body.light .tab-btn--active { background: rgba(26, 92, 92, .18); border-color: rgba(26,92,92,.4); color: #1a5c5c; }
+body.light .tab-btn { color: #16181f; }
+body.light .topics__list span { color: #16181f; }
+body.light .disclaimer { color: #3a2f10; }
+body.light ::-webkit-scrollbar-track { background: #e6ecf7; }
+body.light ::-webkit-scrollbar-thumb { background: #c4ccdd; }
+body.light ::-webkit-scrollbar-thumb:hover { background: #a8b2c8; }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark theme" title="Toggle theme">&#x1F319;</button>
+<div class="cursor-glow" id="cursor"></div>
+<div class="bg-image"></div>
+<div class="bg-image-overlay"></div>
+<div class="bg-grid"></div>
+<div class="bg-glow bg-glow--cyan"></div>
+<div class="bg-glow bg-glow--purple"></div>
+
+<!-- ===== Hero ===== -->
+<header class="hero">
+  <div class="hero__badge"><span></span> v1.0.9 &middot; Open Source &middot; MIT</div>
+  <h1>WuWaConfig</h1>
+  <p>Android app for <strong>Wuthering Waves</strong> performance optimization &mdash; analyzes device logs, generates optimized Engine.ini configs, boosts FPS, tunes graphics, tracks gacha pity, and analyzes battle stats. <strong>Privacy-first, no telemetry, no ads.</strong></p>
+  <div class="hero__actions">
+    <a class="btn btn--primary" href="https://github.com/B3rr7/WuWa-Config-Android/releases" target="_blank" rel="noopener">&#x2B07; Download APK</a>
+    <a class="btn btn--secondary" href="https://github.com/B3rr7/WuWa-Config-Android" target="_blank" rel="noopener">&#x2397; Source Code</a>
+  </div>
+  <div class="hero__meta">
+    <span>&#x1F4F1; Android 8+</span>
+    <span>&#x2699;&#xFE0F; 4 Access Methods</span>
+    <span>&#x1F4CA; 5,237 CVars</span>
+    <span>&#x1F3C6; 8 Presets</span>
+    <span>&#x1F512; No Analytics</span>
+    <span>&#x2697;&#xFE0F; Kotlin + Compose</span>
+  </div>
+</header>
+
+<!-- ===== Stats ===== -->
+<section style="padding-bottom:0;">
+  <div class="container">
+    <div class="stats__grid">
+      <div class="stat-card">
+        <div class="stat-card__num">5,237</div>
+        <div class="stat-card__label">CVars in Database (libUE4.so)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__num">693</div>
+        <div class="stat-card__label">Monitored CVars (ConfigMonitor)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__num">8</div>
+        <div class="stat-card__label">Config Presets</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__num">37</div>
+        <div class="stat-card__label">Restricted CVars Flagged</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__num">18</div>
+        <div class="stat-card__label">CVar Categories</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__num">13</div>
+        <div class="stat-card__label">Navigable Screens</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Features ===== -->
+<section id="features">
+  <div class="container">
+    <h2>Features</h2>
+    <div class="features__grid">
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x2699;</div>
+        <h3>Config Generator</h3>
+        <p>8 presets from Potato to Cinematic. Analyzes device log, SmartBrain scores your hardware, generates 5 optimized INI files: Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini. 19 toggleable options including 120 FPS unlock, Ultra quality, VSync, Vulkan safety, HZB occlusion, and 23 experimental CVars.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F3AF;</div>
+        <h3>Pity Tracker</h3>
+        <p>Fetches gacha history from Kuro&rsquo;s official API. 11 pool types including Character/Weapon/Standard events. 50/50 and 75/25 prediction, soft pity detection (66 for character, 57 for weapon), hard pity countdown (80/70). Background polling with notification. 12-hour cache.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F4CA;</div>
+        <h3>Battle Stats</h3>
+        <p>14 battle counters extracted from Client.log: battles fought, echoes collected, dodges (forward/back/counter), deaths, role changes, teleports, staggers, stamina used, echo skills, transforms, month cards. 100% file coverage via parallel partition reads.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F9E0;</div>
+        <h3>Smart Brain Scoring</h3>
+        <p>Algorithm scores your device 0&ndash;100 with ~20 weighted signals: GPU tier (+30 to -20), RAM (+8 to -15), Vulkan (+8), FPS drops (-6 to -18), thermal (-5 to -20), GPU OOM (-12 to -30), frame drops, forbidden CVars, render scale, resolution penalty, and more. Recommends optimal preset.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F504;</div>
+        <h3>Auto-Tune Wizard</h3>
+        <p>Iterative benchmark loop (up to 5 rounds): deploys preset, captures FPS via logcat parsing, steps through 8 preset levels (cinematic&rarr;potato), adjusts options based on FPS gap (disables SSR, bloom, blur progressively). State persisted to JSON.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F4E6;</div>
+        <h3>Backup &amp; Restore</h3>
+        <p>Per-file selection backups with UUID identification. Auto-backup before any config write. Restore individual INI files. Backups saved to both private storage and Downloads/WuWaConfig/Backups/ for file manager access.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F5C3;</div>
+        <h3>INI Editor</h3>
+        <p>Full-screen monospace editor for all 5 config files. Edit CVars inline with hash refresh on save. Automatic CVar optimization flags redundant lines (&quot;REDUNDANT - matches game default&quot;) and unknown CVars (&quot;UNKNOWN - not in libUE4.so dump&quot;).</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F50D;</div>
+        <h3>Deploy Verification</h3>
+        <p>After deployment, pulls fresh Client.log and cross-references deployed CVars against ConfigMonitor database. Shows accept/reject badge with color-coded tag chips: redundant count, unknown count, monitored count. Hash snapshot + reconcile detects concurrent game access.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F4F1;</div>
+        <h3>Player Profile</h3>
+        <p>Read-only read of UID, server, level, game version, language, tower floor, weekly rogue score, battle pass status, and config setting counts. Zero footprint &mdash; game cannot detect. Cached with manual refresh.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F527;</div>
+        <h3>ADB Wire Protocol</h3>
+        <p>Native in-app ADB implementation &mdash; no external binary needed. Full auth handshake (RSA 2048-bit, SHA1withRSA signing, SSH-RSA pubkey), auto port scanning (37,000&ndash;44,000 + 5555), 15s keepalive, base64 chunked push with MD5/size verify.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F510;</div>
+        <h3>Encrypted ADB Keys</h3>
+        <p>RSA 2048-bit keys encrypted at rest via AndroidKeyStore (AES-256-GCM with HKDF). Automatic plaintext-to-encrypted migration. Keys stored as EncryptedFile in app data directory.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon">&#x1F6E1;</div>
+        <h3>Privacy First</h3>
+        <p>No analytics SDKs &mdash; no Firebase, Crashlytics, Sentry. No telemetry, no crash reporting. No data sent to third parties. Only connects to localhost ADB and Kuro&rsquo;s official gacha API (user-initiated). android:allowBackup=&quot;false&quot;.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== How It Works ===== -->
+<section>
+  <div class="container">
+    <h2>How It Works</h2>
+    <div class="steps__list">
+      <div class="step">
+        <div class="step__num">1</div>
+        <div>
+          <h3>Connect to Device</h3>
+          <p>Choose from 4 access methods: ADB (in-app wireless debugging), Shizuku (API-based), Root (su shell), or SAF (Storage Access Framework). The app connects and reads game config files from <code>Android/data/com.kurogame.wutheringwaves.global/</code>.</p>
+          <div class="step__tags"><span class="step__tag">ADB auto-scan 37000-44000</span><span class="step__tag">Shizuku reflection API</span><span class="step__tag">Root su -c 10s</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__num">2</div>
+        <div>
+          <h3>Analyze Client.log</h3>
+          <p>Reads and decodes the encrypted Client.log from device (auto-detects UTF-16BE/LE/UTF-8). Extracts 30+ signals: GPU family, device model, SoC, RAM, resolution, FPS cap, actual FPS, screen percentage, shadow quality, RHI/API, thermal events, texture errors, GPU OOM, frame drops, active CVars.</p>
+          <div class="step__tags"><span class="step__tag">Log decoding</span><span class="step__tag">30+ regex signals</span><span class="step__tag">Chunked dd reads</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__num">3</div>
+        <div>
+          <h3>SmartBrain Scores Your Device</h3>
+          <p>Algorithm evaluates your hardware 0&ndash;100 across 20+ weighted signals. GPU tier (flagship/high/mid_high/mid/mid_low/low/unknown), RAM tiers, Vulkan availability, thermal throttling history, OOM events, frame drop patterns, CVar optimization quality, and more. Recommends the ideal preset.</p>
+          <div class="step__tags"><span class="step__tag">80+ Ultra</span><span class="step__tag">70+ High</span><span class="step__tag">40+ Balanced</span><span class="step__tag">20+ Performance</span><span class="step__tag">&le;20 Potato</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__num">4</div>
+        <div>
+          <h3>Generate &amp; Customize</h3>
+          <p>Choose a preset (Potato through Cinematic) or use advanced mode. Toggle 19 options: 120 FPS unlock, Ultra quality unlock, VSync, auto cooling, force Vulkan, HZB occlusion, disable fog/CA/outlines/blur/bloom/auto-exposure/SSR, GSR, and 23 experimental CVars. Select which of the 5 INI files to generate. Edit CVars inline in the review dialog.</p>
+          <div class="step__tags"><span class="step__tag">8 presets</span><span class="step__tag">19 toggles</span><span class="step__tag">23 experimental CVars</span><span class="step__tag">5 INI files</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__num">5</div>
+        <div>
+          <h3>Deploy &amp; Verify</h3>
+          <p>Reads device Engine.ini for [Core.System] paths (70+ game plugin paths preserved), generates configs with automatic CVar optimization, pushes via staging dir with retry, refreshes KuroConfigMonitor hashes (ModifyCount capped at 8). Pulls fresh Client.log, cross-references deployed CVars, and shows verification report with accept/reject badge.</p>
+          <div class="step__tags"><span class="step__tag">Hash snapshot+reconcile</span><span class="step__tag">70+ Core.System paths</span><span class="step__tag">Retry 2x</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Presets ===== -->
+<section>
+  <div class="container">
+    <h2>Presets</h2>
+    <p class="section-sub">8 presets covering every device from low-end to flagship. Each tuned across 11 key parameters.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Preset</th>
+            <th>Screen %</th>
+            <th>Shadow</th>
+            <th>ShadowRes</th>
+            <th>SSR</th>
+            <th>MipBias</th>
+            <th>Streaming</th>
+            <th>View Dist</th>
+            <th>Foliage LOD</th>
+            <th>Detail</th>
+            <th>LOD Bias</th>
+            <th>Grass Cull</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>POTATO</td><td>50%</td><td>0</td><td>128</td><td>0</td><td>3</td><td>0.3</td><td>0.3</td><td>0.4</td><td>0</td><td>5</td><td>1,500</td></tr>
+          <tr><td>ENDURANCE</td><td>55%</td><td>0</td><td>128</td><td>0</td><td>3</td><td>0.4</td><td>0.4</td><td>0.5</td><td>0</td><td>4</td><td>2,500</td></tr>
+          <tr><td>PERFORMANCE</td><td>60%</td><td>0</td><td>256</td><td>0</td><td>3</td><td>0.5</td><td>0.5</td><td>0.6</td><td>0</td><td>3</td><td>4,500</td></tr>
+          <tr><td>COMPETITIVE</td><td>100%</td><td>0</td><td>256</td><td>0</td><td>1</td><td>1.0</td><td>2.0</td><td>1.0</td><td>0</td><td>1</td><td>2,000</td></tr>
+          <tr><td>BALANCED</td><td>80%</td><td>2</td><td>1,024</td><td>1</td><td>0</td><td>2.0</td><td>1.5</td><td>2.0</td><td>1</td><td>0</td><td>15,000</td></tr>
+          <tr><td>HIGH</td><td>100%</td><td>4</td><td>2,048</td><td>2</td><td>0</td><td>3.0</td><td>2.0</td><td>2.5</td><td>2</td><td>0</td><td>20,000</td></tr>
+          <tr><td>ULTRA</td><td>100%</td><td>5</td><td>2,048</td><td>4</td><td>-1</td><td>4.0</td><td>3.0</td><td>3.0</td><td>2</td><td>-1</td><td>30,000</td></tr>
+          <tr><td>CINEMATIC</td><td>100%</td><td>5</td><td>4,096</td><td>4</td><td>-2</td><td>6.0</td><td>4.0</td><td>4.0</td><td>3</td><td>-2</td><td>40,000</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 style="text-align:center;margin-bottom:16px;">Potato &amp; Performance Extra Aggressive Tweaks</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:center;max-width:760px;margin:0 auto;">
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F4A1; Lighting</h4>
+        <p>All dynamic lights=0, spotlights disabled, ReflectionEnvironment=0, LightFunctionQuality=0, SSGI=0, SSR half-res, SubsurfaceScattering=0</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F319; Shadows</h4>
+        <p>Quality=1, CSM=1, MaxRes=512, PerObject=256, MinRes=32, TexelsPerPixel=0.5, DistanceFieldShadowing=0, CapsuleShadows=0, ContactShadows=0</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F9F0; Aggressive LOD</h4>
+        <p>MinScreenRadius=0.015, foliage=0.008, StaticMeshLODDist=0.6, ScreenSizeCull=5.0, foliage density=0.5, grass=0.4, foliageLODDistance=0.6</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;margin:0 auto;">
+        <h4>&#x2744;&#xFE0F; Effects</h4>
+        <p>VolumetricFog=0, GPU particles disabled (thermal/perf tuning), Niagara quality reduced, spawn rate scaled down</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Engine.ini Sections ===== -->
+<section>
+  <div class="container">
+    <h2>Engine.ini Generation</h2>
+    <p class="section-sub">Generates ~350 CVars across 12+ engine sections, tailored to your device and chosen preset.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:1100px;margin:0 auto;">
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Character Quality</h4><p>SkeletalMesh LOD scale, outlines, face shadows, eye distance, auto-exposure, radial blur, rim light, landscape capture</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Scalability</h4><p>Shadow/Texture/PostProcess/Effects/AA/ViewDistance/Foliage quality levels</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Anti-Aliasing</h4><p>PostProcessAA=6, TAA upsampling, Catmull-Rom, mobile frame weights</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Post Processing</h4><p>Bloom (0-4), EyeAdaptation, MotionBlur=0, DepthOfField, LightShaft, LensFlare=0, CA, Tonemapper, Upscale</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Shadow</h4><p>Point light shadows, CSM cascades, radius thresholds, per-object resolution, mobile dynamic point lights (2), single-pass shadows</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Texture Streaming</h4><p>MipBias, LODBias, MaxAnisotropy (4-16), PoolSizeMode, KuroMinFOVFactor</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Mobile Rendering</h4><p>ShadingPath=1, FSR upscale, MSAA=0, HBAO, PixelProjectedReflection, static+CSM shadow receivers</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>VRS</h4><p>Variable Rate Shading &mdash; Material+Mesh VRS enabled for performance</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Effects/Particles</h4><p>GPU particles disabled, Niagara quality, spawn rate, max CPU/GPU particles</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Water/Reflection</h4><p>WaterSSR, SSR, SceneObjSSR, PlanarReflection, half-res SSR, roughness</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Environment</h4><p>Fog, VolumeCloud, LightFunction, ISM draw distances, grass culling, foliage/grass density, LOD distance</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>LOD/Culling</h4><p>Clustered deferred, occlusion queries, min/max screen radius, StaticMeshLODDistanceScale, parallel frustum cull</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Animation</h4><p>URO (Update Rate Optimization) enabled, forced anim rate</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Frame &amp; Display</h4><p>MobileHDR, VSync, FramePace (FPS cap), SkinCache memory, ShaderPipelineCache, PSOCache</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;"><h4>Pipeline/RHI</h4><p>PSO cache eviction, RHICmd bypass+parallel+thread, async RHI dispatch</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:200px;margin:0 auto;"><h4>Thermal &amp; Stability</h4><p>AutoCool, thermal control mode, Vulkan robust buffer access</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DeviceProfiles Chipset Mapping ===== -->
+<section>
+  <div class="container">
+    <h2>DeviceProfiles Chipset Mapping</h2>
+    <p class="section-sub">Auto-detects your SoC and applies device-specific DeviceProfile with tuned CVar overrides.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Chipset / GPU Pattern</th><th>Profile Name</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Snapdragon 8 Elite / SM8750 / Adreno 830</td><td>Android_Adreno830</td></tr>
+          <tr><td>Snapdragon 8 Gen 3 / SM8650 / Adreno 750</td><td>Android_Adreno750</td></tr>
+          <tr><td>Snapdragon 8 Gen 2 / SM8550 / Adreno 740</td><td>Android_Adreno740</td></tr>
+          <tr><td>Snapdragon 8+ Gen 1 / SM8475/8450 / Adreno 730</td><td>Android_Adreno7xx</td></tr>
+          <tr><td>Snapdragon 7xx / SM7xxx / Adreno 7xx</td><td>Android_Adreno7xx</td></tr>
+          <tr><td>Snapdragon 6xx / SM6xxx / Adreno 6xx</td><td>Android_Adreno6xx</td></tr>
+          <tr><td>Adreno 5xx</td><td>Android_Adreno5xx</td></tr>
+          <tr><td>Adreno 4xx</td><td>Android_Adreno4xx</td></tr>
+          <tr><td>Dimensity 9400 / Mali-G925</td><td>Android_Mali_G925</td></tr>
+          <tr><td>Dimensity 9300 / Mali-G720</td><td>Android_Mali_G720</td></tr>
+          <tr><td>Dimensity 9200 / Mali-G715</td><td>Android_Mali_G715</td></tr>
+          <tr><td>Dimensity 9000 / Mali-G710</td><td>Android_Mali_G710</td></tr>
+          <tr><td>Dimensity 8xxx / Mali-G615</td><td>Android_Mali_G615</td></tr>
+          <tr><td>Dimensity 7xxx / Mali-G6xx</td><td>Android_Mali_G61x</td></tr>
+          <tr><td>Dimensity 6xxx / Mali-G57</td><td>Android_Mali_G57</td></tr>
+          <tr><td>Exynos 2400 / Xclipse 9xx</td><td>Android_Xclipse9xx</td></tr>
+          <tr><td>Exynos 1380 / Xclipse 5xx</td><td>Android_Xclipse5xx</td></tr>
+          <tr><td>Kirin / Maleoon</td><td>Android_Maleoon</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:center;max-width:760px;margin:0 auto;">
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;"><h4>Low Presets</h4><p>Potato/Endurance/Performance/Competitive &rarr; <strong>Android_Low</strong></p></div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;"><h4>Mid Preset</h4><p>Balanced &rarr; <strong>Android_Mid</strong></p></div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;"><h4>High Preset</h4><p>High &rarr; <strong>Android_VeryHigh</strong></p></div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;margin:0 auto;"><h4>Ultra/Cinematic</h4><p>Ultra/Cinematic &rarr; <strong>Android_Ultra</strong></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Smart Brain ===== -->
+<section>
+  <div class="container">
+    <h2>Smart Brain Scoring</h2>
+    <p class="section-sub">Algorithm evaluates your device from 0&ndash;100, starting at 50. 20+ weighted signals determine the optimal preset.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:960px;margin:0 auto;">
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>GPU Tier (flagship&rarr;low)</span><span class="signal__impact signal__impact--mixed">+30 to &minus;20</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>RAM (&ge;8GB / &ge;6GB / &lt;4GB)</span><span class="signal__impact signal__impact--mixed">+8 to &minus;15</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Vulkan API Available</span><span class="signal__impact signal__impact--pos">+8</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>FPS Drop vs Cap (&gt;10%/20%/30%)</span><span class="signal__impact signal__impact--neg">&minus;6 to &minus;18</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>FPS &lt; 30 / 30-45</span><span class="signal__impact signal__impact--neg">&minus;15 / &minus;8</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Thermal Events (1 / 3+ / 5+)</span><span class="signal__impact signal__impact--neg">&minus;5 to &minus;20</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>GPU OOM (1 / 2 / 3+)</span><span class="signal__impact signal__impact--neg">&minus;12 to &minus;30</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Frame Drops (5+ / 15+)</span><span class="signal__impact signal__impact--neg">&minus;5 to &minus;10</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Forbidden CVars Active</span><span class="signal__impact signal__impact--neg">&minus;5 each</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Low Memory Device</span><span class="signal__impact signal__impact--neg">&minus;15</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Network Errors (5+ / 10+)</span><span class="signal__impact signal__impact--neg">&minus;5 to &minus;10</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Render Scale (&lt;70% / 110%+)</span><span class="signal__impact signal__impact--mixed">&minus;10 to +5</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>4K / QHD+ Resolution</span><span class="signal__impact signal__impact--neg">&minus;10 / &minus;4</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Texture Errors</span><span class="signal__impact signal__impact--neg">Up to &minus;20</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Unknown CVars (&gt;5)</span><span class="signal__impact signal__impact--neg">&minus;5</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Well-Optimized CVars (&gt;20 diff)</span><span class="signal__impact signal__impact--pos">+5</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Room to Improve (&lt;5 diff)</span><span class="signal__impact signal__impact--neg">&minus;8</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>High Shadows + Low GPU</span><span class="signal__impact signal__impact--neg">&minus;6</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>High Shadows + &lt;6GB RAM</span><span class="signal__impact signal__impact--neg">&minus;4</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>SSAO on Low GPU</span><span class="signal__impact signal__impact--neg">&minus;5</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>FSR RCAS Enabled</span><span class="signal__impact signal__impact--neg">&minus;8</span></div>
+      <div class="signal" style="flex:1 1 210px;max-width:225px;"><span>Thermal + Low GPU Combo</span><span class="signal__impact signal__impact--neg">&minus;3 to &minus;6</span></div>
+    </div>
+    <div class="legend-row">
+      <span style="color:#00ff88;">&#x25CF; Cinematic (85+)</span>
+      <span style="color:#ffb800;">&#x25CF; Ultra (80+)</span>
+      <span style="color:#44aaff;">&#x25CF; High (75+/70+)</span>
+      <span style="color:#ffa500;">&#x25CF; Balanced (40+)</span>
+      <span style="color:#ff8844;">&#x25CF; Competitive (45+ &amp; FPS drop)</span>
+      <span style="color:#ff4466;">&#x25CF; Endurance/Performance (20+)</span>
+      <span style="color:#ff0044;">&#x25CF; Potato (&le;20 / OOM &ge;2)</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CVar Categories ===== -->
+<section>
+  <div class="container">
+    <h2>CVar Classification System</h2>
+    <p class="section-sub">18 categories with 3-level matching: exact overrides (52) &rarr; r. sub-rules (200+) &rarr; top-level prefixes (18). 5,237 CVars classified.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:1060px;margin:0 auto 12px;">
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>CHARACTER</h4><p>Toon outlines, eyes, face shadows, skeletal mesh, NPC disappear, rim light, subsurface scattering, skin cache, morph target</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>ENVIRONMENT</h4><p>Fog, volumetric fog, landscape, foliage, clouds, density, LOD optimization</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>LIGHTING_SHADOW</h4><p>Shadows, light functions, light shafts, ambient occlusion, CSM, distance field, capsule/contact shadows, SSGI, AO, sky light</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>POST_PROCESS</h4><p>Bloom, tonemapper, TAA, PostProcessAA, upscale, eye adaptation, motion blur, depth of field, lens flare, CA, distortion, auto-exposure, radial blur</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>REFLECTION</h4><p>SSR, water SSR, scene object SSR, pixel projected reflection, planar reflection</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>EFFECTS</h4><p>FX, Niagara, GPU particles, spawn rate</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>TEXTURE_STREAMING</h4><p>Streaming mipbias, pool size, max anisotropy, render target pool, virtual textures</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>LOD_CULLING</h4><p>HZB occlusion, cull distance, screen radius, static mesh LOD, screen size cull, max FOV, visibility, ISM, imposter</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>ANIMATION</h4><p>a. prefix: URO (Update Rate Optimization), animation rates</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>MOBILE</h4><p>Mobile rendering, HDR, MSAA, Android-specific, OpenHarmony</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>PIPELINE_RHI</h4><p>Vulkan, RHICmd, PSO, shader pipeline cache, ray tracing, metal, gbuffer</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>PERFORMANCE</h4><p>FramePace, VSync, FinishCurrentFrame, clustered deferred, parallel frustum, mesh pass cache, VRS, MAGT, early z pass</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>THERMAL</h4><p>AutoCool, thermal control mode, don&rsquo;t limit on battery</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>MEMORY</h4><p>GC, low memory management</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>WORLD</h4><p>WP, navigation, enable nav partition</p></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:640px;margin:0 auto;">
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>SCALABILITY</h4><p>sg. prefix quality levels</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>SYSTEM</h4><p>Engine system, kuro., compat., t., slate., VR, general</p></div>
+      <div class="mini-card" style="flex:1 1 180px;max-width:195px;"><h4>UNKNOWN</h4><p>Default fallback for uncategorized CVars</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 37 Restricted CVars ===== -->
+<section>
+  <div class="container">
+    <h2>Restricted CVars</h2>
+    <p class="section-sub">37 CVars flagged as restricted. When &quot;Allow restricted CVars&quot; is OFF, automatically stripped from all generated INIs before deploy. Variant handling for +CVars=/-CVars= formats.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Category</th><th>CVars</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Streaming</td><td><code>r.Streaming.Boost</code>, <code>r.Streaming.PoolSize</code>, <code>r.Streaming.LimitPoolSizeTOVRAM</code>, <code>r.Streaming.MinBoost</code>, <code>r.Streaming.CPUReadback</code>, <code>r.Streaming.UseAsyncCPUReadback</code>, <code>r.Streaming.MaxNumTexturesToStreamPerFrame</code>, <code>r.Streaming.MinMipForSplitRequest</code>, <code>r.Streaming.UseFixedPoolsize</code>, <code>r.Streaming.UseAllMips</code>, <code>r.Streaming.MaxTempMemoryAllowed</code></td></tr>
+          <tr><td>Shadow</td><td><code>r.Shadow.MaxCSMResolution</code></td></tr>
+          <tr><td>Texture</td><td><code>r.MipMapLODBias</code>, <code>r.TextureGroup.Landscape.TextureLODBias</code>, <code>r.Kuro.TexturePool.ExtraBudgetMB</code></td></tr>
+          <tr><td>Quality</td><td><code>r.DetailMode</code>, <code>r.MaterialQualityLevel</code>, <code>r.KuroMaterialQualityLevel</code></td></tr>
+          <tr><td>Screen / Scale</td><td><code>r.ScreenPercentage</code>, <code>r.MobileContentScaleFactor</code>, <code>r.SecondaryScreenPercentage.GameViewport</code>, <code>r.ViewDistanceScale</code></td></tr>
+          <tr><td>LOD</td><td><code>r.Kuro.SkeletalMesh.LODDistanceScale</code></td></tr>
+          <tr><td>Ray Tracing</td><td><code>r.RayTracing.LimitDevice</code>, <code>r.Streamline.DLSSG.RetainResourcesWhenOff</code></td></tr>
+          <tr><td>Compute / Features</td><td><code>r.AsyncComputePSO</code>, <code>r.AFME.Enable</code>, <code>r.MFRC.Enable</code>, <code>r.FEstimation.Option</code></td></tr>
+          <tr><td>Memory</td><td><code>Kuro.CppEffectsSystem.UseLowMemoryPlayerEffectLruCapacity</code>, <code>Kuro.CppEffectSystem.UseLowMemoryPlayerEffectLruCapacity</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Access Methods ===== -->
+<section>
+  <div class="container">
+    <h2>Access Methods</h2>
+    <div class="disclaimer">
+      <strong>&#x26A0;&#xFE0F; Disclaimer:</strong> Fan-made tool NOT affiliated with Kuro Games or Wuthering Waves. Modifying game files may be subject to the game&rsquo;s Terms of Service. <strong>Use at your own risk.</strong>
+    </div>
+    <div class="disclaimer">
+      <strong>&#x1F4F1; Platform:</strong> WuWaConfig is an <strong>Android-only app</strong> (Android 8.0+). It is <strong>not available for iPhone or iPad</strong> &mdash; iOS cannot install APKs and lacks the Android-only access backends (ADB / Shizuku / Root / SAF). It also does not run natively on Windows, macOS, or Linux; use an Android device or emulator. This page and the in-app guide are web pages viewable on any platform, but the config tool itself requires Android.
+    </div>
+    <div class="access__grid">
+      <div class="access-card">
+        <div class="access-card__icon">&#x1F527;</div>
+        <h3>ADB</h3>
+        <p>In-app wireless debugging. Native ADB wire protocol &mdash; no external binary. Auto-scans ports 37000&ndash;44000 + 5555. RSA 2048-bit auth, 15s keepalive, base64 chunked push with MD5 verify.</p>
+        <span class="access-card__tag access-card__tag--best">Recommended</span>
+      </div>
+      <div class="access-card">
+        <div class="access-card__icon">&#x1F4F1;</div>
+        <h3>Shizuku</h3>
+        <p>Reflection-based Shizuku API. 60s timeout, 3x retry, script-file fallback for commands &gt;4096 chars. Auto-cleanup temp files. No compile-time dependency.</p>
+        <span class="access-card__tag access-card__tag--best">Best Non-Root</span>
+      </div>
+      <div class="access-card">
+        <div class="access-card__icon">&#x1F9B9;</div>
+        <h3>Root</h3>
+        <p>su -c with 10s timeout. Direct shell access via Magisk, KernelSU, or APatch. No chunking needed &mdash; direct cp for file operations. Exit code verification.</p>
+        <span class="access-card__tag access-card__tag--ok">Full Access</span>
+      </div>
+      <div class="access-card">
+        <div class="access-card__icon">&#x1F4C1;</div>
+        <h3>SAF</h3>
+        <p>Storage Access Framework via DocumentFile. Persistable tree URI saved in SharedPreferences. 3-strategy path resolution. No shell access &mdash; read/write only.</p>
+        <span class="access-card__tag access-card__tag--limited">Limited</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Auto-Tune ===== -->
+<section>
+  <div class="container">
+    <h2>Auto-Tune Wizard</h2>
+    <p class="section-sub">Iterative benchmark loop that automatically finds your device&rsquo;s optimal config.</p>
+    <div class="steps__list" style="max-width:600px;">
+      <div class="step">
+        <div class="step__num">1</div>
+        <div>
+          <h3>Deploy &amp; Play</h3>
+          <p>Deploys a preset, then waits for you to play the game. State machine tracks: IDLE &rarr; DEPLOYING &rarr; WAITING_FOR_PLAY &rarr; CAPTURING &rarr; COMPLETE.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__num">2</div>
+        <div>
+          <h3>Capture FPS</h3>
+          <p>Parses logcat output with regex for FPS/frame rate patterns. Returns avg FPS, min FPS, and stability % (frames &ge;80% of average).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__num">3</div>
+        <div>
+          <h3>Adjust &amp; Repeat</h3>
+          <p>If FPS < target &times; 0.85, steps DOWN to next preset. If FPS &ge; target with &gt;15% headroom, steps UP. Progressive option adjustments: &gt;15 gap &rarr; disable SSR, &gt;10 &rarr; disable bloom, &gt;8 &rarr; disable radial blur, &gt;5 &rarr; shadow override.</p>
+        </div>
+      </div>
+    </div>
+    <p style="text-align:center;color:#606070;font-size:.85rem;margin-top:8px;">Preset order: Cinematic &rarr; Ultra &rarr; High &rarr; Balanced &rarr; Competitive &rarr; Endurance &rarr; Performance &rarr; Potato</p>
+  </div>
+</section>
+
+<!-- ===== Log Parser ===== -->
+<section>
+  <div class="container">
+    <h2>Log Parsing Engine</h2>
+    <p class="section-sub">Decrypts and extracts 30+ signals from encrypted Wuthering Waves Client.log files.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:center;max-width:760px;margin:0 auto;">
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F510; Log Decoding</h4>
+        <p>Automatically decodes encrypted Client.log files and normalizes text encoding (UTF-16BE/LE/UTF-8) so signals can be extracted reliably.</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F50D; Regex Extraction</h4>
+        <p>GPU (K#GPUFamily), Device Model, SoC (snapdragon/dimensity/exynos/kirin), CPU, RAM (PhysicalMemoryMB), Android version, Resolution, Device Profile, FPS cap (r.FramePace), AverageFPS, Screen% (r.ScreenPercentage), Shadow quality, Quality mode (sg.KuroRenderQuality), RHI/API</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F4A5; Error Detection</h4>
+        <p>Texture: &quot;error pixel format&quot;, &quot;failed to load texture&quot;. GPU OOM: &quot;out of memory&quot;, &quot;gpu oom&quot;, &quot;vulkanoom&quot;. Frame drops/hitches. Thermal throttling events. Auto-adjust triggers (Chinese patterns). Network errors (timeout, connection refused, DNS fail, socket error).</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;margin:0 auto;">
+        <h4>&#x1F3AE; Battle Stats (Chinese)</h4>
+        <p>Equipamento de batalha, deaths (角色死亡), dodges (极限闪避), role changes (角色下场), teleports, stamina, echo skills (召唤系幻象), transforms (变身幻象), month cards (月卡). Parsed in parallel across all cores.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== GPU Tier Detection ===== -->
+<section>
+  <div class="container">
+    <h2>GPU Tier Detection</h2>
+    <p class="section-sub">7-tier GPU classification used by CvarOptimizer and SmartBrain for device-specific tuning.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Tier</th><th>GPU Patterns</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>FLAGSHIP</td><td>Adreno 830-890, Dimensity 9300+, Apple M3/M4/A18, Tensor G3-G5</td></tr>
+          <tr><td>HIGH</td><td>Adreno 750-800, Dimensity 9000-9200/8500-8900, Exynos 2200, Kirin 9000, Mali-G7xx/G9xx, Apple M1/M2/A16-A17, Tensor G1-G2</td></tr>
+          <tr><td>MID_HIGH</td><td>Adreno 700-740/650-690, Dimensity 7300-8400, Exynos 2100-2300, Kirin 9100+, Xclipse, Apple A14-A15, Tensor</td></tr>
+          <tr><td>MID</td><td>Adreno 600-640, Mali-G6xx/G7xx/G615, Dimensity all, Exynos all, Kirin all, Apple A12-A13</td></tr>
+          <tr><td>MID_LOW</td><td>Adreno 5xx, Mali-G5xx/G57</td></tr>
+          <tr><td>LOW</td><td>Adreno 3xx/4xx, Mali-G3xx/G4xx</td></tr>
+          <tr><td>UNKNOWN</td><td>Unrecognized GPU hardware</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Deploy History ===== -->
+<section>
+  <div class="container">
+    <h2>Deploy System</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:center;max-width:760px;margin:0 auto;">
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F4CB; Deploy History</h4>
+        <p>Stored in deploy_history.json, max 20 records. Each record stores preset, generation method, files deployed, accepted/redundant/unknown/monitored CVar counts, baseline + outcome metrics (FPS, thermal, OOM, drops). Comparison returns deltas for all 4 metrics.</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F4E1; Hash Sync</h4>
+        <p>KuroConfigMonitor.hash integrity system. Snapshot before deploy &rarr; reconcile after deploy detects concurrent game access. ModifyCount capped at 8 to avoid suspicion. Atomic .new &rarr; rename push with read-back verification.</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F504; Cvar Optimizer Retune</h4>
+        <p>adjustProfile() compares baseline vs outcome. Stable (FPS &plusmn;5, no OOM): keep. Degraded (FPS &minus;5 or OOM up): reduce screen 75%, shadow -2, detail -1. OOM: jump to Potato baseline. Improved: increase screen 115%, shadow +1.</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;margin:0 auto;">
+        <h4>&#x1F504; Verification</h4>
+        <p>Post-deploy verification pulls fresh Client.log, cross-references deployed CVars against ConfigMonitor database. Shows accepted/rejected CVars with counts for redundant, unknown, and monitored entries.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Gacha System ===== -->
+<section>
+  <div class="container">
+    <h2>Gacha &amp; Pity System</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:center;max-width:760px;margin:0 auto;">
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F3B2; API Integration</h4>
+        <p>Connects to Kuro&rsquo;s official gacha endpoint (gmserver-api.aki-game2.com/net). 11 pool types including Character Event (1), Weapon Event (2), Standard (3), Beginner (4-5), and mirror pools (6-11). User-initiated only.</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F4F6; URL Extraction</h4>
+        <p>Extracts Convene URL from Client.log via regex. Auto-retries up to 6 times with 10-second intervals. Background polling via foreground service with notification when URL found.</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;">
+        <h4>&#x1F9F3; Pity Calculations</h4>
+        <p>Character banner: hard pity 80, soft pity 66, 50/50 &rarr; guaranteed. Weapon banner: hard pity 70, soft pity 57, 75/25. Per-pool breakdown with last 5-star details and next pity estimation.</p>
+      </div>
+      <div class="mini-card" style="flex:1 1 220px;max-width:240px;margin:0 auto;">
+        <h4>&#x1F4C5; Caching</h4>
+        <p>12-hour TTL for gacha history. Stores last fetch result locally. Load or clear from history banner. Background polling service broadcasts via LocalBroadcastManager.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Tech Stack ===== -->
+<section>
+  <div class="container">
+    <h2>Tech Stack</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:640px;margin:0 auto;">
+      <div class="mini-card" style="text-align:center;padding:20px 16px;flex:1 1 110px;max-width:140px;">
+        <div style="font-size:1.3rem;font-weight:700;color:#ffb800;margin-bottom:4px;">Kotlin</div>
+        <div style="font-size:.8rem;color:#606070;">Language</div>
+      </div>
+      <div class="mini-card" style="text-align:center;padding:20px 16px;flex:1 1 110px;max-width:140px;">
+        <div style="font-size:1.3rem;font-weight:700;color:#ffb800;margin-bottom:4px;">Compose</div>
+        <div style="font-size:.8rem;color:#606070;">UI Framework</div>
+      </div>
+      <div class="mini-card" style="text-align:center;padding:20px 16px;flex:1 1 110px;max-width:140px;">
+        <div style="font-size:1.3rem;font-weight:700;color:#ffb800;margin-bottom:4px;">MVVM</div>
+        <div style="font-size:.8rem;color:#606070;">Architecture</div>
+      </div>
+      <div class="mini-card" style="text-align:center;padding:20px 16px;flex:1 1 110px;max-width:140px;">
+        <div style="font-size:1.3rem;font-weight:700;color:#ffb800;margin-bottom:4px;">Material 3</div>
+        <div style="font-size:.8rem;color:#606070;">Design System</div>
+      </div>
+      <div class="mini-card" style="text-align:center;padding:20px 16px;flex:1 1 110px;max-width:140px;">
+        <div style="font-size:1.3rem;font-weight:700;color:#ffb800;margin-bottom:4px;">Gson</div>
+        <div style="font-size:.8rem;color:#606070;">Serialization</div>
+      </div>
+      <div class="mini-card" style="text-align:center;padding:20px 16px;flex:1 1 110px;max-width:140px;">
+        <div style="font-size:1.3rem;font-weight:700;color:#ffb800;margin-bottom:4px;">Coil</div>
+        <div style="font-size:.8rem;color:#606070;">Image Loading</div>
+      </div>
+      <div class="mini-card" style="text-align:center;padding:20px 16px;flex:1 1 110px;max-width:140px;">
+        <div style="font-size:1.3rem;font-weight:700;color:#ffb800;margin-bottom:4px;">ExoPlayer</div>
+        <div style="font-size:.8rem;color:#606070;">Video Playback</div>
+      </div>
+      <div class="mini-card" style="text-align:center;padding:20px 16px;flex:1 1 110px;max-width:140px;">
+        <div style="font-size:1.3rem;font-weight:700;color:#ffb800;margin-bottom:4px;">SDK 26+</div>
+        <div style="font-size:.8rem;color:#606070;">Min / Target 34</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:24px;color:#606070;font-size:.85rem;">
+      Jetpack Navigation Compose &middot; Jetpack ViewModel + StateFlow &middot; AGP 8.2.2 &middot; Kotlin 1.9.22 &middot; Gradle 8.6 &middot; Compose BOM 2024.02 &middot; JUnit 4 &middot; ktlint &middot; ProGuard
+    </div>
+  </div>
+</section>
+
+<!-- ===== Security ===== -->
+<section>
+  <div class="container">
+    <h2>Security &amp; Privacy</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:center;max-width:760px;margin:0 auto;">
+      <div class="feature-card" style="flex:1 1 220px;max-width:240px;">
+        <div class="feature-card__icon">&#x1F6E1;</div>
+        <h3>No Analytics</h3>
+        <p>Zero analytics, telemetry, or crash reporting SDKs. No Firebase, Crashlytics, or Sentry. No data collected or transmitted to third parties.</p>
+      </div>
+      <div class="feature-card" style="flex:1 1 220px;max-width:240px;">
+        <div class="feature-card__icon">&#x1F510;</div>
+        <h3>Encrypted at Rest</h3>
+        <p>ADB RSA keys encrypted via AndroidKeyStore (AES-256-GCM with HKDF, 4KB scheme). Plaintext keys auto-migrated on first load. android:allowBackup=&quot;false&quot;.</p>
+      </div>
+      <div class="feature-card" style="flex:1 1 220px;max-width:240px;">
+        <div class="feature-card__icon">&#x1F4E1;</div>
+        <h3>Local-Only Networking</h3>
+        <p>Network config allows cleartext only to 127.0.0.1 and localhost (ADB socket). Gacha API connects only to Kuro official endpoint, user-initiated only.</p>
+      </div>
+      <div class="feature-card" style="flex:1 1 220px;max-width:240px;margin:0 auto;">
+        <div class="feature-card__icon">&#x1F4E2;</div>
+        <h3>Local Broadcasts</h3>
+        <p>Gacha polling uses LocalBroadcastManager (in-process only). No data leaked outside the app process.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Links ===== -->
+<section>
+  <div class="container">
+    <h2>Links</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:600px;margin:0 auto;">
+      <a class="link-card" style="flex:1 1 130px;max-width:180px;" href="https://github.com/B3rr7/WuWa-Config-Android" target="_blank" rel="noopener">&#x2397; GitHub</a>
+      <a class="link-card" style="flex:1 1 130px;max-width:180px;" href="https://github.com/B3rr7/WuWa-Config-Android/releases" target="_blank" rel="noopener">&#x2B07; Releases</a>
+      <a class="link-card" style="flex:1 1 130px;max-width:180px;" href="https://www.youtube.com/@Player42_g" target="_blank" rel="noopener">&#x25B6; YouTube</a>
+      <a class="link-card" style="flex:1 1 130px;max-width:180px;" href="https://t.me/Yt_Player42" target="_blank" rel="noopener">&#x2709; Telegram</a>
+      <a class="link-card" style="flex:1 1 130px;max-width:180px;" href="https://discord.gg/5WP9nN2e2s" target="_blank" rel="noopener">&#x1F3B2; Discord</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Topics ===== -->
+<section class="topics">
+  <div class="container">
+    <h2>Related Topics</h2>
+    <div class="topics__list">
+      <span>wuthering-waves</span><span>wuwa</span><span>fps-boost</span><span>engine-ini</span><span>config-optimizer</span>
+      <span>gacha-tracker</span><span>pity-calculator</span><span>kuro-games</span><span>mobile-gaming</span>
+      <span>android-optimization</span><span>unreal-engine-4</span><span>adb</span><span>shizuku</span><span>gaming-tool</span>
+      <span>fps-unlock</span><span>graphics-tuning</span><span>cvars-editor</span><span>client-log-analyzer</span>
+      <span>smart-brain-scoring</span><span>config-monitor</span><span>vulkan-optimization</span><span>thermal-fix</span>
+      <span>auto-tune-wizard</span><span>deviceprofiles-ini</span><span>gameusersettings</span><span>scalability-ini</span>
+      <span>hardware-ini</span><span>benchmark-tuner</span><span>ue4-mobile</span><span>adreno-tuning</span>
+      <span>mali-gpu-config</span><span>snapdragon-gaming</span><span>low-end-booster</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FAQ ===== -->
+<section>
+  <div class="container">
+    <h2>Frequently Asked Questions</h2>
+    <p class="section-sub">Answers to the most common Wuthering Waves config and FPS optimization questions.</p>
+    <h3>What is WuWaConfig for Wuthering Waves?</h3>
+    <p>WuWaConfig is a free Android app that optimizes Wuthering Waves (WuWa) performance. It reads your device Client.log, scores your phone with SmartBrain (0-100), generates optimized Engine.ini, Scalability.ini, and GameUserSettings.ini configs, then deploys them via ADB, Shizuku, Root, or SAF to boost FPS and tune graphics.</p>
+    <h3>How do I boost Wuthering Waves FPS without root?</h3>
+    <p>Use ADB Wireless Debugging or Shizuku inside WuWaConfig — both work on non-rooted phones. Connect, run the Config Generator, and WuWaConfig's SmartBrain score reads your actual hardware (GPU tier, RAM, Vulkan support, thermal history) to pick the right preset from Potato to Cinematic. Results depend on your device: flagship Snapdragon or Dimensity chips can unlock 120 FPS and run Ultra or Cinematic, while mid-range and low-end phones gain stability and fewer frame drops rather than a huge raw-FPS jump. The app handles 120 FPS unlock, render scale, shadow and texture streaming tuning for you, based on that hardware profile.</p>
+    <h3>Is WuWaConfig safe and private?</h3>
+    <p>Yes. It is privacy-first: no analytics, no telemetry, and nothing leaves your device except your own user-initiated gacha API calls. It only edits local Android game config files.</p>
+    <h3>Which phones and chipsets are supported?</h3>
+    <p>Any Android 8+ phone — Snapdragon (Adreno), MediaTek Dimensity (Mali), Exynos, and Tensor — including low-end devices. Per-chipset presets cover Poco, Redmi, Xiaomi, Samsung, OnePlus, Realme, Vivo, Oppo, Nothing, Motorola, Asus ROG, and Lenovo.</p>
+    <h3>What is the best WuWaConfig preset for Poco X6 Pro and Snapdragon phones?</h3>
+    <p>On Snapdragon + Adreno devices (Poco X6 Pro, X5 Pro, F5, F6, Samsung, OnePlus), start with Balanced or High and let SmartBrain tune it. Flagship Snapdragons (8 Gen 2/3) can run Ultra or Cinematic with 120 FPS unlock; mid-range chips are smoother on Competitive or Performance for a stable frame rate.</p>
+    <h3>Does WuWaConfig work on Samsung Galaxy S23 and S24?</h3>
+    <p>Yes. WuWaConfig supports Samsung Galaxy S23 and S24 (both Snapdragon and Exynos variants) on Android 8+. Connect via Shizuku or ADB Wireless Debugging, pick a preset, and deploy the optimized INI files. Exynos models should start one tier lower than Snapdragon for thermal headroom.</p>
+    <h3>Best WuWaConfig settings for Redmi Note 12, Redmi Note 13 and other budget phones?</h3>
+    <p>For budget phones like Redmi Note 12/13, Realme, and Motorola, start with the Performance or Endurance preset. These keep render scale, shadows, and streaming conservative to avoid thermal throttling and GPU OOM while still unlocking higher FPS than stock settings.</p>
+    <h3>Can WuWaConfig optimize MediaTek Dimensity phones with a Mali GPU?</h3>
+    <p>Yes. WuWaConfig includes per-chipset tuning for MediaTek Dimensity (Mali/PowerVR) devices. Mali GPUs benefit most from lower shadow quality and reduced texture streaming, so Competitive or Balanced is usually the sweet spot; SmartBrain scores your exact GPU tier automatically.</p>
+    <h3>How do I get 120 FPS in Wuthering Waves with WuWaConfig?</h3>
+    <p>WuWaConfig's 120 FPS unlock toggle raises the frame-pace cap in GameUserSettings.ini and works on capable Snapdragon or Dimensity flagships via ADB, Shizuku, Root, or SAF. If the device overheats or drops frames, step down a preset (Ultra to High to Balanced) until FPS is stable.</p>
+  </div>
+</section>
+
+<!-- ===== Footer ===== -->
+<footer>
+  <p style="margin-bottom:8px;">
+    Made with <span class="heart">&hearts;</span> by <a href="https://github.com/B3rr7" target="_blank" rel="noopener">Player42</a>
+  </p>
+  <p>
+    <a href="https://github.com/B3rr7/WuWa-Config-Android/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+    &middot; Not affiliated with Kuro Games
+    &middot; <a href="https://github.com/B3rr7/WuWa-Config-Android" target="_blank" rel="noopener">v1.0.9</a>
+  </p>
+</footer>
+
+<script>
+(function() {
+  var cursor = document.getElementById('cursor');
+  if (!cursor || ('ontouchstart' in window)) return;
+
+  var mx = -200, my = -200, cx = -200, cy = -200;
+
+  document.addEventListener('mousemove', function(e) {
+    mx = e.clientX;
+    my = e.clientY;
+  });
+
+  var lastBit = 0;
+  document.addEventListener('mousemove', function(e) {
+    var now = Date.now();
+    if (now - lastBit < 60) return;
+    lastBit = now;
+    var bit = document.createElement('div');
+    bit.className = 'bit-trail';
+    bit.textContent = Math.random() > .5 ? '1' : '0';
+    bit.style.left = (e.clientX + (Math.random() * 16 - 8)) + 'px';
+    bit.style.top = (e.clientY + (Math.random() * 16 - 8)) + 'px';
+    bit.style.color = (!document.body.classList.contains('light') && Math.random() > .5) ? '#ff4466' : '';
+    document.body.appendChild(bit);
+    setTimeout(function() { bit.remove(); }, 1000);
+  });
+
+  var hoverEls = document.querySelectorAll('.feature-card, .mini-card, .access-card, .stat-card, .step, .link-card, .signal, .btn, table, .access-card');
+  for (var i = 0; i < hoverEls.length; i++) {
+    hoverEls[i].addEventListener('mouseenter', function() { cursor.classList.add('cursor-glow--hover'); });
+    hoverEls[i].addEventListener('mouseleave', function() { cursor.classList.remove('cursor-glow--hover'); });
+  }
+
+  function tick() {
+    cx += (mx - cx) * .12;
+    cy += (my - cy) * .12;
+    cursor.style.left = cx + 'px';
+    cursor.style.top = cy + 'px';
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  document.addEventListener('click', function(e) {
+    var ring = document.createElement('div');
+    ring.className = 'ripple-ring';
+    ring.style.left = e.clientX + 'px';
+    ring.style.top = e.clientY + 'px';
+    document.body.appendChild(ring);
+    setTimeout(function() { ring.remove(); }, 900);
+
+    var glyphs = '01010110100101';
+    for (var i = 0; i < 16; i++) {
+      (function() {
+        var ch = document.createElement('div');
+        ch.className = 'matrix-char';
+        ch.textContent = glyphs.charAt(Math.floor(Math.random() * glyphs.length));
+        var angle = Math.random() * 360;
+        var dist = 20 + Math.random() * 70;
+        var rad = angle * Math.PI / 180;
+        var dx = Math.cos(rad) * dist;
+        var dy = Math.sin(rad) * dist + 40;
+        ch.style.left = e.clientX + 'px';
+        ch.style.top = e.clientY + 'px';
+        ch.style.setProperty('--dx', dx + 'px');
+        ch.style.setProperty('--dy', dy + 'px');
+        ch.style.fontSize = (11 + Math.random() * 8) + 'px';
+        ch.style.color = document.body.classList.contains('light') ? (Math.random() > .5 ? '#1a5c5c' : '#147a7a') : (Math.random() > .5 ? '#00ff88' : (Math.random() > .5 ? '#ffb800' : '#ff4466'));
+        ch.style.animationDelay = (Math.random() * .1) + 's';
+        document.body.appendChild(ch);
+        setTimeout(function() { ch.remove(); }, 1000);
+      })();
+    }
+  });
+
+  var els = document.querySelectorAll('section > .container > h2, section > .container > p, .feature-card, .mini-card, .access-card, .stat-card, .signal, .step, .link-card, table, .legend-row, .topics__list');
+  for (var i = 0; i < els.length; i++) {
+    els[i].classList.add('reveal');
+  }
+  if ('IntersectionObserver' in window) {
+    var obs = new IntersectionObserver(function(entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].isIntersecting) {
+          entries[i].target.classList.add('reveal--visible');
+          obs.unobserve(entries[i].target);
+        }
+      }
+    }, { threshold: .1, rootMargin: '0px 0px -40px 0px' });
+    for (var i = 0; i < els.length; i++) {
+      obs.observe(els[i]);
+    }
+  } else {
+    for (var i = 0; i < els.length; i++) {
+      els[i].classList.add('reveal--visible');
+    }
+  }
+})();
+
+(function() {
+  var toggle = document.getElementById('themeToggle');
+  if (!toggle) return;
+  var SUN = '\u2600\uFE0F', MOON = '\uD83C\uDF19';
+  function apply(theme) {
+    var light = theme === 'light';
+    document.body.classList.toggle('light', light);
+    toggle.innerHTML = light ? SUN : MOON;
+  }
+  var saved = 'dark';
+  try { saved = localStorage.getItem('wuwa-index-theme') || 'dark'; } catch (e) {}
+  apply(saved);
+  toggle.addEventListener('click', function() {
+    var next = document.body.classList.contains('light') ? 'dark' : 'light';
+    apply(next);
+    try { localStorage.setItem('wuwa-index-theme', next); } catch (e) {}
+  });
+})();
+</script>
+
+</body>
+</html>

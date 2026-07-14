@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://b3rr7.github.io/WuWa-Config-Android/sitemap.xml
