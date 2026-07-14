@@ -759,6 +759,8 @@ table tbody tr { transition: background .2s; }
     -webkit-backdrop-filter: none !important;
     box-shadow: 0 2px 10px rgba(0, 0, 0, .2) !important;
   }
+  /* Full-screen fixed webp repaints on scroll — drop it, keep the dark gradient */
+  .bg-image { display: none !important; }
   /* Stop always-on paint loops */
   .bg-glow { animation: none !important; filter: none !important; opacity: .16; }
   .hero h1 { animation: none !important; background-size: 100% auto; }
@@ -769,6 +771,24 @@ table tbody tr { transition: background .2s; }
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
+}
+
+/* ===== Small screens: same treatment as a fallback (covers desktop emulation) ===== */
+@media (max-width: 768px) {
+  .feature-card, .stat-card, .step, .access-card, .mini-card, .signal,
+  .link-card, .hero__badge, .disclaimer, .tab-btn, .topics__list span,
+  table, thead, .btn--secondary,
+  body.light .feature-card, body.light .stat-card, body.light .step,
+  body.light .access-card, body.light .mini-card, body.light .signal,
+  body.light .link-card, body.light .hero__badge, body.light .disclaimer,
+  body.light .tab-btn, body.light .topics__list span, body.light table,
+  body.light .bg-image-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .2) !important;
+  }
+  .bg-image { display: none !important; }
+  .bg-glow { animation: none !important; filter: none !important; }
 }
 
 /* ===== Theme Toggle Button ===== */
