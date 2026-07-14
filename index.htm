@@ -590,13 +590,19 @@ footer .heart { color: #ff4466; }
 .tab-btn--active { background: rgba(255, 184, 0, .1); border-color: rgba(255, 184, 0, .3); color: #ffb800; }
 
 /* ===== Responsive ===== */
-@media (max-width: 600px) {
-  section { padding: 48px 0; }
+@media (max-width: 700px) {
+  section { padding: 52px 0; }
+  .container { padding: 0 18px; }
   .hero { padding: 80px 16px 40px; min-height: auto; }
-  .hero h1 { font-size: 1.8rem; }
-  .features__grid { grid-template-columns: 1fr; }
+  .hero h1 { font-size: clamp(1.9rem, 9vw, 2.6rem); }
+  .hero p { font-size: 1rem; }
+  .hero__meta { gap: 16px; font-size: .78rem; }
+  .btn { padding: 13px 24px; font-size: .95rem; }
+  .features__grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .step { flex-direction: column; gap: 10px; }
-  .grid-2 { grid-template-columns: 1fr; }
+  .links__grid { grid-template-columns: repeat(2, 1fr); }
+  h2 { margin-bottom: 32px; }
+  .access__grid, .stats__grid, .signals__grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ===== Scrollbar ===== */
@@ -736,6 +742,33 @@ table tbody tr { transition: background .2s; }
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* ===== Mobile / Touch: drop expensive effects for smoothness ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* Frosted-glass blur is very costly on mobile GPUs — flatten it */
+  .feature-card, .stat-card, .step, .access-card, .mini-card, .signal,
+  .link-card, .hero__badge, .disclaimer, .tab-btn, .topics__list span,
+  table, thead, .btn--secondary,
+  body.light .feature-card, body.light .stat-card, body.light .step,
+  body.light .access-card, body.light .mini-card, body.light .signal,
+  body.light .link-card, body.light .hero__badge, body.light .disclaimer,
+  body.light .tab-btn, body.light .topics__list span, body.light table,
+  body.light .bg-image-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .2) !important;
+  }
+  /* Stop always-on paint loops */
+  .bg-glow { animation: none !important; filter: none !important; opacity: .16; }
+  .hero h1 { animation: none !important; background-size: 100% auto; }
+  .feature-card, .mini-card, .access-card { animation: none !important; }
+  .hero__badge span { animation: none !important; }
+  /* Snappier taps */
+  a, button, .btn, .link-card, .feature-card, .access-card, .mini-card {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 /* ===== Theme Toggle Button ===== */
