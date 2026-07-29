@@ -12,6 +12,8 @@ class ShellUserService : Binder() {
     companion object {
         private const val TRANSACTION_DESTROY = IBinder.FIRST_CALL_TRANSACTION
         private const val TRANSACTION_EXEC_COMMAND = IBinder.FIRST_CALL_TRANSACTION + 1
+        private const val TRANSACTION_EXEC_COMMAND_TO_FILE = IBinder.FIRST_CALL_TRANSACTION + 2
+        private const val MAX_BINDER_OUTPUT = 900 * 1024
     }
 
     init {
@@ -35,6 +37,15 @@ class ShellUserService : Binder() {
                 data.enforceInterface("com.wuwaconfig.app.IShellService")
                 val command = data.readString() ?: ""
                 val result = execCommand(command)
+                reply?.writeNoException()
+                reply?.writeString(result)
+                true
+            }
+            TRANSACTION_EXEC_COMMAND_TO_FILE -> {
+                data.enforceInterface("com.wuwaconfig.app.IShellService")
+                val command = data.readString() ?: ""
+                val outputFile = data.readString() ?: ""
+                val result = execCommandToFile(command, outputFile)
                 reply?.writeNoException()
                 reply?.writeString(result)
                 true
@@ -67,6 +78,30 @@ class ShellUserService : Binder() {
         } catch (e: Exception) {
             Log.e("ShellUserService", "execCommand failed", e)
             e.message ?: "execCommand failed"
+        }
+    }
+
+    fun execCommandToFile(
+        command: String,
+        outputFile: String,
+    ): String {
+        return try {
+            val process = ProcessBuilder("sh", "-c", "$command > $outputFile 2>&1").start()
+            val exited = process.waitFor(60, TimeUnit.SECONDS)
+            if (!exited) {
+                process.destroyForcibly()
+                "Command timed out after 60s"
+            } else {
+                val exitCode = process.exitValue()
+                if (exitCode != 0) {
+                    "Command failed (exit $exitCode)"
+                } else {
+                    outputFile
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ShellUserService", "execCommandToFile failed", e)
+            e.message ?: "execCommandToFile failed"
         }
     }
 

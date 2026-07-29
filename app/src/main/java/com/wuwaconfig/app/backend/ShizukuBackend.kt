@@ -24,11 +24,17 @@ class ShizukuBackend : AccessBackend {
 
     interface IShellService {
         fun execCommand(command: String): String
+
+        fun execCommandToFile(
+            command: String,
+            outputFile: String,
+        ): String
     }
 
     private class ShellServiceProxy(private val binder: IBinder) : IShellService {
         companion object {
             private const val TRANSACTION_EXEC_COMMAND = IBinder.FIRST_CALL_TRANSACTION + 1
+            private const val TRANSACTION_EXEC_COMMAND_TO_FILE = IBinder.FIRST_CALL_TRANSACTION + 2
         }
 
         override fun execCommand(command: String): String {
@@ -38,6 +44,27 @@ class ShizukuBackend : AccessBackend {
                 data.writeInterfaceToken("com.wuwaconfig.app.IShellService")
                 data.writeString(command)
                 if (!binder.transact(TRANSACTION_EXEC_COMMAND, data, reply, 0)) {
+                    throw Exception("Remote call failed")
+                }
+                reply.readException()
+                return reply.readString() ?: ""
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun execCommandToFile(
+            command: String,
+            outputFile: String,
+        ): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            try {
+                data.writeInterfaceToken("com.wuwaconfig.app.IShellService")
+                data.writeString(command)
+                data.writeString(outputFile)
+                if (!binder.transact(TRANSACTION_EXEC_COMMAND_TO_FILE, data, reply, 0)) {
                     throw Exception("Remote call failed")
                 }
                 reply.readException()
@@ -309,7 +336,10 @@ class ShizukuBackend : AccessBackend {
             for (attempt in 0..2) {
                 if (attempt > 0) delay(500L * attempt)
                 try {
-                    val out = execOrThrow("cat ${shQuote(path)}")
+                    val tmpFile = "/data/local/tmp/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}"
+                    execOrThrowToFile("cat ${shQuote(path)}", tmpFile)
+                    val out = execOrThrow("cat ${shQuote(tmpFile)}")
+                    execOrThrow("rm -f ${shQuote(tmpFile)}")
                     return@withContext Result.success(out)
                 } catch (e: Exception) {
                     lastError = e
@@ -326,7 +356,10 @@ class ShizukuBackend : AccessBackend {
             for (attempt in 0..2) {
                 if (attempt > 0) delay(500L * attempt)
                 try {
-                    val b64 = execOrThrow("base64 -w0 ${shQuote(path)}")
+                    val tmpFile = "/data/local/tmp/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}"
+                    execOrThrowToFile("base64 -w0 ${shQuote(path)}", tmpFile)
+                    val b64 = execOrThrow("cat ${shQuote(tmpFile)}")
+                    execOrThrow("rm -f ${shQuote(tmpFile)}")
                     val bytes = Base64.decode(b64, Base64.DEFAULT)
                     return@withContext Result.success(bytes)
                 } catch (e: Exception) {
@@ -348,6 +381,21 @@ class ShizukuBackend : AccessBackend {
             throw Exception(output.trim())
         }
         return output
+    }
+
+    private suspend fun execOrThrowToFile(
+        command: String,
+        outputFile: String,
+    ): String {
+        val svc = shellService ?: throw Exception("Shizuku service not connected")
+        val result = withTimeout(60_000) { svc.execCommandToFile(command, outputFile) }
+        if (result.contains("Command timed out", ignoreCase = true)) {
+            throw Exception(result.trim())
+        }
+        if (result.contains("Command failed", ignoreCase = true)) {
+            throw Exception(result.trim())
+        }
+        return result
     }
 
     private fun filterPermissionDenied(output: String): String {
