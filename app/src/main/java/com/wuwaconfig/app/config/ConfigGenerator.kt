@@ -205,20 +205,19 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         preset: String,
         logInfo: LogInfo,
     ): String {
-        val now = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        val timestamp = SimpleDateFormat("yyyy.MM.dd @ HH:mm", Locale.US).format(Date())
+        val device = logInfo.deviceModel ?: "Generic"
+        val gpu = logInfo.gpu ?: "Generic GPU"
         return listOf(
-            "; ════════════════════════════════════════════════",
-            ";  ██████╗ ██╗    █████╗  ██████╗ ██╗  ██╗    ███████╗███████╗██████╗ ██╗   ██╗███████╗███████╗██████╗ ",
-            ";  ██╔══██╗██║   ██╔══██╗██╔════╝ ██║  ██║    ██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔════╝██╔══██╗",
-            ";  ██████╔╝██║   ███████║██║  ███╗███████║    ███████╗█████╗  ██████╔╝██║   ██║███████╗█████╗  ██████╔╝",
-            ";  ██╔═══╝ ██║   ██╔══██║██║   ██║██╔══██║    ╚════██║██╔══╝  ██╔══██╗██║   ██║╚════██║██╔══╝  ██╔══██╗",
-            ";  ██║     █████╗██║  ██║╚██████╔╝██║  ██║    ███████║███████╗██║  ██║╚██████╔╝███████║███████╗██║  ██║",
-            ";  ╚═╝     ╚════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝    ╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝",
-            ";",
-            ";  Generated: $now  |  Preset: ${preset.uppercase()}",
-            ";  Device: ${logInfo.deviceModel ?: "unknown"}  |  Platform: $platform",
-            ";  GPU: ${logInfo.gpu ?: "unknown"}",
-            "; ════════════════════════════════════════════════",
+            "; ┌───[ P42 TOOLKIT :: PERFORMANCE CONFIG ]──────────────────────────────────┐",
+            "; │                                                                          │",
+            "; │   ██████╗  ██╗  ██╗██████╗    [ ENGINE ] : Unreal Engine 4 / WutheringWaves│",
+            "; │   ██╔══██╗ ██║  ██║╚════██╗   [ PRESET ] : ${preset.uppercase().padEnd(30)}│",
+            "; │   ██████╔╝ ███████║ █████╔╝   [ DEVICE ] : ${device.padEnd(30)}│",
+            "; │   ██╔═══╝  ╚════██║██╔═══╝    [ GPU    ] : ${gpu.padEnd(30)}│",
+            "; │   ██║           ██║███████╗   [ TIME   ] : ${timestamp.padEnd(30)}│",
+            "; │   ╚═╝           ╚═╝╚══════╝                                              │",
+            "; └──────────────────────────────────────────────────────────────────────────┘",
             "",
         ).joinToString("\n")
     }
