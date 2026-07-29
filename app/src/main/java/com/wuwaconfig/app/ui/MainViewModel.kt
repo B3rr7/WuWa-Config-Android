@@ -23,7 +23,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val configGenerator get() = app.configGenerator
     val cvarDatabase get() = app.cvarDatabase
 
-    private val configManager = ConfigManager(app, app.backend)
+    private val configManager: ConfigManager
+        get() = ConfigManager(app, app.backend)
 
     private val prefs = application.getSharedPreferences("wuwaconfig", Context.MODE_PRIVATE)
 

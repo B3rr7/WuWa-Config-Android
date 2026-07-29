@@ -18,7 +18,8 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
         application as? WuWaConfigApp
             ?: throw IllegalStateException("IniEditorViewModel requires WuWaConfigApp application")
 
-    private val configManager = ConfigManager(app, app.backend)
+    private val configManager: ConfigManager
+        get() = ConfigManager(app, app.backend)
 
     private val _editingFileName = MutableStateFlow<String?>(null)
     val editingFileName: StateFlow<String?> = _editingFileName.asStateFlow()

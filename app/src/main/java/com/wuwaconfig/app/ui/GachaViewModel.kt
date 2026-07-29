@@ -33,7 +33,8 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         application as? WuWaConfigApp
             ?: throw IllegalStateException("GachaViewModel requires WuWaConfigApp application")
 
-    private val configManager = ConfigManager(app, app.backend)
+    private val configManager: ConfigManager
+        get() = ConfigManager(app, app.backend)
 
     private val _conveneUrl = MutableStateFlow<String?>(null)
     val conveneUrl: StateFlow<String?> = _conveneUrl.asStateFlow()
