@@ -825,6 +825,7 @@ fun GradientBackground(content: @Composable () -> Unit) {
                     ImageRequest.Builder(LocalContext.current)
                         .data(imageUri)
                         .crossfade(true)
+                        .error(android.R.drawable.stat_notify_error)
                         .build(),
                 )
             Image(
@@ -872,16 +873,26 @@ private fun VideoBackground(
 
     val player =
         remember(videoUri) {
-            ExoPlayer.Builder(context)
-                .build()
-                .apply {
-                    setMediaItem(MediaItem.fromUri(videoUri))
-                    repeatMode = Player.REPEAT_MODE_ALL
-                    volume = 0f
-                    prepare()
-                    playWhenReady = true
-                }
+            try {
+                ExoPlayer.Builder(context)
+                    .build()
+                    .apply {
+                        setMediaItem(MediaItem.fromUri(videoUri))
+                        repeatMode = Player.REPEAT_MODE_ALL
+                        volume = 0f
+                        prepare()
+                        playWhenReady = true
+                    }
+            } catch (e: Exception) {
+                LogRepository.add("ExoPlayer init failed: ${e.message}", LogLevel.WARNING)
+                null
+            }
         }
+
+    if (player == null) {
+        Box(modifier = modifier.background(Color.Black))
+        return
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer =
