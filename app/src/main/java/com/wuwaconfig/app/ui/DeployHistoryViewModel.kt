@@ -46,11 +46,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     val configGenerator get() = app.configGenerator
     val cvarDatabase get() = app.cvarDatabase
 
-    private var _configManager: ConfigManager? = null
-    val configManager: ConfigManager get() =
-        synchronized(this) {
-            _configManager ?: ConfigManager(getApplication(), app.backend, backupStorageDir).also { _configManager = it }
-        }
+    val configManager: ConfigManager get() = ConfigManager(getApplication(), app.backend, backupStorageDir)
 
     private val _backendStatus = MutableStateFlow(BackendStatus())
     val backendStatus: StateFlow<BackendStatus> = _backendStatus.asStateFlow()
@@ -126,7 +122,6 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     fun changeBackupDir(newDir: String) {
         prefs.edit().putString("backup_dir", newDir).apply()
-        _configManager = null
         loadBackups()
         addLog("Backup dir changed to $newDir")
     }
@@ -143,7 +138,6 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     fun switchTo(method: AccessMethod) {
         if (_backendStatus.value.connected) disconnect()
         app.switchTo(method)
-        _configManager = null
         _backendStatus.value = BackendStatus(method = method)
         addLog("Switched to ${method.name} mode")
     }
