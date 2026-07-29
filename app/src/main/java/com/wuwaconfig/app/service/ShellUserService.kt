@@ -1,51 +1,47 @@
 package com.wuwaconfig.app.service
 
-import android.app.Service
-import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
 import android.os.Parcel
 import android.util.Log
-import rikka.shizuku.Shizuku
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
 
-class ShellUserService : Service() {
-    private val binder =
-        object : Binder() {
-            override fun onTransact(
-                code: Int,
-                data: Parcel,
-                reply: Parcel?,
-                flags: Int,
-            ): Boolean {
-                return when (code) {
-                    TRANSACTION_DESTROY -> {
-                        data.enforceInterface("com.wuwaconfig.app.IShellService")
-                        destroy()
-                        reply?.writeNoException()
-                        true
-                    }
-                    TRANSACTION_EXEC_COMMAND -> {
-                        data.enforceInterface("com.wuwaconfig.app.IShellService")
-                        val command = data.readString() ?: ""
-                        val result = execCommand(command)
-                        reply?.writeNoException()
-                        reply?.writeString(result)
-                        true
-                    }
-                    else -> super.onTransact(code, data, reply, flags)
-                }
-            }
-        }
-
+class ShellUserService : Binder() {
     companion object {
         private const val TRANSACTION_DESTROY = IBinder.FIRST_CALL_TRANSACTION
         private const val TRANSACTION_EXEC_COMMAND = IBinder.FIRST_CALL_TRANSACTION + 1
     }
 
-    override fun onBind(intent: Intent?): IBinder = binder
+    init {
+        attachInterface(null, "com.wuwaconfig.app.IShellService")
+    }
+
+    override fun onTransact(
+        code: Int,
+        data: Parcel,
+        reply: Parcel?,
+        flags: Int,
+    ): Boolean {
+        return when (code) {
+            TRANSACTION_DESTROY -> {
+                data.enforceInterface("com.wuwaconfig.app.IShellService")
+                destroy()
+                reply?.writeNoException()
+                true
+            }
+            TRANSACTION_EXEC_COMMAND -> {
+                data.enforceInterface("com.wuwaconfig.app.IShellService")
+                val command = data.readString() ?: ""
+                val result = execCommand(command)
+                reply?.writeNoException()
+                reply?.writeString(result)
+                true
+            }
+            else -> super.onTransact(code, data, reply, flags)
+        }
+    }
 
     fun destroy() {
         System.exit(0)
@@ -53,12 +49,7 @@ class ShellUserService : Service() {
 
     fun execCommand(command: String): String {
         return try {
-            val method = Shizuku::class.java.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-            method.isAccessible = true
-            val process = method.invoke(null, arrayOf("sh", "-c", command), null, null) as? Process
-            if (process == null) {
-                return "Shizuku returned null process"
-            }
+            val process = ProcessBuilder("sh", "-c", command).start()
             val stdout = readStream(process.inputStream)
             val stderr = readStream(process.errorStream)
             val exited = process.waitFor(60, TimeUnit.SECONDS)
