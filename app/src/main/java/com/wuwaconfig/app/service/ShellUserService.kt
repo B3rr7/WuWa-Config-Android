@@ -1,5 +1,7 @@
 package com.wuwaconfig.app.service
 
+import android.app.Service
+import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
 import android.os.Parcel
@@ -8,40 +10,41 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
 
-class ShellUserService : Binder() {
+class ShellUserService : Service() {
+    private val binder =
+        object : Binder() {
+            override fun onTransact(
+                code: Int,
+                data: Parcel,
+                reply: Parcel?,
+                flags: Int,
+            ): Boolean {
+                return when (code) {
+                    TRANSACTION_DESTROY -> {
+                        data.enforceInterface("com.wuwaconfig.app.IShellService")
+                        destroy()
+                        reply?.writeNoException()
+                        true
+                    }
+                    TRANSACTION_EXEC_COMMAND -> {
+                        data.enforceInterface("com.wuwaconfig.app.IShellService")
+                        val command = data.readString() ?: ""
+                        val result = execCommand(command)
+                        reply?.writeNoException()
+                        reply?.writeString(result)
+                        true
+                    }
+                    else -> super.onTransact(code, data, reply, flags)
+                }
+            }
+        }
+
     companion object {
         private const val TRANSACTION_DESTROY = IBinder.FIRST_CALL_TRANSACTION
         private const val TRANSACTION_EXEC_COMMAND = IBinder.FIRST_CALL_TRANSACTION + 1
     }
 
-    init {
-        attachInterface(null, "com.wuwaconfig.app.IShellService")
-    }
-
-    override fun onTransact(
-        code: Int,
-        data: Parcel,
-        reply: Parcel?,
-        flags: Int,
-    ): Boolean {
-        return when (code) {
-            TRANSACTION_DESTROY -> {
-                data.enforceInterface("com.wuwaconfig.app.IShellService")
-                destroy()
-                reply?.writeNoException()
-                true
-            }
-            TRANSACTION_EXEC_COMMAND -> {
-                data.enforceInterface("com.wuwaconfig.app.IShellService")
-                val command = data.readString() ?: ""
-                val result = execCommand(command)
-                reply?.writeNoException()
-                reply?.writeString(result)
-                true
-            }
-            else -> super.onTransact(code, data, reply, flags)
-        }
-    }
+    override fun onBind(intent: Intent?): IBinder = binder
 
     fun destroy() {
         System.exit(0)
