@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.adb.PortScanner
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.model.LogRepository
+import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.*
 import com.wuwaconfig.app.ui.theme.*
@@ -58,6 +59,7 @@ private fun matchTarget(displayName: String): String? {
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel,
+    deployHistoryViewModel: DeployHistoryViewModel,
     onNavigateToBackups: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToConfigGen: () -> Unit,
@@ -68,19 +70,19 @@ fun HomeScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToIniEditor: () -> Unit = {},
 ) {
-    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
-    val backups by viewModel.backups.collectAsStateWithLifecycle()
-    val isApplying by viewModel.isApplying.collectAsStateWithLifecycle()
-    val deployRecords by viewModel.deployRecords.collectAsStateWithLifecycle()
+    val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
+    val backups by deployHistoryViewModel.backups.collectAsStateWithLifecycle()
+    val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
+    val deployRecords by deployHistoryViewModel.deployRecords.collectAsStateWithLifecycle()
     val deployHistoryEnabled by viewModel.deployHistoryEnabled.collectAsStateWithLifecycle()
-    val customDeploySuccess by viewModel.customDeploySuccess.collectAsStateWithLifecycle()
-    val backupFeedback by viewModel.backupFeedback.collectAsStateWithLifecycle()
+    val customDeploySuccess by deployHistoryViewModel.customDeploySuccess.collectAsStateWithLifecycle()
+    val backupFeedback by deployHistoryViewModel.backupFeedback.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(backupFeedback) {
         backupFeedback?.let {
             snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
-            viewModel.clearBackupFeedback()
+            deployHistoryViewModel.clearBackupFeedback()
         }
     }
 
@@ -100,9 +102,9 @@ fun HomeScreen(
             if (uris.isNotEmpty()) {
                 val matched =
                     uris.mapNotNull { uri ->
-                        val name = viewModel.getFileName(uri) ?: return@mapNotNull null
+                        val name = deployHistoryViewModel.getFileName(uri) ?: return@mapNotNull null
                         val target = matchTarget(name) ?: return@mapNotNull null
-                        val content = viewModel.readUriContent(uri).getOrNull() ?: return@mapNotNull null
+                        val content = deployHistoryViewModel.readUriContent(uri).getOrNull() ?: return@mapNotNull null
                         PickedFile(displayName = name, targetName = target, content = content)
                     }
                 if (matched.isNotEmpty()) {
@@ -187,7 +189,7 @@ fun HomeScreen(
                                     AccessMethod.ROOT -> AccessMethod.SAF
                                     AccessMethod.SAF -> AccessMethod.ADB
                                 }
-                            viewModel.switchTo(next)
+                            deployHistoryViewModel.switchTo(next)
                         },
                     )
                 }
@@ -196,13 +198,13 @@ fun HomeScreen(
                         rememberLauncherForActivityResult(
                             contract = ActivityResultContracts.OpenDocumentTree(),
                         ) { uri: Uri? ->
-                            if (uri != null) viewModel.saveSafTreeUri(uri)
+                            if (uri != null) deployHistoryViewModel.saveSafTreeUri(uri)
                         }
 
                     if (!backendStatus.connected) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             GlassButton(
-                                onClick = { viewModel.connect() },
+                                onClick = { deployHistoryViewModel.connect() },
                                 modifier = Modifier.weight(1f),
                                 enabled = true,
                                 accentColor = NeonCyan,
@@ -222,7 +224,7 @@ fun HomeScreen(
                                     }
                                 AccessMethod.SHIZUKU ->
                                     GlassOutlinedButton(
-                                        onClick = { viewModel.requestShizukuPermission() },
+                                        onClick = { deployHistoryViewModel.requestShizukuPermission() },
                                         modifier = Modifier.weight(1f),
                                         enabled = true,
                                         accentColor = NeonAmber,
@@ -244,7 +246,7 @@ fun HomeScreen(
                                     }
                                 AccessMethod.ROOT ->
                                     GlassOutlinedButton(
-                                        onClick = { viewModel.connect() },
+                                        onClick = { deployHistoryViewModel.connect() },
                                         modifier = Modifier.weight(1f),
                                         enabled = true,
                                         accentColor = NeonAmber,
@@ -258,14 +260,14 @@ fun HomeScreen(
                     } else {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             GlassButton(
-                                onClick = { viewModel.connect() },
+                                onClick = { deployHistoryViewModel.connect() },
                                 modifier = Modifier.weight(1f),
                                 enabled = true,
                                 accentColor = NeonCyan,
                                 contentColor = Color.White,
                             ) { Text("Reconnect", fontWeight = FontWeight.Bold) }
                             GlassOutlinedButton(
-                                onClick = { viewModel.disconnect() },
+                                onClick = { deployHistoryViewModel.disconnect() },
                                 modifier = Modifier.weight(1f),
                                 enabled = true,
                                 accentColor = NeonRed,
@@ -408,7 +410,7 @@ fun HomeScreen(
                                                 val gus = pickedFiles.firstOrNull { it.targetName == "GameUserSettings.ini" }?.content
                                                 val scalability = pickedFiles.firstOrNull { it.targetName == "Scalability.ini" }?.content
                                                 val hardware = pickedFiles.firstOrNull { it.targetName == "Hardware.ini" }?.content
-                                                viewModel.applyCustomFiles(engine, device, gus, scalability, hardware)
+                                                deployHistoryViewModel.applyCustomFiles(engine, device, gus, scalability, hardware)
                                                 customConfigState = CustomConfigState.IDLE
                                                 pickedFiles = emptyList()
                                             }
@@ -526,7 +528,7 @@ fun HomeScreen(
                                 )
                             }
                             ElevatedButton(
-                                onClick = { viewModel.collectClientLog() },
+                                onClick = { deployHistoryViewModel.collectClientLog() },
                                 modifier = Modifier.fillMaxWidth().height(84.dp),
                                 enabled = backendStatus.connected && !isApplying,
                                 shape = RoundedCornerShape(8.dp),
@@ -593,7 +595,7 @@ fun HomeScreen(
                             }
                             if (isApplying) {
                                 GlassOutlinedButton(
-                                    onClick = { viewModel.cancelOperation() },
+                                    onClick = { deployHistoryViewModel.cancelOperation() },
                                     modifier = Modifier.fillMaxWidth(),
                                     enabled = true,
                                     accentColor = NeonRed,
@@ -737,7 +739,7 @@ fun HomeScreen(
                 Button(
                     onClick = {
                         showAdbDialog = false
-                        viewModel.connectAdbManual(adbHost, adbPort)
+                        deployHistoryViewModel.connectAdbManual(adbHost, adbPort)
                     },
                     colors =
                         ButtonDefaults.buttonColors(
@@ -788,7 +790,7 @@ fun HomeScreen(
                         onClick = {
                             showCleanDialog = false
                             val selected = cleanSelection.filterValues { it }.keys
-                            if (selected.isNotEmpty()) viewModel.cleanConfigFiles()
+                            if (selected.isNotEmpty()) deployHistoryViewModel.cleanConfigFiles()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = NeonRed.copy(alpha = 0.15f), contentColor = NeonRed),
                         shape = RoundedCornerShape(10.dp),
@@ -798,7 +800,7 @@ fun HomeScreen(
                         onClick = {
                             showCleanDialog = false
                             val selected = cleanSelection.filterValues { it }.keys
-                            if (selected.isNotEmpty()) viewModel.deleteSelectedConfigFiles(selected)
+                            if (selected.isNotEmpty()) deployHistoryViewModel.deleteSelectedConfigFiles(selected)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = NeonRed.copy(alpha = 0.25f), contentColor = NeonRed),
                         shape = RoundedCornerShape(10.dp),
@@ -841,7 +843,7 @@ fun HomeScreen(
                         val gus = pendingApply.firstOrNull { it.targetName == "GameUserSettings.ini" }?.content
                         val scalability = pendingApply.firstOrNull { it.targetName == "Scalability.ini" }?.content
                         val hardware = pendingApply.firstOrNull { it.targetName == "Hardware.ini" }?.content
-                        viewModel.applyCustomFiles(engine, device, gus, scalability, hardware, backupAllInis = backupAll)
+                        deployHistoryViewModel.applyCustomFiles(engine, device, gus, scalability, hardware, backupAllInis = backupAll)
                         showBackupScopeDialog = false
                         pendingApply = emptyList()
                         customConfigState = CustomConfigState.IDLE
@@ -889,7 +891,7 @@ fun HomeScreen(
 
     customDeploySuccess?.let { msg ->
         AlertDialog(
-            onDismissRequest = { viewModel.clearCustomDeploySuccess() },
+            onDismissRequest = { deployHistoryViewModel.clearCustomDeploySuccess() },
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             icon = {
                 Icon(
@@ -932,7 +934,7 @@ fun HomeScreen(
             },
             confirmButton = {
                 Button(
-                    onClick = { viewModel.clearCustomDeploySuccess() },
+                    onClick = { deployHistoryViewModel.clearCustomDeploySuccess() },
                     colors =
                         ButtonDefaults.buttonColors(
                             containerColor = NeonGreen.copy(alpha = 0.15f),

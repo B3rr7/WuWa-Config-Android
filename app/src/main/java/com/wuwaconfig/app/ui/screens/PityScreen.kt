@@ -13,12 +13,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.GachaPool
 import com.wuwaconfig.app.model.GachaRecord
 import com.wuwaconfig.app.model.PityPrediction
-import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.GachaViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassTopBar
@@ -29,14 +30,15 @@ import com.wuwaconfig.app.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PityScreen(
-    viewModel: MainViewModel,
+    viewModel: GachaViewModel,
     onBack: () -> Unit,
+    backendStatus: BackendStatus,
+    isApplying: Boolean,
 ) {
     val conveneUrl by viewModel.conveneUrl.collectAsStateWithLifecycle()
     val conveneUrlLoading by viewModel.conveneUrlLoading.collectAsStateWithLifecycle()
     val gachaData by viewModel.gachaData.collectAsStateWithLifecycle()
     val gachaLoading by viewModel.gachaLoading.collectAsStateWithLifecycle()
-    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
     val gachaHistory by viewModel.gachaHistory.collectAsStateWithLifecycle()
 
     GradientBackground {
@@ -74,7 +76,7 @@ fun PityScreen(
                     GlassButton(
                         onClick = { viewModel.extractConveneUrl() },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = backendStatus.connected && !conveneUrlLoading && !gachaLoading,
+                        enabled = backendStatus.connected && !isApplying && !conveneUrlLoading && !gachaLoading,
                         accentColor = NeonPurple,
                         contentColor = Color.White,
                     ) {
@@ -324,7 +326,7 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
 @Composable
 private fun HistoryBanner(
     entry: GachaHistoryEntry,
-    viewModel: MainViewModel,
+    viewModel: GachaViewModel,
 ) {
     val remainingHrs = viewModel.gachaHistoryRemainingHours()
     GlassCard(accentColor = NeonCyan) {

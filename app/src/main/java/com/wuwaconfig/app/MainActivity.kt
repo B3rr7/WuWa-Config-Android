@@ -10,6 +10,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -22,14 +23,18 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.wuwaconfig.app.ui.DeployHistoryViewModel
+import com.wuwaconfig.app.ui.GachaViewModel
+import com.wuwaconfig.app.ui.IniEditorViewModel
 import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.ProfileViewModel
+import com.wuwaconfig.app.ui.SettingsViewModel
 import com.wuwaconfig.app.ui.screens.BackupScreen
 import com.wuwaconfig.app.ui.screens.BattleStatsScreen
 import com.wuwaconfig.app.ui.screens.ConfigGenScreen
@@ -59,28 +64,34 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val deployHistoryViewModel: DeployHistoryViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val viewModel: MainViewModel = viewModel()
-            val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
-            val textOpacity by viewModel.textOpacity.collectAsStateWithLifecycle()
-            var showTerms by remember { mutableStateOf(viewModel.needsTermsAccept()) }
+            val mainViewModel: MainViewModel = viewModel()
+            val settingsViewModel: SettingsViewModel = viewModel()
+            val gachaViewModel: GachaViewModel = viewModel()
+            val profileViewModel: ProfileViewModel = viewModel()
+            val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
+            val textOpacity by settingsViewModel.textOpacity.collectAsStateWithLifecycle()
+            var showTerms by remember { mutableStateOf(mainViewModel.needsTermsAccept()) }
 
             WuWaConfigTheme(themeMode = themeMode, textOpacity = textOpacity) {
                 if (showTerms) {
                     TermsScreen(
                         onAccept = {
-                            viewModel.acceptTerms()
-                            viewModel.postAcceptInit()
+                            mainViewModel.acceptTerms()
+                            mainViewModel.postAcceptInit()
+                            deployHistoryViewModel.initDownloadBackupDir()
                             showTerms = false
                             this@MainActivity.requestStoragePermissions()
                             this@MainActivity.initExternalBackupDir()
                         },
                     )
                 } else {
-                    AppNavigation(viewModel)
+                    AppNavigation(mainViewModel, deployHistoryViewModel, settingsViewModel, gachaViewModel, profileViewModel)
                 }
             }
         }
@@ -93,8 +104,7 @@ class MainActivity : ComponentActivity() {
 
     private fun initExternalBackupDir() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) return
-        val vm = ViewModelProvider(this)[MainViewModel::class.java]
-        vm.initDownloadBackupDir()
+        deployHistoryViewModel.initDownloadBackupDir()
     }
 
     private val permissionsLauncher =
@@ -132,7 +142,13 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavigation(viewModel: MainViewModel) {
+fun AppNavigation(
+    viewModel: MainViewModel,
+    deployHistoryViewModel: DeployHistoryViewModel,
+    settingsViewModel: SettingsViewModel,
+    gachaViewModel: GachaViewModel,
+    profileViewModel: ProfileViewModel,
+) {
     val navController = rememberNavController()
     val startDest = if (viewModel.isSetupDone) "home" else "setup"
 
@@ -183,6 +199,7 @@ fun AppNavigation(viewModel: MainViewModel) {
         ) {
             HomeScreen(
                 viewModel = viewModel,
+                deployHistoryViewModel = deployHistoryViewModel,
                 onNavigateToBackups = { navController.navigate("backups") },
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToConfigGen = { navController.navigate("configgen") },
@@ -202,7 +219,7 @@ fun AppNavigation(viewModel: MainViewModel) {
             popExitTransition = popExit,
         ) {
             BackupScreen(
-                viewModel = viewModel,
+                viewModel = deployHistoryViewModel,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -215,6 +232,7 @@ fun AppNavigation(viewModel: MainViewModel) {
         ) {
             ConfigGenScreen(
                 viewModel = viewModel,
+                deployHistoryViewModel = deployHistoryViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToReviewTune = {
                     navController.navigate("reviewtune")
@@ -231,11 +249,12 @@ fun AppNavigation(viewModel: MainViewModel) {
             val opts by viewModel.reviewTuneOptions.collectAsStateWithLifecycle()
             ReviewTuneScreen(
                 viewModel = viewModel,
+                deployHistoryViewModel = deployHistoryViewModel,
                 generatorOptions = opts,
                 onBack = { navController.popBackStack() },
                 onDeploy = { ini, deployOpts ->
                     navController.popBackStack()
-                    viewModel.deployGeneratedConfigs(ini, deployOpts)
+                    deployHistoryViewModel.deployGeneratedConfigs(ini, deployOpts)
                 },
             )
         }
@@ -247,9 +266,14 @@ fun AppNavigation(viewModel: MainViewModel) {
             popExitTransition = popExit,
         ) {
             SettingsScreen(
-                viewModel = viewModel,
+                viewModel = settingsViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToUserGuide = { navController.navigate("userguide") },
+                backendStatus = deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle().value,
+                chipsetInfo = com.wuwaconfig.app.config.ChipsetDetector.detect(),
+                gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR,
+                backupStorageDir = deployHistoryViewModel.backupStorageDir,
+                onChangeBackupDir = { newDir -> deployHistoryViewModel.changeBackupDir(newDir) },
             )
         }
         composable(
@@ -271,8 +295,10 @@ fun AppNavigation(viewModel: MainViewModel) {
             popExitTransition = popExit,
         ) {
             PityScreen(
-                viewModel = viewModel,
+                viewModel = gachaViewModel,
                 onBack = { navController.popBackStack() },
+                backendStatus = deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle().value,
+                isApplying = deployHistoryViewModel.isApplying.collectAsStateWithLifecycle().value,
             )
         }
         composable(
@@ -283,8 +309,9 @@ fun AppNavigation(viewModel: MainViewModel) {
             popExitTransition = popExit,
         ) {
             ProfileScreen(
-                viewModel = viewModel,
+                viewModel = profileViewModel,
                 onBack = { navController.popBackStack() },
+                backendStatus = deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle().value,
             )
         }
         composable(
@@ -295,7 +322,7 @@ fun AppNavigation(viewModel: MainViewModel) {
             popExitTransition = popExit,
         ) {
             BattleStatsScreen(
-                viewModel = viewModel,
+                viewModel = deployHistoryViewModel,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -307,7 +334,7 @@ fun AppNavigation(viewModel: MainViewModel) {
             popExitTransition = popExit,
         ) {
             LogsScreen(
-                viewModel = viewModel,
+                viewModel = deployHistoryViewModel,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -319,7 +346,7 @@ fun AppNavigation(viewModel: MainViewModel) {
             popExitTransition = popExit,
         ) {
             HistoryScreen(
-                viewModel = viewModel,
+                viewModel = deployHistoryViewModel,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -330,8 +357,9 @@ fun AppNavigation(viewModel: MainViewModel) {
             popEnterTransition = popEnter,
             popExitTransition = popExit,
         ) {
+            val iniEditorViewModel: IniEditorViewModel = viewModel()
             IniEditorScreen(
-                viewModel = viewModel,
+                viewModel = iniEditorViewModel,
                 onBack = { navController.popBackStack() },
             )
         }

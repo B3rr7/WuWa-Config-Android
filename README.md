@@ -258,17 +258,17 @@ app/
     │   ├── SafBackend.kt         # DocumentFile, 3-strategy path resolution, persistable tree URI
     │   └── ShellUtils.kt         # shQuote, computeMd5, maxPushChunkSize, PUSH_RETRY_COUNT=2, MAX_ARG_STRLEN=4096
     ├── config/
-    │   ├── ConfigGenerator.kt    # INI generation, 8 presets, Core.System paths, DeviceProfiles chipset mapping
+    │   ├── ConfigGenerator.kt    # INI generation, 8 presets, Core.System paths, DeviceProfiles chipset mapping, EngineIniContext + 25 section builders
     │   ├── CvarDatabase.kt       # Loads 3 CVar files from assets, optimizeIniText (REDUNDANT/UNKNOWN comments)
     │   ├── CvarCategorizer.kt    # Pure CVar categorization (419 lines, standalone object, 3-level matching, 18 categories)
     │   ├── CvarOptimizer.kt      # GPU tier detection, per-device profile optimizer, adjustProfile for retune
     │   ├── ConfigManager.kt      # Device I/O (1219 lines), backups, logs, profiles, battle stats, hash sync, readProfile
     │   ├── DeployHistoryStore.kt # Deploy history JSON persistence (20 records max, comparison)
-    │   ├── LogParser.kt          # Log decryption (XOR LUT), Convene URL extract, battle stat parse, CVar extraction
+    │   ├── LogParser.kt          # Log decryption (XOR LUT), Convene URL extract, battle stat parse, CVar extraction, DecodeResult enum
     │   ├── SmartBrain.kt         # Scoring engine (359 lines), 0-100, ~20 signals, preset recommendation
     │   ├── ForbiddenCvars.kt     # 31 restricted CVars + variant handling, stripForbiddenCvars (called when restricted OFF)
     │   ├── BenchmarkTuner.kt     # Auto-tune state machine, FPS logcat parsing, preset stepping
-    │   ├── GachaApi.kt           # Gacha API client (HTTP POST, 11 pool types, character/weapon pity calc)
+    │   ├── GachaApi.kt           # Gacha API client (HTTP POST, 11 pool types, dynamic standard pool derivation, character/weapon pity calc)
     │   ├── GachaHistoryStore.kt  # Local gacha history persistence (12hr TTL)
     │   ├── ProfileStore.kt       # Profile cache persistence (player_profile.json, no TTL)
     │   └── ChipsetDetector.kt    # Local SoC detection (Snapdragon/MediaTek/Exynos/Tensor)
@@ -289,21 +289,28 @@ app/
     │   └── VerificationReport.kt # CvarCategory (18 values) + CvarDetail (isKnown, isMonitored, gameDefault, matchesDefault)
     ├── service/
     │   ├── AdbConnectionService.kt  # ADB foreground service (dataSync, START_STICKY)
-    │   └── GachaPollService.kt      # Background gacha polling (30 attempts, 10s apart, LocalBroadcastManager)
+    │   ├── GachaPollService.kt      # Background gacha polling (30 attempts, 10s apart, LocalBroadcastManager)
+    │   └── ShellUserService.kt      # Binder-based shell service for Shizuku (replaces reflection)
     └── ui/
         ├── MainViewModel.kt      # Shared ViewModel (1477 lines) — all state, backend, deploy, verify, gacha, profile
+        ├── IniEditorViewModel.kt # INI editor ViewModel (syncConfigHashes, pushSingleFile, refreshConfigHashes)
+        ├── ConfigGenViewModel.kt # Config generator ViewModel (analysis, presets, generate, deploy, auto-tune)
+        ├── SettingsViewModel.kt  # Settings ViewModel (theme, backgrounds, backup dir)
+        ├── GachaViewModel.kt     # Gacha ViewModel (fetch history, predictions, polling)
+        ├── ProfileViewModel.kt   # Profile ViewModel (read player profile, cache)
+        ├── DeployHistoryViewModel.kt # Deploy history ViewModel (list, compare, delete)
         ├── components/
         │   └── Components.kt     # GlassCard, GradientBackground, GlitchText, GlassButton, log viewer (623 lines)
         ├── screens/
         │   ├── HomeScreen.kt        # Backend control, custom config (backup scope dialog + success popup), clean config, quick actions, log viewer, deploy history
         │   ├── ConfigGenScreen.kt   # Analysis, presets, options, advanced tuning, auto-tune, verification (1182 lines)
-    │   ├── ReviewTuneScreen.kt # Generated-config reviewer/editor/deploy screen (driven by ReviewTune* StateFlows)
+        │   ├── ReviewTuneScreen.kt  # Generated-config reviewer/editor/deploy screen (driven by ReviewTune* StateFlows)
         │   ├── PityScreen.kt        # Gacha fetcher, summary, predictions, per-pool breakdown, history, background polling
         │   ├── ProfileScreen.kt     # Player profile view (cached, UID/server/level/tower/rogue/BP)
         │   ├── BattleStatsScreen.kt # Battle stats from Client.log (combat, exploration, economy, social, system cards)
         │   ├── BackupScreen.kt      # Backup list + CRUD with per-file selection checkboxes
         │   ├── HistoryScreen.kt     # Deploy history viewer with comparison, per-record delete, clear all
-        │   ├── IniEditorScreen.kt   # Full-screen monospace editor, push + hash refresh on save, auto-syncs on open
+        │   ├── IniEditorScreen.kt   # Full-screen monospace editor, push + hash refresh on save, auto-syncs on open, custom OffsetMapping for Compose validation
         │   ├── LogsScreen.kt        # Full-screen log viewer with search/filter by level
         │   ├── SettingsScreen.kt    # Theme, custom backgrounds (image/video), backup dir, device info, app version
         │   ├── SetupScreen.kt       # First-run setup

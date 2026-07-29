@@ -15,6 +15,8 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
 class AdbClient(private val crypto: AdbCrypto) {
@@ -210,8 +212,17 @@ class AdbClient(private val crypto: AdbCrypto) {
                 Log.d("AdbClient", "shell[$instanceId]: result='${result.take(200)}'")
                 Result.success(result)
             } catch (e: Exception) {
-                Log.d("AdbClient", "shell[$instanceId]: exception: $e")
-                connected = false
+                val socketDead =
+                    when (e) {
+                        is SocketException -> {
+                            val msg = e.message?.lowercase() ?: ""
+                            listOf("closed", "reset", "broken pipe", "connection").any { msg.contains(it) }
+                        }
+                        is SocketTimeoutException -> false
+                        else -> false
+                    }
+                Log.d("AdbClient", "shell[$instanceId]: exception: $e (socketDead=$socketDead)")
+                if (socketDead) connected = false
                 Result.failure(e)
             }
         }

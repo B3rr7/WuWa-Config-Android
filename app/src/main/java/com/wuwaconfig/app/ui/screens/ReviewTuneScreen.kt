@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.GeneratedIni
 import com.wuwaconfig.app.model.GeneratorOptions
+import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassDialog
 import com.wuwaconfig.app.ui.components.GlassTopBar
@@ -66,6 +67,7 @@ private val FileAccents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber, Neo
 @Composable
 fun ReviewTuneScreen(
     viewModel: MainViewModel,
+    deployHistoryViewModel: DeployHistoryViewModel,
     generatorOptions: GeneratorOptions,
     onBack: () -> Unit,
     onDeploy: (GeneratedIni, GeneratorOptions) -> Unit,
@@ -75,7 +77,7 @@ fun ReviewTuneScreen(
     val currentDevice by viewModel.reviewTuneCurrentDevice.collectAsStateWithLifecycle()
     val currentDeviceLoading by viewModel.reviewTuneCurrentDeviceLoading.collectAsStateWithLifecycle()
     val currentDeviceError by viewModel.reviewTuneCurrentDeviceError.collectAsStateWithLifecycle()
-    val isApplying by viewModel.isApplying.collectAsStateWithLifecycle()
+    val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
 
     val available =
         ReviewMonitoredFiles.filter { f ->

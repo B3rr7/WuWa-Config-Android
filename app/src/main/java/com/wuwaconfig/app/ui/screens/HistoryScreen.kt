@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.DeployRecord
-import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassCardHeader
@@ -30,7 +30,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    viewModel: MainViewModel,
+    viewModel: DeployHistoryViewModel,
     onBack: () -> Unit,
 ) {
     val deployRecords by viewModel.deployRecords.collectAsStateWithLifecycle()

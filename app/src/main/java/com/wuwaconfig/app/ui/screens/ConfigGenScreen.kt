@@ -35,6 +35,7 @@ import com.wuwaconfig.app.config.TunerState
 import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.VerificationReport
+import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
@@ -54,16 +55,17 @@ import kotlin.random.Random
 @Composable
 fun ConfigGenScreen(
     viewModel: MainViewModel,
+    deployHistoryViewModel: DeployHistoryViewModel,
     onBack: () -> Unit,
     onNavigateToReviewTune: () -> Unit = {},
 ) {
-    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
-    val isApplying by viewModel.isApplying.collectAsStateWithLifecycle()
-    val readingProgress by viewModel.readingProgress.collectAsStateWithLifecycle()
-    val logInfo by viewModel.logAnalysis.collectAsStateWithLifecycle()
-    val brain by viewModel.brainRecommendation.collectAsStateWithLifecycle()
-    val deployResult by viewModel.deployResult.collectAsStateWithLifecycle()
-    val verificationReport by viewModel.verificationReport.collectAsStateWithLifecycle()
+    val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
+    val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
+    val readingProgress by deployHistoryViewModel.readingProgress.collectAsStateWithLifecycle()
+    val logInfo by deployHistoryViewModel.logAnalysis.collectAsStateWithLifecycle()
+    val brain by deployHistoryViewModel.brainRecommendation.collectAsStateWithLifecycle()
+    val deployResult by deployHistoryViewModel.deployResult.collectAsStateWithLifecycle()
+    val verificationReport by deployHistoryViewModel.verificationReport.collectAsStateWithLifecycle()
     val colorful by viewModel.colorfulUi.collectAsStateWithLifecycle()
 
     fun tint(color: Color): Color = if (colorful) color else NeonCyan
@@ -113,11 +115,11 @@ fun ConfigGenScreen(
             contract = ActivityResultContracts.OpenDocument(),
         ) { uri: Uri? ->
             if (uri != null) {
-                val result = viewModel.readUriBytes(uri)
+                val result = deployHistoryViewModel.readUriBytes(uri)
                 if (result.isSuccess) {
-                    viewModel.analyzeClientLogBytes(result.getOrThrow())
+                    deployHistoryViewModel.analyzeClientLogBytes(result.getOrThrow())
                 } else {
-                    viewModel.addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                    deployHistoryViewModel.addLog("FAILED: ${result.exceptionOrNull()?.message}")
                 }
             }
         }
@@ -133,13 +135,13 @@ fun ConfigGenScreen(
             BenchmarkTuner.saveState(tunerState)
 
             val generated = viewModel.configGenerator.generate(preset, opts, logInfo = logInfo ?: com.wuwaconfig.app.model.LogInfo())
-            viewModel.deployGeneratedConfigs(generated, opts)
+            deployHistoryViewModel.deployGeneratedConfigs(generated, opts)
             var waitMs = 0
-            while (viewModel.isApplying.value && waitMs < 30000) {
+            while (deployHistoryViewModel.isApplying.value && waitMs < 30000) {
                 delay(200)
                 waitMs += 200
             }
-            if (viewModel.isApplying.value) {
+            if (deployHistoryViewModel.isApplying.value) {
                 tunerState = tunerState.copy(stage = TunerStage.COMPLETE, error = "Deploy timed out")
                 BenchmarkTuner.saveState(tunerState)
                 showResultDialog = true
@@ -160,7 +162,7 @@ fun ConfigGenScreen(
             val currentPreset = tunerState.preset
             val targetFps = tunerState.targetFps
 
-            val logcatResult = viewModel.executeShellCommand("logcat -d -v brief -t 500")
+            val logcatResult = deployHistoryViewModel.executeShellCommand("logcat -d -v brief -t 500")
             val result =
                 if (logcatResult.isSuccess) {
                     BenchmarkTuner.parseFpsLogcat(logcatResult.getOrThrow())
@@ -242,7 +244,7 @@ fun ConfigGenScreen(
                 else -> {}
             }
         }
-        viewModel.restoreAnalysisFromCache()
+        deployHistoryViewModel.restoreAnalysisFromCache()
     }
 
     LaunchedEffect(brain) {
@@ -254,9 +256,9 @@ fun ConfigGenScreen(
     LaunchedEffect(deployResult) {
         deployResult?.let {
             deployDialogMessage = it
-            deployHashSyncMessage = viewModel.deployHashSync.value ?: ""
+            deployHashSyncMessage = deployHistoryViewModel.deployHashSync.value ?: ""
             showDeployDialog = true
-            viewModel.clearDeployResult()
+            deployHistoryViewModel.clearDeployResult()
         }
     }
 
@@ -297,7 +299,7 @@ fun ConfigGenScreen(
                         logInfo = logInfo,
                         brain = brain,
                         allowRestrictedCvars = allowRestrictedCvars,
-                        onAnalyzeDevice = { viewModel.analyzeClientLog() },
+                        onAnalyzeDevice = { deployHistoryViewModel.analyzeClientLog() },
                         onImportLog = { logPickerLauncher.launch(arrayOf("*/*")) },
                     )
                 }
@@ -485,7 +487,7 @@ fun ConfigGenScreen(
                             TunerStage.DEPLOYING, TunerStage.CAPTURING -> {
                                 GlassOutlinedButton(
                                     onClick = {
-                                        viewModel.cancelOperation()
+                                        deployHistoryViewModel.cancelOperation()
                                         BenchmarkTuner.clearState()
                                         tunerState = TunerState()
                                         showGoPlayDialog = false
@@ -516,7 +518,7 @@ fun ConfigGenScreen(
                         }
                         if (isApplying) {
                             GlassOutlinedButton(
-                                onClick = { viewModel.cancelOperation() },
+                                onClick = { deployHistoryViewModel.cancelOperation() },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = true,
                                 accentColor = NeonRed,
@@ -551,7 +553,7 @@ fun ConfigGenScreen(
             },
             dismissButton = {
                 TextButton(onClick = {
-                    viewModel.cancelOperation()
+                    deployHistoryViewModel.cancelOperation()
                     BenchmarkTuner.clearState()
                     tunerState = TunerState()
                     showGoPlayDialog = false

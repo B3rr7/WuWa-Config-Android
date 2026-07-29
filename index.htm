@@ -37,7 +37,7 @@
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "author": { "@type": "Person", "name": "Player42" },
   "keywords": "wuthering waves, wuwa, fps boost, engine.ini, android optimization, gacha tracker, battle stats, adb, shizuku, cvar editor",
-  "softwareVersion": "1.0.9",
+  "softwareVersion": "1.1.0",
   "releaseNotes": "5,237 CVar database from libUE4.so, 23 experimental CVars, SmartBrain scoring 0-100, 4 access methods, 8 presets, Auto-Tune Wizard"
 }
 </script>
@@ -153,8 +153,7 @@
 <!-- ===== Hero ===== -->
 <main id="main-content">
 <header class="hero">
-  <img class="hero__image" src="app_icon.webp" alt="WuWaConfig app icon - Wuthering Waves performance optimization toolkit for Android" width="200" height="200">
-  <div class="hero__badge"><span></span> v1.0.9 &middot; Open Source &middot; MIT</div>
+  <div class="hero__badge"><span></span> v1.1.0 &middot; Open Source &middot; MIT</div>
   <h1>WuWaConfig</h1>
   <p>Android app for <strong>Wuthering Waves</strong> performance optimization &mdash; analyzes device logs, generates optimized Engine.ini configs, boosts FPS, tunes graphics, tracks gacha pity, and analyzes battle stats. <strong>Privacy-first, no telemetry, no ads.</strong></p>
   <div class="hero__actions">
@@ -282,7 +281,7 @@
         <div>
           <h3>Connect to Device</h3>
           <p>Choose from 4 access methods: ADB (in-app wireless debugging), Shizuku (API-based), Root (su shell), or SAF (Storage Access Framework). The app connects and reads game config files from <code>Android/data/com.kurogame.wutheringwaves.global/</code>.</p>
-          <div class="step__tags"><span class="step__tag">ADB auto-scan 37000-44000</span><span class="step__tag">Shizuku reflection API</span><span class="step__tag">Root su -c 10s</span></div>
+          <div class="step__tags"><span class="step__tag">ADB auto-scan 37000-44000</span><span class="step__tag">Shizuku UserService (Binder)</span><span class="step__tag">Root su -c 10s</span></div>
         </div>
       </div>
       <div class="step">
@@ -562,7 +561,7 @@
       <div class="access-card">
         <div class="access-card__icon">&#x1F4F1;</div>
         <h3>Shizuku</h3>
-        <p>Reflection-based Shizuku API. 60s timeout, 3x retry, script-file fallback for commands &gt;4096 chars. Auto-cleanup temp files. No compile-time dependency.</p>
+        <p>Binder-based Shizuku UserService. 60s timeout, 3x retry, script-file fallback for commands &gt;4096 chars. Auto-cleanup temp files. No compile-time dependency.</p>
         <span class="access-card__tag access-card__tag--best">Best Non-Root</span>
       </div>
       <div class="access-card">
@@ -752,7 +751,7 @@
       </div>
     </div>
     <div style="text-align:center;margin-top:24px;color:#606070;font-size:.85rem;">
-      Jetpack Navigation Compose &middot; Jetpack ViewModel + StateFlow &middot; AGP 8.2.2 &middot; Kotlin 1.9.22 &middot; Gradle 8.6 &middot; Compose BOM 2024.02 &middot; JUnit 4 &middot; ktlint &middot; ProGuard
+      Jetpack Navigation Compose &middot; Jetpack ViewModel + StateFlow &middot; AGP 8.4.2 &middot; Kotlin 1.9.24 &middot; Gradle 8.6 &middot; Compose BOM 2024.10.00 &middot; JUnit 4 &middot; ktlint &middot; ProGuard
     </div>
   </div>
 </section>
@@ -853,7 +852,7 @@
   <p>
     <a href="https://github.com/B3rr7/WuWa-Config-Android/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
     &middot; Not affiliated with Kuro Games
-    &middot; <a href="https://github.com/B3rr7/WuWa-Config-Android" target="_blank" rel="noopener">v1.0.9</a>
+    &middot; <a href="https://github.com/B3rr7/WuWa-Config-Android" target="_blank" rel="noopener">v1.1.0</a>
   </p>
 </footer>
 

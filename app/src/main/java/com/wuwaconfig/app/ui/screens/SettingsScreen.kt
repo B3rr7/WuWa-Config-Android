@@ -32,8 +32,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.backend.AccessMethod
-import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.backend.BackendStatus
+import com.wuwaconfig.app.config.ChipsetDetector.ChipsetInfo
+import com.wuwaconfig.app.ui.SettingsViewModel
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassCardHeader
 import com.wuwaconfig.app.ui.components.GlassDialog
@@ -45,17 +48,26 @@ import com.wuwaconfig.app.ui.theme.NeonBlue
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    viewModel: MainViewModel,
+    viewModel: SettingsViewModel,
     onBack: () -> Unit,
     onNavigateToUserGuide: () -> Unit = {},
+    backendStatus: BackendStatus,
+    chipsetInfo: ChipsetInfo,
+    gameConfigDir: String,
+    backupStorageDir: String,
+    onChangeBackupDir: (String) -> Unit,
 ) {
-    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
-    val chipset = viewModel.chipsetInfo
     var showBackupDirDialog by remember { mutableStateOf(false) }
-    var newBackupDir by remember { mutableStateOf("") }
+    var newBackupDir by remember { mutableStateOf(backupStorageDir) }
     var showRemoveBgDialog by remember { mutableStateOf(false) }
 
     val ctx = LocalContext.current
+    val app = WuWaConfigApp.instance
+    val imageUri by app.backgroundImageUri.collectAsStateWithLifecycle()
+    val videoUri by app.backgroundVideoUri.collectAsStateWithLifecycle()
+    val bgAlpha by app.backgroundOpacity.collectAsStateWithLifecycle()
+    val hasBg = imageUri != null || videoUri != null
+
     val imagePickerLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.GetContent(),
@@ -204,10 +216,6 @@ fun SettingsScreen(
                 GlassCard(accentColor = NeonPink) {
                     GlassCardHeader("Custom Background", NeonPink)
                     Spacer(Modifier.height(8.dp))
-                    val imageUri by viewModel.backgroundImageUri.collectAsStateWithLifecycle()
-                    val videoUri by viewModel.backgroundVideoUri.collectAsStateWithLifecycle()
-                    val bgAlpha by viewModel.backgroundOpacity.collectAsStateWithLifecycle()
-                    val hasBg = imageUri != null || videoUri != null
 
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
@@ -315,16 +323,16 @@ fun SettingsScreen(
                 GlassCard(accentColor = NeonBlue) {
                     GlassCardHeader("Device", NeonBlue)
                     Spacer(Modifier.height(8.dp))
-                    InfoSetting("SoC", chipset.socName)
-                    InfoSetting("Board", chipset.board)
-                    InfoSetting("Manufacturer", chipset.manufacturer)
+                    InfoSetting("SoC", chipsetInfo.socName)
+                    InfoSetting("Board", chipsetInfo.board)
+                    InfoSetting("Manufacturer", chipsetInfo.manufacturer)
                     InfoSetting(
                         "Type",
                         when {
-                            chipset.isSnapdragon -> "Snapdragon"
-                            chipset.isMediatek -> "MediaTek"
-                            chipset.isExynos -> "Exynos"
-                            chipset.isTensor -> "Tensor"
+                            chipsetInfo.isSnapdragon -> "Snapdragon"
+                            chipsetInfo.isMediatek -> "MediaTek"
+                            chipsetInfo.isExynos -> "Exynos"
+                            chipsetInfo.isTensor -> "Tensor"
                             else -> "Other"
                         },
                     )
@@ -333,7 +341,7 @@ fun SettingsScreen(
                 GlassCard(accentColor = NeonCyan) {
                     GlassCardHeader("Storage & Sources", NeonCyan)
                     Spacer(Modifier.height(8.dp))
-                    InfoSetting("Game Config", viewModel.gameConfigDir)
+                    InfoSetting("Game Config", gameConfigDir)
                     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "Backups",
@@ -342,7 +350,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f),
                         )
                         Text(
-                            viewModel.backupStorageDir,
+                            backupStorageDir,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.weight(2f),
@@ -350,7 +358,7 @@ fun SettingsScreen(
                         Spacer(Modifier.width(4.dp))
                         FilledTonalButton(
                             onClick = {
-                                newBackupDir = viewModel.backupStorageDir
+                                newBackupDir = backupStorageDir
                                 showBackupDirDialog = true
                             },
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
@@ -485,7 +493,7 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         if (newBackupDir.isNotBlank()) {
-                            viewModel.changeBackupDir(newBackupDir)
+                            onChangeBackupDir(newBackupDir)
                             showBackupDirDialog = false
                         }
                     },
@@ -516,12 +524,10 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         showRemoveBgDialog = false
-                        val curVideoUri = viewModel.backgroundVideoUri.value
-                        val curImageUri = viewModel.backgroundImageUri.value
-                        if (curVideoUri != null) {
+                        if (videoUri != null) {
                             try {
                                 ctx.contentResolver.releasePersistableUriPermission(
-                                    Uri.parse(curVideoUri),
+                                    Uri.parse(videoUri),
                                     Intent.FLAG_GRANT_READ_URI_PERMISSION,
                                 )
                             } catch (
@@ -530,10 +536,10 @@ fun SettingsScreen(
                             }
                             viewModel.setBackgroundVideoUri(null)
                         }
-                        if (curImageUri != null) {
+                        if (imageUri != null) {
                             try {
                                 ctx.contentResolver.releasePersistableUriPermission(
-                                    Uri.parse(curImageUri),
+                                    Uri.parse(imageUri),
                                     Intent.FLAG_GRANT_READ_URI_PERMISSION,
                                 )
                             } catch (

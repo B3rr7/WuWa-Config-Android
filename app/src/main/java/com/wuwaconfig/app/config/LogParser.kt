@@ -5,6 +5,11 @@ import com.wuwaconfig.app.model.LogInfo
 import java.nio.charset.Charset
 
 object LogParser {
+    enum class DecodeResult {
+        DECRYPTED,
+        PLAINTEXT,
+    }
+
     fun decryptWuwaLog(data: ByteArray): ByteArray? {
         if (data.size < 3) return null
         if (data[0] != 0x00.toByte() || data[1] != 0x54.toByte() || data[2] != 0x50.toByte()) return null
@@ -31,12 +36,12 @@ object LogParser {
         return result
     }
 
-    fun decodeXorBytes(data: ByteArray): Pair<String, Boolean> {
+    fun decodeXorBytes(data: ByteArray): Pair<String, DecodeResult> {
         val decoded = applyXorLut(data)
-        return decodeLogBytes(decoded).let { it.first to true }
+        return decodeLogBytes(decoded).let { it.first to DecodeResult.DECRYPTED }
     }
 
-    fun decodeLogBytes(data: ByteArray): Pair<String, Boolean> {
+    fun decodeLogBytes(data: ByteArray): Pair<String, DecodeResult> {
         val decrypted = decryptWuwaLog(data)
         val backupDecrypted = if (decrypted == null) decryptBackupLog(data) else null
         val payload = decrypted ?: backupDecrypted ?: data
@@ -50,7 +55,8 @@ object LogParser {
                 looksUtf16Le(payload) -> payload.toString(Charset.forName("UTF-16LE"))
                 else -> payload.toString(Charsets.UTF_8)
             }
-        return text.trimStart('\uFEFF') to (decrypted != null || backupDecrypted != null)
+        return text.trimStart('\uFEFF') to
+            (if (decrypted != null || backupDecrypted != null) DecodeResult.DECRYPTED else DecodeResult.PLAINTEXT)
     }
 
     private fun looksUtf16Be(data: ByteArray): Boolean {

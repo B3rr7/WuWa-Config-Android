@@ -12,29 +12,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object GachaApi {
-    // Standard pool characters/weapons — Kuro adds new ones each patch.
-    // When a limited 5★ ends its banner it enters the standard pool.
-    // These lists WILL go stale — update each patch or derive from API response.
-    // A more robust approach: any limited 5★ not seen in the last 2 banners is standard.
-    private val STANDARD_CHARACTERS =
-        setOf(
-            "Calcharo",
-            "Verina",
-            "Lingyang",
-            "Jianxin",
-            "Encore",
-        )
-
-    private val STANDARD_WEAPONS =
-        setOf(
-            "Static Mist",
-            "Everbright Polestar",
-            "Pulsation Bracer",
-            "Boson Astrolabe",
-            "Emerald of Genesis",
-            "Abyssal Surge",
-        )
-
+    // Standard pool characters/weapons are derived from the standard pool (type "1")
+    // records in the gacha history. Any 5★ that appears in the standard pool is
+    // considered standard. This avoids hardcoded lists that go stale each patch.
     private val CHARACTER_POOLS = setOf("1", "7", "10")
 
     private val gson = Gson()
@@ -107,6 +87,11 @@ object GachaApi {
             val pity4 = calculateAvgPity(records, 4)
 
             val predictions = mutableListOf<PityPrediction>()
+            val standardFiveStars =
+                records
+                    .filter { it.cardPoolType == "1" && it.qualityLevel == 5 }
+                    .map { it.name }
+                    .toSet()
             for (pool in GachaPool.ALL) {
                 val poolRecords = records.filter { it.cardPoolType == pool.type }
                 if (poolRecords.isEmpty()) continue
@@ -114,7 +99,7 @@ object GachaApi {
                 val isCharacterBanner = pool.type in CHARACTER_POOLS
                 val pred =
                     if (isCharacterBanner) {
-                        calcCharacterPrediction(poolRecords, pool)
+                        calcCharacterPrediction(poolRecords, pool, standardFiveStars)
                     } else if (pool.type == "2") {
                         calcWeaponPrediction(poolRecords, pool)
                     } else {
@@ -213,13 +198,9 @@ object GachaApi {
 
     private fun isStandardFive(
         name: String,
-        resourceType: String,
+        standardFiveStars: Set<String>,
     ): Boolean {
-        return if (resourceType == "Resonator") {
-            name in STANDARD_CHARACTERS
-        } else {
-            name in STANDARD_WEAPONS
-        }
+        return name in standardFiveStars
     }
 
     private fun calcPullsSinceLastFourStar(records: List<GachaRecord>): Int {
@@ -232,6 +213,7 @@ object GachaApi {
     private fun calcCharacterPrediction(
         records: List<GachaRecord>,
         pool: GachaPool,
+        standardFiveStars: Set<String>,
     ): PityPrediction {
         val HARD_PITY = 80
         val SOFT_PITY_START = 66
@@ -247,7 +229,7 @@ object GachaApi {
             val lastFive = fiveStarRecords.last()
             lastFiveName = lastFive.name
             lastFiveTime = lastFive.time
-            isLastFiveStandard = isStandardFive(lastFiveName, lastFive.resourceType)
+            isLastFiveStandard = isStandardFive(lastFiveName, standardFiveStars)
             val lastFiveIndex = sorted.indexOfLast { it.qualityLevel == 5 }
             pullsSinceLastFive = sorted.size - lastFiveIndex - 1
         } else {
@@ -268,7 +250,7 @@ object GachaApi {
 
         val nearbyFives =
             fiveStarRecords.filter {
-                it.name !in STANDARD_CHARACTERS && it.name !in STANDARD_WEAPONS
+                it.name !in standardFiveStars
             }
         val avgCharPity =
             if (nearbyFives.size >= 2) {

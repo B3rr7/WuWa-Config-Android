@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.backend
 
+import kotlinx.coroutines.delay
 import java.io.File
 import java.security.MessageDigest
 
@@ -20,4 +21,27 @@ fun maxPushChunkSize(encodedPath: String): Int {
     val pathQuoted = shQuote(encodedPath)
     val overhead = PRINTF_OVERHEAD + pathQuoted.length + QUOTE_OVERHEAD
     return (MAX_ARG_STRLEN - overhead).coerceIn(256, MAX_ARG_STRLEN)
+}
+
+suspend fun <T> retryIO(
+    times: Int = PUSH_RETRY_COUNT + 1,
+    backoffMs: Long = 500L,
+    shouldRetry: (Exception) -> Boolean = { true },
+    block: suspend () -> T,
+): Result<T> {
+    var lastError: Exception? = null
+    for (attempt in 0 until times) {
+        if (attempt > 0) {
+            delay(backoffMs * attempt)
+        }
+        try {
+            return Result.success(block())
+        } catch (e: Exception) {
+            lastError = e
+            if (!shouldRetry(e) || attempt == times - 1) {
+                break
+            }
+        }
+    }
+    return Result.failure(lastError ?: Exception("Operation failed after $times attempts"))
 }

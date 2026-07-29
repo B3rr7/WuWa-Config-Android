@@ -22,8 +22,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.PlayerProfile
-import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.ProfileViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassOutlinedButton
@@ -35,12 +36,12 @@ import com.wuwaconfig.app.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    viewModel: MainViewModel,
+    viewModel: ProfileViewModel,
     onBack: () -> Unit,
+    backendStatus: BackendStatus,
 ) {
     val profile by viewModel.playerProfile.collectAsStateWithLifecycle()
     val profileLoading by viewModel.profileLoading.collectAsStateWithLifecycle()
-    val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
     val configModifyCounts by viewModel.configModifyCounts.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {

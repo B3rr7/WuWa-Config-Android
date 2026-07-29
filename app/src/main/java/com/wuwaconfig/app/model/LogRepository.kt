@@ -2,8 +2,10 @@ package com.wuwaconfig.app.model
 
 import android.os.Environment
 import androidx.compose.runtime.mutableStateListOf
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -14,6 +16,7 @@ object LogRepository {
 
     private var logFile: File? = null
     private val lock = Any()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private const val MAX_ENTRIES = 1000
     private const val MAX_FILE_SIZE = 5 * 1024 * 1024L
@@ -27,7 +30,12 @@ object LogRepository {
                     "WuWaConfig/logs",
                 ).also { it.mkdirs() }
             logFile = File(dir, "app.log")
-            runBlocking(Dispatchers.IO) { loadFromDisk() }
+        }
+        scope.launch {
+            val items = loadFromDiskAsync()
+            synchronized(lock) {
+                entries.addAll(items)
+            }
         }
     }
 
@@ -91,16 +99,15 @@ object LogRepository {
 
     private fun lineFormat(entry: LogEntry): String = "[${entry.timestamp}][${entry.level.name}] ${entry.message}"
 
-    private fun loadFromDisk() {
+    private fun loadFromDiskAsync(): List<LogEntry> {
         try {
-            val file = logFile ?: return
-            if (!file.exists()) return
-            val items =
-                file.readLines().takeLast(MAX_ENTRIES).mapNotNull { line ->
-                    parseLine(line)
-                }
-            entries.addAll(items)
+            val file = logFile ?: return emptyList()
+            if (!file.exists()) return emptyList()
+            return file.readLines().takeLast(MAX_ENTRIES).mapNotNull { line ->
+                parseLine(line)
+            }
         } catch (_: Exception) {
+            return emptyList()
         }
     }
 

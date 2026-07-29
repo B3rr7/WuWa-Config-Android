@@ -173,7 +173,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
-    suspend fun readClientLogTextWithMetadata(onProgress: (Int) -> Unit = {}): Result<Pair<String, Boolean>> =
+    suspend fun readClientLogTextWithMetadata(onProgress: (Int) -> Unit = {}): Result<Pair<String, LogParser.DecodeResult>> =
         withContext(Dispatchers.IO) {
             try {
                 val logFilePath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
@@ -183,7 +183,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
-    suspend fun readLatestBackupLogWithMetadata(onProgress: (Int) -> Unit = {}): Result<Pair<String, Boolean>> =
+    suspend fun readLatestBackupLogWithMetadata(onProgress: (Int) -> Unit = {}): Result<Pair<String, LogParser.DecodeResult>> =
         withContext(Dispatchers.IO) {
             try {
                 val listCmd = "ls -t ${shQuote(GamePaths.LOG_DIR)}/Client-backup-*.log 2>/dev/null | head -1"
@@ -409,7 +409,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
     private suspend fun readRemoteLogText(
         path: String,
         onProgress: (Int) -> Unit = {},
-    ): Result<Pair<String, Boolean>> {
+    ): Result<Pair<String, LogParser.DecodeResult>> {
         onProgress(5)
         val existsResult = backend.executeShellCommand("test -f \"$path\" 2>/dev/null && echo 1 || echo 0")
         val fileExists = existsResult.getOrNull()?.trim() == "1"
@@ -439,7 +439,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
-        suspend fun pullChunk(offset: Long): Pair<String, Boolean>? {
+        suspend fun pullChunk(offset: Long): Pair<String, LogParser.DecodeResult>? {
             val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | base64"
             val out = backend.executeShellCommand(cmd).getOrNull()
             val raw = out?.let { decodeB64(it) } ?: return null
@@ -470,7 +470,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
-        suspend fun readFullBase64(): Result<Pair<String, Boolean>>? {
+        suspend fun readFullBase64(): Result<Pair<String, LogParser.DecodeResult>>? {
             onProgress(50)
             val full = backend.executeShellCommand("base64 \"$path\" 2>/dev/null")
             onProgress(85)
@@ -496,7 +496,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
 
             fun progressForChunk(done: Int) = 10 + (done * 80 / offsets.size)
 
-            var wasEncrypted = false
+            var wasEncrypted = LogParser.DecodeResult.PLAINTEXT
             val chunks = mutableListOf<String>()
 
             for ((i, offset) in offsets.withIndex()) {
@@ -507,7 +507,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                         chunks.add(text)
                     }
                 } else {
-                    pullChunkText(offset, wasEncrypted)?.let { chunks.add(it) }
+                    pullChunkText(offset, wasEncrypted == LogParser.DecodeResult.DECRYPTED)?.let { chunks.add(it) }
                 }
             }
 
@@ -1035,7 +1035,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                             LogParser.decodeLogBytes(raw)
                         }
                     }
-                if (i == 0) wasEncrypted = enc
+                if (i == 0) wasEncrypted = enc == LogParser.DecodeResult.DECRYPTED
                 texts.add(text)
             }
 
@@ -1066,7 +1066,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         }
     }
 
-    private suspend fun readFullFileText(path: String): Result<Pair<String, Boolean>> =
+    private suspend fun readFullFileText(path: String): Result<Pair<String, LogParser.DecodeResult>> =
         runCatching {
             val sizeRaw = backend.executeShellCommand("wc -c < ${shQuote(path)} 2>/dev/null").getOrDefault("0")
             val fileSize = sizeRaw.trim().toLongOrNull() ?: 0L
@@ -1113,16 +1113,17 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                             LogParser.decodeLogBytes(raw)
                         }
                     }
-                if (i == 0) wasEncrypted = enc
+                if (i == 0) wasEncrypted = enc == LogParser.DecodeResult.DECRYPTED
                 texts.add(text)
             }
 
-            texts.joinToString("\n") to wasEncrypted
+            texts.joinToString("\n") to
+                (if (wasEncrypted) LogParser.DecodeResult.DECRYPTED else LogParser.DecodeResult.PLAINTEXT)
         }
 
-    suspend fun readFullClientLogWithMetadata(): Result<Pair<String, Boolean>> = readFullFileText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
+    suspend fun readFullClientLogWithMetadata(): Result<Pair<String, LogParser.DecodeResult>> = readFullFileText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
 
-    suspend fun readFullLatestBackupLog(): Result<Pair<String, Boolean>> =
+    suspend fun readFullLatestBackupLog(): Result<Pair<String, LogParser.DecodeResult>> =
         runCatching {
             val listCmd = "ls -t ${shQuote(GamePaths.LOG_DIR)}/Client-backup-*.log 2>/dev/null | head -1"
             val result = backend.executeShellCommand(listCmd)

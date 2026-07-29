@@ -223,19 +223,19 @@
 <nav id="toc"></nav>
 <main>
 <h1>WuWaConfig</h1>
-<p class="sub">Android · Wuthering Waves Config Toolkit · <strong>v1.0.9</strong></p>
+<p class="sub">Android · Wuthering Waves Config Toolkit · <strong>v1.1.0</strong></p>
 <hr>
 
 <section id="s0">
-<h2>What's New in v1.0.9</h2>
+<h2>What's New in v1.1.0</h2>
 <ul>
-<li><strong>Cleaner Engine.ini</strong> — redundant scalability group (<code>sg.*</code>) entries removed from Engine.ini. <code>GameUserSettings.ini</code> now holds the active quality-level selectors and <code>Scalability.ini</code> holds the authoritative tuned values, avoiding duplicated/conflicting settings.</li>
-<li><strong>Glassmorphism UI</strong> — refreshed frosted-glass surfaces across the app, with a redesigned neumorphic/glass toggle switch.</li>
-<li><strong>Colorful UI toggle</strong> — Settings option to switch between multi-color accents and a single neon-cyan accent throughout the Config Generator.</li>
-<li><strong>Text Depth slider</strong> — Settings → Theme control to deepen or soften text contrast for readability.</li>
-<li><strong>Backup scope dialog</strong> — clearer choices: back up all 5 INIs, back up only overwritten files, or cancel.</li>
-<li><strong>Snackbar feedback</strong> — clean and delete config actions now confirm success/failure inline on the Home screen.</li>
-<li><strong>User Guide light mode</strong> — this guide now has a light/glassmorphism theme toggle (top-right).</li>
+<li><strong>Shizuku UserService migration</strong> — replaced reflection-based <code>Shizuku.newProcess()</code> with Binder-based <code>ShellUserService</code> for stable IPC.</li>
+<li><strong>Dynamic standard pool</strong> — GachaApi derives standard pool from type "1" records instead of hardcoded sets.</li>
+<li><strong>DecodeResult enum</strong> — <code>LogParser.decodeLogBytes</code> returns <code>DECRYPTED</code>/<code>PLAINTEXT</code> instead of <code>Boolean</code>.</li>
+<li><strong>Engine.ini refactor</strong> — <code>buildAndroidEngineIni</code> split into <code>EngineIniContext</code> + 25 per-section builders.</li>
+<li><strong>Screen-scoped ViewModels</strong> — extracted <code>IniEditorViewModel</code>, <code>ConfigGenViewModel</code>, <code>SettingsViewModel</code>, <code>GachaViewModel</code>, <code>ProfileViewModel</code>, <code>DeployHistoryViewModel</code>.</li>
+<li><strong>OffsetMapping fix</strong> — custom clamped <code>OffsetMapping</code> in <code>IniEditorScreen</code> for Compose BOM 2024.10.00 validation.</li>
+<li><strong>Compose BOM 2024.10.00</strong> — upgraded from 2024.02.00 with AGP 8.4.2 / Kotlin 1.9.24.</li>
 </ul>
 </section>
 

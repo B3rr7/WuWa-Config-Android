@@ -1,6 +1,5 @@
 package com.wuwaconfig.app.config
 
-import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.model.DeployComparison
@@ -8,47 +7,49 @@ import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.LogInfo
 import java.io.File
 
-object DeployHistoryStore {
-    private const val MAX_RECORDS = 20
+class DeployHistoryStore(private val storeFile: File) {
     private val gson = Gson()
     private var records: MutableList<DeployRecord> = mutableListOf()
-    private var storeFile: File? = null
+    private val lock = Any()
 
-    fun init(context: Context) {
-        storeFile = File(context.filesDir, "deploy_history.json")
+    init {
         load()
     }
 
     fun addRecord(record: DeployRecord) {
-        records.add(0, record)
-        if (records.size > MAX_RECORDS) records.removeAt(records.size - 1)
-        save()
+        synchronized(lock) {
+            records.add(0, record)
+            if (records.size > MAX_RECORDS) records.removeAt(records.size - 1)
+            saveLocked()
+        }
     }
 
-    fun getLatestDeploy(): DeployRecord? = records.firstOrNull()
+    fun getLatestDeploy(): DeployRecord? = synchronized(lock) { records.firstOrNull() }
 
-    fun getRecord(id: String): DeployRecord? = records.find { it.id == id }
+    fun getRecord(id: String): DeployRecord? = synchronized(lock) { records.find { it.id == id } }
 
-    fun getAllRecords(): List<DeployRecord> = records.toList()
+    fun getAllRecords(): List<DeployRecord> = synchronized(lock) { records.toList() }
 
     fun updateOutcome(
         id: String,
         outcome: LogInfo,
         snippet: String = "",
     ): Boolean {
-        val idx = records.indexOfFirst { it.id == id }
-        if (idx < 0) return false
-        records[idx] =
-            records[idx].copy(
-                outcomeFps = outcome.fpsActual,
-                outcomeThermal = outcome.thermalEvents,
-                outcomeOom = outcome.gpuOom,
-                outcomeDrops = outcome.dropFrames,
-                outcomeTimestamp = System.currentTimeMillis(),
-                baselineClientLogSnippet = if (records[idx].baselineClientLogSnippet.isEmpty()) snippet else records[idx].baselineClientLogSnippet,
-            )
-        save()
-        return true
+        return synchronized(lock) {
+            val idx = records.indexOfFirst { it.id == id }
+            if (idx < 0) return false
+            records[idx] =
+                records[idx].copy(
+                    outcomeFps = outcome.fpsActual,
+                    outcomeThermal = outcome.thermalEvents,
+                    outcomeOom = outcome.gpuOom,
+                    outcomeDrops = outcome.dropFrames,
+                    outcomeTimestamp = System.currentTimeMillis(),
+                    baselineClientLogSnippet = if (records[idx].baselineClientLogSnippet.isEmpty()) snippet else records[idx].baselineClientLogSnippet,
+                )
+            saveLocked()
+            return true
+        }
     }
 
     fun compare(id: String): DeployComparison? {
@@ -57,33 +58,40 @@ object DeployHistoryStore {
     }
 
     fun deleteRecord(id: String) {
-        records.removeAll { it.id == id }
-        save()
+        synchronized(lock) {
+            records.removeAll { it.id == id }
+            saveLocked()
+        }
     }
 
     fun clear() {
-        records.clear()
-        save()
+        synchronized(lock) {
+            records.clear()
+            saveLocked()
+        }
     }
 
     private fun load() {
         try {
-            val file = storeFile ?: return
-            if (!file.exists()) return
-            val text = file.readText().trim()
+            if (!storeFile.exists()) return
+            val text = storeFile.readText().trim()
             if (text.isEmpty()) return
             val type = object : TypeToken<List<DeployRecord>>() {}.type
             val loaded: List<DeployRecord> = gson.fromJson(text, type) ?: return
-            records = loaded.toMutableList()
+            synchronized(lock) { records = loaded.toMutableList() }
         } catch (_: Exception) {
-            records = mutableListOf()
+            synchronized(lock) { records = mutableListOf() }
         }
     }
 
-    private fun save() {
+    private fun saveLocked() {
         try {
-            storeFile?.writeText(gson.toJson(records))
+            storeFile.writeText(gson.toJson(records))
         } catch (_: Exception) {
         }
+    }
+
+    companion object {
+        private const val MAX_RECORDS = 20
     }
 }

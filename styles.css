@@ -464,18 +464,21 @@ footer .heart { color: #ff4466; }
 
 /* ===== Responsive ===== */
 @media (max-width: 700px) {
-  section { padding: 52px 0; }
+  section { padding: 48px 0; }
   .container { padding: 0 18px; }
-  .hero { padding: 80px 16px 40px; min-height: auto; }
-  .hero h1 { font-size: clamp(1.9rem, 9vw, 2.6rem); }
+  .hero { padding: 60px 16px 30px; min-height: auto; }
+  .hero h1 { font-size: clamp(1.6rem, 8vw, 2.2rem); }
   .hero p { font-size: 1rem; }
   .hero__meta { gap: 16px; font-size: .78rem; }
   .btn { padding: 13px 24px; font-size: .95rem; }
-  .features__grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
-  .step { flex-direction: column; gap: 10px; }
+  .features__grid, .grid-2, .grid-3 { grid-template-columns: 1fr; gap: 12px; }
+  .step { flex-direction: column; gap: 10px; padding: 16px 20px; }
+  .step__num { width: 32px; height: 32px; font-size: .8rem; }
   .links__grid { grid-template-columns: repeat(2, 1fr); }
-  h2 { margin-bottom: 32px; }
-  .access__grid, .stats__grid, .signals__grid { grid-template-columns: repeat(2, 1fr); }
+  h2 { margin-bottom: 32px; font-size: clamp(1.4rem, 5vw, 1.9rem); }
+  .access__grid, .stats__grid, .signals__grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .hero__actions { flex-direction: column; align-items: center; }
+  .btn { width: 100%; max-width: 280px; }
 }
 
 /* ===== Scrollbar ===== */
@@ -644,6 +647,37 @@ table tbody tr { transition: background .2s; }
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
+  /* Disable cursor glow on touch devices */
+  .cursor-glow { display: none !important; }
+  /* Disable bit trail on touch devices */
+  .bit-trail { display: none !important; }
+  /* Disable matrix chars on touch devices */
+  .matrix-char { display: none !important; }
+  /* Disable ripple effects on touch devices */
+  .ripple-ring, .ripple-dot, .ripple-spark { display: none !important; }
+  /* Simplify hero padding on mobile */
+  .hero { padding: 60px 16px 30px; }
+  /* Reduce section padding on mobile */
+  section { padding: 48px 0; }
+  /* Make buttons full-width on small screens */
+  .hero__actions { flex-direction: column; align-items: center; }
+  .btn { width: 100%; max-width: 280px; }
+  /* Reduce font sizes on mobile */
+  h1 { font-size: clamp(1.6rem, 8vw, 2.2rem); }
+  h2 { font-size: clamp(1.4rem, 5vw, 1.9rem); }
+  h3 { font-size: 1.1rem; }
+  p { font-size: 1rem; line-height: 1.7; }
+  /* Simplify table on mobile */
+  table { border-radius: 8px; }
+  th, td { padding: 10px 12px; font-size: .8rem; }
+  /* Reduce grid gaps on mobile */
+  .features__grid, .grid-2, .grid-3 { gap: 12px; }
+  .stats__grid { gap: 12px; }
+  .signals__grid { gap: 8px; }
+  .access__grid { gap: 12px; }
+  /* Simplify steps on mobile */
+  .step { padding: 16px 20px; }
+  .step__num { width: 32px; height: 32px; font-size: .8rem; }
 }
 
 /* ===== Small screens: same treatment as a fallback (covers desktop emulation) ===== */
@@ -662,6 +696,32 @@ table tbody tr { transition: background .2s; }
   }
   .bg-image { display: none !important; }
   .bg-glow { animation: none !important; filter: none !important; }
+  /* Disable cursor glow on small screens */
+  .cursor-glow { display: none !important; }
+  /* Disable bit trail on small screens */
+  .bit-trail { display: none !important; }
+  /* Disable matrix chars on small screens */
+  .matrix-char { display: none !important; }
+  /* Disable ripple effects on small screens */
+  .ripple-ring, .ripple-dot, .ripple-spark { display: none !important; }
+  /* Simplify hero on small screens */
+  .hero { padding: 60px 16px 30px; }
+  section { padding: 48px 0; }
+  h1 { font-size: clamp(1.6rem, 8vw, 2.2rem); }
+  h2 { font-size: clamp(1.4rem, 5vw, 1.9rem); }
+  h3 { font-size: 1.1rem; }
+  p { font-size: 1rem; line-height: 1.7; }
+  /* Make buttons stack on small screens */
+  .hero__actions { flex-direction: column; align-items: center; }
+  .btn { width: 100%; max-width: 280px; }
+  /* Reduce grid gaps on small screens */
+  .features__grid, .grid-2, .grid-3 { gap: 12px; }
+  .stats__grid { gap: 12px; }
+  .signals__grid { gap: 8px; }
+  .access__grid { gap: 12px; }
+  /* Simplify steps on small screens */
+  .step { padding: 16px 20px; }
+  .step__num { width: 32px; height: 32px; font-size: .8rem; }
 }
 
 /* ===== Theme Toggle Button ===== */

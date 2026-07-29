@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.GamePaths
-import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.IniEditorViewModel
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
@@ -64,7 +64,7 @@ private val INI_SEARCH_CURRENT = SpanStyle(background = Color(0xFF6B5300))
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IniEditorScreen(
-    viewModel: MainViewModel,
+    viewModel: IniEditorViewModel,
     onBack: () -> Unit,
 ) {
     val editingFileName by viewModel.editingFileName.collectAsStateWithLifecycle()
@@ -89,7 +89,15 @@ fun IniEditorScreen(
     val iniTransform =
         remember(matches, safeMatch) {
             VisualTransformation { annotated ->
-                TransformedText(highlightIni(annotated.text, matches, safeMatch), OffsetMapping.Identity)
+                val highlighted = highlightIni(annotated.text, matches, safeMatch)
+                TransformedText(
+                    highlighted,
+                    object : OffsetMapping {
+                        override fun originalToTransformed(offset: Int): Int = offset
+
+                        override fun transformedToOriginal(offset: Int): Int = offset.coerceAtMost(annotated.text.length)
+                    },
+                )
             }
         }
 

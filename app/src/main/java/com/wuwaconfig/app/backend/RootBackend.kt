@@ -79,22 +79,22 @@ class RootBackend : AccessBackend {
         targetPath: String,
     ): Result<String> {
         LogRepository.add("Root push: $sourcePath -> $targetPath")
-        val result = executeShellCommand("cp \"$sourcePath\" \"$targetPath\"")
+        val result = executeShellCommand("cp ${shQuote(sourcePath)} ${shQuote(targetPath)}")
         if (result.isSuccess) LogRepository.add("Root push completed: $targetPath", LogLevel.SUCCESS)
         return result
     }
 
     override suspend fun ensureDirectoryExists(dirPath: String): Result<String> {
-        return executeShellCommand("mkdir -p \"$dirPath\"")
+        return executeShellCommand("mkdir -p ${shQuote(dirPath)}")
     }
 
     override suspend fun fileExists(path: String): Result<Boolean> {
-        val result = executeShellCommand("test -f \"$path\" && echo 1 || echo 0")
+        val result = executeShellCommand("test -f ${shQuote(path)} && echo 1 || echo 0")
         return result.map { it.trim() == "1" }
     }
 
     override suspend fun listDirectory(path: String): Result<List<String>> {
-        val result = executeShellCommand("ls -1 \"$path\" 2>/dev/null")
+        val result = executeShellCommand("ls -1 ${shQuote(path)} 2>/dev/null")
         return result.map { output ->
             output.trim().lines().filter { it.isNotBlank() }
         }
@@ -102,16 +102,16 @@ class RootBackend : AccessBackend {
 
     override suspend fun backupFile(path: String): Result<String> {
         val backupPath = "$path.backup_${System.currentTimeMillis()}"
-        return executeShellCommand("cp \"$path\" \"$backupPath\"")
+        return executeShellCommand("cp ${shQuote(path)} ${shQuote(backupPath)}")
     }
 
     override suspend fun readFile(path: String): Result<String> {
-        return executeShellCommand("cat \"$path\"")
+        return executeShellCommand("cat ${shQuote(path)}")
     }
 
     override suspend fun readFileBytes(path: String): Result<ByteArray> =
         withContext(Dispatchers.IO) {
-            val b64 = executeShellCommand("base64 -w0 \"$path\"")
+            val b64 = executeShellCommand("base64 -w0 ${shQuote(path)}")
             if (b64.isFailure) return@withContext Result.failure(b64.exceptionOrNull()!!)
             try {
                 val bytes = Base64.decode(b64.getOrThrow(), Base64.DEFAULT)

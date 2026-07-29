@@ -18,7 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.ConfigBackup
-import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassDialog
@@ -32,7 +32,7 @@ private val ALL_INI_FILES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUser
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupScreen(
-    viewModel: MainViewModel,
+    viewModel: DeployHistoryViewModel,
     onBack: () -> Unit,
 ) {
     val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
