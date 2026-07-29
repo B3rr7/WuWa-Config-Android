@@ -20,7 +20,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         application as? WuWaConfigApp
             ?: throw IllegalStateException("ProfileViewModel requires WuWaConfigApp application")
 
-    private val configManager = ConfigManager(app, app.backend)
+    private val configManager: ConfigManager
+        get() = ConfigManager(app, app.backend)
 
     private val profileStore: ProfileStore = app.profileStore
 
