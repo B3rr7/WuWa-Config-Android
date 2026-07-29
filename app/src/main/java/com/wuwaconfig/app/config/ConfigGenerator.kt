@@ -207,16 +207,16 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
     ): String {
         val now = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         return listOf(
-            "; ════════════════════════════════════════════════",
-            "; ██████╗ 42╚████╗     TOOLKIT",
-            "; ██╔══██╗██║  ██║╚════██╗    Wuthering Waves Config",
-            "; ██████╔╝███████║ █████╔╝    WuWaConfig Toolkit",
-            "; ██╔═══╝ ╚════██║██╔═══╝     Generated: $now",
-            "; ██║           ██║███████╗   Preset : ${preset.uppercase()}",
-            "; ╚═╝           ╚═╝╚══════╝   Device : ${logInfo.deviceModel ?: "unknown"}",
-            "; Platform : $platform",
-            "; GPU: ${logInfo.gpu ?: "unknown"}",
-            "; ════════════════════════════════════════════════",
+            "; ┌──────────────────────────────────────────────┐",
+            "; │  WuWaConfig Toolkit                          │",
+            "; │  Wuthering Waves Config Generator            │",
+            "; ├──────────────────────────────────────────────┤",
+            "; │  Generated : $now                             │",
+            "; │  Preset    : ${preset.uppercase()}                          │",
+            "; │  Device    : ${logInfo.deviceModel ?: "unknown"}                        │",
+            "; │  Platform  : $platform                               │",
+            "; │  GPU       : ${logInfo.gpu ?: "unknown"}                       │",
+            "; └──────────────────────────────────────────────┘",
             "",
         ).joinToString("\n")
     }
