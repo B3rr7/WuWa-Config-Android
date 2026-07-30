@@ -338,7 +338,11 @@ class ShizukuBackend : AccessBackend {
                 if (attempt > 0) delay(500L * attempt)
                 try {
                     val tmpFile = "$cacheDir/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}.txt"
-                    execOrThrowToFile("cat ${shQuote(path)}", tmpFile)
+                    val cmd = "cat ${shQuote(path)} > ${shQuote(tmpFile)} 2>/dev/null; echo DONE"
+                    val result = execOrThrow(cmd)
+                    if (!result.contains("DONE")) {
+                        throw Exception("Command failed: $result")
+                    }
                     val localFile = java.io.File(tmpFile)
                     if (!localFile.exists() || localFile.length() == 0L) {
                         throw Exception("Temp file not found or empty: $tmpFile")
@@ -363,7 +367,11 @@ class ShizukuBackend : AccessBackend {
                 if (attempt > 0) delay(500L * attempt)
                 try {
                     val tmpFile = "$cacheDir/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}.b64"
-                    execOrThrowToFile("base64 -w0 ${shQuote(path)}", tmpFile)
+                    val cmd = "base64 -w0 ${shQuote(path)} > ${shQuote(tmpFile)} 2>/dev/null; echo DONE"
+                    val result = execOrThrow(cmd)
+                    if (!result.contains("DONE")) {
+                        throw Exception("Command failed: $result")
+                    }
                     val localFile = java.io.File(tmpFile)
                     if (!localFile.exists() || localFile.length() == 0L) {
                         throw Exception("Temp file not found or empty: $tmpFile")
