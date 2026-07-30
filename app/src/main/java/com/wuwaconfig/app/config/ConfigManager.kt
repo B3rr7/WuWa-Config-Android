@@ -434,6 +434,9 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                 else -> (fileSize / 5_000_000L).toInt().coerceIn(5, 30)
             }
 
+        val cacheDir = context.cacheDir.absolutePath
+        val tmpB64File = "$cacheDir/wuwa_log_b64.tmp"
+
         fun decodeB64(output: String): ByteArray? {
             val clean =
                 output.lines()
@@ -448,9 +451,13 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         }
 
         suspend fun pullChunk(offset: Long): Pair<String, LogParser.DecodeResult>? {
-            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | base64"
-            val out = backend.executeShellCommand(cmd).getOrNull()
-            val raw = out?.let { decodeB64(it) } ?: return null
+            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | base64 > \"$tmpB64File\" 2>/dev/null"
+            val result = backend.executeShellCommand(cmd)
+            if (result.isFailure) return null
+            val localFile = File(tmpB64File)
+            if (!localFile.exists() || localFile.length() == 0L) return null
+            val b64 = localFile.readText().trim()
+            val raw = decodeB64(b64) ?: return null
             return try {
                 LogParser.decodeLogBytes(raw)
             } catch (_: Exception) {
@@ -462,9 +469,13 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             offset: Long,
             wasEncrypted: Boolean,
         ): String? {
-            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | base64"
-            val out = backend.executeShellCommand(cmd).getOrNull()
-            val raw = out?.let { decodeB64(it) } ?: return null
+            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | base64 > \"$tmpB64File\" 2>/dev/null"
+            val result = backend.executeShellCommand(cmd)
+            if (result.isFailure) return null
+            val localFile = File(tmpB64File)
+            if (!localFile.exists() || localFile.length() == 0L) return null
+            val b64 = localFile.readText().trim()
+            val raw = decodeB64(b64) ?: return null
             return try {
                 val pair =
                     if (wasEncrypted) {
@@ -480,52 +491,64 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
 
         suspend fun readFullBase64(): Result<Pair<String, LogParser.DecodeResult>>? {
             onProgress(50)
-            val full = backend.executeShellCommand("base64 \"$path\" 2>/dev/null")
+            val cmd = "base64 \"$path\" > \"$tmpB64File\" 2>/dev/null"
+            val result = backend.executeShellCommand(cmd)
+            if (result.isFailure) return null
+            val localFile = File(tmpB64File)
+            if (!localFile.exists() || localFile.length() == 0L) return null
             onProgress(85)
-            val raw = full.getOrNull()?.let { decodeB64(it) } ?: return null
-            val result =
+            val b64 = localFile.readText().trim()
+            val raw = decodeB64(b64) ?: return null
+            val decodeResult =
                 try {
                     LogParser.decodeLogBytes(raw)
                 } catch (_: Exception) {
                     null
                 }
             onProgress(95)
-            return if (result != null) Result.success(result) else null
+            return if (decodeResult != null) Result.success(decodeResult) else null
         }
 
-        if (totalChunks == 1) {
-            val singleResult = readFullBase64()
-            if (singleResult != null) return singleResult
-        } else {
-            val offsets =
-                (0 until totalChunks).map { i ->
-                    (fileSize * i / totalChunks).coerceAtMost(fileSize - CHUNK_SIZE)
-                }.distinct()
+        try {
+            if (totalChunks == 1) {
+                val singleResult = readFullBase64()
+                if (singleResult != null) return singleResult
+            } else {
+                val offsets =
+                    (0 until totalChunks).map { i ->
+                        (fileSize * i / totalChunks).coerceAtMost(fileSize - CHUNK_SIZE)
+                    }.distinct()
 
-            fun progressForChunk(done: Int) = 10 + (done * 80 / offsets.size)
+                fun progressForChunk(done: Int) = 10 + (done * 80 / offsets.size)
 
-            var wasEncrypted = LogParser.DecodeResult.PLAINTEXT
-            val chunks = mutableListOf<String>()
+                var wasEncrypted = LogParser.DecodeResult.PLAINTEXT
+                val chunks = mutableListOf<String>()
 
-            for ((i, offset) in offsets.withIndex()) {
-                onProgress(progressForChunk(i))
-                if (i == 0) {
-                    pullChunk(offset)?.let { (text, enc) ->
-                        wasEncrypted = enc
-                        chunks.add(text)
+                for ((i, offset) in offsets.withIndex()) {
+                    onProgress(progressForChunk(i))
+                    if (i == 0) {
+                        pullChunk(offset)?.let { (text, enc) ->
+                            wasEncrypted = enc
+                            chunks.add(text)
+                        }
+                    } else {
+                        pullChunkText(offset, wasEncrypted == LogParser.DecodeResult.DECRYPTED)?.let { chunks.add(it) }
                     }
-                } else {
-                    pullChunkText(offset, wasEncrypted == LogParser.DecodeResult.DECRYPTED)?.let { chunks.add(it) }
                 }
+
+                onProgress(92)
+                val combined = chunks.joinToString("\n")
+                onProgress(95)
+                if (combined.isNotBlank()) return Result.success(combined to wasEncrypted)
+
+                val fallback = readFullBase64()
+                if (fallback != null) return fallback
             }
-
-            onProgress(92)
-            val combined = chunks.joinToString("\n")
-            onProgress(95)
-            if (combined.isNotBlank()) return Result.success(combined to wasEncrypted)
-
-            val fallback = readFullBase64()
-            if (fallback != null) return fallback
+        } finally {
+            try {
+                File(tmpB64File).delete()
+            } catch (_: Exception) {
+            }
         }
 
         onProgress(95)
