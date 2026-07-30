@@ -419,42 +419,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         val fileSize = sizeResult.getOrNull()?.trim()?.toLongOrNull() ?: 0L
         if (fileSize <= 0L) return Result.failure(Exception("Client.log is empty"))
 
-        onProgress(10)
-        val tmpFile = "${context.cacheDir}/wuwa_log_${System.currentTimeMillis()}.tmp"
-        val tmpPath = tmpFile.replace("/", File.separator)
-
-        try {
-            val cpResult = backend.executeShellCommand("cp \"$path\" \"$tmpPath\" 2>/dev/null")
-            if (cpResult.isFailure) {
-                LogRepository.add("readRemoteLogText: direct copy failed, falling back to chunked read", LogLevel.WARNING)
-                return readRemoteLogTextChunked(path, fileSize, onProgress)
-            }
-            onProgress(50)
-
-            val localFile = File(tmpPath)
-            if (!localFile.exists() || localFile.length() == 0L) {
-                LogRepository.add("readRemoteLogText: temp file not found or empty", LogLevel.WARNING)
-                return readRemoteLogTextChunked(path, fileSize, onProgress)
-            }
-
-            val raw = localFile.readBytes()
-            onProgress(80)
-
-            val result =
-                try {
-                    LogParser.decodeLogBytes(raw)
-                } catch (e: Exception) {
-                    LogRepository.add("readRemoteLogText: decode failed: ${e.message}", LogLevel.WARNING)
-                    return readRemoteLogTextChunked(path, fileSize, onProgress)
-                }
-            onProgress(95)
-            return Result.success(result)
-        } finally {
-            try {
-                File(tmpPath).delete()
-            } catch (_: Exception) {
-            }
-        }
+        return readRemoteLogTextChunked(path, fileSize, onProgress)
     }
 
     private suspend fun readRemoteLogTextChunked(
@@ -462,7 +427,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         fileSize: Long,
         onProgress: (Int) -> Unit = {},
     ): Result<Pair<String, LogParser.DecodeResult>> {
-        val CHUNK_SIZE = 1_000_000L
+        val CHUNK_SIZE = 2_000_000L
         val totalChunks =
             when {
                 fileSize <= CHUNK_SIZE -> 1
