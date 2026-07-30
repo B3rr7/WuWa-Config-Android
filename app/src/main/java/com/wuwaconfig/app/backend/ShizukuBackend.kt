@@ -333,12 +333,17 @@ class ShizukuBackend : AccessBackend {
     override suspend fun readFile(path: String): Result<String> =
         withContext(Dispatchers.IO) {
             var lastError: Exception? = null
+            val cacheDir = com.wuwaconfig.app.WuWaConfigApp.instance.cacheDir.absolutePath
             for (attempt in 0..2) {
                 if (attempt > 0) delay(500L * attempt)
                 try {
-                    val tmpFile = "/data/local/tmp/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}"
+                    val tmpFile = "$cacheDir/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}.txt"
                     execOrThrowToFile("cat ${shQuote(path)}", tmpFile)
-                    val out = execOrThrow("cat ${shQuote(tmpFile)}")
+                    val localFile = java.io.File(tmpFile)
+                    if (!localFile.exists() || localFile.length() == 0L) {
+                        throw Exception("Temp file not found or empty: $tmpFile")
+                    }
+                    val out = localFile.readText()
                     execOrThrow("rm -f ${shQuote(tmpFile)}")
                     return@withContext Result.success(out)
                 } catch (e: Exception) {
@@ -353,12 +358,17 @@ class ShizukuBackend : AccessBackend {
     override suspend fun readFileBytes(path: String): Result<ByteArray> =
         withContext(Dispatchers.IO) {
             var lastError: Exception? = null
+            val cacheDir = com.wuwaconfig.app.WuWaConfigApp.instance.cacheDir.absolutePath
             for (attempt in 0..2) {
                 if (attempt > 0) delay(500L * attempt)
                 try {
-                    val tmpFile = "/data/local/tmp/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}"
+                    val tmpFile = "$cacheDir/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}.b64"
                     execOrThrowToFile("base64 -w0 ${shQuote(path)}", tmpFile)
-                    val b64 = execOrThrow("cat ${shQuote(tmpFile)}")
+                    val localFile = java.io.File(tmpFile)
+                    if (!localFile.exists() || localFile.length() == 0L) {
+                        throw Exception("Temp file not found or empty: $tmpFile")
+                    }
+                    val b64 = localFile.readText().trim()
                     execOrThrow("rm -f ${shQuote(tmpFile)}")
                     val bytes = Base64.decode(b64, Base64.DEFAULT)
                     return@withContext Result.success(bytes)
