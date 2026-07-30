@@ -169,7 +169,7 @@ class ConfigGeneratorTest {
                 corePaths = emptyList(),
                 logInfo = LogInfo(),
             )
-        assertTrue(result.ini.engine.contains("r.Kuro.AutoExposure= 0"))
+        assertTrue(result.ini.engine.contains("r.Kuro.AutoExposure=0"))
     }
 
     @Test

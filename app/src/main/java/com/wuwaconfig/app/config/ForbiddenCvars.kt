@@ -72,7 +72,8 @@ object ForbiddenCvars {
             }
             val eqIdx = trimmed.indexOf('=')
             val keyPart = if (eqIdx >= 0) trimmed.substring(0, eqIdx).trim() else trimmed.trim()
-            if (!isForbidden(keyPart)) {
+            val strippedKey = keyPart.removePrefix("+CVars=").removePrefix("-CVars=").trim()
+            if (!isForbidden(strippedKey)) {
                 sb.appendLine(line)
             }
         }

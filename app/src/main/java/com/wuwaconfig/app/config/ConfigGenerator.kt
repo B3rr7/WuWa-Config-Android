@@ -50,8 +50,9 @@ val PRESETS =
 class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
     private val cvarPrefixes =
         listOf(
-            "a.", "fx.", "foliage.", "gc.", "grass.", "kuro.", "lod.", "niagara.",
-            "r.", "s.", "sg.", "wp.",
+            "a.", "bbm.", "compat.", "cook.", "fx.", "foliage.", "gc.", "grass.",
+            "kuro.", "lod.", "n.", "niagara.", "r.", "s.", "sg.", "slate.",
+            "t.", "tick.", "vr.", "wp.",
         )
 
     fun extractCvarNames(iniText: String): Set<String> {
@@ -274,7 +275,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 rawEngine
             }
         val overriddenEngine = applyCvarOverrides(engine, opts.cvarOverrides)
-        val optimizedEngine = if (opts.optimizeWithCvarDb) cvarDatabase.optimizeIniText(overriddenEngine) else overriddenEngine
+        val optimizedEngine = if (opts.optimizeWithCvarDb) cvarDatabase.passthroughIniText(overriddenEngine) else overriddenEngine
         LogRepository.add("ConfigGenerator: building DeviceProfiles.ini")
         val dp = buildAndroidDeviceProfilesIni(p, opts, logInfo, preset)
         val gus = buildAndroidGameUserSettingsIni(p, opts, logInfo)
@@ -318,7 +319,13 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val logLines = mutableListOf<String>()
         for ((key, value) in logCvars) {
             val kl = key.lowercase()
-            if (kl.startsWith("sg.") || kl.startsWith("r.") || kl.startsWith("fx.") || kl.startsWith("foliage.") || kl.startsWith("grass.") || kl.startsWith("a.") || kl.startsWith("niagara.")) {
+            val isMergeable =
+                kl.startsWith("sg.") || kl.startsWith("r.") || kl.startsWith("fx.") ||
+                    kl.startsWith("foliage.") || kl.startsWith("grass.") || kl.startsWith("a.") ||
+                    kl.startsWith("niagara.") || kl.startsWith("kuro.") || kl.startsWith("lod.") ||
+                    kl.startsWith("s.") || kl.startsWith("gc.") || kl.startsWith("compat.") ||
+                    kl.startsWith("cook.")
+            if (isMergeable) {
                 if (kl !in generatedKeys) {
                     logLines.add("$key=$value")
                 }
@@ -345,10 +352,12 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val toRemove = mutableSetOf<Int>()
         for ((i, line) in lines.withIndex()) {
             val trimmed = line.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith(";") || trimmed.startsWith("#") || trimmed.startsWith("//") || trimmed.startsWith("[") || trimmed.startsWith("+")) continue
-            val eq = trimmed.indexOf('=')
+            if (trimmed.isEmpty() || trimmed.startsWith(";") || trimmed.startsWith("#") || trimmed.startsWith("//") || trimmed.startsWith("[")) continue
+            val cvarLine = trimmed.removePrefix("+CVars=").removePrefix("-CVars=").trim()
+            if (cvarLine.isEmpty() || cvarLine.startsWith(";") || cvarLine.startsWith("#") || cvarLine.startsWith("//") || cvarLine.startsWith("[")) continue
+            val eq = cvarLine.indexOf('=')
             if (eq <= 0) continue
-            val key = trimmed.substring(0, eq).trim().lowercase()
+            val key = cvarLine.substring(0, eq).trim().lowercase()
             if (!cvarPrefixes.any { key.startsWith(it) }) continue
             val prev = seen[key]
             if (prev != null) toRemove.add(prev)
@@ -429,6 +438,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val isHighEnd =
             Regex("""adreno.*7\d{2}""").containsMatchIn(gpu) ||
                 Regex("""adreno.*8\d{2}""").containsMatchIn(gpu) ||
+                Regex("""adreno.*8\s*gen""").containsMatchIn(gpu) ||
                 Regex("""mali-g(7\d{1,2}|8\d{1,2}|9\d{1,2})""").containsMatchIn(gpu)
         val isMid =
             Regex("""adreno.*6\d{2}""").containsMatchIn(gpu) ||
@@ -1363,7 +1373,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             "LastUserConfirmedResolutionSizeY=$resH",
             "WindowPosX=-1",
             "WindowPosY=-1",
-            "FullscreenMode=1",
+            "FullscreenMode=0",
             "GameQualitySettingLevel=$kuroQ",
             "LastConfirmedFullscreenMode=1",
             "PreferredFullscreenMode=0",
@@ -1638,7 +1648,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 val existingVal = trimmed.substring(eq + 1).trim()
                 if (existingVal != newValue) {
                     val rawEq = raw.indexOf('=')
-                    lines[idx] = raw.substring(0, rawEq + 1) + " " + newValue
+                    lines[idx] = raw.substring(0, rawEq + 1) + newValue
                 }
             }
         }
