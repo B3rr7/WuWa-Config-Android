@@ -448,7 +448,7 @@ adb usb</pre>
 <h3>5.2 Screen Walkthrough</h3>
 <h4>Analysis Panel</h4>
 <ul>
-<li><strong>Analyze Device</strong> — reads Client.log from device (chunked with gzip, even for 100MB+ files). Shows progress with animated glitch effect.</li>
+<li><strong>Analyze Device</strong> — copies Client.log to local cache via <code>backend.copyFile()</code>, then parses locally (handles 100MB+ files efficiently without chunked shell reads). Shows progress with animated glitch effect.</li>
 <li><strong>Import Log</strong> — pick a saved <code>.log</code> file for offline analysis</li>
 <li><strong>Results:</strong> device model, GPU, API (Vulkan/OpenGL), Android version, RAM, FPS (capped + actual), resolution, render scale, shadow quality, thermal events, texture errors, GPU OOMs, frame drops, network errors, forbidden CVars, active CVars list</li>
 </ul>
@@ -781,13 +781,14 @@ adb usb</pre>
 <h3>13.8 File Push Mechanism</h3>
 <ol>
 <li>Content base64-encoded</li>
-<li>Split into <code>printf '%s'</code> chunks (~4000 bytes)</li>
-<li>Written to <code>/data/local/tmp/wuwaconfig_{ts}_{rand}.b64</code></li>
+<li>Split into <code>printf '%s'</code> chunks (~4000 bytes, MAX_ARG_STRLEN-limited)</li>
+<li>Written to <code>/data/local/tmp/wb64_{ts}_{rand}.b64</code></li>
 <li>Decoded via <code>base64 -d</code></li>
-<li>Temp file deleted (<code>rm -f /data/local/tmp/wuwaconfig_*.b64</code> before every push)</li>
-<li>MD5 verified</li>
-<li>Retried once on failure</li>
+<li>Temp file deleted (<code>rm -f /data/local/tmp/wb64_*</code> before every push)</li>
+<li>MD5 verified against local source</li>
+<li>Retried (PUSH_RETRY_COUNT=2) on failure</li>
 </ol>
+<p><strong>Local file reads &amp; copies</strong> — for log reading and hash file updates, uses <code>backend.copyFile()</code> (single <code>cp</code> command via shell/SHIZUKU/SAF) instead of complex <code>dd | base64 | gzip</code> pipelines. Reduces shell command volume and detection surface.</p>
 <p><strong>Hash file safety (7 mechanisms):</strong></p>
 <ol>
 <li><strong>Adaptive hash patching</strong> — preserves <code>ModifyCount</code>, unknown fields (<code>Signature=</code>, <code>Version=</code>), formatting, and non-monitored sections</li>
@@ -909,7 +910,7 @@ adb usb</pre>
 </ul>
 <p><strong>"Client.log too large"</strong></p>
 <ul>
-<li>App handles 100MB+ files with adaptive chunking (up to 30×1MB chunks, gzip). Ensure backend supports <code>dd</code> (SAF does not).</li>
+<li>App handles 100MB+ files by copying to local storage via <code>backend.copyFile()</code> then parsing locally. No <code>dd</code> dependency — all backends supported.</li>
 </ul>
 <p><strong>"No Convene URL found"</strong></p>
 <ul>
@@ -940,7 +941,7 @@ adb usb</pre>
 <p>The game's <code>Client.log</code> is encrypted and decrypted automatically by the app.</p>
 
 <h3>16.4 Log Reading for Large Files</h3>
-<p>For files &gt;1MB, adaptive chunking: 1 chunk per 5MB, min 5, max 30, each 1MB via <code>dd</code>, gzip-compressed. ~20% coverage of a 100MB file, ~6MB wire transfer.</p>
+<p>For large files, uses <code>backend.copyFile()</code> to copy the entire file to local cache, then parses locally. No shell-based chunked reads or gzip compression needed.</p>
 
 <h3>16.5 Data Safety</h3>
 <p>The app <strong>never</strong> sends data off-device. All operations are local. No telemetry, no analytics, no internet except gacha API calls.</p>

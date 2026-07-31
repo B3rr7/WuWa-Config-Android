@@ -251,18 +251,18 @@ app/
     │   ├── AdbCrypto.kt          # RSA 2048-bit, encrypted at rest (EncryptedFile + AndroidKeyStore), SSH-RSA pubkey
     │   └── PortScanner.kt        # Port scan 37000-44000 + 5555, 50-port batches, 30s IP cache
     ├── backend/
-    │   ├── AccessBackend.kt      # Interface (9 suspend ops) + AccessMethod enum + BackendStatus
-    │   ├── AdbBackend.kt         # ADB shell, run-as fallback, base64 chunked push with MD5/size verify
-    │   ├── RootBackend.kt        # su -c, 10s timeout, redirectErrorStream
-    │   ├── ShizukuBackend.kt     # Shizuku API (reflection newProcess), 60s timeout, script-file fallback, MAX_ARG_STRLEN
-    │   ├── SafBackend.kt         # DocumentFile, 3-strategy path resolution, persistable tree URI
+    │   ├── AccessBackend.kt      # Interface (10 suspend ops: connect, disconnect, executeShellCommand, fileExists, ensureDirectoryExists, readFile, readFileBytes, pushFile, listFiles, copyFile) + AccessMethod enum + BackendStatus
+    │   ├── AdbBackend.kt         # ADB shell, run-as fallback, base64 chunked push with MD5/size verify, cp-based copyFile
+    │   ├── RootBackend.kt        # su -c, 10s timeout, redirectErrorStream, cp-based copyFile
+    │   ├── ShizukuBackend.kt     # Shizuku UserService API (Binder-based), 60s timeout, script-file fallback, MAX_ARG_STRLEN, cp-based copyFile
+    │   ├── SafBackend.kt         # DocumentFile, 3-strategy path resolution, persistable tree URI, DocumentFile-based copyFile
     │   └── ShellUtils.kt         # shQuote, computeMd5, maxPushChunkSize, PUSH_RETRY_COUNT=2, MAX_ARG_STRLEN=4096
     ├── config/
     │   ├── ConfigGenerator.kt    # INI generation, 8 presets, Core.System paths, DeviceProfiles chipset mapping, EngineIniContext + 25 section builders
     │   ├── CvarDatabase.kt       # Loads 3 CVar files from assets, optimizeIniText (REDUNDANT/UNKNOWN comments)
     │   ├── CvarCategorizer.kt    # Pure CVar categorization (419 lines, standalone object, 3-level matching, 18 categories)
     │   ├── CvarOptimizer.kt      # GPU tier detection, per-device profile optimizer, adjustProfile for retune
-    │   ├── ConfigManager.kt      # Device I/O (1219 lines), backups, logs, profiles, battle stats, hash sync, readProfile
+    │   ├── ConfigManager.kt      # Device I/O (1067 lines), backups, logs, profiles, battle stats, hash sync, readProfile, copyFile integration
     │   ├── DeployHistoryStore.kt # Deploy history JSON persistence (20 records max, comparison)
     │   ├── LogParser.kt          # Log decryption (XOR LUT), Convene URL extract, battle stat parse, CVar extraction, DecodeResult enum
     │   ├── SmartBrain.kt         # Scoring engine (359 lines), 0-100, ~20 signals, preset recommendation
@@ -290,7 +290,7 @@ app/
     ├── service/
     │   ├── AdbConnectionService.kt  # ADB foreground service (dataSync, START_STICKY)
     │   ├── GachaPollService.kt      # Background gacha polling (30 attempts, 10s apart, LocalBroadcastManager)
-    │   └── ShellUserService.kt      # Binder-based shell service for Shizuku (replaces reflection)
+    │   └── ShellUserService.kt      # Binder-based shell service for Shizuku UserService API (replaces reflection)
     └── ui/
         ├── MainViewModel.kt      # Shared ViewModel (1477 lines) — all state, backend, deploy, verify, gacha, profile
         ├── IniEditorViewModel.kt # INI editor ViewModel (syncConfigHashes, pushSingleFile, refreshConfigHashes)
