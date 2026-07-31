@@ -70,7 +70,7 @@ fun SettingsScreen(
 
     val imagePickerLauncher =
         rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent(),
+            contract = ActivityResultContracts.OpenDocument(),
         ) { uri: Uri? ->
             uri?.let {
                 ctx.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -79,7 +79,7 @@ fun SettingsScreen(
         }
     val videoPickerLauncher =
         rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent(),
+            contract = ActivityResultContracts.OpenDocument(),
         ) { uri: Uri? ->
             uri?.let {
                 ctx.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -224,7 +224,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Button(
-                                onClick = { imagePickerLauncher.launch("image/*") },
+                                onClick = { imagePickerLauncher.launch(arrayOf("image/*")) },
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f),
                                 colors =
@@ -234,7 +234,7 @@ fun SettingsScreen(
                                     ),
                             ) { Text("Image", fontWeight = FontWeight.Bold) }
                             Button(
-                                onClick = { videoPickerLauncher.launch("video/*") },
+                                onClick = { videoPickerLauncher.launch(arrayOf("video/*")) },
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f),
                                 colors =
@@ -415,6 +415,7 @@ fun SettingsScreen(
                             colors = SwitchDefaults.colors(checkedThumbColor = NeonBlue, checkedTrackColor = NeonBlue.copy(alpha = 0.3f)),
                         )
                     }
+                    Spacer(Modifier.height(12.dp))
                 }
 
                 GlassCard(accentColor = NeonPurple) {

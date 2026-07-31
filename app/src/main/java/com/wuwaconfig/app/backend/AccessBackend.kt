@@ -40,4 +40,9 @@ interface AccessBackend {
     suspend fun readFile(path: String): Result<String>
 
     suspend fun readFileBytes(path: String): Result<ByteArray>
+
+    suspend fun copyFile(
+        sourcePath: String,
+        targetPath: String,
+    ): Result<String>
 }

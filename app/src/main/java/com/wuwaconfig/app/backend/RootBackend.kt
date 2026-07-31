@@ -121,4 +121,13 @@ class RootBackend : AccessBackend {
                 Result.failure(e)
             }
         }
+
+    override suspend fun copyFile(
+        sourcePath: String,
+        targetPath: String,
+    ): Result<String> {
+        val parent = java.io.File(targetPath).parent
+        executeShellCommand("mkdir -p ${shQuote(parent)}")
+        return executeShellCommand("cp ${shQuote(sourcePath)} ${shQuote(targetPath)}").map { targetPath }
+    }
 }

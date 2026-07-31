@@ -24,17 +24,11 @@ class ShizukuBackend : AccessBackend {
 
     interface IShellService {
         fun execCommand(command: String): String
-
-        fun execCommandToFile(
-            command: String,
-            outputFile: String,
-        ): String
     }
 
     private class ShellServiceProxy(private val binder: IBinder) : IShellService {
         companion object {
             private const val TRANSACTION_EXEC_COMMAND = IBinder.FIRST_CALL_TRANSACTION + 1
-            private const val TRANSACTION_EXEC_COMMAND_TO_FILE = IBinder.FIRST_CALL_TRANSACTION + 2
         }
 
         override fun execCommand(command: String): String {
@@ -44,27 +38,6 @@ class ShizukuBackend : AccessBackend {
                 data.writeInterfaceToken("com.wuwaconfig.app.IShellService")
                 data.writeString(command)
                 if (!binder.transact(TRANSACTION_EXEC_COMMAND, data, reply, 0)) {
-                    throw Exception("Remote call failed")
-                }
-                reply.readException()
-                return reply.readString() ?: ""
-            } finally {
-                data.recycle()
-                reply.recycle()
-            }
-        }
-
-        override fun execCommandToFile(
-            command: String,
-            outputFile: String,
-        ): String {
-            val data = Parcel.obtain()
-            val reply = Parcel.obtain()
-            try {
-                data.writeInterfaceToken("com.wuwaconfig.app.IShellService")
-                data.writeString(command)
-                data.writeString(outputFile)
-                if (!binder.transact(TRANSACTION_EXEC_COMMAND_TO_FILE, data, reply, 0)) {
                     throw Exception("Remote call failed")
                 }
                 reply.readException()
@@ -389,6 +362,22 @@ class ShizukuBackend : AccessBackend {
             Result.failure(lastError ?: Exception("readFileBytes failed"))
         }
 
+    override suspend fun copyFile(
+        sourcePath: String,
+        targetPath: String,
+    ): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val parent = java.io.File(targetPath).parent ?: return@withContext Result.failure(Exception("Invalid target path"))
+                execOrThrow("mkdir -p ${shQuote(parent)}")
+                execOrThrow("cp ${shQuote(sourcePath)} ${shQuote(targetPath)}")
+                Result.success(targetPath)
+            } catch (e: Exception) {
+                LogRepository.add("Shizuku copyFile failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
+
     private suspend fun execOrThrow(command: String): String {
         val svc = shellService ?: throw Exception("Shizuku service not connected")
         val output = withTimeout(60_000) { svc.execCommand(command) }
@@ -399,21 +388,6 @@ class ShizukuBackend : AccessBackend {
             throw Exception(output.trim())
         }
         return output
-    }
-
-    private suspend fun execOrThrowToFile(
-        command: String,
-        outputFile: String,
-    ): String {
-        val svc = shellService ?: throw Exception("Shizuku service not connected")
-        val result = withTimeout(60_000) { svc.execCommandToFile(command, outputFile) }
-        if (result.contains("Command timed out", ignoreCase = true)) {
-            throw Exception(result.trim())
-        }
-        if (result.contains("Command failed", ignoreCase = true)) {
-            throw Exception(result.trim())
-        }
-        return result
     }
 
     private fun filterPermissionDenied(output: String): String {

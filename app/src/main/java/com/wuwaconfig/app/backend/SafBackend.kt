@@ -195,6 +195,25 @@ class SafBackend(private val context: Context) : AccessBackend {
             }
         }
 
+    override suspend fun copyFile(
+        sourcePath: String,
+        targetPath: String,
+    ): Result<String> =
+        withContext(Dispatchers.IO) {
+            LogRepository.add("SAF copyFile: $sourcePath -> $targetPath")
+            try {
+                val sourceDoc = resolveDocument(sourcePath) ?: return@withContext Result.failure(Exception("Source not found: $sourcePath"))
+                val targetDoc = resolveOrCreateDocument(targetPath)
+                val bytes = readDocumentBytes(sourceDoc)
+                writeDocument(targetDoc, bytes)
+                LogRepository.add("SAF copyFile completed: ${bytes.size} bytes", LogLevel.SUCCESS)
+                Result.success(targetPath)
+            } catch (e: Exception) {
+                LogRepository.add("SAF copyFile failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
+
     private fun readDocumentBytes(doc: DocumentFile): ByteArray {
         return context.contentResolver.openInputStream(doc.uri)
             ?.use { it.readBytes() }

@@ -229,4 +229,19 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         }
         return b64.map { Base64.decode(it.trim(), Base64.DEFAULT) }
     }
+
+    override suspend fun copyFile(
+        sourcePath: String,
+        targetPath: String,
+    ): Result<String> {
+        val parent = java.io.File(targetPath).parent
+        val mkdirCmd = "mkdir -p ${shQuote(parent)}"
+        client.executeShellCommand(mkdirCmd)
+        val cpCmd = "cp ${shQuote(sourcePath)} ${shQuote(targetPath)}"
+        var result = client.executeShellCommand(cpCmd)
+        if (result.isFailure) {
+            result = client.executeShellCommandWithRunAs(GAME_PKG, cpCmd)
+        }
+        return result.map { targetPath }
+    }
 }

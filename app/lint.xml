@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- ShellUserService extends Binder (Shizuku UserService pattern), not Service -->
+    <issue id="Instantiatable">
+        <ignore path="*/AndroidManifest.xml" />
+    </issue>
+</lint>

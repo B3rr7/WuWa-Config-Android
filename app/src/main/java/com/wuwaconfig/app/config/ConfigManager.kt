@@ -21,16 +21,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayInputStream
 import java.io.File
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.zip.GZIPInputStream
+import kotlin.random.Random
 
 class ConfigManager(private val context: Context, private val backend: AccessBackend, backupDirPath: String? = null) {
     private val gson = Gson()
@@ -108,6 +108,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                         if (!success) {
                             throw lastError?.exceptionOrNull() ?: Exception("Failed to push $name")
                         }
+                        delay(50 + Random.nextLong(100))
                     }
                     LogRepository.add("ConfigManager: custom configs applied successfully", LogLevel.SUCCESS)
                     Result.success("Custom configs applied successfully!")
@@ -392,6 +393,7 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
                         if (!success) {
                             throw lastError?.exceptionOrNull() ?: Exception("Failed to restore ${file.name}")
                         }
+                        delay(50 + Random.nextLong(100))
                     }
                     Result.success("$label restored successfully!")
                 } finally {
@@ -427,132 +429,34 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
         fileSize: Long,
         onProgress: (Int) -> Unit = {},
     ): Result<Pair<String, LogParser.DecodeResult>> {
-        val CHUNK_SIZE = 2_000_000L
-        val totalChunks =
-            when {
-                fileSize <= CHUNK_SIZE -> 1
-                else -> (fileSize / 5_000_000L).toInt().coerceIn(5, 30)
-            }
-
         val cacheDir = context.cacheDir.absolutePath
-        val tmpB64File = "$cacheDir/wuwa_log_b64.tmp"
-
-        fun decodeB64(output: String): ByteArray? {
-            val clean =
-                output.lines()
-                    .filterNot { it.startsWith("base64:", ignoreCase = true) }
-                    .joinToString("").trim()
-            if (clean.isBlank()) return null
-            return try {
-                Base64.decode(clean, Base64.DEFAULT)
-            } catch (_: Exception) {
-                null
-            }
-        }
-
-        suspend fun pullChunk(offset: Long): Pair<String, LogParser.DecodeResult>? {
-            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | base64 > \"$tmpB64File\" 2>/dev/null"
-            val result = backend.executeShellCommand(cmd)
-            if (result.isFailure) return null
-            val localFile = File(tmpB64File)
-            if (!localFile.exists() || localFile.length() == 0L) return null
-            val b64 = localFile.readText().trim()
-            val raw = decodeB64(b64) ?: return null
-            return try {
-                LogParser.decodeLogBytes(raw)
-            } catch (_: Exception) {
-                null
-            }
-        }
-
-        suspend fun pullChunkText(
-            offset: Long,
-            wasEncrypted: Boolean,
-        ): String? {
-            val cmd = "dd if=\"$path\" bs=1 skip=$offset count=$CHUNK_SIZE 2>/dev/null | base64 > \"$tmpB64File\" 2>/dev/null"
-            val result = backend.executeShellCommand(cmd)
-            if (result.isFailure) return null
-            val localFile = File(tmpB64File)
-            if (!localFile.exists() || localFile.length() == 0L) return null
-            val b64 = localFile.readText().trim()
-            val raw = decodeB64(b64) ?: return null
-            return try {
-                val pair =
-                    if (wasEncrypted) {
-                        LogParser.decodeXorBytes(raw)
-                    } else {
-                        LogParser.decodeLogBytes(raw)
-                    }
-                pair.first
-            } catch (_: Exception) {
-                null
-            }
-        }
-
-        suspend fun readFullBase64(): Result<Pair<String, LogParser.DecodeResult>>? {
-            onProgress(50)
-            val cmd = "base64 \"$path\" > \"$tmpB64File\" 2>/dev/null"
-            val result = backend.executeShellCommand(cmd)
-            if (result.isFailure) return null
-            val localFile = File(tmpB64File)
-            if (!localFile.exists() || localFile.length() == 0L) return null
-            onProgress(85)
-            val b64 = localFile.readText().trim()
-            val raw = decodeB64(b64) ?: return null
-            val decodeResult =
-                try {
-                    LogParser.decodeLogBytes(raw)
-                } catch (_: Exception) {
-                    null
-                }
-            onProgress(95)
-            return if (decodeResult != null) Result.success(decodeResult) else null
-        }
+        val localCopy = "$cacheDir/wuwa_log_copy_${System.currentTimeMillis()}"
 
         try {
-            if (totalChunks == 1) {
-                val singleResult = readFullBase64()
-                if (singleResult != null) return singleResult
-            } else {
-                val offsets =
-                    (0 until totalChunks).map { i ->
-                        (fileSize * i / totalChunks).coerceAtMost(fileSize - CHUNK_SIZE)
-                    }.distinct()
+            onProgress(10)
+            backend.copyFile(path, localCopy).getOrThrow()
 
-                fun progressForChunk(done: Int) = 10 + (done * 80 / offsets.size)
-
-                var wasEncrypted = LogParser.DecodeResult.PLAINTEXT
-                val chunks = mutableListOf<String>()
-
-                for ((i, offset) in offsets.withIndex()) {
-                    onProgress(progressForChunk(i))
-                    if (i == 0) {
-                        pullChunk(offset)?.let { (text, enc) ->
-                            wasEncrypted = enc
-                            chunks.add(text)
-                        }
-                    } else {
-                        pullChunkText(offset, wasEncrypted == LogParser.DecodeResult.DECRYPTED)?.let { chunks.add(it) }
-                    }
-                }
-
-                onProgress(92)
-                val combined = chunks.joinToString("\n")
-                onProgress(95)
-                if (combined.isNotBlank()) return Result.success(combined to wasEncrypted)
-
-                val fallback = readFullBase64()
-                if (fallback != null) return fallback
+            onProgress(50)
+            val localFile = File(localCopy)
+            if (!localFile.exists() || localFile.length() == 0L) {
+                throw Exception("Failed to copy log file")
             }
+
+            val rawBytes = localFile.readBytes()
+            onProgress(80)
+
+            val (text, decodeResult) = LogParser.decodeLogBytes(rawBytes)
+            onProgress(95)
+            return Result.success(text to decodeResult)
+        } catch (e: Exception) {
+            Log.w("ConfigManager", "readRemoteLogTextChunked failed: ${e.message}")
+            return Result.failure(e)
         } finally {
             try {
-                File(tmpB64File).delete()
+                File(localCopy).delete()
             } catch (_: Exception) {
             }
         }
-
-        onProgress(95)
-        return Result.failure(Exception("Failed to read Client.log ($fileSize bytes)"))
     }
 
     fun cleanIniContent(
@@ -988,35 +892,6 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             }
         }
 
-    private suspend fun readContiguousPartitionBytes(
-        path: String,
-        skip: Long,
-        count: Long,
-    ): Result<ByteArray> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                require(count <= Int.MAX_VALUE) { "count=$count exceeds Int.MAX_VALUE" }
-                val blockSize = 65536L
-                val blockSkip = skip / blockSize
-                val blockOffset = (skip % blockSize).toInt()
-                val totalBytes = blockOffset + count
-                val blockCount = (totalBytes + blockSize - 1) / blockSize
-                val cmd = "dd if=${shQuote(path)} bs=$blockSize skip=$blockSkip count=$blockCount 2>/dev/null | gzip -cf | base64 -w0"
-                val b64 = backend.executeShellCommand(cmd).getOrThrow().trim()
-                if (b64.isBlank()) throw Exception("Empty partition at skip=$skip count=$count")
-                val compressed = Base64.decode(b64, Base64.DEFAULT)
-                val allBytes = GZIPInputStream(ByteArrayInputStream(compressed)).readBytes()
-                val requested = count.toInt()
-                val end = (blockOffset + requested).coerceAtMost(allBytes.size)
-                if (blockOffset >= allBytes.size) throw Exception("Read underflow at skip=$skip count=$count")
-                if (blockOffset == 0 && end == requested) {
-                    allBytes
-                } else {
-                    allBytes.copyOfRange(blockOffset, end)
-                }
-            }
-        }
-
     suspend fun readBattleStats(): Result<BattleStats> {
         val path = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
         try {
@@ -1024,53 +899,24 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
             val fileSize = sizeRaw.trim().toLongOrNull() ?: 0L
             if (fileSize <= 0L) return Result.failure(Exception("Client.log is empty"))
 
-            val numPartitions =
-                when {
-                    fileSize <= 5_000_000L -> 1
-                    fileSize <= 30_000_000L -> 2
-                    fileSize <= 60_000_000L -> 4
-                    fileSize <= 100_000_000L -> 6
-                    else -> 8
-                }
-            val partitionSize = fileSize / numPartitions
-            val offsets =
-                (0 until numPartitions).map { i ->
-                    val skip = i * partitionSize
-                    val count = if (i == numPartitions - 1) fileSize - skip else partitionSize
-                    skip to count
-                }
+            val cacheDir = context.cacheDir.absolutePath
+            val localCopy = "$cacheDir/wuwa_battlestats_${System.currentTimeMillis()}"
 
-            val rawChunks = mutableListOf<ByteArray>()
-            for ((skip, count) in offsets) {
-                val result = readContiguousPartitionBytes(path, skip, count)
-                if (result.isFailure) {
-                    Log.w("ConfigManager", "partition skip=$skip failed: ${result.exceptionOrNull()?.message}")
-                    continue
-                }
-                rawChunks.add(result.getOrThrow())
+            backend.copyFile(path, localCopy).getOrThrow()
+
+            val localFile = File(localCopy)
+            if (!localFile.exists() || localFile.length() == 0L) {
+                throw Exception("Failed to copy log file")
             }
 
-            if (rawChunks.isEmpty()) return Result.failure(Exception("No data could be read from log"))
-
-            var wasEncrypted = false
-            val texts = mutableListOf<String>()
-            for ((i, raw) in rawChunks.withIndex()) {
-                val (text, enc) =
-                    if (i == 0) {
-                        LogParser.decodeLogBytes(raw)
-                    } else {
-                        if (wasEncrypted) {
-                            LogParser.decodeXorBytes(raw)
-                        } else {
-                            LogParser.decodeLogBytes(raw)
-                        }
-                    }
-                if (i == 0) wasEncrypted = enc == LogParser.DecodeResult.DECRYPTED
-                texts.add(text)
+            val rawBytes = localFile.readBytes()
+            try {
+                localFile.delete()
+            } catch (_: Exception) {
             }
 
-            val fullText = texts.joinToString("\n")
-            val lines = fullText.lines()
+            val (text, _) = LogParser.decodeLogBytes(rawBytes)
+            val lines = text.lines()
 
             val numCores = Runtime.getRuntime().availableProcessors().coerceIn(1, 8)
 
@@ -1098,57 +944,24 @@ class ConfigManager(private val context: Context, private val backend: AccessBac
 
     private suspend fun readFullFileText(path: String): Result<Pair<String, LogParser.DecodeResult>> =
         runCatching {
-            val sizeRaw = backend.executeShellCommand("wc -c < ${shQuote(path)} 2>/dev/null").getOrDefault("0")
-            val fileSize = sizeRaw.trim().toLongOrNull() ?: 0L
-            if (fileSize <= 0L) throw Exception("File is empty")
+            val cacheDir = context.cacheDir.absolutePath
+            val localCopy = "$cacheDir/wuwa_full_copy_${System.currentTimeMillis()}"
 
-            val numPartitions =
-                when {
-                    fileSize <= 5_000_000L -> 1
-                    fileSize <= 30_000_000L -> 2
-                    fileSize <= 60_000_000L -> 4
-                    fileSize <= 100_000_000L -> 6
-                    else -> 8
-                }
-            val partitionSize = fileSize / numPartitions
-            val offsets =
-                (0 until numPartitions).map { i ->
-                    val skip = i * partitionSize
-                    val count = if (i == numPartitions - 1) fileSize - skip else partitionSize
-                    skip to count
-                }
+            backend.copyFile(path, localCopy).getOrThrow()
 
-            val rawChunks = mutableListOf<ByteArray>()
-            for ((skip, count) in offsets) {
-                val result = readContiguousPartitionBytes(path, skip, count)
-                if (result.isFailure) {
-                    Log.w("ConfigManager", "partition skip=$skip failed: ${result.exceptionOrNull()?.message}")
-                    continue
-                }
-                rawChunks.add(result.getOrThrow())
+            val localFile = File(localCopy)
+            if (!localFile.exists() || localFile.length() == 0L) {
+                throw Exception("Failed to copy file: $path")
             }
 
-            if (rawChunks.isEmpty()) throw Exception("No data could be read from file")
-
-            var wasEncrypted = false
-            val texts = mutableListOf<String>()
-            for ((i, raw) in rawChunks.withIndex()) {
-                val (text, enc) =
-                    if (i == 0) {
-                        LogParser.decodeLogBytes(raw)
-                    } else {
-                        if (wasEncrypted) {
-                            LogParser.decodeXorBytes(raw)
-                        } else {
-                            LogParser.decodeLogBytes(raw)
-                        }
-                    }
-                if (i == 0) wasEncrypted = enc == LogParser.DecodeResult.DECRYPTED
-                texts.add(text)
+            val rawBytes = localFile.readBytes()
+            try {
+                localFile.delete()
+            } catch (_: Exception) {
             }
 
-            texts.joinToString("\n") to
-                (if (wasEncrypted) LogParser.DecodeResult.DECRYPTED else LogParser.DecodeResult.PLAINTEXT)
+            val (text, decodeResult) = LogParser.decodeLogBytes(rawBytes)
+            text to decodeResult
         }
 
     suspend fun readFullClientLogWithMetadata(): Result<Pair<String, LogParser.DecodeResult>> = readFullFileText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
