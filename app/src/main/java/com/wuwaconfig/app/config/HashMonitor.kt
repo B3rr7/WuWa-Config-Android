@@ -48,7 +48,7 @@ class HashMonitor(
         return Result.success(hash)
     }
 
-    suspend fun refreshConfigHashes(): Result<String> =
+    suspend fun refreshConfigHashes(incrementModifyCount: Boolean = false): Result<String> =
         hashMutex.withLock {
             withContext(Dispatchers.IO) {
                 try {
@@ -86,7 +86,8 @@ class HashMonitor(
                                 prevTime = t.removePrefix("LastModifiedTime=").trim()
                             }
                         }
-                        val displayCount = (prevCount?.coerceIn(0, 8)) ?: 0
+                        val baseCount = (prevCount?.coerceIn(0, 8)) ?: 0
+                        val displayCount = if (incrementModifyCount) minOf(baseCount + 1, 8) else baseCount
                         updates[name] =
                             mapOf(
                                 "Hash" to hash,
@@ -261,7 +262,7 @@ class HashMonitor(
                 LogRepository.add("ConfigManager: hash file unchanged — safe update")
             }
 
-            refreshConfigHashes()
+            refreshConfigHashes(incrementModifyCount = !gameTouched)
         }
     }
 

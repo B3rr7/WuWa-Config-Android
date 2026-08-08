@@ -337,7 +337,7 @@ class ConfigManager(
 
     // ===== Hash subsystem (delegated to HashMonitor) =====
 
-    suspend fun refreshConfigHashes(): Result<String> = hashMonitor.refreshConfigHashes()
+    suspend fun refreshConfigHashes(incrementModifyCount: Boolean = false): Result<String> = hashMonitor.refreshConfigHashes(incrementModifyCount)
 
     suspend fun snapshotHashFile(): Result<HashMonitor.HashFileSnapshot> = hashMonitor.snapshotHashFile()
 
