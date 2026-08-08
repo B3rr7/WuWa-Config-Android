@@ -416,6 +416,27 @@ fun SettingsScreen(
                         )
                     }
                     Spacer(Modifier.height(12.dp))
+                    val hashMonitorEnabled by viewModel.hashMonitorEnabled.collectAsStateWithLifecycle()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Enable HashMonitor", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(
+                                "Automatically sync KuroConfigMonitor.hash with modified INI files to prevent detection.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = hashMonitorEnabled,
+                            onCheckedChange = { viewModel.setHashMonitorEnabled(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = NeonBlue, checkedTrackColor = NeonBlue.copy(alpha = 0.3f)),
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
                 }
 
                 GlassCard(accentColor = NeonPurple) {

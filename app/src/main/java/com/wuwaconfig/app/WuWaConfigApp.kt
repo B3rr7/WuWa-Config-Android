@@ -68,6 +68,7 @@ class WuWaConfigApp : Application() {
     val textOpacity = MutableStateFlow(1f)
     val colorfulUi = MutableStateFlow(true)
     val deployHistoryEnabled = MutableStateFlow(true)
+    val hashMonitorEnabled = MutableStateFlow(false)
     val chipsetInfo = ChipsetDetector.detect()
     val gameConfigDir = GamePaths.TARGET_DIR
 
@@ -90,6 +91,7 @@ class WuWaConfigApp : Application() {
         textOpacity.value = prefs.getFloat("text_opacity", 1f)
         colorfulUi.value = prefs.getBoolean("colorful_ui", true)
         deployHistoryEnabled.value = prefs.getBoolean("deploy_history", true)
+        hashMonitorEnabled.value = prefs.getBoolean("hash_monitor_enabled", false)
     }
 
     fun setBackgroundState(
@@ -129,6 +131,11 @@ class WuWaConfigApp : Application() {
     fun setDeployHistoryEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("deploy_history", enabled).apply()
         deployHistoryEnabled.value = enabled
+    }
+
+    fun setHashMonitorEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("hash_monitor_enabled", enabled).apply()
+        hashMonitorEnabled.value = enabled
     }
 
     fun switchTo(method: AccessMethod): AccessBackend {

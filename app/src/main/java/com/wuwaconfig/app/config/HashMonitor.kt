@@ -2,6 +2,7 @@ package com.wuwaconfig.app.config
 
 import android.content.Context
 import android.util.Log
+import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.PUSH_RETRY_COUNT
 import com.wuwaconfig.app.backend.shQuote
@@ -48,8 +49,12 @@ class HashMonitor(
         return Result.success(hash)
     }
 
-    suspend fun refreshConfigHashes(incrementModifyCount: Boolean = false): Result<String> =
-        hashMutex.withLock {
+    suspend fun refreshConfigHashes(incrementModifyCount: Boolean = false): Result<String> {
+        if (!WuWaConfigApp.instance.hashMonitorEnabled.value) {
+            LogRepository.add("ConfigManager: HashMonitor disabled — skipping hash sync", LogLevel.WARNING)
+            return Result.success("HashMonitor disabled — skipped")
+        }
+        return hashMutex.withLock {
             withContext(Dispatchers.IO) {
                 try {
                     LogRepository.add("ConfigManager: refreshing config hashes")
@@ -231,6 +236,7 @@ class HashMonitor(
                 }
             }
         }
+    }
 
     suspend fun snapshotHashFile(): Result<HashFileSnapshot> =
         withContext(Dispatchers.IO) {

@@ -11,6 +11,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val themeMode: StateFlow<String> = app.themeMode
     val deployHistoryEnabled: StateFlow<Boolean> = app.deployHistoryEnabled
     val colorfulUi: StateFlow<Boolean> = app.colorfulUi
+    val hashMonitorEnabled: StateFlow<Boolean> = app.hashMonitorEnabled
     val textOpacity: StateFlow<Float> = app.textOpacity
 
     fun setThemeMode(mode: String) = app.setThemeMode(mode)
@@ -18,6 +19,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setDeployHistoryEnabled(enabled: Boolean) = app.setDeployHistoryEnabled(enabled)
 
     fun setColorfulUi(enabled: Boolean) = app.setColorfulUi(enabled)
+
+    fun setHashMonitorEnabled(enabled: Boolean) = app.setHashMonitorEnabled(enabled)
 
     fun setTextOpacity(value: Float) = app.setTextOpacity(value)
 
