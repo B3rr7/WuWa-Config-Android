@@ -1015,7 +1015,9 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                             text
                         }
                     _readingProgress.value = 95
-                    doAnalyzeLogText(analysisText, allowRestrictedCvars)
+                    // Reuse the parse we already did for the backup-merge decision when the
+                    // text is unchanged; only re-parse if a backup log was merged in.
+                    doAnalyzeLogText(analysisText, allowRestrictedCvars, if (analysisText == text) initialInfo else null)
                 } else {
                     addLog("FAILED: ${result.exceptionOrNull()?.message}")
                 }
@@ -1065,13 +1067,14 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     private suspend fun doAnalyzeLogText(
         text: String,
         allowRestrictedCvars: Boolean = true,
+        preParsedLogInfo: com.wuwaconfig.app.model.LogInfo? = null,
     ) {
         _logAnalysis.value = null
         _brainRecommendation.value = null
         try {
             addLog("Parsing log...")
             val info =
-                withContext(Dispatchers.Default) {
+                preParsedLogInfo ?: withContext(Dispatchers.Default) {
                     com.wuwaconfig.app.config.LogParser.parseLog(text)
                 }
             _logAnalysis.value = info

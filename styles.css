@@ -18,7 +18,7 @@ a, button, .btn, .feature-card, .mini-card, .access-card, .link-card, .step, .si
   position: fixed;
   inset: 0;
   z-index: 0;
-  background: url('taoqi.webp') center/cover no-repeat fixed;
+  background: url('taoqi.webp') center/cover no-repeat;
   opacity: .15;
   pointer-events: none;
 }
@@ -490,13 +490,16 @@ footer .heart { color: #ff4466; }
 /* ===== Cursor ===== */
 .cursor-glow {
   position: fixed;
+  top: 0;
+  left: 0;
   width: 120px;
   height: 120px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 184, 0, .08), transparent 70%);
   pointer-events: none;
   z-index: 9999;
-  transform: translate(-50%, -50%);
+  transform: translate3d(-200px, -200px, 0) translate(-50%, -50%);
+  will-change: transform;
   transition: width .3s, height .3s, background .3s;
 }
 .cursor-glow--hover {
@@ -778,7 +781,58 @@ body.light .hero h1 {
   background-size: 200% auto;
   animation: shimmer 6s linear infinite;
 }
-body.light .theme-toggle { background: rgba(255,255,255,.55); color: #1a5c5c; box-shadow: 0 4px 20px rgba(120,130,160,.25); }
+  body.light .theme-toggle { background: rgba(255,255,255,.55); color: #1a5c5c; box-shadow: 0 4px 20px rgba(120,130,160,.25); }
+
+/* ===== Desktop / Fine-pointer: cap expensive paint & compositing ===== */
+@media (min-width: 769px) and (pointer: fine) {
+  /* 120px blur on two 600x600px elements is a heavy always-on compositing cost */
+  .bg-glow { filter: blur(60px); opacity: .22; }
+  /* Keep only the hover-triggered glowPulse as the pulse state; drop the
+     unconditional borderPulse on 100+ cards */
+  .feature-card, .mini-card, .access-card { animation: none; }
+  /* Cap uncapped backdrop-filter blurs on desktop (both themes) */
+  .feature-card, .mini-card, .access-card, .stat-card, .step, .signal,
+  .link-card, .hero__badge, table, thead,
+  body.light .feature-card, body.light .mini-card, body.light .access-card,
+  body.light .stat-card, body.light .step, body.light .signal,
+  body.light .link-card, body.light .hero__badge, body.light table, body.light thead {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  /* Skip layout/paint for off-screen sections until scrolled into view */
+  section { content-visibility: auto; contain-intrinsic-size: 800px; }
+}
+
+/* ===== Touch / no-hover devices (tablets, foldables, touch DeX): drop expensive
+   effects entirely, mirroring the mobile perf treatment but WITHOUT the layout tweaks ===== */
+@media (pointer: coarse), (hover: none) {
+  .feature-card, .stat-card, .step, .access-card, .mini-card, .signal,
+  .link-card, .hero__badge, .disclaimer, .tab-btn, .topics__list span,
+  table, thead, .btn--secondary,
+  body.light .feature-card, body.light .stat-card, body.light .step,
+  body.light .access-card, body.light .mini-card, body.light .signal,
+  body.light .link-card, body.light .hero__badge, body.light .disclaimer,
+  body.light .tab-btn, body.light .topics__list span, body.light table,
+  body.light .bg-image-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .2) !important;
+  }
+  .bg-image { display: none !important; }
+  .bg-glow { animation: none !important; filter: none !important; opacity: .16; }
+  .hero h1 { animation: none !important; background-size: 100% auto; }
+  .feature-card, .mini-card, .access-card { animation: none !important; }
+  .hero__badge span { animation: none !important; }
+  .cursor-glow, .bit-trail, .matrix-char, .ripple-ring, .ripple-dot, .ripple-spark { display: none !important; }
+  section { content-visibility: auto; contain-intrinsic-size: 800px; }
+}
+
+/* ===== Tab-hidden (Page Visibility API): pause always-on animations ===== */
+body.tab-hidden .bg-glow,
+body.tab-hidden .hero__badge span,
+body.tab-hidden .hero h1 {
+  animation-play-state: paused;
+}
 body.light { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpolygon points='12,2 21,7 21,17 12,22 3,17 3,7' fill='none' stroke='%231a5c5c' stroke-width='.8'/%3E%3Ccircle cx='12' cy='12' r='1.5' fill='%231a5c5c' opacity='.9'/%3E%3C/svg%3E") 12 12, auto; }
 body.light a, body.light button, body.light .btn, body.light .feature-card, body.light .mini-card, body.light .access-card, body.light .link-card, body.light .step, body.light .signal, body.light .stat-card { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpolygon points='12,2 21,7 21,17 12,22 3,17 3,7' fill='none' stroke='%23147a7a' stroke-width='1'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23147a7a' opacity='.8'/%3E%3C/svg%3E") 12 12, pointer; }
 body.light .btn--primary { background: linear-gradient(135deg, #1a5c5c, #147a7a); box-shadow: 0 0 30px rgba(26, 92, 92, .3); color: #fff; }

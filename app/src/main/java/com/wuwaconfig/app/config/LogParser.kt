@@ -28,10 +28,9 @@ object LogParser {
     fun applyXorLut(data: ByteArray): ByteArray {
         // LUT is NOT self-inverse: LUT(LUT(b)) = b xor 0x4A for ALL b.
         // The game stores plaintext as LUT(plaintext xor 0x4A) so a single pass restores it.
-        val lut = ByteArray(256) { i -> (if (i % 2 == 1) (i xor 0xA5) else (i xor 0xEF)).toByte() }
         val result = data.copyOf()
         for (i in result.indices) {
-            result[i] = lut[result[i].toInt() and 0xFF]
+            result[i] = XOR_LUT[result[i].toInt() and 0xFF]
         }
         return result
     }
@@ -134,10 +133,10 @@ object LogParser {
                 textureErrors++
             }
             if ("out of memory" in l || "gpu oom" in l || "vulkanoom" in l) gpuOom++
-            if (Regex("""frame\s*drop|hitch\s*detected|stutter\s*detected""", RegexOption.IGNORE_CASE).containsMatchIn(line)) dropFrames++
-            if (Regex("""thermal\s*(?:throttle|limit|event|warning)""", RegexOption.IGNORE_CASE).containsMatchIn(line)) thermalEvents++
-            if (Regex("""自动渲染调节触发前""").containsMatchIn(line)) autoAdjustTriggers++
-            if (Regex("""自动渲染调节恢复前""").containsMatchIn(line)) autoAdjustRecoveries++
+            if (FRAME_DROP_RE.containsMatchIn(line)) dropFrames++
+            if (THERMAL_RE.containsMatchIn(line)) thermalEvents++
+            if (ADJUST_TRIGGER_RE.containsMatchIn(line)) autoAdjustTriggers++
+            if (ADJUST_RECOVER_RE.containsMatchIn(line)) autoAdjustRecoveries++
             if ("timeout" in l || "connection refused" in l || "connection reset" in l ||
                 "unreachable" in l || "dns fail" in l || "dns failure" in l ||
                 "socket error" in l || "network fail" in l || "network failure" in l ||
@@ -157,116 +156,79 @@ object LogParser {
 
             // ── Field extraction (first match wins) ──
             if (gpu == null) {
-                Regex("""K#GPUFamily\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let { gpu = it.groupValues[1].trim() }
+                GPU_RE.find(line)?.let { gpu = it.groupValues[1].trim() }
                 if (gpu == null) {
-                    Regex(
-                        """LogInit.*GPU:\s*([^,\r\n]+)""",
-                        RegexOption.IGNORE_CASE,
-                    ).find(line)?.let { gpu = it.groupValues[1].trim() }
+                    GPU_LOGINIT_RE.find(line)?.let { gpu = it.groupValues[1].trim() }
                 }
                 if (gpu == null) {
-                    Regex(
-                        """(adreno\s*\d+|mali-g\d+|mali-\d+|xclipse\s*\d+|maleoon)""",
-                        RegexOption.IGNORE_CASE,
-                    ).find(line)?.let {
-                        gpu = it.groupValues[1].trim()
-                    }
+                    GPU_GENERIC_RE.find(line)?.let { gpu = it.groupValues[1].trim() }
                 }
             }
             if (deviceModel == null) {
-                Regex(
-                    """K#DeviceModel\s*:\s*([^\r\n]+)""",
-                    RegexOption.IGNORE_CASE,
-                ).find(line)?.let { deviceModel = it.groupValues[1].trim() }
+                DEVMODEL_RE.find(line)?.let { deviceModel = it.groupValues[1].trim() }
                 if (deviceModel == null) {
-                    Regex("""DeviceModel\s*:\s*([^\r\n,\]]+)""", RegexOption.IGNORE_CASE).find(line)?.let {
-                        deviceModel = it.groupValues[1].trim()
-                    }
+                    DEVMODEL_FALLBACK_RE.find(line)?.let { deviceModel = it.groupValues[1].trim() }
                 }
             }
-            if (socName == null) {
-                Regex("""(snapdragon|dimensity|exynos|kirin|helio)\s*\w*""", RegexOption.IGNORE_CASE).find(line)?.let { socName = it.value }
-            }
-            if (socCode == null) Regex("""rHn:(\w+)""", RegexOption.IGNORE_CASE).find(line)?.let { socCode = it.groupValues[1] }
-            if (cpuName == null) {
-                Regex("""LogInit.*CPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE).find(line)?.let {
-                    cpuName = it.groupValues[1].trim()
-                }
-            }
+            if (socName == null) SOC_RE.find(line)?.let { socName = it.value }
+            if (socCode == null) SOC_CODE_RE.find(line)?.let { socCode = it.groupValues[1] }
+            if (cpuName == null) CPU_RE.find(line)?.let { cpuName = it.groupValues[1].trim() }
             if (ramMb == null) {
-                Regex("""PhysicalMemoryMB:\s*(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let { ramMb = it.groupValues[1].toIntOrNull() }
+                RAM_RE.find(line)?.let { ramMb = it.groupValues[1].toIntOrNull() }
                 if (ramMb == null) {
-                    Regex("""Platform has ~\s*([\d.]+)\s*GB""", RegexOption.IGNORE_CASE).find(line)?.let {
+                    RAM_GB_RE.find(line)?.let {
                         ramMb = (it.groupValues[1].toFloatOrNull()?.times(1024))?.toInt()
                     }
                 }
             }
             if (androidVersion == null) {
-                Regex("""LogInit.*OS:\s*Android\s*\((\d+)\)""", RegexOption.IGNORE_CASE).find(line)?.let {
-                    androidVersion = it.groupValues[1]
-                }
+                OS_RE.find(line)?.let { androidVersion = it.groupValues[1] }
             }
             if (resolution == null) {
-                Regex("""Resolution\s+(\d+)\s*[,xX×]?\s*(\d+)""", RegexOption.IGNORE_CASE).find(line)?.let {
+                RES_RE.find(line)?.let {
                     resolution = "${it.groupValues[1]}x${it.groupValues[2]}"
                 }
             }
             if (resolution == null) {
-                Regex("""ViewportSize\s+([\d.]+),\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(line)?.let {
+                VIEWPORT_RE.find(line)?.let {
                     val w = it.groupValues[1].toFloatOrNull()?.toInt()?.toString() ?: it.groupValues[1]
                     val h = it.groupValues[2].toFloatOrNull()?.toInt()?.toString() ?: it.groupValues[2]
                     resolution = "${w}x$h"
                 }
             }
             if (deviceProfile == null) {
-                Regex("""Selected Device Profile:\s*\[([^\]]+)\]""", RegexOption.IGNORE_CASE).find(line)?.let {
-                    deviceProfile = it.groupValues[1]
-                }
+                DEV_PROFILE_RE.find(line)?.let { deviceProfile = it.groupValues[1] }
             }
             if (fpsCap == null) {
-                Regex(
-                    """r\.FramePace\s*:\s*(?:requesting\s+\d+,\s*)?set\s*(?:as\s+)?(\d+)""",
-                    RegexOption.IGNORE_CASE,
-                ).find(line)?.let {
+                FRAME_PACE_RE.find(line)?.let {
                     fpsCap = it.groupValues[1].toIntOrNull()
                 }
             }
             if (fpsActual == null) {
-                Regex("""AverageFPS\s*[=:]\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(line)?.let {
-                    fpsActual = it.groupValues[1].toFloatOrNull()
-                }
+                AVG_FPS_RE.find(line)?.let { fpsActual = it.groupValues[1].toFloatOrNull() }
             }
             if (screenPct == null) {
-                Regex(
-                    """Value remains '(\d+\.?\d*)' .* r\.ScreenPercentage""",
-                    RegexOption.IGNORE_CASE,
-                ).find(line)?.let {
-                    screenPct = it.groupValues[1].toFloatOrNull()
-                }
+                SCREEN_PCT_RE.find(line)?.let { screenPct = it.groupValues[1].toFloatOrNull() }
             }
             if (shadowQ == null) {
-                Regex("""Value remains '(\d+)' .* sg\.ShadowQuality""", RegexOption.IGNORE_CASE).find(line)?.let {
-                    shadowQ = it.groupValues[1].toIntOrNull()
-                }
+                SHADOW_Q_RE.find(line)?.let { shadowQ = it.groupValues[1].toIntOrNull() }
             }
             if (qualityMode == null) {
-                Regex("""sg\.KuroRenderQuality\s*=\s*"(.*)"""", RegexOption.IGNORE_CASE).find(line)?.let {
-                    qualityMode = it.groupValues[1]
-                }
+                QUALITY_MODE_RE.find(line)?.let { qualityMode = it.groupValues[1] }
             }
             // ── CVar extraction ──
-            Regex("""Setting CVar \[\[([^:]+):([^\]]+)\]\]""", RegexOption.IGNORE_CASE).find(line)?.let {
+            CVar_SETTING_RE.find(line)?.let {
                 val value = it.groupValues[2].trim().substringBefore(';').trim()
                 activeCvars[it.groupValues[1].trim()] = value
             }
-            Regex("""Value remains '([^']+)' .* variable '([^']+)'""", RegexOption.IGNORE_CASE).find(line)?.let {
+            CVar_VALUE_RE.find(line)?.let {
                 val value = it.groupValues[1].trim().substringBefore(';').trim()
                 activeCvars[it.groupValues[2].trim()] = value
             }
 
             // ── Game API from LogRHI line ──
             if (gameApi == null) {
-                Regex("""LogRHI:\s*Initializing\s+(\S+(?:\s+\S+)*?)\s*RHI""", RegexOption.IGNORE_CASE).find(line)?.let { m ->
+                RHI_RE.find(line)?.let { m ->
                     val rhi = m.groupValues[1]
                     gameApi =
                         when {
@@ -374,7 +336,7 @@ object LogParser {
                 "传送:" in line && "完成" in line -> teleports++
                 "进入倒地状态" in line -> staggers++
                 line.contains("当前体力数据") && "UPs:" in line -> {
-                    val matches = Regex("UPs:(\\d+)").findAll(line)
+                    val matches = UPS_RE.findAll(line)
                     staminaUsed += matches.sumOf { it.groupValues[1].toIntOrNull() ?: 0 }
                 }
                 "召唤系幻象的出生特效" in line -> echoSkillsUsed++
@@ -404,4 +366,57 @@ object LogParser {
         val stats = parseBattleStatsLines(text.lines())
         return stats.copy(logSizeBytes = text.length.toLong())
     }
+
+    private val XOR_LUT =
+        ByteArray(256) { i -> (if (i % 2 == 1) (i xor 0xA5) else (i xor 0xEF)).toByte() }
+
+    private val FRAME_DROP_RE =
+        Regex("""frame\s*drop|hitch\s*detected|stutter\s*detected""", RegexOption.IGNORE_CASE)
+    private val THERMAL_RE =
+        Regex("""thermal\s*(?:throttle|limit|event|warning)""", RegexOption.IGNORE_CASE)
+    private val ADJUST_TRIGGER_RE = Regex("""自动渲染调节触发前""")
+    private val ADJUST_RECOVER_RE = Regex("""自动渲染调节恢复前""")
+
+    private val GPU_RE = Regex("""K#GPUFamily\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE)
+    private val GPU_LOGINIT_RE = Regex("""LogInit.*GPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE)
+    private val GPU_GENERIC_RE =
+        Regex("""(adreno\s*\d+|mali-g\d+|mali-\d+|xclipse\s*\d+|maleoon)""", RegexOption.IGNORE_CASE)
+    private val DEVMODEL_RE =
+        Regex("""K#DeviceModel\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE)
+    private val DEVMODEL_FALLBACK_RE =
+        Regex("""DeviceModel\s*:\s*([^\r\n,\]]+)""", RegexOption.IGNORE_CASE)
+    private val SOC_RE =
+        Regex("""(snapdragon|dimensity|exynos|kirin|helio)\s*\w*""", RegexOption.IGNORE_CASE)
+    private val SOC_CODE_RE = Regex("""rHn:(\w+)""", RegexOption.IGNORE_CASE)
+    private val CPU_RE = Regex("""LogInit.*CPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE)
+    private val RAM_RE = Regex("""PhysicalMemoryMB:\s*(\d+)""", RegexOption.IGNORE_CASE)
+    private val RAM_GB_RE =
+        Regex("""Platform has ~\s*([\d.]+)\s*GB""", RegexOption.IGNORE_CASE)
+    private val OS_RE = Regex("""LogInit.*OS:\s*Android\s*\((\d+)\)""", RegexOption.IGNORE_CASE)
+    private val RES_RE =
+        Regex("""Resolution\s+(\d+)\s*[,xX×]?\s*(\d+)""", RegexOption.IGNORE_CASE)
+    private val VIEWPORT_RE =
+        Regex("""ViewportSize\s+([\d.]+),\s*([\d.]+)""", RegexOption.IGNORE_CASE)
+    private val DEV_PROFILE_RE =
+        Regex("""Selected Device Profile:\s*\[([^\]]+)\]""", RegexOption.IGNORE_CASE)
+    private val FRAME_PACE_RE =
+        Regex(
+            """r\.FramePace\s*:\s*(?:requesting\s+\d+,\s*)?set\s*(?:as\s+)?(\d+)""",
+            RegexOption.IGNORE_CASE,
+        )
+    private val AVG_FPS_RE = Regex("""AverageFPS\s*[=:]\s*([\d.]+)""", RegexOption.IGNORE_CASE)
+    private val SCREEN_PCT_RE =
+        Regex("""Value remains '(\d+\.?\d*)' .* r\.ScreenPercentage""", RegexOption.IGNORE_CASE)
+    private val SHADOW_Q_RE =
+        Regex("""Value remains '(\d+)' .* sg\.ShadowQuality""", RegexOption.IGNORE_CASE)
+    private val QUALITY_MODE_RE =
+        Regex("""sg\.KuroRenderQuality\s*=\s*"(.*)"""", RegexOption.IGNORE_CASE)
+    private val CVar_SETTING_RE =
+        Regex("""Setting CVar \[\[([^:]+):([^\]]+)\]\]""", RegexOption.IGNORE_CASE)
+    private val CVar_VALUE_RE =
+        Regex("""Value remains '([^']+)' .* variable '([^']+)'""", RegexOption.IGNORE_CASE)
+    private val RHI_RE =
+        Regex("""LogRHI:\s*Initializing\s+(\S+(?:\s+\S+)*?)\s*RHI""", RegexOption.IGNORE_CASE)
+
+    private val UPS_RE = Regex("""UPs:(\d+)""")
 }

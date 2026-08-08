@@ -36,8 +36,6 @@ object ForbiddenCvars {
             "r.FEstimation.Option",
         )
 
-    private val forbiddenLower = ALL.map { it.lowercase() }.toSet()
-
     private val commonVariants =
         run {
             val variants = mutableSetOf<String>()
@@ -54,12 +52,7 @@ object ForbiddenCvars {
         }
 
     fun isForbidden(cvarKey: String): Boolean {
-        val key = cvarKey.trim().lowercase()
-        if (commonVariants.contains(key)) return true
-        if (forbiddenLower.any { key == it || key == "+$it" || key == "-$it" }) return true
-        val base = key.removePrefix("+").removePrefix("-")
-        if (forbiddenLower.contains(base)) return true
-        return false
+        return commonVariants.contains(cvarKey.trim().lowercase())
     }
 
     fun stripForbiddenCvars(iniContent: String): String {

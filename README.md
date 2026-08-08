@@ -260,13 +260,16 @@ app/
     ├── config/
     │   ├── ConfigGenerator.kt    # INI generation, 8 presets, Core.System paths, DeviceProfiles chipset mapping, EngineIniContext + 25 section builders
     │   ├── CvarDatabase.kt       # Loads 3 CVar files from assets, optimizeIniText (REDUNDANT/UNKNOWN comments)
-    │   ├── CvarCategorizer.kt    # Pure CVar categorization (419 lines, standalone object, 3-level matching, 18 categories)
+    │   ├── CvarCategorizer.kt    # Pure CVar categorization (standalone object, 3-level matching, 18 categories, testable without Android)
     │   ├── CvarOptimizer.kt      # GPU tier detection, per-device profile optimizer, adjustProfile for retune
-    │   ├── ConfigManager.kt      # Device I/O (1067 lines), backups, logs, profiles, battle stats, hash sync, readProfile, copyFile integration
+    │   ├── ConfigManager.kt      # Thin facade — keeps deploy/restore/clean API + delegates to BackupStore / ProfileExtractor / HashMonitor
+    │   ├── BackupStore.kt        # Backup create/list/delete + Client.log persistence (owns backupDir/publicDir)
+    │   ├── ProfileExtractor.kt   # All log read/decode (chunked, XOR-LUT decrypt), verifyDeployedCvars, readProfile, readBattleStats (parallelized)
+    │   ├── HashMonitor.kt        # KuroConfigMonitor hash file: refresh (MD5, ModifyCount cap 8, atomic .new+mv), snapshot/reconcile, modify counts
     │   ├── DeployHistoryStore.kt # Deploy history JSON persistence (20 records max, comparison)
-    │   ├── LogParser.kt          # Log decryption (XOR LUT), Convene URL extract, battle stat parse, CVar extraction, DecodeResult enum
-    │   ├── SmartBrain.kt         # Scoring engine (359 lines), 0-100, ~20 signals, preset recommendation
-    │   ├── ForbiddenCvars.kt     # 31 restricted CVars + variant handling, stripForbiddenCvars (called when restricted OFF)
+    │   ├── LogParser.kt          # Log decryption (XOR LUT), Convene URL extract, battle stat parse, CVar extraction, DecodeResult enum (per-line regexes pre-compiled)
+    │   ├── SmartBrain.kt         # Scoring engine, 0-100, ~20 signals, preset recommendation
+    │   ├── ForbiddenCvars.kt     # 31 restricted CVars, stripForbiddenCvars (called when restricted OFF)
     │   ├── BenchmarkTuner.kt     # Auto-tune state machine, FPS logcat parsing, preset stepping
     │   ├── GachaApi.kt           # Gacha API client (HTTP POST, 11 pool types, dynamic standard pool derivation, character/weapon pity calc)
     │   ├── GachaHistoryStore.kt  # Local gacha history persistence (12hr TTL)
@@ -292,15 +295,14 @@ app/
     │   ├── GachaPollService.kt      # Background gacha polling (30 attempts, 10s apart, LocalBroadcastManager)
     │   └── ShellUserService.kt      # Binder-based shell service for Shizuku UserService API (replaces reflection)
     └── ui/
-        ├── MainViewModel.kt      # Shared ViewModel (1477 lines) — all state, backend, deploy, verify, gacha, profile
+        ├── MainViewModel.kt      # Shared state holder (188 lines) — backend, deploy+verify, gacha, profile, deploy history, INI editor, auto-tune, theme/prefs
         ├── IniEditorViewModel.kt # INI editor ViewModel (syncConfigHashes, pushSingleFile, refreshConfigHashes)
-        ├── ConfigGenViewModel.kt # Config generator ViewModel (analysis, presets, generate, deploy, auto-tune)
         ├── SettingsViewModel.kt  # Settings ViewModel (theme, backgrounds, backup dir)
         ├── GachaViewModel.kt     # Gacha ViewModel (fetch history, predictions, polling)
         ├── ProfileViewModel.kt   # Profile ViewModel (read player profile, cache)
-        ├── DeployHistoryViewModel.kt # Deploy history ViewModel (list, compare, delete)
+        ├── DeployHistoryViewModel.kt # Deploy + device-analysis ViewModel (analyze, deploy, compare, battle stats, auto-tune)
         ├── components/
-        │   └── Components.kt     # GlassCard, GradientBackground, GlitchText, GlassButton, log viewer (623 lines)
+        │   └── Components.kt     # GlassCard, GradientBackground, GlitchText, GlassButton, log viewer (1182 lines)
         ├── screens/
         │   ├── HomeScreen.kt        # Backend control, custom config (backup scope dialog + success popup), clean config, quick actions, log viewer, deploy history
         │   ├── ConfigGenScreen.kt   # Analysis, presets, options, advanced tuning, auto-tune, verification (1182 lines)

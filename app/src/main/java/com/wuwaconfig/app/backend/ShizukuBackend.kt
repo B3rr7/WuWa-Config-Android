@@ -303,63 +303,46 @@ class ShizukuBackend : AccessBackend {
             }
         }
 
+    private suspend fun <T> readViaTemp(
+        path: String,
+        shellCmd: String,
+        decode: (File) -> T,
+    ): Result<T> {
+        val cacheDir = com.wuwaconfig.app.WuWaConfigApp.instance.cacheDir.absolutePath
+        var lastError: Exception? = null
+        for (attempt in 0..2) {
+            if (attempt > 0) delay(500L * attempt)
+            try {
+                val tmpFile = "$cacheDir/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}.tmp"
+                val cmd = "$shellCmd ${shQuote(path)} > ${shQuote(tmpFile)} 2>/dev/null; echo DONE"
+                val result = execOrThrow(cmd)
+                if (!result.contains("DONE")) {
+                    throw Exception("Command failed: $result")
+                }
+                val localFile = File(tmpFile)
+                if (!localFile.exists() || localFile.length() == 0L) {
+                    throw Exception("Temp file not found or empty: $tmpFile")
+                }
+                val out = decode(localFile)
+                execOrThrow("rm -f ${shQuote(tmpFile)}")
+                return Result.success(out)
+            } catch (e: Exception) {
+                lastError = e
+                LogRepository.add("Shizuku readViaTemp attempt $attempt failed: ${e.message}", LogLevel.WARNING)
+            }
+        }
+        LogRepository.add("Shizuku readViaTemp failed: ${lastError?.message}", LogLevel.ERROR)
+        return Result.failure(lastError ?: Exception("readViaTemp failed"))
+    }
+
     override suspend fun readFile(path: String): Result<String> =
         withContext(Dispatchers.IO) {
-            var lastError: Exception? = null
-            val cacheDir = com.wuwaconfig.app.WuWaConfigApp.instance.cacheDir.absolutePath
-            for (attempt in 0..2) {
-                if (attempt > 0) delay(500L * attempt)
-                try {
-                    val tmpFile = "$cacheDir/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}.txt"
-                    val cmd = "cat ${shQuote(path)} > ${shQuote(tmpFile)} 2>/dev/null; echo DONE"
-                    val result = execOrThrow(cmd)
-                    if (!result.contains("DONE")) {
-                        throw Exception("Command failed: $result")
-                    }
-                    val localFile = java.io.File(tmpFile)
-                    if (!localFile.exists() || localFile.length() == 0L) {
-                        throw Exception("Temp file not found or empty: $tmpFile")
-                    }
-                    val out = localFile.readText()
-                    execOrThrow("rm -f ${shQuote(tmpFile)}")
-                    return@withContext Result.success(out)
-                } catch (e: Exception) {
-                    lastError = e
-                    LogRepository.add("Shizuku readFile attempt $attempt failed: ${e.message}", LogLevel.WARNING)
-                }
-            }
-            LogRepository.add("Shizuku readFile failed: ${lastError?.message}", LogLevel.ERROR)
-            Result.failure(lastError ?: Exception("readFile failed"))
+            readViaTemp(path, "cat") { it.readText() }
         }
 
     override suspend fun readFileBytes(path: String): Result<ByteArray> =
         withContext(Dispatchers.IO) {
-            var lastError: Exception? = null
-            val cacheDir = com.wuwaconfig.app.WuWaConfigApp.instance.cacheDir.absolutePath
-            for (attempt in 0..2) {
-                if (attempt > 0) delay(500L * attempt)
-                try {
-                    val tmpFile = "$cacheDir/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}.b64"
-                    val cmd = "base64 -w0 ${shQuote(path)} > ${shQuote(tmpFile)} 2>/dev/null; echo DONE"
-                    val result = execOrThrow(cmd)
-                    if (!result.contains("DONE")) {
-                        throw Exception("Command failed: $result")
-                    }
-                    val localFile = java.io.File(tmpFile)
-                    if (!localFile.exists() || localFile.length() == 0L) {
-                        throw Exception("Temp file not found or empty: $tmpFile")
-                    }
-                    val b64 = localFile.readText().trim()
-                    execOrThrow("rm -f ${shQuote(tmpFile)}")
-                    val bytes = Base64.decode(b64, Base64.DEFAULT)
-                    return@withContext Result.success(bytes)
-                } catch (e: Exception) {
-                    lastError = e
-                    LogRepository.add("Shizuku readFileBytes attempt $attempt failed: ${e.message}", LogLevel.WARNING)
-                }
-            }
-            LogRepository.add("Shizuku readFileBytes failed: ${lastError?.message}", LogLevel.ERROR)
-            Result.failure(lastError ?: Exception("readFileBytes failed"))
+            readViaTemp(path, "base64 -w0") { Base64.decode(it.readText().trim(), Base64.DEFAULT) }
         }
 
     override suspend fun copyFile(

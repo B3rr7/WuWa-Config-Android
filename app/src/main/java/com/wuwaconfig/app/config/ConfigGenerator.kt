@@ -37,14 +37,46 @@ data class PresetProfile(
 
 val PRESETS =
     mapOf(
-        "potato" to PresetProfile(60, 0, 128, 0, 3, 0.3, 0.3, 0.4, 1, 5, 1500),
-        "endurance" to PresetProfile(70, 0, 128, 0, 3, 0.4, 0.4, 0.5, 1, 4, 2500),
-        "performance" to PresetProfile(60, 0, 256, 0, 3, 0.5, 0.5, 0.6, 0, 3, 4500),
-        "competitive" to PresetProfile(100, 2, 256, 0, 1, 1.0, 2.0, 1.0, 1, 1, 2000),
-        "balanced" to PresetProfile(80, 2, 1024, 1, 0, 2.0, 1.5, 2.0, 1, 0, 15000),
-        "high" to PresetProfile(100, 4, 2048, 2, 0, 3.0, 2.0, 2.5, 2, 0, 20000),
-        "ultra" to PresetProfile(100, 5, 2048, 4, -1, 4.0, 3.0, 3.0, 3, -1, 30000),
-        "cinematic" to PresetProfile(100, 5, 4096, 4, -2, 6.0, 4.0, 4.0, 4, -2, 40000),
+        "potato" to
+            PresetProfile(
+                screen = 60, shadow = 0, shadowRes = 128, ssr = 0, mipbias = 3,
+                streaming = 0.3, vd = 0.3, flod = 0.4, detail = 1, lod_bias = 5, grasscull = 1500,
+            ),
+        "endurance" to
+            PresetProfile(
+                screen = 70, shadow = 0, shadowRes = 128, ssr = 0, mipbias = 3,
+                streaming = 0.4, vd = 0.4, flod = 0.5, detail = 1, lod_bias = 4, grasscull = 2500,
+            ),
+        "performance" to
+            PresetProfile(
+                screen = 60, shadow = 0, shadowRes = 256, ssr = 0, mipbias = 3,
+                streaming = 0.5, vd = 0.5, flod = 0.6, detail = 0, lod_bias = 3, grasscull = 4500,
+            ),
+        "competitive" to
+            PresetProfile(
+                screen = 100, shadow = 2, shadowRes = 256, ssr = 0, mipbias = 1,
+                streaming = 1.0, vd = 2.0, flod = 1.0, detail = 1, lod_bias = 1, grasscull = 2000,
+            ),
+        "balanced" to
+            PresetProfile(
+                screen = 80, shadow = 2, shadowRes = 1024, ssr = 1, mipbias = 0,
+                streaming = 2.0, vd = 1.5, flod = 2.0, detail = 1, lod_bias = 0, grasscull = 15000,
+            ),
+        "high" to
+            PresetProfile(
+                screen = 100, shadow = 4, shadowRes = 2048, ssr = 2, mipbias = 0,
+                streaming = 3.0, vd = 2.0, flod = 2.5, detail = 2, lod_bias = 0, grasscull = 20000,
+            ),
+        "ultra" to
+            PresetProfile(
+                screen = 100, shadow = 5, shadowRes = 2048, ssr = 4, mipbias = -1,
+                streaming = 4.0, vd = 3.0, flod = 3.0, detail = 3, lod_bias = -1, grasscull = 30000,
+            ),
+        "cinematic" to
+            PresetProfile(
+                screen = 100, shadow = 5, shadowRes = 4096, ssr = 4, mipbias = -2,
+                streaming = 6.0, vd = 4.0, flod = 4.0, detail = 4, lod_bias = -2, grasscull = 40000,
+            ),
     )
 
 class ConfigGenerator(private val cvarDatabase: CvarDatabase) {

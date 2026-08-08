@@ -10,6 +10,7 @@ import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,8 +24,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val configGenerator get() = app.configGenerator
     val cvarDatabase get() = app.cvarDatabase
 
-    private val configManager: ConfigManager
-        get() = ConfigManager(app, app.backend)
+    private val configManager: ConfigManager by lazy { ConfigManager(app, app.backend) }
 
     private val prefs = application.getSharedPreferences("wuwaconfig", Context.MODE_PRIVATE)
 
@@ -175,7 +175,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         message: String,
         level: LogLevel = detectLevel(message),
     ) {
-        com.wuwaconfig.app.model.LogRepository.add(message, level)
+        LogRepository.add(message, level)
     }
 
     private fun detectLevel(message: String): LogLevel =

@@ -869,18 +869,31 @@
   });
 
   var lastBit = 0;
+  /* Fixed pool of 8 reused nodes — avoids create/append/remove churn per event */
+  var bitPool = [];
+  var bitIdx = 0;
+  for (var b = 0; b < 8; b++) {
+    var pe = document.createElement('div');
+    pe.className = 'bit-trail';
+    pe.style.display = 'none';
+    document.body.appendChild(pe);
+    bitPool.push(pe);
+  }
   document.addEventListener('mousemove', function(e) {
     var now = Date.now();
     if (now - lastBit < 60) return;
     lastBit = now;
-    var bit = document.createElement('div');
-    bit.className = 'bit-trail';
+    var bit = bitPool[bitIdx];
+    bitIdx = (bitIdx + 1) % bitPool.length;
     bit.textContent = Math.random() > .5 ? '1' : '0';
     bit.style.left = (e.clientX + (Math.random() * 16 - 8)) + 'px';
     bit.style.top = (e.clientY + (Math.random() * 16 - 8)) + 'px';
     bit.style.color = (!document.body.classList.contains('light') && Math.random() > .5) ? '#ff4466' : '';
-    document.body.appendChild(bit);
-    setTimeout(function() { bit.remove(); }, 1000);
+    bit.style.display = 'block';
+    /* Re-trigger bitFade: reset, force reflow, reapply */
+    bit.style.animation = 'none';
+    void bit.offsetHeight;
+    bit.style.animation = '';
   });
 
   var hoverEls = document.querySelectorAll('.feature-card, .mini-card, .access-card, .stat-card, .step, .link-card, .signal, .btn, table, .access-card');
@@ -892,8 +905,7 @@
   function tick() {
     cx += (mx - cx) * .12;
     cy += (my - cy) * .12;
-    cursor.style.left = cx + 'px';
-    cursor.style.top = cy + 'px';
+    cursor.style.transform = 'translate3d(' + cx + 'px,' + cy + 'px,0) translate(-50%, -50%)';
     requestAnimationFrame(tick);
   }
   tick();
@@ -969,6 +981,12 @@
     var next = document.body.classList.contains('light') ? 'dark' : 'light';
     apply(next);
     try { localStorage.setItem('wuwa-index-theme', next); } catch (e) {}
+  });
+})();
+
+(function() {
+  document.addEventListener('visibilitychange', function() {
+    document.body.classList.toggle('tab-hidden', document.hidden);
   });
 })();
 </script>
