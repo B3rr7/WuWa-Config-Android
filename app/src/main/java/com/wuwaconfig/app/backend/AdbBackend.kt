@@ -231,12 +231,37 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         targetPath: String,
     ): Result<String> {
         val parent = java.io.File(targetPath).parent
-        val mkdirCmd = "mkdir -p ${shQuote(parent)}"
-        client.executeShellCommand(mkdirCmd)
+        client.executeShellCommand("mkdir -p ${shQuote(parent)}")
         val cpCmd = "cp ${shQuote(sourcePath)} ${shQuote(targetPath)}"
         var result = client.executeShellCommand(cpCmd)
         if (result.isFailure) {
             result = client.executeShellCommandWithRunAs(GAME_PKG, cpCmd)
+        }
+        // executeShellCommand ignores the process exit code, so a failed cp (e.g. shell
+        // cannot write into the app's private data dir) is reported as success. Verify
+        // the file actually landed; if not, stage it through world-writable
+        // /data/local/tmp (which shell can write and the app process can read) and move
+        // it into place with an in-process file op the app UID is allowed to perform.
+        val landedOut = client.executeShellCommand("test -f ${shQuote(targetPath)} && echo 1 || echo 0")
+        val landed = landedOut.getOrNull()?.trim() == "1"
+        if (!landed) {
+            val stage = "/data/local/tmp/wuwa_cp_${System.currentTimeMillis()}_${(0..9999).random()}"
+            val stageResult = client.executeShellCommand("cp ${shQuote(sourcePath)} ${shQuote(stage)}")
+            if (stageResult.isSuccess) {
+                // The staged file is owned by shell with mode 660, which the app UID
+                // cannot read. Make it world-readable so the in-process copy below
+                // (run as the app UID) can read it.
+                client.executeShellCommand("chmod 644 ${shQuote(stage)}")
+                return try {
+                    java.io.File(targetPath).parentFile?.mkdirs()
+                    java.io.File(stage).copyTo(java.io.File(targetPath), overwrite = true)
+                    Result.success(targetPath)
+                } catch (e: Exception) {
+                    Result.failure(e)
+                } finally {
+                    java.io.File(stage).delete()
+                }
+            }
         }
         return result.map { targetPath }
     }
