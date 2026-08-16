@@ -95,15 +95,14 @@ fun PityScreen(
                 if (conveneUrlLoading || gachaLoading) {
                     item {
                         GlassButton(
-                            onClick = { viewModel.startBackgroundPoll() },
+                            onClick = { viewModel.stopReading() },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = backendStatus.connected,
-                            accentColor = NeonCyan,
+                            accentColor = NeonRed,
                             contentColor = Color.White,
                         ) {
-                            Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(10.dp))
-                            Text("Poll in Background", fontWeight = FontWeight.Bold)
+                            Text("Stop Reading", fontWeight = FontWeight.Bold)
                         }
                     }
                 }

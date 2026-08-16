@@ -20,8 +20,8 @@ import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
-import com.wuwaconfig.app.service.GachaPollService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,6 +49,8 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _gachaHistory = MutableStateFlow<GachaHistoryEntry?>(null)
     val gachaHistory: StateFlow<GachaHistoryEntry?> = _gachaHistory.asStateFlow()
+
+    private var readJob: Job? = null
 
     private fun addLog(
         message: String,
@@ -98,12 +100,6 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startBackgroundPoll() {
-        val ctx = getApplication<Application>()
-        ctx.startForegroundService(Intent(ctx, GachaPollService::class.java))
-        addLog("Background polling started (notification active)")
-    }
-
     fun clearGachaHistory() {
         GachaHistoryStore.delete(getApplication())
         _gachaHistory.value = null
@@ -126,54 +122,68 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun extractConveneUrl(retryCount: Int = 6) {
         if (_conveneUrlLoading.value || _gachaLoading.value) return
-        viewModelScope.launch {
-            _conveneUrl.value = null
-            _gachaData.value = null
-            _conveneUrlLoading.value = true
-            var remaining = retryCount
-            while (remaining >= 0) {
-                addLog(
-                    "Reading Client.log for Convene URL${if (remaining < retryCount) {
-                        " (attempt ${retryCount - remaining + 1}/$retryCount)"
-                    } else {
-                        ""
-                    }}...",
-                )
+        readJob =
+            viewModelScope.launch {
                 try {
-                    val result =
-                        configManager.readClientLogTextWithMetadata { pct ->
-                            if (pct % 25 == 0 && remaining == retryCount) addLog("Reading... $pct%")
-                        }
-                    if (result.isSuccess) {
-                        val (text, _) = result.getOrThrow()
-                        val url =
-                            withContext(Dispatchers.Default) {
-                                LogParser.extractConveneUrl(text)
+                    _conveneUrl.value = null
+                    _gachaData.value = null
+                    _conveneUrlLoading.value = true
+                    var remaining = retryCount
+                    while (remaining >= 0) {
+                        addLog(
+                            "Reading Client.log for Convene URL${if (remaining < retryCount) {
+                                " (attempt ${retryCount - remaining + 1}/$retryCount)"
+                            } else {
+                                ""
+                            }}...",
+                        )
+                        try {
+                            val result =
+                                configManager.readClientLogTextWithMetadata { pct ->
+                                    if (pct % 25 == 0 && remaining == retryCount) addLog("Reading... $pct%")
+                                }
+                            if (result.isSuccess) {
+                                val (text, _) = result.getOrThrow()
+                                val url =
+                                    withContext(Dispatchers.Default) {
+                                        LogParser.extractConveneUrl(text)
+                                    }
+                                if (url != null) {
+                                    addLog("Found Convene URL")
+                                    _conveneUrl.value = url
+                                    _conveneUrlLoading.value = false
+                                    fetchGachaData(url)
+                                    return@launch
+                                }
                             }
-                        if (url != null) {
-                            addLog("Found Convene URL")
-                            _conveneUrl.value = url
-                            _conveneUrlLoading.value = false
-                            fetchGachaData(url)
-                            return@launch
+                            if (remaining > 0) {
+                                addLog("URL not found yet — retrying in 10s...")
+                                kotlinx.coroutines.delay(10_000)
+                            } else {
+                                addLog("No Convene URL found after $retryCount attempts.")
+                                addLog("Open Convene History in-game, wait a moment, then tap again.")
+                            }
+                        } catch (e: Exception) {
+                            addLog("CRASH: ${e.message}")
+                            Log.e("WuWaConfig", "extractConveneUrl crashed", e)
+                            break
                         }
+                        remaining--
                     }
-                    if (remaining > 0) {
-                        addLog("URL not found yet — retrying in 10s...")
-                        kotlinx.coroutines.delay(10_000)
-                    } else {
-                        addLog("No Convene URL found after $retryCount attempts.")
-                        addLog("Open Convene History in-game, wait a moment, then tap again.")
-                    }
-                } catch (e: Exception) {
-                    addLog("CRASH: ${e.message}")
-                    Log.e("WuWaConfig", "extractConveneUrl crashed", e)
-                    break
+                } finally {
+                    _conveneUrlLoading.value = false
+                    readJob = null
                 }
-                remaining--
             }
-            _conveneUrlLoading.value = false
-        }
+    }
+
+    fun stopReading() {
+        if (readJob == null && !_conveneUrlLoading.value && !_gachaLoading.value) return
+        readJob?.cancel()
+        readJob = null
+        _conveneUrlLoading.value = false
+        _gachaLoading.value = false
+        addLog("Reading stopped")
     }
 
     private suspend fun fetchGachaData(url: String) {

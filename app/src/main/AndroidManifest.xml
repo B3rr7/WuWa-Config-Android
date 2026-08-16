@@ -56,10 +56,6 @@
             android:name=".service.AdbConnectionService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
-        <service
-            android:name=".service.GachaPollService"
-            android:foregroundServiceType="dataSync"
-            android:exported="false" />
 
         <service
             android:name=".service.ShellUserService"
