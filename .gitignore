@@ -21,8 +21,3 @@ ue4_commands.txt
 *.md5
 *.b64
 
-# Tooling / generated artifacts
-.codebase-memory/
-.vscode/
-graphify-out/
-
