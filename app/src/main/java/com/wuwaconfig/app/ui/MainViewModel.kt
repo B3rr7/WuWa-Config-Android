@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.wuwaconfig.app.PREFS_NAME
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.model.GeneratorOptions
@@ -24,9 +25,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val configGenerator get() = app.configGenerator
     val cvarDatabase get() = app.cvarDatabase
 
-    private val configManager: ConfigManager by lazy { ConfigManager(app, app.backend) }
+    private val configManager: ConfigManager by lazy { ConfigManager(app, { app.backend }) }
 
-    private val prefs = application.getSharedPreferences("wuwaconfig", Context.MODE_PRIVATE)
+    private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     val deployHistoryEnabled: StateFlow<Boolean> = app.deployHistoryEnabled
     val colorfulUi: StateFlow<Boolean> = app.colorfulUi

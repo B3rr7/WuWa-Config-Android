@@ -32,11 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import com.wuwaconfig.app.BuildConfig
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.config.ChipsetDetector.ChipsetInfo
 import com.wuwaconfig.app.ui.SettingsViewModel
+import com.wuwaconfig.app.ui.UpdateState
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassCardHeader
 import com.wuwaconfig.app.ui.components.GlassDialog
@@ -60,6 +62,7 @@ fun SettingsScreen(
     var showBackupDirDialog by remember { mutableStateOf(false) }
     var newBackupDir by remember { mutableStateOf(backupStorageDir) }
     var showRemoveBgDialog by remember { mutableStateOf(false) }
+    var showInstallDialog by remember { mutableStateOf(false) }
 
     val ctx = LocalContext.current
     val app = WuWaConfigApp.instance
@@ -67,6 +70,12 @@ fun SettingsScreen(
     val videoUri by app.backgroundVideoUri.collectAsStateWithLifecycle()
     val bgAlpha by app.backgroundOpacity.collectAsStateWithLifecycle()
     val hasBg = imageUri != null || videoUri != null
+
+    val updateState by viewModel.updateState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(updateState) {
+        if (updateState is UpdateState.Ready) showInstallDialog = true
+    }
 
     val imagePickerLauncher =
         rememberLauncherForActivityResult(
@@ -439,6 +448,101 @@ fun SettingsScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
+                GlassCard(accentColor = NeonGreen) {
+                    GlassCardHeader("App Updates", NeonGreen)
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        FilledTonalButton(
+                            onClick = { viewModel.checkForUpdates() },
+                            enabled = updateState !is UpdateState.Checking && updateState !is UpdateState.Downloading,
+                            colors =
+                                ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = NeonGreen.copy(alpha = 0.12f),
+                                    contentColor = NeonGreen,
+                                ),
+                        ) { Text("Check for updates", fontWeight = FontWeight.Bold) }
+                        if (updateState is UpdateState.Available) {
+                            FilledTonalButton(
+                                onClick = { viewModel.downloadAndInstall() },
+                                enabled = updateState !is UpdateState.Downloading,
+                                colors =
+                                    ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = NeonBlue.copy(alpha = 0.12f),
+                                        contentColor = NeonBlue,
+                                    ),
+                            ) { Text("Download & Install", fontWeight = FontWeight.Bold) }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    when (val state = updateState) {
+                        is UpdateState.Idle ->
+                            Text(
+                                "Current version: ${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        is UpdateState.Checking ->
+                            Text("Checking for updates…", style = MaterialTheme.typography.bodySmall, color = NeonGreen)
+                        is UpdateState.NoUpdate ->
+                            Text(
+                                "You're on the latest version (${BuildConfig.VERSION_NAME})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        is UpdateState.Available ->
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    "Update available: v${state.info.versionName}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonBlue,
+                                )
+                                if (state.info.notes.isNotBlank()) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        state.info.notes,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 4,
+                                    )
+                                }
+                            }
+                        is UpdateState.Downloading ->
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text("Downloading… ${state.progress}%", style = MaterialTheme.typography.bodySmall, color = NeonGreen)
+                                Spacer(Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { state.progress / 100f },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = NeonGreen,
+                                    trackColor = Color.White.copy(alpha = 0.1f),
+                                )
+                            }
+                        is UpdateState.Ready -> {
+                            Text("Update downloaded — ready to install", style = MaterialTheme.typography.bodySmall, color = NeonGreen)
+                            Spacer(Modifier.height(8.dp))
+                            FilledTonalButton(
+                                onClick = { viewModel.installNow() },
+                                colors =
+                                    ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = NeonBlue.copy(alpha = 0.12f),
+                                        contentColor = NeonBlue,
+                                    ),
+                            ) { Text("Install update", fontWeight = FontWeight.Bold) }
+                        }
+                        is UpdateState.Error ->
+                            Text(
+                                "Update error: ${state.message}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = NeonRed,
+                            )
+                    }
+                }
+
                 GlassCard(accentColor = NeonPurple) {
                     GlassCardHeader("Links", NeonPurple)
                     Spacer(Modifier.height(8.dp))
@@ -577,6 +681,39 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRemoveBgDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showInstallDialog && updateState is UpdateState.Ready) {
+        val ready = updateState as UpdateState.Ready
+        GlassDialog(
+            onDismissRequest = { showInstallDialog = false },
+            accentColor = NeonGreen,
+            title = { Text("Install update v${ready.versionName}", color = NeonGreen, fontWeight = FontWeight.Bold) },
+            text = {
+                if (ready.notes.isNotBlank()) {
+                    Text(ready.notes, style = MaterialTheme.typography.bodySmall)
+                } else {
+                    Text("Install the downloaded update? The app will hand off to the system installer.")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showInstallDialog = false
+                        viewModel.installNow()
+                    },
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = NeonGreen.copy(alpha = 0.15f),
+                            contentColor = NeonGreen,
+                        ),
+                    shape = RoundedCornerShape(10.dp),
+                ) { Text("Install", fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showInstallDialog = false }) { Text("Later") }
             },
         )
     }

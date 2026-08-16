@@ -5,6 +5,8 @@ import android.util.Log
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.PUSH_RETRY_COUNT
+import com.wuwaconfig.app.backend.SafBackend
+import com.wuwaconfig.app.backend.computeMd5
 import com.wuwaconfig.app.backend.shQuote
 import com.wuwaconfig.app.model.ConfigHashInfo
 import com.wuwaconfig.app.model.GamePaths
@@ -15,7 +17,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -43,8 +44,7 @@ class HashMonitor(
             return Result.failure(bytesResult.exceptionOrNull()!!)
         }
         val bytes = bytesResult.getOrThrow()
-        val md5 = MessageDigest.getInstance("MD5")
-        val hash = md5.digest(bytes).joinToString("") { "%02x".format(it) }
+        val hash = computeMd5(bytes)
         LogRepository.add("ConfigManager: computed hash for $name = $hash (${bytes.size} bytes)")
         return Result.success(hash)
     }
@@ -54,11 +54,14 @@ class HashMonitor(
             LogRepository.add("ConfigManager: HashMonitor disabled — skipping hash sync", LogLevel.WARNING)
             return Result.success("HashMonitor disabled — skipped")
         }
+        if (backend is SafBackend) {
+            LogRepository.add("ConfigManager: HashMonitor needs shell mv — skipped on SAF", LogLevel.WARNING)
+            return Result.success("HashMonitor skipped (SAF)")
+        }
         return hashMutex.withLock {
             withContext(Dispatchers.IO) {
                 try {
                     LogRepository.add("ConfigManager: refreshing config hashes")
-                    val md5 = MessageDigest.getInstance("MD5")
                     val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
 
                     val existingHashContent = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
@@ -176,7 +179,7 @@ class HashMonitor(
                                 } else {
                                     LogRepository.add("ConfigManager: first-time hash FAILED for $name, using fallback", LogLevel.ERROR)
                                     val content = backend.readFile("${GamePaths.TARGET_DIR}/$name").getOrDefault("")
-                                    md5.digest(content.toByteArray()).joinToString("") { "%02x".format(it) }
+                                    computeMd5(content.toByteArray())
                                 }
                             patchedLines.add("[$name]")
                             patchedLines.add("Hash=$hash")
@@ -216,21 +219,21 @@ class HashMonitor(
                     if (verifyResult.isSuccess) {
                         val stored = verifyResult.getOrThrow().trim()
                         if (stored == newContent.trim()) {
-                            Log.d("ConfigManager", "Config hashes refreshed and verified successfully")
+                            Log.d("HashMonitor", "Config hashes refreshed and verified successfully")
                             LogRepository.add("ConfigManager: hashes refreshed and verified", LogLevel.SUCCESS)
                             Result.success("Config hashes synced & verified")
                         } else {
-                            Log.e("ConfigManager", "Hash file read-back MISMATCH — hash may be corrupt")
+                            Log.e("HashMonitor", "Hash file read-back MISMATCH — hash may be corrupt")
                             LogRepository.add("ConfigManager: hash verify MISMATCH", LogLevel.ERROR)
                             Result.success("Config hashes synced (verify mismatch)")
                         }
                     } else {
-                        Log.w("ConfigManager", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
+                        Log.w("HashMonitor", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
                         LogRepository.add("ConfigManager: hash verify skipped", LogLevel.WARNING)
                         Result.success("Config hashes synced (verify skipped)")
                     }
                 } catch (e: Exception) {
-                    Log.w("ConfigManager", "Failed to refresh hashes: ${e.message}")
+                    Log.w("HashMonitor", "Failed to refresh hashes: ${e.message}")
                     LogRepository.add("ConfigManager: refreshConfigHashes failed: ${e.message}", LogLevel.ERROR)
                     Result.failure(e)
                 }
@@ -292,7 +295,7 @@ class HashMonitor(
                 if (results.isEmpty()) return@withContext Result.failure(Exception("No modify counts found"))
                 Result.success(results)
             } catch (e: Exception) {
-                Log.w("ConfigManager", "Failed to read modify counts: ${e.message}")
+                Log.w("HashMonitor", "Failed to read modify counts: ${e.message}")
                 Result.failure(e)
             }
         }

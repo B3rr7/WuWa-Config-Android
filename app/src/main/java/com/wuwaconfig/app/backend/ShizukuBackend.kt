@@ -1,6 +1,7 @@
 package com.wuwaconfig.app.backend
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.IBinder
@@ -18,7 +19,7 @@ import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-class ShizukuBackend : AccessBackend {
+class ShizukuBackend(private val context: android.content.Context) : AccessBackend {
     private var shellService: IShellService? = null
     private var serviceConnection: ServiceConnection? = null
 
@@ -188,38 +189,26 @@ class ShizukuBackend : AccessBackend {
             val bytes = sourceFile.readBytes()
             val localMd5 = computeMd5(sourceFile)
             val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-            val target = shQuote(targetPath)
-            val parent = File(targetPath).parent ?: return@withContext Result.failure(Exception("Invalid target path"))
+            if (File(targetPath).parent == null) {
+                return@withContext Result.failure(Exception("Invalid target path"))
+            }
 
             suspend fun doPush(): Result<String> {
                 val tmpB64 = "/data/local/tmp/wb64_${System.currentTimeMillis()}_${(0..9999).random()}"
-                val tq = shQuote(tmpB64)
-                val setup = "rm -f /data/local/tmp/wb64_* && mkdir -p ${shQuote(parent)}"
-                val chunkSize = maxPushChunkSize(tq)
-                val chunks = encoded.chunked(chunkSize)
-                val writes =
-                    chunks.mapIndexed { i, chunk ->
-                        val redir = if (i == 0) ">" else ">>"
-                        "printf '%s' ${shQuote(chunk)} $redir $tq"
-                    }
-                val decode = "base64 -d $tq > $target && rm -f $tq"
-                val verify = "md5sum $target 2>/dev/null | cut -d' ' -f1"
-                val fullCmd = (listOf(setup) + writes + listOf(decode, verify)).joinToString(" && ")
+                val target = shQuote(targetPath)
+                val plan = buildPushFilePlan(encoded, targetPath, tmpB64)
 
                 val result: String
-                if (fullCmd.length <= MAX_ARG_STRLEN) {
-                    result = execOrThrow(fullCmd)
+                if (plan.fitsSingleCommand) {
+                    result = execOrThrow(plan.joinedCommand)
                 } else {
-                    val scriptPath = "/data/local/tmp/wuwa_push_${System.currentTimeMillis()}.sh"
-                    val sq = shQuote(scriptPath)
-                    val scriptChunks = fullCmd.chunked(4096)
-                    val writeScript =
-                        scriptChunks.mapIndexed { i, chunk ->
-                            val redir = if (i == 0) ">" else ">>"
-                            "printf '%s' ${shQuote(chunk)} $redir $sq"
-                        }.joinToString(" && ")
-                    execOrThrow(writeScript)
-                    result = execOrThrow("chmod +x $sq && sh $sq && rm -f $sq")
+                    // Payload exceeds a single shell argument limit. Each write line is
+                    // already < MAX_ARG_STRLEN, so push the base64 in small per-chunk
+                    // commands instead of slicing the joined command string.
+                    execOrThrow(plan.setup)
+                    for (w in plan.writes) execOrThrow(w)
+                    execOrThrow(plan.decode)
+                    result = execOrThrow(plan.verify)
                 }
 
                 val remoteMd5 = result.trim()
@@ -308,7 +297,7 @@ class ShizukuBackend : AccessBackend {
         shellCmd: String,
         decode: (File) -> T,
     ): Result<T> {
-        val cacheDir = com.wuwaconfig.app.WuWaConfigApp.instance.cacheDir.absolutePath
+        val cacheDir = context.cacheDir.absolutePath
         var lastError: Exception? = null
         for (attempt in 0..2) {
             if (attempt > 0) delay(500L * attempt)
@@ -357,6 +346,19 @@ class ShizukuBackend : AccessBackend {
                 Result.success(targetPath)
             } catch (e: Exception) {
                 LogRepository.add("Shizuku copyFile failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
+
+    override suspend fun deleteFile(path: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            LogRepository.add("Shizuku delete: $path")
+            try {
+                execOrThrow("rm -f ${shQuote(path)}")
+                LogRepository.add("Shizuku delete completed: $path", LogLevel.SUCCESS)
+                Result.success(Unit)
+            } catch (e: Exception) {
+                LogRepository.add("Shizuku delete failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
             }
         }

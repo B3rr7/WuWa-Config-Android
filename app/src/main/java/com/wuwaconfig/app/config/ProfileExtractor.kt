@@ -129,12 +129,11 @@ class ProfileExtractor(
         val fileSize = sizeResult.getOrNull()?.trim()?.toLongOrNull() ?: 0L
         if (fileSize <= 0L) return Result.failure(Exception("Client.log is empty"))
 
-        return readRemoteLogTextChunked(path, fileSize, onProgress)
+        return readRemoteLogToText(path, onProgress)
     }
 
-    private suspend fun readRemoteLogTextChunked(
+    private suspend fun readRemoteLogToText(
         path: String,
-        fileSize: Long,
         onProgress: (Int) -> Unit = {},
     ): Result<Pair<String, LogParser.DecodeResult>> {
         val cacheDir = context.cacheDir.absolutePath
@@ -157,7 +156,7 @@ class ProfileExtractor(
             onProgress(95)
             return Result.success(text to decodeResult)
         } catch (e: Exception) {
-            Log.w("ConfigManager", "readRemoteLogTextChunked failed: ${e.message}")
+            Log.w("ProfileExtractor", "readRemoteLogToText failed: ${e.message}")
             return Result.failure(e)
         } finally {
             try {
@@ -167,29 +166,7 @@ class ProfileExtractor(
         }
     }
 
-    private suspend fun readFullFileText(path: String): Result<Pair<String, LogParser.DecodeResult>> =
-        runCatching {
-            val cacheDir = context.cacheDir.absolutePath
-            val localCopy = "$cacheDir/wuwa_full_copy_${System.currentTimeMillis()}"
-
-            backend.copyFile(path, localCopy).getOrThrow()
-
-            val localFile = File(localCopy)
-            if (!localFile.exists() || localFile.length() == 0L) {
-                throw Exception("Failed to copy file: $path")
-            }
-
-            val rawBytes = localFile.readBytes()
-            try {
-                localFile.delete()
-            } catch (_: Exception) {
-            }
-
-            val (text, decodeResult) = LogParser.decodeLogBytes(rawBytes)
-            text to decodeResult
-        }
-
-    suspend fun readFullClientLogWithMetadata(): Result<Pair<String, LogParser.DecodeResult>> = readFullFileText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
+    suspend fun readFullClientLogWithMetadata(): Result<Pair<String, LogParser.DecodeResult>> = readRemoteLogToText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
 
     suspend fun readFullLatestBackupLog(): Result<Pair<String, LogParser.DecodeResult>> =
         runCatching {
@@ -199,7 +176,7 @@ class ProfileExtractor(
                 result.getOrNull()?.trim()
                     ?: throw Exception("No backup log found")
             LogRepository.add("ConfigManager: reading full backup log: ${logPath.substringAfterLast("/")}")
-            readFullFileText(logPath).getOrThrow()
+            readRemoteLogToText(logPath).getOrThrow()
         }
 
     suspend fun readProfile(): Result<PlayerProfile> =
@@ -245,7 +222,7 @@ class ProfileExtractor(
                     )
                 Result.success(profile)
             } catch (e: Exception) {
-                Log.w("ConfigManager", "readProfile failed: ${e.message}")
+                Log.w("ProfileExtractor", "readProfile failed: ${e.message}")
                 Result.failure(e)
             } finally {
                 localDb?.close()
@@ -255,55 +232,56 @@ class ProfileExtractor(
             }
         }
 
-    suspend fun readBattleStats(): Result<BattleStats> {
-        val path = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
-        try {
-            val sizeRaw = backend.executeShellCommand("wc -c < \"$path\" 2>/dev/null").getOrDefault("0")
-            val fileSize = sizeRaw.trim().toLongOrNull() ?: 0L
-            if (fileSize <= 0L) return Result.failure(Exception("Client.log is empty"))
-
-            val cacheDir = context.cacheDir.absolutePath
-            val localCopy = "$cacheDir/wuwa_battlestats_${System.currentTimeMillis()}"
-
-            backend.copyFile(path, localCopy).getOrThrow()
-
-            val localFile = File(localCopy)
-            if (!localFile.exists() || localFile.length() == 0L) {
-                throw Exception("Failed to copy log file")
-            }
-
-            val rawBytes = localFile.readBytes()
+    suspend fun readBattleStats(): Result<BattleStats> =
+        withContext(Dispatchers.IO) {
+            val path = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
             try {
-                localFile.delete()
-            } catch (_: Exception) {
-            }
+                val sizeRaw = backend.executeShellCommand("wc -c < \"$path\" 2>/dev/null").getOrDefault("0")
+                val fileSize = sizeRaw.trim().toLongOrNull() ?: 0L
+                if (fileSize <= 0L) return@withContext Result.failure(Exception("Client.log is empty"))
 
-            val (text, _) = LogParser.decodeLogBytes(rawBytes)
-            val lines = text.lines()
+                val cacheDir = context.cacheDir.absolutePath
+                val localCopy = "$cacheDir/wuwa_battlestats_${System.currentTimeMillis()}"
 
-            val numCores = Runtime.getRuntime().availableProcessors().coerceIn(1, 8)
+                backend.copyFile(path, localCopy).getOrThrow()
 
-            val stats =
-                if (numCores <= 1 || lines.size < 5000) {
-                    LogParser.parseBattleStatsLines(lines)
-                } else {
-                    val chunkSize = (lines.size + numCores - 1) / numCores
-                    val partials =
-                        coroutineScope {
-                            lines.chunked(chunkSize)
-                                .map { chunk ->
-                                    async(Dispatchers.Default) { LogParser.parseBattleStatsLines(chunk) }
-                                }
-                                .awaitAll()
-                        }
-                    partials.reduce { a, b -> a + b }
+                val localFile = File(localCopy)
+                if (!localFile.exists() || localFile.length() == 0L) {
+                    throw Exception("Failed to copy log file")
                 }
-            return Result.success(stats.copy(logSizeBytes = fileSize))
-        } catch (e: Exception) {
-            Log.w("ConfigManager", "readBattleStats failed: ${e.message}")
-            return Result.failure(e)
+
+                val rawBytes = localFile.readBytes()
+                try {
+                    localFile.delete()
+                } catch (_: Exception) {
+                }
+
+                val (text, _) = LogParser.decodeLogBytes(rawBytes)
+                val lines = text.lines()
+
+                val numCores = Runtime.getRuntime().availableProcessors().coerceIn(1, 8)
+
+                val stats =
+                    if (numCores <= 1 || lines.size < 5000) {
+                        LogParser.parseBattleStatsLines(lines)
+                    } else {
+                        val chunkSize = (lines.size + numCores - 1) / numCores
+                        val partials =
+                            coroutineScope {
+                                lines.chunked(chunkSize)
+                                    .map { chunk ->
+                                        async(Dispatchers.Default) { LogParser.parseBattleStatsLines(chunk) }
+                                    }
+                                    .awaitAll()
+                            }
+                        partials.reduce { a, b -> a + b }
+                    }
+                return@withContext Result.success(stats.copy(logSizeBytes = fileSize))
+            } catch (e: Exception) {
+                Log.w("ProfileExtractor", "readBattleStats failed: ${e.message}")
+                return@withContext Result.failure(e)
+            }
         }
-    }
 
     private suspend fun countIniSettings(name: String): Int {
         val path = "${GamePaths.TARGET_DIR}/$name"
@@ -353,16 +331,6 @@ class ProfileExtractor(
         } catch (_: Exception) {
             null
         }
-    }
-
-    @Suppress("unused")
-    private suspend fun extractSavValue(
-        savName: String,
-        key: String,
-    ): String? {
-        val savPath = "${GamePaths.LOG_DIR.substringBeforeLast("/")}/SaveGames/$savName"
-        val raw = backend.executeShellCommand("strings \"$savPath\" 2>/dev/null | grep -A1 \"^$key\$\" | tail -1").getOrNull()?.trim()
-        return raw?.takeIf { it.isNotBlank() && !it.contains("StrProperty") }
     }
 
     private fun parseServerLevels(json: String?): List<Pair<String, Int>> {

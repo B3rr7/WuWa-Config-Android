@@ -10,6 +10,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.OutputStream
@@ -31,15 +33,19 @@ class AdbClient(private val crypto: AdbCrypto) {
 
     private val instanceId = System.identityHashCode(this)
 
-    private val keepaliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var keepaliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var keepaliveJob: Job? = null
     private var lastActivityMs = 0L
+
+    private val txMutex = Mutex()
 
     val isConnected: Boolean get() = connected
 
     private fun startKeepalive() {
         lastActivityMs = System.currentTimeMillis()
         keepaliveJob?.cancel()
+        keepaliveScope.cancel()
+        keepaliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         keepaliveJob =
             keepaliveScope.launch {
                 while (isActive && connected) {
@@ -174,56 +180,58 @@ class AdbClient(private val crypto: AdbCrypto) {
         withContext(Dispatchers.IO) {
             Log.d("AdbClient", "shell[$instanceId]: connected=$connected cmd=$command")
             if (!connected) return@withContext Result.failure(Exception("Not connected to ADB"))
-            markActivity()
-            val out = output ?: return@withContext Result.failure(Exception("ADB output not initialized"))
-            val inp = input ?: return@withContext Result.failure(Exception("ADB input not initialized"))
-            try {
-                val localId = localIdCounter.getAndIncrement()
-                AdbProtocol.writeMessage(out, AdbProtocol.createOpenMessage(localId, "shell:$command"))
+            txMutex.withLock {
+                markActivity()
+                val out = output ?: return@withLock Result.failure(Exception("ADB output not initialized"))
+                val inp = input ?: return@withLock Result.failure(Exception("ADB input not initialized"))
+                try {
+                    val localId = localIdCounter.getAndIncrement()
+                    AdbProtocol.writeMessage(out, AdbProtocol.createOpenMessage(localId, "shell:$command"))
 
-                val response = StringBuilder()
-                var remoteId = 0
+                    val response = StringBuilder()
+                    var remoteId = 0
 
-                loop@ while (true) {
-                    val message = AdbProtocol.readMessage(inp) ?: break
-                    when {
-                        message.command.contentEquals(AdbProtocol.OKAY) -> {
-                            if (remoteId == 0) remoteId = message.arg0
-                        }
-                        message.command.contentEquals(AdbProtocol.WRTE) -> {
-                            // Only process messages for our stream
-                            if (remoteId > 0 && message.arg1 != localId) continue@loop
-                            if (remoteId == 0) remoteId = message.arg1
-                            response.append(String(message.payload, Charsets.UTF_8))
-                            AdbProtocol.writeMessage(out, AdbProtocol.createOkMessage(message.arg1, message.arg0))
-                        }
-                        message.command.contentEquals(AdbProtocol.CLSE) -> {
-                            // ADB daemon may send WRTE after CLSE (pipe buffer drain race).
-                            // Only break for our stream, then drain trailing messages.
-                            if (remoteId == 0 || message.arg1 == localId) {
-                                drainTrailingWrite(localId, response)
-                                break@loop
+                    loop@ while (true) {
+                        val message = AdbProtocol.readMessage(inp) ?: break
+                        when {
+                            message.command.contentEquals(AdbProtocol.OKAY) -> {
+                                if (remoteId == 0) remoteId = message.arg0
+                            }
+                            message.command.contentEquals(AdbProtocol.WRTE) -> {
+                                // Only process messages for our stream
+                                if (remoteId > 0 && message.arg1 != localId) continue@loop
+                                if (remoteId == 0) remoteId = message.arg1
+                                response.append(String(message.payload, Charsets.UTF_8))
+                                AdbProtocol.writeMessage(out, AdbProtocol.createOkMessage(message.arg1, message.arg0))
+                            }
+                            message.command.contentEquals(AdbProtocol.CLSE) -> {
+                                // ADB daemon may send WRTE after CLSE (pipe buffer drain race).
+                                // Only break for our stream, then drain trailing messages.
+                                if (remoteId == 0 || message.arg1 == localId) {
+                                    drainTrailingWrite(localId, response)
+                                    break@loop
+                                }
                             }
                         }
                     }
-                }
 
-                val result = response.toString()
-                Log.d("AdbClient", "shell[$instanceId]: result='${result.take(200)}'")
-                Result.success(result)
-            } catch (e: Exception) {
-                val socketDead =
-                    when (e) {
-                        is SocketException -> {
-                            val msg = e.message?.lowercase() ?: ""
-                            listOf("closed", "reset", "broken pipe", "connection").any { msg.contains(it) }
+                    val result = response.toString()
+                    Log.d("AdbClient", "shell[$instanceId]: result='${result.take(200)}'")
+                    Result.success(result)
+                } catch (e: Exception) {
+                    val socketDead =
+                        when (e) {
+                            is SocketException -> {
+                                val msg = e.message?.lowercase() ?: ""
+                                listOf("closed", "reset", "broken pipe", "connection").any { msg.contains(it) }
+                            }
+                            is SocketTimeoutException -> false
+                            else -> false
                         }
-                        is SocketTimeoutException -> false
-                        else -> false
-                    }
-                Log.d("AdbClient", "shell[$instanceId]: exception: $e (socketDead=$socketDead)")
-                if (socketDead) connected = false
-                Result.failure(e)
+                    Log.d("AdbClient", "shell[$instanceId]: exception: $e (socketDead=$socketDead)")
+                    if (socketDead) connected = false
+                    Result.failure(e)
+                }
             }
         }
 
@@ -235,7 +243,6 @@ class AdbClient(private val crypto: AdbCrypto) {
         val out = output ?: return
         val inp = input ?: return
         val originalTimeout = sock.soTimeout
-        var remoteId = 0
         try {
             sock.soTimeout = 500
             var iterations = 0
@@ -244,18 +251,17 @@ class AdbClient(private val crypto: AdbCrypto) {
                 val msg = AdbProtocol.readMessage(inp) ?: break
                 when {
                     msg.command.contentEquals(AdbProtocol.WRTE) && msg.arg1 == localId -> {
-                        if (remoteId == 0) remoteId = msg.arg0
                         response.append(String(msg.payload, Charsets.UTF_8))
                         AdbProtocol.writeMessage(out, AdbProtocol.createOkMessage(msg.arg1, msg.arg0))
                     }
                     msg.command.contentEquals(AdbProtocol.CLSE) && msg.arg1 == localId -> {
-                        if (remoteId == 0) remoteId = msg.arg0
                         break
                     }
                     else -> break
                 }
             }
-        } catch (_: java.net.SocketTimeoutException) {
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.w("AdbClient", "drainTrailingWrite socket timeout: ${e.message}")
         } finally {
             sock.soTimeout = originalTimeout
         }

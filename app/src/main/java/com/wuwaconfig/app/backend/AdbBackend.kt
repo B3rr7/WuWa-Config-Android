@@ -96,21 +96,17 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         val parent = File(targetPath).parent ?: return Result.failure(Exception("Invalid target path"))
 
         suspend fun doPush(): Result<String> {
-            client.executeShellCommand("rm -f /data/local/tmp/wuwaconfig_*.b64")
             val mkdirCmd = "mkdir -p ${shQuote(parent)}"
             val mkdirResult = client.executeShellCommand(mkdirCmd)
             if (mkdirResult.isFailure) {
                 client.executeShellCommandWithRunAs(GAME_PKG, mkdirCmd)
             }
             client.executeShellCommand("rm -f ${shQuote(encodedPath)}")
-            val chunkSize = maxPushChunkSize(encodedPath)
-            val chunks = encoded.chunked(chunkSize)
-            for ((i, chunk) in chunks.withIndex()) {
-                val redirect = if (i == 0) ">" else ">>"
+            val plan = buildPushFilePlan(encoded, targetPath, encodedPath)
+            for (w in plan.writes) {
                 var lastErr: Result<String>? = null
                 for (attempt in 0..PUSH_RETRY_COUNT) {
-                    val appendCmd = "printf '%s' ${shQuote(chunk)} $redirect ${shQuote(encodedPath)}"
-                    val r = client.executeShellCommand(appendCmd)
+                    val r = client.executeShellCommand(w)
                     if (r.isSuccess) {
                         lastErr = null
                         break
@@ -243,5 +239,15 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
             result = client.executeShellCommandWithRunAs(GAME_PKG, cpCmd)
         }
         return result.map { targetPath }
+    }
+
+    override suspend fun deleteFile(path: String): Result<Unit> {
+        val cmd = "rm -f ${shQuote(path)}"
+        val result = client.executeShellCommand(cmd)
+        return if (result.isSuccess) {
+            Result.success(Unit)
+        } else {
+            client.executeShellCommandWithRunAs(GAME_PKG, cmd).map { Unit }
+        }
     }
 }

@@ -33,8 +33,7 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         application as? WuWaConfigApp
             ?: throw IllegalStateException("GachaViewModel requires WuWaConfigApp application")
 
-    private val configManager: ConfigManager
-        get() = ConfigManager(app, app.backend)
+    private val configManager: ConfigManager by lazy { ConfigManager(app, { app.backend }) }
 
     private val _conveneUrl = MutableStateFlow<String?>(null)
     val conveneUrl: StateFlow<String?> = _conveneUrl.asStateFlow()
@@ -70,9 +69,11 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
                     val data = Gson().fromJson<GachaData>(json, type)
                     _gachaData.value = data
                     _conveneUrl.value = "found"
-                    GachaHistoryStore.save(getApplication(), data)
-                    _gachaHistory.value = GachaHistoryStore.load(getApplication())
-                    addLog("Background poll: loaded ${data.totalPulls} pulls (${data.fiveStars}★5)")
+                    viewModelScope.launch(Dispatchers.IO) {
+                        GachaHistoryStore.save(getApplication(), data)
+                        _gachaHistory.value = GachaHistoryStore.load(getApplication())
+                        addLog("Background poll: loaded ${data.totalPulls} pulls (${data.fiveStars}★5)")
+                    }
                 } catch (_: Exception) {
                 }
             }
@@ -87,6 +88,14 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         } catch (_: Exception) {
         }
         _gachaHistory.value = GachaHistoryStore.load(getApplication())
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            LocalBroadcastManager.getInstance(getApplication()).unregisterReceiver(gachaReceiver)
+        } catch (_: Exception) {
+        }
     }
 
     fun startBackgroundPoll() {

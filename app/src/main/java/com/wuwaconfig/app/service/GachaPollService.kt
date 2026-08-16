@@ -75,7 +75,7 @@ class GachaPollService : Service() {
             scope.launch {
                 val app = application as WuWaConfigApp
                 val backend = app.backend
-                val configManager = ConfigManager(this@GachaPollService, backend, null)
+                val configManager = ConfigManager(this@GachaPollService, { backend }, null)
                 var attempts = 0
                 val maxAttempts = 30
 

@@ -130,4 +130,8 @@ class RootBackend : AccessBackend {
         executeShellCommand("mkdir -p ${shQuote(parent)}")
         return executeShellCommand("cp ${shQuote(sourcePath)} ${shQuote(targetPath)}").map { targetPath }
     }
+
+    override suspend fun deleteFile(path: String): Result<Unit> {
+        return executeShellCommand("rm -f ${shQuote(path)}").map { Unit }
+    }
 }

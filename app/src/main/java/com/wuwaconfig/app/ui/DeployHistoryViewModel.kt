@@ -7,14 +7,17 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.wuwaconfig.app.PREFS_NAME
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.adb.PortScanner
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.backend.SafBackend
+import com.wuwaconfig.app.backend.computeMd5
 import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.config.DeployHistoryStore
+import com.wuwaconfig.app.config.extractHash
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.BattleStatsStore
 import com.wuwaconfig.app.model.ConfigBackup
@@ -46,7 +49,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     val configGenerator get() = app.configGenerator
     val cvarDatabase get() = app.cvarDatabase
 
-    val configManager: ConfigManager get() = ConfigManager(getApplication(), app.backend, backupStorageDir)
+    val configManager: ConfigManager get() = ConfigManager(getApplication(), { app.backend }, backupStorageDir)
 
     private val _backendStatus = MutableStateFlow(BackendStatus())
     val backendStatus: StateFlow<BackendStatus> = _backendStatus.asStateFlow()
@@ -90,7 +93,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     private val _readingProgress = MutableStateFlow(0)
     val readingProgress: StateFlow<Int> = _readingProgress.asStateFlow()
 
-    private val prefs = application.getSharedPreferences("wuwaconfig", Context.MODE_PRIVATE)
+    private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     val deployHistoryEnabled: StateFlow<Boolean> = app.deployHistoryEnabled
     val colorfulUi: StateFlow<Boolean> = app.colorfulUi
@@ -189,7 +192,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 if (method == AccessMethod.ADB) {
                     try {
                         getApplication<Application>().startForegroundService(Intent(getApplication(), AdbConnectionService::class.java))
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        addLog("WARN: failed to start ADB connection service: ${e.message}", LogLevel.WARNING)
                     }
                     val testAccess = backend.fileExists("${com.wuwaconfig.app.model.GamePaths.TARGET_DIR}/Engine.ini")
                     if (testAccess.isSuccess) {
@@ -225,7 +229,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     fun requestShizukuPermission() {
         try {
             Shizuku.requestPermission(1001)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            addLog("WARN: Shizuku.requestPermission failed: ${e.message}", LogLevel.WARNING)
         }
     }
 
@@ -245,7 +250,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     init {
         try {
             Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            addLog("WARN: Shizuku listener register failed: ${e.message}", LogLevel.WARNING)
         }
     }
 
@@ -253,7 +259,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         super.onCleared()
         try {
             Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            addLog("WARN: Shizuku listener unregister failed: ${e.message}", LogLevel.WARNING)
         }
         app.backend.disconnect()
     }
@@ -281,7 +288,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     addLog("Connected to $host:$port!")
                     try {
                         getApplication<Application>().startForegroundService(Intent(getApplication(), AdbConnectionService::class.java))
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        addLog("WARN: failed to start ADB connection service: ${e.message}", LogLevel.WARNING)
                     }
                     loadBackups()
                 } else {
@@ -340,7 +348,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         if (method == AccessMethod.ADB) {
             try {
                 getApplication<Application>().stopService(Intent(getApplication(), AdbConnectionService::class.java))
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                addLog("WARN: failed to stop ADB connection service: ${e.message}", LogLevel.WARNING)
             }
         }
         _backendStatus.value = BackendStatus(method = method)
@@ -353,8 +362,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         selectedFiles: Set<String>? = null,
     ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
+        _isApplying.value = true
         viewModelScope.launch {
-            _isApplying.value = true
             try {
                 addLog("Creating backup: $name...")
                 val result = configManager.createBackup(name, selectedFiles = selectedFiles)
@@ -385,8 +394,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         selectedFiles: Set<String>? = null,
     ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
+        _isApplying.value = true
         viewModelScope.launch {
-            _isApplying.value = true
             try {
                 addLog("Restoring backup: ${backup.name}...")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
@@ -431,8 +440,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     fun collectClientLog() {
         if (_isApplying.value || !_backendStatus.value.connected) return
+        _isApplying.value = true
         viewModelScope.launch {
-            _isApplying.value = true
             try {
                 addLog("Collecting Client.log...")
                 val result = configManager.collectClientLog { msg -> addLog(msg) }
@@ -538,8 +547,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         retuneProfile: com.wuwaconfig.app.config.CvarOptimizer.OptimizedProfile? = null,
     ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
+        _isApplying.value = true
         viewModelScope.launch {
-            _isApplying.value = true
             try {
                 _verificationReport.value = null
                 addLog("Deploying generated configs...")
@@ -714,8 +723,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         backupAllInis: Boolean = false,
     ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
+        _isApplying.value = true
         viewModelScope.launch {
-            _isApplying.value = true
             try {
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
                 val fileNames =
@@ -779,8 +788,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     fun cleanConfigFiles() {
         if (_isApplying.value || !_backendStatus.value.connected) return
+        _isApplying.value = true
         viewModelScope.launch {
-            _isApplying.value = true
             try {
                 addLog("Cleaning config files...")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
@@ -812,8 +821,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     fun deleteSelectedConfigFiles(selectedFiles: Set<String>) {
         if (_isApplying.value || !_backendStatus.value.connected) return
+        _isApplying.value = true
         viewModelScope.launch {
-            _isApplying.value = true
             try {
                 addLog("Deleting ${selectedFiles.size} config file(s): ${selectedFiles.joinToString(", ")}")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
@@ -851,8 +860,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             return Result.failure(bytesResult.exceptionOrNull()!!)
         }
         val bytes = bytesResult.getOrThrow()
-        val md5 = java.security.MessageDigest.getInstance("MD5")
-        val hash = md5.digest(bytes).joinToString("") { "%02x".format(it) }
+        val hash = computeMd5(bytes)
         addLog("Hash sync: computed hash for $name = $hash (${bytes.size} bytes)")
         return Result.success(hash)
     }
@@ -895,24 +903,6 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             }
             onResult(needsRefresh)
         }
-    }
-
-    private fun extractHash(
-        hashContent: String,
-        fileName: String,
-    ): String? {
-        var inSection = false
-        val iniSectionRegex = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
-        for (line in hashContent.lines()) {
-            val t = line.trim()
-            if (t.equals("[$fileName]", ignoreCase = true)) {
-                inSection = true
-                continue
-            }
-            if (inSection && t.matches(iniSectionRegex)) break
-            if (inSection && t.startsWith("Hash=")) return t.removePrefix("Hash=").trim()
-        }
-        return null
     }
 
     suspend fun executeShellCommand(cmd: String): Result<String> {
@@ -982,8 +972,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     fun analyzeClientLog(allowRestrictedCvars: Boolean = true) {
         if (_isApplying.value || !_backendStatus.value.connected) return
+        _isApplying.value = true
         viewModelScope.launch {
-            _isApplying.value = true
             _logAnalysis.value = null
             _brainRecommendation.value = null
             try {
@@ -1042,8 +1032,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         allowRestrictedCvars: Boolean = true,
     ) {
         if (_isApplying.value) return
+        _isApplying.value = true
         viewModelScope.launch {
-            _isApplying.value = true
             try {
                 _readingProgress.value = 0
                 addLog("Decoding imported log...")

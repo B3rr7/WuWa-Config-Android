@@ -4,7 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.wuwaconfig.app.WuWaConfigApp
+import com.wuwaconfig.app.backend.computeMd5
 import com.wuwaconfig.app.config.ConfigManager
+import com.wuwaconfig.app.config.extractHash
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
@@ -18,8 +20,7 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
         application as? WuWaConfigApp
             ?: throw IllegalStateException("IniEditorViewModel requires WuWaConfigApp application")
 
-    private val configManager: ConfigManager
-        get() = ConfigManager(app, app.backend)
+    private val configManager: ConfigManager by lazy { ConfigManager(app, { app.backend }) }
 
     private val _editingFileName = MutableStateFlow<String?>(null)
     val editingFileName: StateFlow<String?> = _editingFileName.asStateFlow()
@@ -151,27 +152,8 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
             return Result.failure(bytesResult.exceptionOrNull()!!)
         }
         val bytes = bytesResult.getOrThrow()
-        val md5 = java.security.MessageDigest.getInstance("MD5")
-        val hash = md5.digest(bytes).joinToString("") { "%02x".format(it) }
+        val hash = computeMd5(bytes)
         addLog("Hash sync: computed hash for $name = $hash (${bytes.size} bytes)")
         return Result.success(hash)
-    }
-
-    private fun extractHash(
-        hashContent: String,
-        fileName: String,
-    ): String? {
-        var inSection = false
-        val iniSectionRegex = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
-        for (line in hashContent.lines()) {
-            val t = line.trim()
-            if (t.equals("[$fileName]", ignoreCase = true)) {
-                inSection = true
-                continue
-            }
-            if (inSection && t.matches(iniSectionRegex)) break
-            if (inSection && t.startsWith("Hash=")) return t.removePrefix("Hash=").trim()
-        }
-        return null
     }
 }

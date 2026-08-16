@@ -3,6 +3,7 @@ package com.wuwaconfig.app.backend
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
+import com.wuwaconfig.app.PREFS_NAME
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
@@ -14,7 +15,7 @@ import java.io.InputStreamReader
 
 class SafBackend(private val context: Context) : AccessBackend {
     private var _treeUri: Uri? = null
-    private val prefs = context.getSharedPreferences("wuwaconfig", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val knownRoot = GamePaths.TARGET_DIR
 
     val treeUri: Uri?
@@ -198,8 +199,8 @@ class SafBackend(private val context: Context) : AccessBackend {
     override suspend fun copyFile(
         sourcePath: String,
         targetPath: String,
-    ): Result<String> =
-        withContext(Dispatchers.IO) {
+    ): Result<String> {
+        return withContext(Dispatchers.IO) {
             LogRepository.add("SAF copyFile: $sourcePath -> $targetPath")
             try {
                 val sourceDoc = resolveDocument(sourcePath) ?: return@withContext Result.failure(Exception("Source not found: $sourcePath"))
@@ -210,6 +211,30 @@ class SafBackend(private val context: Context) : AccessBackend {
                 Result.success(targetPath)
             } catch (e: Exception) {
                 LogRepository.add("SAF copyFile failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
+    }
+
+    override suspend fun deleteFile(path: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            LogRepository.add("SAF delete: $path")
+            try {
+                val doc = resolveDocument(path)
+                if (doc == null || !doc.exists()) {
+                    LogRepository.add("SAF delete: not found $path", LogLevel.WARNING)
+                    return@withContext Result.success(Unit)
+                }
+                val deleted = doc.delete()
+                if (deleted) {
+                    LogRepository.add("SAF delete completed: $path", LogLevel.SUCCESS)
+                    Result.success(Unit)
+                } else {
+                    LogRepository.add("SAF delete failed: $path", LogLevel.ERROR)
+                    Result.failure(Exception("Failed to delete: $path"))
+                }
+            } catch (e: Exception) {
+                LogRepository.add("SAF delete error: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
             }
         }

@@ -45,4 +45,6 @@ interface AccessBackend {
         sourcePath: String,
         targetPath: String,
     ): Result<String>
+
+    suspend fun deleteFile(path: String): Result<Unit>
 }

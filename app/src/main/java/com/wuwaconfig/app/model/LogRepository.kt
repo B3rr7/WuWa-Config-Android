@@ -6,6 +6,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -16,7 +19,8 @@ object LogRepository {
 
     private var logFile: File? = null
     private val lock = Any()
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val diskMutex = Mutex()
 
     private const val MAX_ENTRIES = 1000
     private const val MAX_FILE_SIZE = 5 * 1024 * 1024L
@@ -55,13 +59,17 @@ object LogRepository {
         synchronized(lock) {
             entries.clear()
         }
-        try {
-            logFile?.writeText("")
-        } catch (_: Exception) {
+        scope.launch {
+            diskMutex.withLock {
+                try {
+                    logFile?.writeText("")
+                } catch (_: Exception) {
+                }
+            }
         }
     }
 
-    fun saveSnapshot(): File? {
+    suspend fun saveSnapshot(): File? {
         val fileName = "WuWaConfig_${dateStamp()}.txt"
         val dir =
             File(
@@ -69,14 +77,16 @@ object LogRepository {
                 "WuWaConfig",
             ).also { it.mkdirs() }
         val file = File(dir, fileName)
-        synchronized(lock) {
-            val content = entries.joinToString("\n") { lineFormat(it) }
-            file.writeText(content)
+        val content = synchronized(lock) { entries.joinToString("\n") { lineFormat(it) } }
+        return try {
+            withContext(Dispatchers.IO) { file.writeText(content) }
+            file
+        } catch (_: Exception) {
+            null
         }
-        return file
     }
 
-    fun saveSmartBrainReport(text: String): File? {
+    suspend fun saveSmartBrainReport(text: String): File? {
         return try {
             val dir =
                 File(
@@ -84,7 +94,7 @@ object LogRepository {
                     "WuWaConfig",
                 ).also { it.mkdirs() }
             val file = File(dir, "smartbrain_report.txt")
-            file.writeText(text)
+            withContext(Dispatchers.IO) { file.writeText(text) }
             add("SmartBrain: report saved to ${file.absolutePath}")
             file
         } catch (e: Exception) {
@@ -125,11 +135,15 @@ object LogRepository {
     }
 
     private fun appendToDisk(entry: LogEntry) {
-        try {
-            val file = logFile ?: return
-            file.appendText("${lineFormat(entry)}\n")
-            if (file.length() > MAX_FILE_SIZE) rotate()
-        } catch (_: Exception) {
+        scope.launch {
+            diskMutex.withLock {
+                try {
+                    val file = logFile ?: return@withLock
+                    file.appendText("${lineFormat(entry)}\n")
+                    if (file.length() > MAX_FILE_SIZE) rotate()
+                } catch (_: Exception) {
+                }
+            }
         }
     }
 

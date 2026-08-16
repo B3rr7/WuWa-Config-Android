@@ -24,8 +24,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
+const val PREFS_NAME = "wuwaconfig"
+
 class WuWaConfigApp : Application() {
-    private val prefs by lazy { getSharedPreferences("wuwaconfig", Context.MODE_PRIVATE) }
+    private val prefs by lazy { getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
     lateinit var adbCrypto: AdbCrypto
         private set
@@ -152,7 +154,7 @@ class WuWaConfigApp : Application() {
     private fun createBackend(method: AccessMethod): AccessBackend {
         return when (method) {
             AccessMethod.ADB -> AdbBackend(adbCrypto)
-            AccessMethod.SHIZUKU -> ShizukuBackend()
+            AccessMethod.SHIZUKU -> ShizukuBackend(this)
             AccessMethod.ROOT -> RootBackend()
             AccessMethod.SAF -> SafBackend(this).also { it.restoreTreeUri() }
         }

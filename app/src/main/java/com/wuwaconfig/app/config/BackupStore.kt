@@ -47,29 +47,29 @@ class BackupStore(
         withContext(Dispatchers.IO) {
             try {
                 LogRepository.add("ConfigManager: creating backup '$name'")
-                Log.d("ConfigManager", "createBackup: listing ${GamePaths.TARGET_DIR}")
+                Log.d("BackupStore", "createBackup: listing ${GamePaths.TARGET_DIR}")
                 val files = backend.listDirectory(GamePaths.TARGET_DIR).getOrThrow()
-                Log.d("ConfigManager", "createBackup: listed ${files.size} files: $files")
+                Log.d("BackupStore", "createBackup: listed ${files.size} files: $files")
                 val allIniNames = setOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
                 val targetNames = selectedFiles ?: allIniNames
                 val configFiles =
                     files.filter { it in targetNames && it in allIniNames }.map { fileName ->
-                        Log.d("ConfigManager", "createBackup: reading $fileName")
+                        Log.d("BackupStore", "createBackup: reading $fileName")
                         val content = backend.readFile("${GamePaths.TARGET_DIR}/$fileName").getOrDefault("")
-                        Log.d("ConfigManager", "createBackup: read $fileName (${content.length} chars)")
+                        Log.d("BackupStore", "createBackup: read $fileName (${content.length} chars)")
                         ConfigFile(name = fileName, content = content)
                     }
                 LogRepository.add("ConfigManager: backup read ${configFiles.size} config files")
-                Log.d("ConfigManager", "createBackup: saving backup to $backupDir")
+                Log.d("BackupStore", "createBackup: saving backup to $backupDir")
                 val backup = ConfigBackup(name = name, files = configFiles, type = type)
                 File(backupDir, "${backup.id}.json").writeText(gson.toJson(backup))
                 val publicBackupDir = File(File(publicDir, "Backups"), sanitizeDirName(name)).also { it.mkdirs() }
                 configFiles.forEach { f -> File(publicBackupDir, f.name).writeText(f.content) }
-                Log.d("ConfigManager", "createBackup: SUCCESS")
+                Log.d("BackupStore", "createBackup: SUCCESS")
                 LogRepository.add("ConfigManager: backup '$name' created", LogLevel.SUCCESS)
                 Result.success(backup)
             } catch (e: Exception) {
-                Log.e("ConfigManager", "createBackup FAILED: ${e.message}", e)
+                Log.e("BackupStore", "createBackup FAILED: ${e.message}", e)
                 LogRepository.add("ConfigManager: createBackup failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
             }

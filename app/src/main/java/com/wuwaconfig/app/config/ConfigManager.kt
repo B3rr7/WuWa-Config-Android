@@ -4,7 +4,6 @@ import android.content.Context
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.PUSH_RETRY_COUNT
 import com.wuwaconfig.app.backend.retryIO
-import com.wuwaconfig.app.backend.shQuote
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.model.ConfigFile
@@ -29,12 +28,52 @@ import kotlin.random.Random
  */
 class ConfigManager(
     private val context: Context,
-    private val backend: AccessBackend,
-    backupDirPath: String? = null,
+    private val backendProvider: () -> AccessBackend,
+    private val backupDirPath: String? = null,
 ) {
-    private val backupStore = BackupStore(context, backend, backupDirPath)
-    private val profileExtractor = ProfileExtractor(context, backend, backupStore.backupDir, backupStore.publicDir)
-    private val hashMonitor = HashMonitor(context, backend)
+    private var _backend: AccessBackend = backendProvider()
+    private lateinit var _backupStore: BackupStore
+    private lateinit var _profileExtractor: ProfileExtractor
+    private lateinit var _hashMonitor: HashMonitor
+
+    init {
+        rebuild()
+    }
+
+    private fun rebuild() {
+        _backupStore = BackupStore(context, _backend, backupDirPath)
+        _profileExtractor = ProfileExtractor(context, _backend, _backupStore.backupDir, _backupStore.publicDir)
+        _hashMonitor = HashMonitor(context, _backend)
+    }
+
+    private fun rebuildIfNeeded() {
+        val b = backendProvider()
+        if (b !== _backend) {
+            _backend = b
+            rebuild()
+        }
+    }
+
+    private val backend: AccessBackend
+        get() {
+            rebuildIfNeeded()
+            return _backend
+        }
+    private val backupStore: BackupStore
+        get() {
+            rebuildIfNeeded()
+            return _backupStore
+        }
+    private val profileExtractor: ProfileExtractor
+        get() {
+            rebuildIfNeeded()
+            return _profileExtractor
+        }
+    private val hashMonitor: HashMonitor
+        get() {
+            rebuildIfNeeded()
+            return _hashMonitor
+        }
 
     // ===== Deploy / restore (core config-apply responsibility) =====
 
@@ -84,7 +123,7 @@ class ConfigManager(
                         tempFile.writeText(content)
                         val targetPath = "${GamePaths.TARGET_DIR}/$name"
                         pushWithRetry(name, tempFile.absolutePath, targetPath, onProgress)
-                            .onFailure { throw it ?: Exception("Failed to push $name") }
+                            .onFailure { throw it }
                         delay(50 + Random.nextLong(100))
                     }
                     LogRepository.add("ConfigManager: custom configs applied successfully", LogLevel.SUCCESS)
@@ -116,7 +155,7 @@ class ConfigManager(
                     tempFile.writeText(content)
                     val targetPath = "${GamePaths.TARGET_DIR}/$fileName"
                     pushWithRetry(fileName, tempFile.absolutePath, targetPath, onProgress)
-                        .onFailure { throw it ?: Exception("Failed to push $fileName") }
+                        .onFailure { throw it }
                     LogRepository.add("ConfigManager: $fileName pushed successfully", LogLevel.SUCCESS)
                     Result.success("$fileName pushed successfully!")
                 } finally {
@@ -157,7 +196,7 @@ class ConfigManager(
                         tempFile.writeText(file.content)
                         val targetPath = "${GamePaths.TARGET_DIR}/${file.name}"
                         pushWithRetry(file.name, tempFile.absolutePath, targetPath, onProgress)
-                            .onFailure { throw it ?: Exception("Failed to restore ${file.name}") }
+                            .onFailure { throw it }
                         delay(50 + Random.nextLong(100))
                     }
                     Result.success("$label restored successfully!")
@@ -258,7 +297,7 @@ class ConfigManager(
                     Result.success("Cleaned $cleaned config file(s)")
                 } else {
                     LogRepository.add("ConfigManager: no config files needed cleaning", LogLevel.WARNING)
-                    Result.failure(Exception("All config files are already clean"))
+                    Result.success("All config files are already clean")
                 }
             } catch (e: Exception) {
                 LogRepository.add("ConfigManager: cleanConfigFiles failed: ${e.message}", LogLevel.ERROR)
@@ -269,7 +308,10 @@ class ConfigManager(
     suspend fun deleteConfigFiles(fileNames: Set<String>): Result<String> =
         withContext(Dispatchers.IO) {
             try {
-                if (fileNames.isEmpty()) return@withContext Result.failure(Exception("No files selected for deletion"))
+                if (fileNames.isEmpty()) {
+                    LogRepository.add("ConfigManager: no files selected for deletion")
+                    return@withContext Result.success("No files selected for deletion")
+                }
                 LogRepository.add("ConfigManager: deleting config files: ${fileNames.joinToString(", ")}")
                 var deleted = 0
                 var errors = 0
@@ -280,8 +322,7 @@ class ConfigManager(
                         LogRepository.add("ConfigManager: $name not found on device, skipping")
                         continue
                     }
-                    val cmd = "rm -f ${shQuote(path)}"
-                    val result = backend.executeShellCommand(cmd)
+                    val result = backend.deleteFile(path)
                     if (result.isSuccess) {
                         LogRepository.add("ConfigManager: deleted $name")
                         deleted++
@@ -293,9 +334,12 @@ class ConfigManager(
                 if (deleted > 0) {
                     LogRepository.add("ConfigManager: deleted $deleted config file(s)", LogLevel.SUCCESS)
                     Result.success("Deleted $deleted config file(s)")
+                } else if (errors > 0) {
+                    LogRepository.add("ConfigManager: $errors delete error(s)", LogLevel.ERROR)
+                    Result.failure(Exception("$errors config file(s) failed to delete"))
                 } else {
-                    LogRepository.add("ConfigManager: no config files were deleted", LogLevel.WARNING)
-                    Result.failure(Exception("No config files were deleted"))
+                    LogRepository.add("ConfigManager: no config files needed deletion", LogLevel.WARNING)
+                    Result.success("No config files needed deletion")
                 }
             } catch (e: Exception) {
                 LogRepository.add("ConfigManager: deleteConfigFiles failed: ${e.message}", LogLevel.ERROR)
