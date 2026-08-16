@@ -222,7 +222,7 @@ Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via l
 - **Per-pool breakdown**: pulls per banner type, ★5/★4 counts per pool
 - **Pity Prediction**: per-banner 50/50 or Guaranteed status, last ★5 details, estimated next ★5 pity, soft pity detection (≥66 ★5 / ≥57 ★4), hard pity countdown, 4★ tracking
 - **Result History**: last fetch result saved locally with 12-hour auto-expiry. Load or clear from the history banner.
-- **Background Polling**: start foreground service to keep polling while app is minimized. Posts notification when URL found.
+- **Stop Reading**: while *Fetch Gacha History* is reading `Client.log` or fetching, a red **Stop Reading** button cancels the in-progress read.
 
 ### Player Profile
 - **Read-only** — zero footprint, game cannot detect
@@ -313,13 +313,12 @@ app/
     │   └── VerificationReport.kt # CvarCategory (18 values) + CvarDetail (isKnown, isMonitored, gameDefault, matchesDefault)
     ├── service/
     │   ├── AdbConnectionService.kt  # ADB foreground service (dataSync, START_STICKY)
-    │   ├── GachaPollService.kt      # Background gacha polling (30 attempts, 10s apart, LocalBroadcastManager)
     │   └── ShellUserService.kt      # Binder-based shell service for Shizuku UserService API (replaces reflection)
     └── ui/
         ├── MainViewModel.kt      # Shared state holder — backend, deploy+verify, gacha, profile, deploy history, INI editor, auto-tune, theme/prefs
         ├── IniEditorViewModel.kt # INI editor ViewModel (syncConfigHashes, pushSingleFile, refreshConfigHashes)
         ├── SettingsViewModel.kt  # Settings ViewModel (theme, backgrounds, backup dir)
-        ├── GachaViewModel.kt     # Gacha ViewModel (fetch history, predictions, polling)
+        ├── GachaViewModel.kt      # Gacha ViewModel (fetch history, predictions, cancellable read)
         ├── ProfileViewModel.kt   # Profile ViewModel (read player profile, cache)
         ├── DeployHistoryViewModel.kt # Deploy + device-analysis ViewModel (analyze, deploy, compare, battle stats, auto-tune)
         ├── components/
@@ -328,7 +327,7 @@ app/
         │   ├── HomeScreen.kt        # Backend control, custom config, clean config, quick actions, log viewer, deploy history
         │   ├── ConfigGenScreen.kt   # Analysis, presets, options, advanced tuning, auto-tune, verification
         │   ├── ReviewTuneScreen.kt  # Generated-config reviewer/editor/deploy screen (driven by ReviewTune* StateFlows)
-        │   ├── PityScreen.kt        # Gacha fetcher, summary, predictions, per-pool breakdown, history, background polling
+        │   ├── PityScreen.kt        # Gacha fetcher, summary, predictions, per-pool breakdown, history, Stop Reading button
         │   ├── ProfileScreen.kt     # Player profile view (cached, UID/server/level/tower/rogue/BP)
         │   ├── BattleStatsScreen.kt # Battle stats from Client.log (combat, exploration, economy, social, system cards)
         │   ├── BackupScreen.kt      # Backup list + CRUD with per-file selection checkboxes
