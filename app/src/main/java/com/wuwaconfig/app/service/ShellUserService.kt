@@ -50,9 +50,8 @@ class ShellUserService : Binder() {
 
     fun execCommand(command: String): String {
         return try {
-            val process = ProcessBuilder("sh", "-c", command).start()
-            val stdout = readStream(process.inputStream)
-            val stderr = readStream(process.errorStream)
+            val process = ProcessBuilder("sh", "-c", command).redirectErrorStream(true).start()
+            val output = readStream(process.inputStream)
             val exited = process.waitFor(60, TimeUnit.SECONDS)
             if (!exited) {
                 process.destroyForcibly()
@@ -60,9 +59,9 @@ class ShellUserService : Binder() {
             } else {
                 val exitCode = process.exitValue()
                 if (exitCode != 0) {
-                    stderr.trim().ifEmpty { "Command failed (exit $exitCode)" }
+                    "SHIZUKU_EXIT=$exitCode\n${output.trim().ifEmpty { "Command failed (exit $exitCode)" }}"
                 } else {
-                    stdout
+                    output
                 }
             }
         } catch (e: Exception) {

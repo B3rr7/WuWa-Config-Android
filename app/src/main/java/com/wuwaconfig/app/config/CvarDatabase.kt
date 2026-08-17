@@ -114,7 +114,7 @@ class CvarDatabase(private val assets: AssetManager) {
                 isKnown = k in allCvars,
                 isMonitored = k in monitoredCvars,
                 gameDefault = gd,
-                matchesDefault = gd != null && cvarValues[key]?.let { gd == it } == true,
+                matchesDefault = gd != null && cvarValues[k]?.let { gd == it } == true,
                 category = categorize(key),
             )
         }
@@ -181,7 +181,7 @@ internal fun optimizeIniTextImpl(
                 else -> null
             }
         if (reason != null) {
-            out.add("$line ; [CvarDB] $reason")
+            out.add(";$line ; [CvarDB] $reason")
         } else {
             out.add(line)
         }

@@ -40,6 +40,7 @@ fun PityScreen(
     val gachaData by viewModel.gachaData.collectAsStateWithLifecycle()
     val gachaLoading by viewModel.gachaLoading.collectAsStateWithLifecycle()
     val gachaHistory by viewModel.gachaHistory.collectAsStateWithLifecycle()
+    val gachaError by viewModel.gachaError.collectAsStateWithLifecycle()
 
     GradientBackground {
         Scaffold(
@@ -121,6 +122,37 @@ fun PityScreen(
 
                 if (gachaHistory != null && gachaData == null) {
                     item { HistoryBanner(gachaHistory!!, viewModel) }
+                }
+
+                if (gachaError != null) {
+                    item {
+                        GlassCard(accentColor = NeonRed) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                Icon(
+                                    Icons.Default.Error,
+                                    contentDescription = null,
+                                    tint = NeonRed,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    gachaError!!,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = NeonRed,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                IconButton(onClick = { viewModel.clearGachaError() }) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Dismiss",
+                                        tint = NeonRed.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if (gachaData != null) {

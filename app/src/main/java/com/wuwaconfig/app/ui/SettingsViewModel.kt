@@ -30,13 +30,15 @@ sealed interface UpdateState {
 }
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = WuWaConfigApp.instance
+    private val app = application as WuWaConfigApp
 
     val themeMode: StateFlow<String> = app.themeMode
     val deployHistoryEnabled: StateFlow<Boolean> = app.deployHistoryEnabled
     val colorfulUi: StateFlow<Boolean> = app.colorfulUi
     val hashMonitorEnabled: StateFlow<Boolean> = app.hashMonitorEnabled
     val textOpacity: StateFlow<Float> = app.textOpacity
+    val fontFamilyName: StateFlow<String> = app.fontFamilyName
+    val fontScale: StateFlow<Float> = app.fontScale
 
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
@@ -50,6 +52,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHashMonitorEnabled(enabled: Boolean) = app.setHashMonitorEnabled(enabled)
 
     fun setTextOpacity(value: Float) = app.setTextOpacity(value)
+
+    fun setFontFamily(name: String) = app.setFontFamily(name)
+
+    fun setFontScale(value: Float) = app.setFontScale(value)
 
     fun setBackgroundImageUri(uri: String?) {
         app.backgroundImageUri.value = uri

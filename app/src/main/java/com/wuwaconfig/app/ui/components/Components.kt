@@ -5,15 +5,12 @@ import android.graphics.BlurMaskFilter
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -23,18 +20,13 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,7 +71,6 @@ import coil.request.ImageRequest
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
-import com.wuwaconfig.app.model.LogEntry
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.ui.theme.*
@@ -719,71 +710,6 @@ fun BackendStatusCard(
 }
 
 @Composable
-fun LogViewer(
-    logs: List<LogEntry>,
-    modifier: Modifier = Modifier,
-    onSave: (() -> Unit)? = null,
-) {
-    GlassCard(modifier = modifier, accentColor = NeonCyan) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(NeonCyan.copy(alpha = 0.8f)),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text("Log", style = MaterialTheme.typography.titleSmall, color = NeonCyan, fontWeight = FontWeight.Bold)
-            if (onSave != null) {
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = onSave, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.Save, contentDescription = "Save log", tint = NeonCyan, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 120.dp, max = 200.dp),
-        ) {
-            if (logs.isEmpty()) {
-                Text(
-                    "No logs yet.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                )
-            } else {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
-                ) {
-                    logs.reversed().forEach { log ->
-                        val c =
-                            when (log.level) {
-                                LogLevel.SUCCESS -> NeonGreen
-                                LogLevel.ERROR -> NeonRed
-                                LogLevel.WARNING -> NeonAmber
-                                LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        Text(
-                            "[${log.timestamp}] ${log.message}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = c,
-                            modifier = Modifier.padding(vertical = 1.dp),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun MiniLogViewer(modifier: Modifier = Modifier) {
     if (LogRepository.entries.isEmpty()) return
     TerminalLogCard(modifier = modifier, title = "status.log", accentColor = NeonAmber)
@@ -1009,25 +935,6 @@ fun GlitchText(
 }
 
 @Composable
-fun AnimatedListItem(
-    index: Int,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    AnimatedVisibility(
-        visible = true,
-        enter =
-            slideInVertically(
-                initialOffsetY = { it / 2 },
-                animationSpec = tween(delayMillis = index * 40, durationMillis = 300),
-            ) + fadeIn(animationSpec = tween(delayMillis = index * 40, durationMillis = 300)),
-        modifier = modifier,
-    ) {
-        content()
-    }
-}
-
-@Composable
 fun GlassDialog(
     onDismissRequest: () -> Unit,
     accentColor: Color = NeonCyan,
@@ -1039,14 +946,12 @@ fun GlassDialog(
     properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
 ) {
     val view = LocalView.current
-    SideEffect {
+    DisposableEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             (view.context as? Activity)?.window?.decorView?.setRenderEffect(
                 RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
             )
         }
-    }
-    DisposableEffect(Unit) {
         onDispose {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 (view.context as? Activity)?.window?.decorView?.setRenderEffect(null)

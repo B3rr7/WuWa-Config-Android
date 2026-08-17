@@ -50,6 +50,9 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
     private val _gachaHistory = MutableStateFlow<GachaHistoryEntry?>(null)
     val gachaHistory: StateFlow<GachaHistoryEntry?> = _gachaHistory.asStateFlow()
 
+    private val _gachaError = MutableStateFlow<String?>(null)
+    val gachaError: StateFlow<String?> = _gachaError.asStateFlow()
+
     private var readJob: Job? = null
 
     private fun addLog(
@@ -76,7 +79,8 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
                         _gachaHistory.value = GachaHistoryStore.load(getApplication())
                         addLog("Background poll: loaded ${data.totalPulls} pulls (${data.fiveStars}★5)")
                     }
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    Log.e("WuWaConfig", "Gacha broadcast handling failed", e)
                 }
             }
         }
@@ -112,7 +116,12 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         val entry = _gachaHistory.value ?: return
         try {
             val type = object : TypeToken<GachaData>() {}.type
-            val data = Gson().fromJson<GachaData>(entry.fullDataJson, type)
+            val data =
+                Gson().fromJson<GachaData>(entry.fullDataJson, type)
+                    ?: run {
+                        addLog("Failed to restore history: stored data is empty or corrupt")
+                        return
+                    }
             _gachaData.value = data
             addLog("Restored history: ${data.totalPulls} pulls")
         } catch (e: Exception) {
@@ -128,19 +137,14 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
                     _conveneUrl.value = null
                     _gachaData.value = null
                     _conveneUrlLoading.value = true
-                    var remaining = retryCount
-                    while (remaining >= 0) {
-                        addLog(
-                            "Reading Client.log for Convene URL${if (remaining < retryCount) {
-                                " (attempt ${retryCount - remaining + 1}/$retryCount)"
-                            } else {
-                                ""
-                            }}...",
-                        )
+                    _gachaError.value = null
+                    var attempt = 1
+                    while (attempt <= retryCount) {
+                        addLog("Reading Client.log for Convene URL (attempt $attempt/$retryCount)...")
                         try {
                             val result =
                                 configManager.readClientLogTextWithMetadata { pct ->
-                                    if (pct % 25 == 0 && remaining == retryCount) addLog("Reading... $pct%")
+                                    if (pct % 25 == 0 && attempt == 1) addLog("Reading... $pct%")
                                 }
                             if (result.isSuccess) {
                                 val (text, _) = result.getOrThrow()
@@ -156,19 +160,22 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
                                     return@launch
                                 }
                             }
-                            if (remaining > 0) {
+                            if (attempt < retryCount) {
                                 addLog("URL not found yet — retrying in 10s...")
                                 kotlinx.coroutines.delay(10_000)
                             } else {
                                 addLog("No Convene URL found after $retryCount attempts.")
                                 addLog("Open Convene History in-game, wait a moment, then tap again.")
+                                _gachaError.value =
+                                    "No Convene URL found after $retryCount attempts. Open Convene History in-game, wait a moment, then tap again."
                             }
                         } catch (e: Exception) {
                             addLog("CRASH: ${e.message}")
                             Log.e("WuWaConfig", "extractConveneUrl crashed", e)
+                            _gachaError.value = "Failed to read Client.log: ${e.message}"
                             break
                         }
-                        remaining--
+                        attempt++
                     }
                 } finally {
                     _conveneUrlLoading.value = false
@@ -183,16 +190,23 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         readJob = null
         _conveneUrlLoading.value = false
         _gachaLoading.value = false
+        _gachaError.value = null
         addLog("Reading stopped")
+    }
+
+    fun clearGachaError() {
+        _gachaError.value = null
     }
 
     private suspend fun fetchGachaData(url: String) {
         _gachaLoading.value = true
+        _gachaError.value = null
         addLog("Parsing gacha URL...")
         try {
             val params = GachaApi.parseUrl(url)
             if (params == null) {
                 addLog("Failed to parse gacha URL")
+                _gachaError.value = "Could not parse the Convene URL. Try extracting it again."
                 return
             }
             addLog("Fetching gacha records from server...")
@@ -210,11 +224,14 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
                     addLog("Pools: ${data.poolsWithData.size} with records")
                 }
             } else {
-                addLog("API failed: ${result.exceptionOrNull()?.message}")
+                val msg = result.exceptionOrNull()?.message ?: "Unknown error"
+                addLog("API failed: $msg")
+                _gachaError.value = "Failed to fetch gacha records: $msg"
             }
         } catch (e: Exception) {
             addLog("CRASH: ${e.message}")
             Log.e("WuWaConfig", "fetchGachaData crashed", e)
+            _gachaError.value = "Failed to fetch gacha records: ${e.message}"
         } finally {
             _gachaLoading.value = false
         }

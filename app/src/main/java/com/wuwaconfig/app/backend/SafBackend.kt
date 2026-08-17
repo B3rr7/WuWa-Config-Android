@@ -94,7 +94,11 @@ class SafBackend(private val context: Context) : AccessBackend {
         withContext(Dispatchers.IO) {
             LogRepository.add("SAF push: $sourcePath -> $targetPath")
             try {
-                val targetDoc = resolveDocument(targetPath) ?: return@withContext Result.failure(Exception("Cannot resolve target path: $targetPath"))
+                val parent = resolveOrCreateDocument(targetPath)
+                val nameOnly = targetPath.substringAfterLast('/')
+                val targetDoc =
+                    parent.findFile(nameOnly) ?: parent.createFile("*/*", nameOnly)
+                        ?: throw Exception("Cannot create file: $nameOnly")
                 val bytes = File(sourcePath).readBytes()
                 writeDocument(targetDoc, bytes)
                 LogRepository.add("SAF push completed: $targetPath", LogLevel.SUCCESS)
@@ -109,7 +113,7 @@ class SafBackend(private val context: Context) : AccessBackend {
         withContext(Dispatchers.IO) {
             LogRepository.add("SAF ensureDir: $dirPath")
             try {
-                resolveOrCreateDocument(dirPath)
+                resolveOrCreateDocument(dirPath, isDirectory = true)
                 LogRepository.add("SAF ensureDir succeeded", LogLevel.SUCCESS)
                 Result.success("")
             } catch (e: Exception) {
@@ -150,7 +154,8 @@ class SafBackend(private val context: Context) : AccessBackend {
             LogRepository.add("SAF backup: $path")
             try {
                 val doc = resolveDocument(path) ?: return@withContext Result.failure(Exception("Not found: $path"))
-                val backupName = "${doc.name}.backup_${System.currentTimeMillis()}"
+                val baseName = doc.name ?: return@withContext Result.failure(Exception("Cannot determine file name for $path"))
+                val backupName = "$baseName.backup_${System.currentTimeMillis()}"
                 val parent = doc.parentFile ?: return@withContext Result.failure(Exception("Cannot determine parent"))
                 val backupDoc =
                     parent.createFile("*/*", backupName)
@@ -204,7 +209,12 @@ class SafBackend(private val context: Context) : AccessBackend {
             LogRepository.add("SAF copyFile: $sourcePath -> $targetPath")
             try {
                 val sourceDoc = resolveDocument(sourcePath) ?: return@withContext Result.failure(Exception("Source not found: $sourcePath"))
-                val targetDoc = resolveOrCreateDocument(targetPath)
+                val parent = resolveOrCreateDocument(targetPath)
+                val nameOnly = targetPath.substringAfterLast('/')
+                val targetDoc =
+                    parent.findFile(nameOnly)
+                        ?: parent.createFile(sourceDoc.type ?: "*/*", nameOnly)
+                        ?: throw Exception("Cannot create file: $nameOnly")
                 val bytes = readDocumentBytes(sourceDoc)
                 writeDocument(targetDoc, bytes)
                 LogRepository.add("SAF copyFile completed: ${bytes.size} bytes", LogLevel.SUCCESS)
@@ -287,7 +297,10 @@ class SafBackend(private val context: Context) : AccessBackend {
         return current
     }
 
-    private fun resolveOrCreateDocument(path: String): DocumentFile {
+    private fun resolveOrCreateDocument(
+        path: String,
+        isDirectory: Boolean = false,
+    ): DocumentFile {
         val tree = _treeUri ?: throw Exception("No SAF directory selected")
         val root = DocumentFile.fromTreeUri(context, tree) ?: throw Exception("Cannot access tree")
         val nameOnly = path.substringAfterLast('/')
@@ -303,17 +316,21 @@ class SafBackend(private val context: Context) : AccessBackend {
             if (result != null) return result
         }
 
-        // Create directories if path doesn't exist
+        // Path doesn't exist yet — create intermediate directories, then the final segment.
         val parts = path.removePrefix(knownRoot).trimStart('/').split("/").filter { it.isNotBlank() }
-        if (parts.size <= 1) {
-            return root.createDirectory(nameOnly) ?: throw Exception("Cannot create: $nameOnly")
-        }
         var current = root
-        for (part in parts) {
+        for (i in parts.indices) {
+            val part = parts[i]
+            val isLast = i == parts.lastIndex
             var child = current.findFile(part)
             if (child == null) {
-                child = current.createDirectory(part)
-                    ?: throw Exception("Cannot create directory: $part")
+                if (isLast && !isDirectory) {
+                    // File target: stop at the parent directory so the caller can createFile().
+                    return current
+                }
+                child =
+                    current.createDirectory(part)
+                        ?: throw Exception("Cannot create directory: $part")
             }
             current = child
         }

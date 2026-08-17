@@ -55,7 +55,7 @@ class BackupStore(
                 val configFiles =
                     files.filter { it in targetNames && it in allIniNames }.map { fileName ->
                         Log.d("BackupStore", "createBackup: reading $fileName")
-                        val content = backend.readFile("${GamePaths.TARGET_DIR}/$fileName").getOrDefault("")
+                        val content = backend.readFile("${GamePaths.TARGET_DIR}/$fileName").getOrThrow()
                         Log.d("BackupStore", "createBackup: read $fileName (${content.length} chars)")
                         ConfigFile(name = fileName, content = content)
                     }

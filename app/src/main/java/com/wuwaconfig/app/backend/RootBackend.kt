@@ -4,6 +4,8 @@ import android.util.Base64
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
@@ -19,9 +21,19 @@ class RootBackend : AccessBackend {
                     ProcessBuilder("su", "-c", "echo ROOT_OK")
                         .redirectErrorStream(true)
                         .start()
-                val output = process.inputStream.bufferedReader().readText().trim()
-                val exited = process.waitFor(10, TimeUnit.SECONDS)
-                if (!exited) {
+                val (output, timedOut) =
+                    coroutineScope {
+                        val reader = async(Dispatchers.IO) { process.inputStream.bufferedReader().readText().trim() }
+                        val exited = process.waitFor(10, TimeUnit.SECONDS)
+                        if (!exited) {
+                            process.destroyForcibly()
+                            reader.cancel()
+                            Pair("", true)
+                        } else {
+                            Pair(reader.await(), false)
+                        }
+                    }
+                if (timedOut) {
                     process.destroyForcibly()
                     LogRepository.add("Root check timed out", LogLevel.ERROR)
                     return@withContext Result.failure(Exception("Root check timed out"))
@@ -54,10 +66,19 @@ class RootBackend : AccessBackend {
                     ProcessBuilder("su", "-c", command)
                         .redirectErrorStream(true)
                         .start()
-                val output = process.inputStream.bufferedReader().readText()
-                val exited = process.waitFor(10, TimeUnit.SECONDS)
-                if (!exited) {
-                    process.destroyForcibly()
+                val (output, timedOut) =
+                    coroutineScope {
+                        val reader = async(Dispatchers.IO) { process.inputStream.bufferedReader().readText() }
+                        val exited = process.waitFor(10, TimeUnit.SECONDS)
+                        if (!exited) {
+                            process.destroyForcibly()
+                            reader.cancel()
+                            Pair("", true)
+                        } else {
+                            Pair(reader.await(), false)
+                        }
+                    }
+                if (timedOut) {
                     LogRepository.add("Root shell timed out", LogLevel.ERROR)
                     return@withContext Result.failure(Exception("Command timed out: $command"))
                 }

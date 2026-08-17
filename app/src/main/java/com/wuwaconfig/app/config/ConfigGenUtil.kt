@@ -178,22 +178,24 @@ fun applyCvarOverrides(
 ): String {
     if (overrides.isEmpty()) return text
     val lines = text.lines().toMutableList()
+    // First-occurrence index of each cvar key, mirroring the previous indexOfFirst
+    // behavior while avoiding an O(overrides * lines) scan.
+    val keyToIndex = mutableMapOf<String, Int>()
+    for (i in lines.indices) {
+        val trimmed = lines[i].trim()
+        val eq = trimmed.indexOf('=')
+        if (eq > 0) {
+            val key = trimmed.substring(0, eq).trim()
+            keyToIndex.putIfAbsent(key, i)
+        }
+    }
     for ((key, newValue) in overrides) {
-        val idx =
-            lines.indexOfFirst { line ->
-                val trimmed = line.trim()
-                val eq = trimmed.indexOf('=')
-                eq > 0 && trimmed.substring(0, eq).trim() == key
-            }
-        if (idx >= 0) {
-            val raw = lines[idx]
-            val trimmed = raw.trim()
-            val eq = trimmed.indexOf('=')
-            val existingVal = trimmed.substring(eq + 1).trim()
-            if (existingVal != newValue) {
-                val rawEq = raw.indexOf('=')
-                lines[idx] = raw.substring(0, rawEq + 1) + newValue
-            }
+        val idx = keyToIndex[key] ?: continue
+        val raw = lines[idx]
+        val rawEq = raw.indexOf('=')
+        val existingVal = raw.substring(rawEq + 1).trim()
+        if (existingVal != newValue) {
+            lines[idx] = raw.substring(0, rawEq + 1) + newValue
         }
     }
     return lines.joinToString("\n")

@@ -81,7 +81,7 @@ fun IniEditorScreen(
 
     val vertical = rememberScrollState()
 
-    val lineCount = editorText.lines().size + if (editorText.endsWith("\n")) 1 else 0
+    val lineCount = editorText.count { it == '\n' } + 1
     val matches = remember(query, editorText) { findMatches(editorText, query) }
     val safeMatch = if (matches.isEmpty()) 0 else currentMatch.coerceIn(0, matches.lastIndex)
     val isDirty = editorText != (iniContent ?: "")
@@ -104,8 +104,13 @@ fun IniEditorScreen(
     LaunchedEffect(Unit) {
         viewModel.syncConfigHashes()
     }
-    LaunchedEffect(iniContent) {
-        iniContent?.let { editorText = it }
+    var lastLoadedFile by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(editingFileName, iniContent) {
+        val content = iniContent
+        if (content != null && editingFileName != lastLoadedFile) {
+            editorText = content
+            lastLoadedFile = editingFileName
+        }
     }
     LaunchedEffect(successMessage) {
         if (successMessage != null) {

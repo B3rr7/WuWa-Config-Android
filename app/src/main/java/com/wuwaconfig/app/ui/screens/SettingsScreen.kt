@@ -29,6 +29,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -82,7 +83,10 @@ fun SettingsScreen(
             contract = ActivityResultContracts.OpenDocument(),
         ) { uri: Uri? ->
             uri?.let {
-                ctx.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                try {
+                    ctx.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: SecurityException) {
+                }
                 viewModel.setBackgroundImageUri(it.toString())
             }
         }
@@ -91,7 +95,10 @@ fun SettingsScreen(
             contract = ActivityResultContracts.OpenDocument(),
         ) { uri: Uri? ->
             uri?.let {
-                ctx.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                try {
+                    ctx.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: SecurityException) {
+                }
                 viewModel.setBackgroundVideoUri(it.toString())
             }
         }
@@ -219,6 +226,93 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = NeonGreen,
+                    )
+                }
+
+                GlassCard(accentColor = NeonPurple) {
+                    GlassCardHeader("Font", NeonPurple)
+                    Spacer(Modifier.height(8.dp))
+                    val fontFamilyName by viewModel.fontFamilyName.collectAsStateWithLifecycle()
+                    val fontScale by viewModel.fontScale.collectAsStateWithLifecycle()
+                    Text(
+                        "Family",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    val fontOptions = listOf("Default", "Serif", "Monospace")
+                    fontOptions.chunked(4).forEach { rowOptions ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowOptions.forEach { option ->
+                                val selected = fontFamilyName == option
+                                Button(
+                                    onClick = { viewModel.setFontFamily(option) },
+                                    modifier = Modifier.weight(1f),
+                                    colors =
+                                        ButtonDefaults.buttonColors(
+                                            containerColor =
+                                                if (selected) {
+                                                    NeonPurple.copy(alpha = 0.2f)
+                                                } else {
+                                                    MaterialTheme.colorScheme.surfaceVariant
+                                                },
+                                            contentColor = if (selected) NeonPurple else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        ),
+                                    shape = RoundedCornerShape(10.dp),
+                                ) {
+                                    Text(
+                                        option,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "Size",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        "Scale all on-screen text up or down",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            "A",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                        Slider(
+                            value = fontScale,
+                            onValueChange = { viewModel.setFontScale(it) },
+                            valueRange = 0.85f..1.4f,
+                            steps = 10,
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                            colors =
+                                SliderDefaults.colors(
+                                    thumbColor = NeonPurple,
+                                    activeTrackColor = NeonPurple.copy(alpha = 0.6f),
+                                    inactiveTrackColor = Color.White.copy(alpha = 0.1f),
+                                ),
+                        )
+                        Text(
+                            "A",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                    }
+                    Text(
+                        "${(fontScale * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NeonPurple,
                     )
                 }
 

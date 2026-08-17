@@ -29,6 +29,7 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.wuwaconfig.app.service.AdbConnectionService
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.GachaViewModel
 import com.wuwaconfig.app.ui.IniEditorViewModel
@@ -60,6 +61,10 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         if (isFinishing) {
+            try {
+                stopService(Intent(this, AdbConnectionService::class.java))
+            } catch (_: Exception) {
+            }
             WuWaConfigApp.instance.backend.disconnect()
         }
     }
@@ -76,9 +81,16 @@ class MainActivity : ComponentActivity() {
             val profileViewModel: ProfileViewModel = viewModel()
             val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
             val textOpacity by settingsViewModel.textOpacity.collectAsStateWithLifecycle()
+            val fontFamilyName by settingsViewModel.fontFamilyName.collectAsStateWithLifecycle()
+            val fontScale by settingsViewModel.fontScale.collectAsStateWithLifecycle()
             var showTerms by remember { mutableStateOf(mainViewModel.needsTermsAccept()) }
 
-            WuWaConfigTheme(themeMode = themeMode, textOpacity = textOpacity) {
+            WuWaConfigTheme(
+                themeMode = themeMode,
+                textOpacity = textOpacity,
+                fontFamilyName = fontFamilyName,
+                fontScale = fontScale,
+            ) {
                 if (showTerms) {
                     TermsScreen(
                         onAccept = {

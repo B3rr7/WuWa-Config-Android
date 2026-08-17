@@ -231,12 +231,14 @@ class ConfigManager(
         if (fileName == "Engine.ini") {
             val result = StringBuilder()
             var inCoreSystem = false
+            var foundCoreSystem = false
             for (line in original.lines()) {
                 val trimmed = line.trim()
                 if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
                     val section = trimmed.removePrefix("[").removeSuffix("]")
                     inCoreSystem = section == "Core.System"
                     if (inCoreSystem) {
+                        foundCoreSystem = true
                         result.appendLine(line)
                     }
                     continue
@@ -245,6 +247,7 @@ class ConfigManager(
                     result.appendLine(line)
                 }
             }
+            if (!foundCoreSystem) return original
             return result.toString().trimEnd() + "\n"
         }
         val result = StringBuilder()

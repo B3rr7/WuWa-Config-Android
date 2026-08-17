@@ -223,7 +223,7 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         if (b64.isFailure) {
             b64 = client.executeShellCommandWithRunAs(GAME_PKG, b64Cmd)
         }
-        return b64.map { Base64.decode(it.trim(), Base64.DEFAULT) }
+        return b64.mapCatching { Base64.decode(it.trim(), Base64.DEFAULT) }
     }
 
     override suspend fun copyFile(
@@ -263,7 +263,11 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
                 }
             }
         }
-        return result.map { targetPath }
+        return if (landed) {
+            Result.success(targetPath)
+        } else {
+            Result.failure(Exception("copyFile failed: $targetPath was not written (shell cp and staging both failed)"))
+        }
     }
 
     override suspend fun deleteFile(path: String): Result<Unit> {

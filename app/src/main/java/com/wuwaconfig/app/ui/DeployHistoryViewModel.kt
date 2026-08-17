@@ -31,6 +31,7 @@ import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.service.AdbConnectionService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,7 +50,9 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     val configGenerator get() = app.configGenerator
     val cvarDatabase get() = app.cvarDatabase
 
-    val configManager: ConfigManager get() = ConfigManager(getApplication(), { app.backend }, backupStorageDir)
+    val configManager: ConfigManager by lazy {
+        ConfigManager(getApplication(), { app.backend }, backupStorageDir)
+    }
 
     private val _backendStatus = MutableStateFlow(BackendStatus())
     val backendStatus: StateFlow<BackendStatus> = _backendStatus.asStateFlow()
@@ -89,6 +92,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     private val _isApplying = MutableStateFlow(false)
     val isApplying: StateFlow<Boolean> = _isApplying.asStateFlow()
+    private var activeJob: Job? = null
 
     private val _readingProgress = MutableStateFlow(0)
     val readingProgress: StateFlow<Int> = _readingProgress.asStateFlow()
@@ -262,6 +266,13 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         } catch (e: Exception) {
             addLog("WARN: Shizuku listener unregister failed: ${e.message}", LogLevel.WARNING)
         }
+        try {
+            if (app.backend is AdbBackend) {
+                getApplication<Application>().stopService(Intent(getApplication(), AdbConnectionService::class.java))
+            }
+        } catch (e: Exception) {
+            addLog("WARN: failed to stop ADB connection service: ${e.message}", LogLevel.WARNING)
+        }
         app.backend.disconnect()
     }
 
@@ -333,7 +344,10 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     fun cancelOperation() {
         if (!_isApplying.value) return
+        activeJob?.cancel()
+        activeJob = null
         app.backend.disconnect()
+        _backendStatus.value = BackendStatus(method = _backendStatus.value.method)
         _isApplying.value = false
         addLog("Operation cancelled.")
     }
@@ -364,6 +378,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
         viewModelScope.launch {
+            activeJob = coroutineContext[Job]
             try {
                 addLog("Creating backup: $name...")
                 val result = configManager.createBackup(name, selectedFiles = selectedFiles)
@@ -396,6 +411,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
         viewModelScope.launch {
+            activeJob = coroutineContext[Job]
             try {
                 addLog("Restoring backup: ${backup.name}...")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
@@ -426,6 +442,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     fun deleteBackup(backup: ConfigBackup) {
         viewModelScope.launch {
+            activeJob = coroutineContext[Job]
             try {
                 addLog("Deleting backup: ${backup.name}...")
                 configManager.deleteLocalBackup(backup)
@@ -442,6 +459,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
         viewModelScope.launch {
+            activeJob = coroutineContext[Job]
             try {
                 addLog("Collecting Client.log...")
                 val result = configManager.collectClientLog { msg -> addLog(msg) }
@@ -549,6 +567,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
         viewModelScope.launch {
+            activeJob = coroutineContext[Job]
             try {
                 _verificationReport.value = null
                 addLog("Deploying generated configs...")
@@ -725,6 +744,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
         viewModelScope.launch {
+            activeJob = coroutineContext[Job]
             try {
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
                 val fileNames =
@@ -790,6 +810,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
         viewModelScope.launch {
+            activeJob = coroutineContext[Job]
             try {
                 addLog("Cleaning config files...")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
@@ -823,6 +844,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
         viewModelScope.launch {
+            activeJob = coroutineContext[Job]
             try {
                 addLog("Deleting ${selectedFiles.size} config file(s): ${selectedFiles.joinToString(", ")}")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
@@ -1034,6 +1056,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         if (_isApplying.value) return
         _isApplying.value = true
         viewModelScope.launch {
+            activeJob = coroutineContext[Job]
             try {
                 _readingProgress.value = 0
                 addLog("Decoding imported log...")

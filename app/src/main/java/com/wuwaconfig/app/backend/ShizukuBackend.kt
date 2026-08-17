@@ -79,6 +79,7 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                 LogRepository.add("Shizuku connected successfully", LogLevel.SUCCESS)
                 Result.success(Unit)
             } catch (e: Exception) {
+                disconnect()
                 LogRepository.add("Shizuku connect failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(Exception("Shizuku is not running. Start Shizuku first."))
             }
@@ -158,20 +159,15 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
             }
             val result =
                 retryIO(times = 3, backoffMs = 500L, shouldRetry = { e ->
-                    e.message?.contains("timed out", ignoreCase = true) == true
+                    val msg = e.message?.lowercase() ?: ""
+                    msg.contains("service not connected") ||
+                        msg.contains("remote call failed") ||
+                        msg.contains("binder") ||
+                        msg.contains("broken pipe")
                 }) {
-                    val output = withTimeout(60_000) { svc.execCommand(command) }
-                    if (output.contains("Command timed out", ignoreCase = true) ||
-                        output.contains("Command failed", ignoreCase = true)
-                    ) {
-                        throw Exception(output.trim())
-                    }
-                    val filtered = filterPermissionDenied(output)
-                    if (filtered != output) {
-                        LogRepository.add("Shizuku shell permission denied", LogLevel.ERROR)
-                        throw Exception(filtered.trim().ifEmpty { "Permission denied" })
-                    }
-                    filtered.trim()
+                    parseServiceResult(
+                        withTimeout(SHIZUKU_CALL_TIMEOUT_MS) { svc.execCommand(command) },
+                    ).trim()
                 }
             if (result.isFailure) {
                 LogRepository.add("Shizuku shell exhausted: ${result.exceptionOrNull()?.message}", LogLevel.ERROR)
@@ -301,23 +297,27 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
         var lastError: Exception? = null
         for (attempt in 0..2) {
             if (attempt > 0) delay(500L * attempt)
+            val tmpFile = "$cacheDir/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}.tmp"
             try {
-                val tmpFile = "$cacheDir/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}.tmp"
                 val cmd = "$shellCmd ${shQuote(path)} > ${shQuote(tmpFile)} 2>/dev/null; echo DONE"
                 val result = execOrThrow(cmd)
                 if (!result.contains("DONE")) {
                     throw Exception("Command failed: $result")
                 }
                 val localFile = File(tmpFile)
-                if (!localFile.exists() || localFile.length() == 0L) {
-                    throw Exception("Temp file not found or empty: $tmpFile")
+                if (!localFile.exists()) {
+                    throw Exception("Temp file not found: $tmpFile")
                 }
                 val out = decode(localFile)
-                execOrThrow("rm -f ${shQuote(tmpFile)}")
                 return Result.success(out)
             } catch (e: Exception) {
                 lastError = e
                 LogRepository.add("Shizuku readViaTemp attempt $attempt failed: ${e.message}", LogLevel.WARNING)
+            } finally {
+                try {
+                    execOrThrow("rm -f ${shQuote(tmpFile)}")
+                } catch (_: Exception) {
+                }
             }
         }
         LogRepository.add("Shizuku readViaTemp failed: ${lastError?.message}", LogLevel.ERROR)
@@ -365,18 +365,41 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
 
     private suspend fun execOrThrow(command: String): String {
         val svc = shellService ?: throw Exception("Shizuku service not connected")
-        val output = withTimeout(60_000) { svc.execCommand(command) }
-        if (output.contains("Command timed out", ignoreCase = true)) {
-            throw Exception(output.trim())
+        val output = withTimeout(SHIZUKU_CALL_TIMEOUT_MS) { svc.execCommand(command) }
+        return parseServiceResult(output)
+    }
+
+    /**
+     * Decodes the structured result returned by [ShellUserService]:
+     * - A successful command (exit 0) returns its raw stdout.
+     * - A failed command returns "SHIZUKU_EXIT=<code>\n<stderr>" and is surfaced as an exception.
+     * - A service-side timeout returns "Command timed out after 60s" and is surfaced as an exception.
+     *
+     * This avoids the previous behavior of matching raw stdout substrings (e.g. a log file that
+     * literally contains "Permission denied"), which both discarded legitimate output and could
+     * misreport failures.
+     */
+    private fun parseServiceResult(output: String): String {
+        if (output.startsWith("SHIZUKU_EXIT=")) {
+            val rest = output.removePrefix("SHIZUKU_EXIT=")
+            val nl = rest.indexOf('\n')
+            val code = if (nl < 0) rest.toIntOrNull() ?: 1 else rest.substring(0, nl).toIntOrNull() ?: 1
+            if (code != 0) {
+                val msg = if (nl < 0) "" else rest.substring(nl + 1)
+                throw Exception(msg.ifBlank { "Command failed (exit $code)" })
+            }
+            return if (nl < 0) "" else rest.substring(nl + 1)
         }
-        if (output.contains("Command failed", ignoreCase = true)) {
+        if (output.contains("Command timed out", ignoreCase = true)) {
             throw Exception(output.trim())
         }
         return output
     }
 
-    private fun filterPermissionDenied(output: String): String {
-        val deniedLines = output.lines().filter { it.contains("Permission denied", ignoreCase = true) }
-        return if (deniedLines.isNotEmpty()) deniedLines.joinToString("\n") else output
+    companion object {
+        // Must exceed ShellUserService's internal 60s command timeout so the service always
+        // returns its result string before the coroutine is cancelled (binder transact is not
+        // interruptible, so an early client timeout would leak the in-flight transaction).
+        private const val SHIZUKU_CALL_TIMEOUT_MS = 75_000L
     }
 }

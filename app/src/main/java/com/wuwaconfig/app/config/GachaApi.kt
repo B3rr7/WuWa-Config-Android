@@ -58,6 +58,9 @@ object GachaApi {
             val records = mutableListOf<GachaRecord>()
             val poolsWithData = mutableListOf<String>()
 
+            var anyFailure: Throwable? = null
+            var anySuccess = false
+            var lastErrorMsg: String? = null
             for (pool in GachaPool.ALL) {
                 val body =
                     mapOf(
@@ -70,13 +73,23 @@ object GachaApi {
                     )
 
                 val result = postRequest(endpoint, body)
-                if (result.isFailure) continue
+                if (result.isFailure) {
+                    anyFailure = result.exceptionOrNull()
+                    continue
+                }
                 val response = result.getOrThrow()
 
                 if (response.code == 0 && !response.data.isNullOrEmpty()) {
                     records.addAll(response.data)
                     poolsWithData.add(pool.type)
+                    anySuccess = true
+                } else if (response.code != 0) {
+                    lastErrorMsg = response.message
                 }
+            }
+
+            if (!anySuccess && anyFailure != null) {
+                return Result.failure(anyFailure)
             }
 
             val totalPulls = records.size
@@ -129,8 +142,9 @@ object GachaApi {
         endpoint: String,
         body: Map<String, String>,
     ): Result<GachaApiResponse> {
+        var conn: HttpURLConnection? = null
         return try {
-            val conn = URL(endpoint).openConnection() as HttpURLConnection
+            conn = URL(endpoint).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             conn.doOutput = true
@@ -142,6 +156,7 @@ object GachaApi {
 
             val responseCode = conn.responseCode
             if (responseCode != 200) {
+                conn.errorStream?.bufferedReader()?.use { it.readText() }
                 return Result.failure(Exception("HTTP $responseCode"))
             }
 
@@ -172,6 +187,8 @@ object GachaApi {
             Result.success(GachaApiResponse(code = code, message = message, data = records))
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            conn?.disconnect()
         }
     }
 

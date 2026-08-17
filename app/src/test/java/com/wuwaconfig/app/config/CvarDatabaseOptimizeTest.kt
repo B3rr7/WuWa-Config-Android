@@ -53,4 +53,14 @@ class CvarDatabaseOptimizeTest {
     fun `empty input stays empty`() {
         assertEquals("", optimizeIniTextImpl("", allCvars, monitored, defaults))
     }
+
+    @Test
+    fun `disables unknown cvar with leading semicolon so the value is no longer applied`() {
+        val ini = "Some.Unknown.CVar=5\n"
+        val out = optimizeIniTextImpl(ini, allCvars, monitored, defaults)
+        val line = out.lines().first()
+        assertTrue(line.startsWith(";"))
+        assertTrue(line.contains("[CvarDB]"))
+        assertTrue(line.contains("unknown"))
+    }
 }

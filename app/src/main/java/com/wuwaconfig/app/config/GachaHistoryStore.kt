@@ -12,25 +12,28 @@ object GachaHistoryStore {
     private const val FILE_NAME = "gacha_history.json"
     private const val TTL_HOURS = 12L
     private val gson = Gson()
+    private val lock = Any()
 
     private fun getFile(ctx: Context): File = File(ctx.filesDir, FILE_NAME)
 
     fun load(ctx: Context): GachaHistoryEntry? {
         val file = getFile(ctx)
         if (!file.exists()) return null
-        return try {
-            val text = file.readText()
-            val type = object : TypeToken<GachaHistoryEntry>() {}.type
-            val entry = gson.fromJson<GachaHistoryEntry>(text, type)
-            if (entry != null && System.currentTimeMillis() >= entry.expiresAt) {
+        return synchronized(lock) {
+            try {
+                val text = file.readText()
+                val type = object : TypeToken<GachaHistoryEntry>() {}.type
+                val entry = gson.fromJson<GachaHistoryEntry>(text, type)
+                if (entry != null && System.currentTimeMillis() >= entry.expiresAt) {
+                    file.delete()
+                    null
+                } else {
+                    entry
+                }
+            } catch (_: Exception) {
                 file.delete()
                 null
-            } else {
-                entry
             }
-        } catch (_: Exception) {
-            file.delete()
-            null
         }
     }
 
@@ -52,11 +55,11 @@ object GachaHistoryStore {
                 predictions = data.predictions,
                 fullDataJson = gson.toJson(data),
             )
-        getFile(ctx).writeText(gson.toJson(entry))
+        synchronized(lock) { getFile(ctx).writeText(gson.toJson(entry)) }
     }
 
     fun delete(ctx: Context) {
-        getFile(ctx).delete()
+        synchronized(lock) { getFile(ctx).delete() }
     }
 
     fun getRemainingHours(ctx: Context): Long {

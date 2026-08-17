@@ -128,7 +128,8 @@ object LogParser {
             // format") are unrelated to streaming/VRAM pressure and must not be counted
             // here, otherwise low-end devices get falsely flagged as VRAM-starved.
             if ("logdynamicatlas" !in l &&
-                ("non-streamed mips" in l || "failed to load texture" in l || "out of memory" in l)
+                "out of memory" !in l &&
+                ("non-streamed mips" in l || "failed to load texture" in l)
             ) {
                 textureErrors++
             }

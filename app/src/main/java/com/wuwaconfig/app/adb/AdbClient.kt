@@ -22,8 +22,13 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
 class AdbClient(private val crypto: AdbCrypto) {
+    @Volatile
     private var socket: Socket? = null
+
+    @Volatile
     private var input: InputStream? = null
+
+    @Volatile
     private var output: OutputStream? = null
 
     @Volatile
@@ -35,6 +40,8 @@ class AdbClient(private val crypto: AdbCrypto) {
 
     private var keepaliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var keepaliveJob: Job? = null
+
+    @Volatile
     private var lastActivityMs = 0L
 
     private val txMutex = Mutex()
@@ -192,7 +199,11 @@ class AdbClient(private val crypto: AdbCrypto) {
                     var remoteId = 0
 
                     loop@ while (true) {
-                        val message = AdbProtocol.readMessage(inp) ?: break
+                        val message = AdbProtocol.readMessage(inp)
+                        if (message == null) {
+                            Log.w("AdbClient", "shell[$instanceId]: stream ended prematurely before CLSE")
+                            return@withLock Result.failure(Exception("ADB stream ended prematurely"))
+                        }
                         when {
                             message.command.contentEquals(AdbProtocol.OKAY) -> {
                                 if (remoteId == 0) remoteId = message.arg0
@@ -229,7 +240,10 @@ class AdbClient(private val crypto: AdbCrypto) {
                             else -> false
                         }
                     Log.d("AdbClient", "shell[$instanceId]: exception: $e (socketDead=$socketDead)")
-                    if (socketDead) connected = false
+                    if (socketDead) {
+                        disconnect()
+                        return@withLock Result.failure(Exception("ADB connection lost"))
+                    }
                     Result.failure(e)
                 }
             }

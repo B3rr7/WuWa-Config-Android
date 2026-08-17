@@ -1,5 +1,7 @@
 package com.wuwaconfig.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +17,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -25,6 +31,7 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,11 +75,41 @@ fun LogsScreen(
         }
     }
 
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
+
+    val isAtBottom by remember {
+        derivedStateOf {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+            last != null && last.index >= listState.layoutInfo.totalItemsCount - 3
+        }
+    }
+
+    LaunchedEffect(filtered.size) {
+        if (filterLevel == null && searchQuery.isBlank() && isAtBottom) {
+            listState.animateScrollToItem((filtered.size - 1).coerceAtLeast(0))
+        }
+    }
+
     GradientBackground {
         Scaffold(
             topBar = {
                 GlassTopBar(
-                    title = { Text("Log", fontWeight = FontWeight.Bold) },
+                    title = {
+                        Column {
+                            Text("Logs", fontWeight = FontWeight.Bold)
+                            Text(
+                                if (filtered.size != logs.size) {
+                                    "${filtered.size} of ${logs.size}"
+                                } else {
+                                    "${logs.size} entries"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
                     accentColor = NeonCyan,
                     navigationIcon = {
                         IconButton(
@@ -90,6 +127,19 @@ fun LogsScreen(
                 )
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
+            floatingActionButton = {
+                if (filtered.isNotEmpty() && !isAtBottom) {
+                    FloatingActionButton(
+                        onClick = {
+                            scope.launch { listState.animateScrollToItem((filtered.size - 1).coerceAtLeast(0)) }
+                        },
+                        containerColor = NeonCyan.copy(alpha = 0.9f),
+                        contentColor = Color.Black,
+                    ) {
+                        Icon(Icons.Default.ArrowDownward, contentDescription = "Scroll to latest")
+                    }
+                }
+            },
             containerColor = Color.Transparent,
         ) { padding ->
             Column(
@@ -102,11 +152,18 @@ fun LogsScreen(
                     onValueChange = { searchQuery = it },
                     placeholder = {
                         Text(
-                            "Search CVars or messages...",
+                            "Search messages...",
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         )
                     },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = NeonCyan.copy(alpha = 0.6f)) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = NeonCyan.copy(alpha = 0.6f))
+                            }
+                        }
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors =
@@ -159,7 +216,7 @@ fun LogsScreen(
                 Spacer(Modifier.height(4.dp))
 
                 Text(
-                    "${filtered.size} entries",
+                    "Tap an entry to copy · ${filtered.size} shown",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     modifier = Modifier.padding(vertical = 4.dp),
@@ -182,18 +239,6 @@ fun LogsScreen(
                         }
                     }
                 } else {
-                    val listState = rememberLazyListState()
-                    val isAtBottom by remember {
-                        derivedStateOf {
-                            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-                            last != null && last.index >= listState.layoutInfo.totalItemsCount - 3
-                        }
-                    }
-                    LaunchedEffect(filtered.size) {
-                        if (filterLevel == null && searchQuery.isBlank() && isAtBottom) {
-                            listState.animateScrollToItem(filtered.size - 1)
-                        }
-                    }
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -207,16 +252,79 @@ fun LogsScreen(
                                     LogLevel.WARNING -> NeonAmber
                                     LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
                                 }
-                            Text(
-                                "[${log.timestamp}] ${log.message}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = c,
-                                modifier = Modifier.padding(vertical = 2.dp, horizontal = 4.dp),
-                            )
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            clipboard.setText(
+                                                AnnotatedString("[${log.timestamp}] ${log.message}"),
+                                            )
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    "Copied to clipboard",
+                                                    duration = SnackbarDuration.Short,
+                                                )
+                                            }
+                                        }.padding(vertical = 3.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Box(
+                                    Modifier
+                                        .width(3.dp)
+                                        .fillMaxHeight()
+                                        .background(c.copy(alpha = 0.8f)),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Column {
+                                    Text(
+                                        "[${log.timestamp}]",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                                        color = c.copy(alpha = 0.65f),
+                                    )
+                                    Text(
+                                        buildHighlightedMessage(log.message, debouncedQuery, c),
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                        color = c,
+                                        modifier = Modifier.padding(top = 1.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun buildHighlightedMessage(
+    message: String,
+    query: String,
+    baseColor: Color,
+): AnnotatedString {
+    if (query.isBlank()) return AnnotatedString(message, SpanStyle(color = baseColor))
+    val lower = message.lowercase()
+    val q = query.lowercase()
+    val builder = AnnotatedString.Builder()
+    var start = 0
+    while (start < message.length) {
+        val idx = lower.indexOf(q, start)
+        if (idx < 0) {
+            builder.append(AnnotatedString(message.substring(start), SpanStyle(color = baseColor)))
+            break
+        }
+        if (idx > start) {
+            builder.append(AnnotatedString(message.substring(start, idx), SpanStyle(color = baseColor)))
+        }
+        builder.append(
+            AnnotatedString(
+                message.substring(idx, (idx + q.length).coerceAtMost(message.length)),
+                SpanStyle(color = baseColor, background = NeonCyan.copy(alpha = 0.25f)),
+            ),
+        )
+        start = idx + q.length
+    }
+    return builder.toAnnotatedString()
 }

@@ -4,19 +4,31 @@ import android.app.Activity
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.Density
 import androidx.core.view.WindowCompat
+
+private fun fontFamilyForName(name: String): FontFamily =
+    when (name) {
+        "Serif" -> FontFamily.Serif
+        "Monospace" -> FontFamily.Monospace
+        else -> FontFamily.Default
+    }
 
 private val DarkColorScheme =
     darkColorScheme(
@@ -79,6 +91,8 @@ fun WuWaConfigTheme(
     themeMode: String = "system",
     dynamicColor: Boolean = false,
     textOpacity: Float = 1f,
+    fontFamilyName: String = "Default",
+    fontScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val isDark =
@@ -127,6 +141,15 @@ fun WuWaConfigTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
-        content = content,
-    )
+    ) {
+        val density = LocalDensity.current
+        val scale = fontScale.coerceIn(0.75f, 1.5f)
+        val scaledDensity = Density(density.density, scale)
+        CompositionLocalProvider(
+            LocalDensity provides scaledDensity,
+            LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = fontFamilyForName(fontFamilyName)),
+        ) {
+            content()
+        }
+    }
 }
