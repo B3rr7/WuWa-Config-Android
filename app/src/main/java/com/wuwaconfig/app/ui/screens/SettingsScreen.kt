@@ -240,7 +240,7 @@ fun SettingsScreen(
                         fontWeight = FontWeight.Medium,
                     )
                     Spacer(Modifier.height(8.dp))
-                    val fontOptions = listOf("Default", "Serif", "Monospace")
+                    val fontOptions = listOf("Default", "Rajdhani", "Serif", "Monospace")
                     fontOptions.chunked(4).forEach { rowOptions ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),

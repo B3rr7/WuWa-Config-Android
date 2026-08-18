@@ -25,9 +25,10 @@ import androidx.core.view.WindowCompat
 
 private fun fontFamilyForName(name: String): FontFamily =
     when (name) {
+        "Rajdhani" -> RajdhaniBold
         "Serif" -> FontFamily.Serif
         "Monospace" -> FontFamily.Monospace
-        else -> FontFamily.Default
+        else -> RajdhaniBold
     }
 
 private val DarkColorScheme =
