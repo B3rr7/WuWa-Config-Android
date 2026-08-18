@@ -8,13 +8,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Forum
@@ -40,6 +45,7 @@ import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.config.ChipsetDetector.ChipsetInfo
 import com.wuwaconfig.app.ui.SettingsViewModel
 import com.wuwaconfig.app.ui.UpdateState
+import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassCardHeader
 import com.wuwaconfig.app.ui.components.GlassDialog
@@ -227,6 +233,48 @@ fun SettingsScreen(
                         fontWeight = FontWeight.Bold,
                         color = NeonGreen,
                     )
+                    Spacer(Modifier.height(16.dp))
+                    val colorSaturation by viewModel.colorSaturation.collectAsStateWithLifecycle()
+                    Text(
+                        "Color Saturation",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        "Make the neon accents more or less vivid",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            "Soft",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                        Slider(
+                            value = colorSaturation,
+                            onValueChange = { viewModel.setColorSaturation(it) },
+                            valueRange = 0.5f..1.6f,
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                            colors =
+                                SliderDefaults.colors(
+                                    thumbColor = NeonPurple,
+                                    activeTrackColor = NeonPurple.copy(alpha = 0.6f),
+                                    inactiveTrackColor = Color.White.copy(alpha = 0.1f),
+                                ),
+                        )
+                        Text(
+                            "Vivid",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                    }
+                    Text(
+                        "${(colorSaturation * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NeonPurple,
+                    )
                 }
 
                 GlassCard(accentColor = NeonPurple) {
@@ -241,33 +289,40 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                     val fontOptions = listOf("Default", "Rajdhani", "Serif", "Monospace")
-                    fontOptions.chunked(4).forEach { rowOptions ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            rowOptions.forEach { option ->
-                                val selected = fontFamilyName == option
-                                Button(
-                                    onClick = { viewModel.setFontFamily(option) },
-                                    modifier = Modifier.weight(1f),
-                                    colors =
-                                        ButtonDefaults.buttonColors(
-                                            containerColor =
-                                                if (selected) {
-                                                    NeonPurple.copy(alpha = 0.2f)
-                                                } else {
-                                                    MaterialTheme.colorScheme.surfaceVariant
-                                                },
-                                            contentColor = if (selected) NeonPurple else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        ),
-                                    shape = RoundedCornerShape(10.dp),
-                                ) {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(NeonPurple.copy(alpha = 0.06f))
+                                .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        fontOptions.forEach { option ->
+                            val selected = fontFamilyName == option
+                            val contentColor =
+                                if (selected) NeonPurple else MaterialTheme.colorScheme.onSurfaceVariant
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (selected) NeonPurple.copy(alpha = 0.22f) else Color.Transparent)
+                                        .border(1.dp, if (selected) NeonPurple else Color.Transparent, RoundedCornerShape(10.dp))
+                                        .clickable { viewModel.setFontFamily(option) }
+                                        .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        option,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        "Aa",
+                                        fontFamily = fontFamilyForName(option),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp,
+                                        color = contentColor,
                                     )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(option, fontSize = 10.sp, color = contentColor)
                                 }
                             }
                         }
@@ -547,67 +602,154 @@ fun SettingsScreen(
                     Spacer(Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        FilledTonalButton(
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Current version",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "v${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = NeonGreen,
+                            )
+                        }
+                        GlassButton(
                             onClick = { viewModel.checkForUpdates() },
                             enabled = updateState !is UpdateState.Checking && updateState !is UpdateState.Downloading,
-                            colors =
-                                ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = NeonGreen.copy(alpha = 0.12f),
-                                    contentColor = NeonGreen,
-                                ),
-                        ) { Text("Check for updates", fontWeight = FontWeight.Bold) }
-                        if (updateState is UpdateState.Available) {
-                            FilledTonalButton(
-                                onClick = { viewModel.downloadAndInstall() },
-                                enabled = updateState !is UpdateState.Downloading,
-                                colors =
-                                    ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = NeonBlue.copy(alpha = 0.12f),
-                                        contentColor = NeonBlue,
-                                    ),
-                            ) { Text("Download & Install", fontWeight = FontWeight.Bold) }
-                        }
+                            accentColor = NeonGreen,
+                            contentColor = NeonGreen,
+                        ) { Text("Check for updates", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
                     }
                     Spacer(Modifier.height(8.dp))
                     when (val state = updateState) {
                         is UpdateState.Idle ->
                             Text(
-                                "Current version: ${BuildConfig.VERSION_NAME}",
+                                "Tap “Check for updates” to look for a newer release.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         is UpdateState.Checking ->
-                            Text("Checking for updates…", style = MaterialTheme.typography.bodySmall, color = NeonGreen)
-                        is UpdateState.NoUpdate ->
-                            Text(
-                                "You're on the latest version (${BuildConfig.VERSION_NAME})",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        is UpdateState.Available ->
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    "Update available: v${state.info.versionName}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = NeonBlue,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = NeonGreen,
                                 )
-                                if (state.info.notes.isNotBlank()) {
-                                    Spacer(Modifier.height(4.dp))
+                                Text("Checking for updates…", style = MaterialTheme.typography.bodySmall, color = NeonGreen)
+                            }
+                        is UpdateState.NoUpdate ->
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(NeonGreen.copy(alpha = 0.1f))
+                                        .border(0.5.dp, NeonGreen.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                                        .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(Icons.Default.CheckCircle, null, tint = NeonGreen, modifier = Modifier.size(18.dp))
+                                Text(
+                                    "Up to date — v${BuildConfig.VERSION_NAME}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = NeonGreen,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        is UpdateState.Available -> {
+                            Column(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(NeonBlue.copy(alpha = 0.08f))
+                                        .border(0.5.dp, NeonBlue.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                        .padding(10.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(Icons.Default.CloudDownload, null, tint = NeonBlue, modifier = Modifier.size(18.dp))
+                                    Text("New version available", fontWeight = FontWeight.Bold, color = NeonBlue)
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        state.info.notes,
-                                        style = MaterialTheme.typography.bodySmall,
+                                        "v${BuildConfig.VERSION_NAME}",
+                                        style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 4,
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = NeonBlue, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        "v${state.info.versionName}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NeonBlue,
                                     )
                                 }
+                                if (state.info.notes.isNotBlank()) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        "Release notes",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Box(
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(max = 72.dp)
+                                                .verticalScroll(rememberScrollState()),
+                                    ) {
+                                        Text(
+                                            state.info.notes,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                GlassButton(
+                                    onClick = { viewModel.downloadAndInstall() },
+                                    enabled = updateState !is UpdateState.Downloading,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    accentColor = NeonBlue,
+                                    contentColor = NeonBlue,
+                                ) { Text("Download & Install", fontWeight = FontWeight.Bold) }
                             }
+                        }
                         is UpdateState.Downloading ->
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                Text("Downloading… ${state.progress}%", style = MaterialTheme.typography.bodySmall, color = NeonGreen)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text(
+                                        "Downloading…",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = NeonGreen,
+                                    )
+                                    Text(
+                                        "${state.progress}%",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = NeonGreen,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
                                 Spacer(Modifier.height(6.dp))
                                 LinearProgressIndicator(
                                     progress = { state.progress / 100f },
@@ -617,23 +759,62 @@ fun SettingsScreen(
                                 )
                             }
                         is UpdateState.Ready -> {
-                            Text("Update downloaded — ready to install", style = MaterialTheme.typography.bodySmall, color = NeonGreen)
-                            Spacer(Modifier.height(8.dp))
-                            FilledTonalButton(
-                                onClick = { viewModel.installNow() },
-                                colors =
-                                    ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = NeonBlue.copy(alpha = 0.12f),
-                                        contentColor = NeonBlue,
-                                    ),
-                            ) { Text("Install update", fontWeight = FontWeight.Bold) }
+                            Column(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(NeonGreen.copy(alpha = 0.08f))
+                                        .border(0.5.dp, NeonGreen.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                        .padding(10.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(Icons.Default.CheckCircle, null, tint = NeonGreen, modifier = Modifier.size(18.dp))
+                                    Text("Update ready", fontWeight = FontWeight.Bold, color = NeonGreen)
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    "Downloaded v${state.versionName} — install to finish.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                GlassButton(
+                                    onClick = { viewModel.installNow() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    accentColor = NeonGreen,
+                                    contentColor = NeonGreen,
+                                ) { Text("Install update", fontWeight = FontWeight.Bold) }
+                            }
                         }
-                        is UpdateState.Error ->
-                            Text(
-                                "Update error: ${state.message}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = NeonRed,
-                            )
+                        is UpdateState.Error -> {
+                            Column(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(NeonRed.copy(alpha = 0.08f))
+                                        .border(0.5.dp, NeonRed.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                        .padding(10.dp),
+                            ) {
+                                Text("Update failed", fontWeight = FontWeight.Bold, color = NeonRed)
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    state.message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(Modifier.height(10.dp))
+                                GlassButton(
+                                    onClick = { viewModel.checkForUpdates() },
+                                    accentColor = NeonRed,
+                                    contentColor = NeonRed,
+                                ) { Text("Retry", fontWeight = FontWeight.Bold) }
+                            }
+                        }
                     }
                 }
 

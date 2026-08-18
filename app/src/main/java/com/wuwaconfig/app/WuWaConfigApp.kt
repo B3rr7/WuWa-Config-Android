@@ -70,6 +70,7 @@ class WuWaConfigApp : Application() {
     val textOpacity = MutableStateFlow(1f)
     val fontFamilyName = MutableStateFlow("Default")
     val fontScale = MutableStateFlow(1f)
+    val colorSaturation = MutableStateFlow(1f)
     val colorfulUi = MutableStateFlow(true)
     val deployHistoryEnabled = MutableStateFlow(true)
     val hashMonitorEnabled = MutableStateFlow(true)
@@ -95,6 +96,7 @@ class WuWaConfigApp : Application() {
         textOpacity.value = prefs.getFloat("text_opacity", 1f)
         fontFamilyName.value = prefs.getString("font_family", "Default") ?: "Default"
         fontScale.value = prefs.getFloat("font_scale", 1f)
+        colorSaturation.value = prefs.getFloat("color_saturation", 1f)
         colorfulUi.value = prefs.getBoolean("colorful_ui", true)
         deployHistoryEnabled.value = prefs.getBoolean("deploy_history", true)
         hashMonitorEnabled.value = prefs.getBoolean("hash_monitor_enabled", true)
@@ -138,6 +140,12 @@ class WuWaConfigApp : Application() {
         val clamped = value.coerceIn(0.75f, 1.5f)
         prefs.edit().putFloat("font_scale", clamped).apply()
         fontScale.value = clamped
+    }
+
+    fun setColorSaturation(value: Float) {
+        val clamped = value.coerceIn(0.5f, 1.6f)
+        prefs.edit().putFloat("color_saturation", clamped).apply()
+        colorSaturation.value = clamped
     }
 
     fun setColorfulUi(enabled: Boolean) {

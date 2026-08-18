@@ -39,6 +39,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val textOpacity: StateFlow<Float> = app.textOpacity
     val fontFamilyName: StateFlow<String> = app.fontFamilyName
     val fontScale: StateFlow<Float> = app.fontScale
+    val colorSaturation: StateFlow<Float> = app.colorSaturation
 
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
@@ -56,6 +57,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setFontFamily(name: String) = app.setFontFamily(name)
 
     fun setFontScale(value: Float) = app.setFontScale(value)
+
+    fun setColorSaturation(value: Float) = app.setColorSaturation(value)
 
     fun setBackgroundImageUri(uri: String?) {
         app.backgroundImageUri.value = uri

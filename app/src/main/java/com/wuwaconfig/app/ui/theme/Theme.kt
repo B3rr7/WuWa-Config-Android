@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Density
 import androidx.core.view.WindowCompat
 
-private fun fontFamilyForName(name: String): FontFamily =
+internal fun fontFamilyForName(name: String): FontFamily =
     when (name) {
         "Rajdhani" -> RajdhaniBold
         "Serif" -> FontFamily.Serif

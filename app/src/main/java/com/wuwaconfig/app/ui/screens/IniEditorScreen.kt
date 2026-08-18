@@ -445,7 +445,7 @@ private fun IniFileGrid(
                                 .background(Brush.linearGradient(listOf(NeonCyan, NeonBlue))),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Default.Description, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                        Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
                     }
                     Spacer(Modifier.width(12.dp))
                     Column {
@@ -506,7 +506,7 @@ private fun IniFileTile(
                         .background(Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.5f)))),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Description, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.height(10.dp))
             Text(

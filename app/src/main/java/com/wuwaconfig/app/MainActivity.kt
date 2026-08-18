@@ -51,6 +51,7 @@ import com.wuwaconfig.app.ui.screens.SetupScreen
 import com.wuwaconfig.app.ui.screens.TermsScreen
 import com.wuwaconfig.app.ui.screens.UserGuideScreen
 import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
+import com.wuwaconfig.app.ui.theme.setNeonSaturation
 
 class MainActivity : ComponentActivity() {
     private val manageStorageLauncher =
@@ -83,8 +84,10 @@ class MainActivity : ComponentActivity() {
             val textOpacity by settingsViewModel.textOpacity.collectAsStateWithLifecycle()
             val fontFamilyName by settingsViewModel.fontFamilyName.collectAsStateWithLifecycle()
             val fontScale by settingsViewModel.fontScale.collectAsStateWithLifecycle()
+            val colorSaturation by settingsViewModel.colorSaturation.collectAsStateWithLifecycle()
             var showTerms by remember { mutableStateOf(mainViewModel.needsTermsAccept()) }
 
+            setNeonSaturation(colorSaturation)
             WuWaConfigTheme(
                 themeMode = themeMode,
                 textOpacity = textOpacity,
