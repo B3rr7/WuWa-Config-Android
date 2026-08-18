@@ -192,7 +192,7 @@ class ProfileExtractor(
 
                 val uidStr = uid ?: ""
 
-                val profile =
+                val baseProfile =
                     PlayerProfile(
                         engineSettingCount = countIniSettings("Engine.ini"),
                         deviceProfileCount = countIniSettings("DeviceProfiles.ini"),
@@ -220,6 +220,37 @@ class ProfileExtractor(
                                 else -> cleanString(langRaw) ?: "—"
                             },
                     )
+
+                val deviceInfo =
+                    runCatching {
+                        val decoded = readRemoteLogToText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}").getOrThrow()
+                        LogParser.parseLog(decoded.first)
+                    }.getOrNull()
+
+                val profile =
+                    if (deviceInfo != null) {
+                        baseProfile.copy(
+                            gpu = deviceInfo.gpu,
+                            socName = deviceInfo.socName,
+                            ramMb = deviceInfo.ramMb,
+                            androidVersion = deviceInfo.androidVersion,
+                            resolution = deviceInfo.resolution,
+                            renderApi = deviceInfo.gameApi ?: deviceInfo.api,
+                            vulkanStatus = deviceInfo.vulkanStatus,
+                            fpsActual = deviceInfo.fpsActual,
+                            fpsCap = deviceInfo.fpsCap,
+                            screenPct = deviceInfo.screenPct,
+                            shadowQ = deviceInfo.shadowQ,
+                            qualityMode = deviceInfo.qualityMode,
+                            thermalEvents = deviceInfo.thermalEvents,
+                            gpuOom = deviceInfo.gpuOom,
+                            dropFrames = deviceInfo.dropFrames,
+                            textureErrors = deviceInfo.textureErrors,
+                            forbiddenCvars = deviceInfo.forbiddenCvars,
+                        )
+                    } else {
+                        baseProfile
+                    }
                 Result.success(profile)
             } catch (e: Exception) {
                 Log.w("ProfileExtractor", "readProfile failed: ${e.message}")

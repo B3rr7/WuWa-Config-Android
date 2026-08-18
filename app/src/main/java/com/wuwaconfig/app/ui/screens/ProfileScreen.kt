@@ -1,7 +1,6 @@
 package com.wuwaconfig.app.ui.screens
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -80,17 +79,7 @@ fun ProfileScreen(
                 }
 
                 if (profileLoading && profile == null) {
-                    GlassButton(
-                        onClick = { },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = false,
-                        accentColor = NeonGreen,
-                        contentColor = Color.White,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Text("Loading...", fontWeight = FontWeight.Bold)
-                    }
+                    ProfileLoadingAnimation("Reading game data from device...")
                 }
 
                 if (profile != null) {
@@ -204,6 +193,8 @@ private fun ProfileContent(
 ) {
     GameProgressSection(profile)
     GameInfoSection(profile)
+    DeviceSection(profile)
+    PerformanceSection(profile)
     ConfigSummarySection(profile, configModifyCounts)
 }
 
@@ -314,6 +305,145 @@ private fun InfoChip(
         Spacer(Modifier.height(2.dp))
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = accent)
+    }
+}
+
+@Composable
+private fun DeviceSection(profile: PlayerProfile) {
+    val hasData =
+        profile.gpu != null ||
+            profile.socName != null ||
+            profile.androidVersion != null ||
+            profile.ramMb != null ||
+            profile.resolution != null ||
+            profile.renderApi != null ||
+            profile.vulkanStatus != null
+    GlassCard(accentColor = NeonCyan) {
+        SectionHeader("DEVICE", NeonCyan)
+        Spacer(Modifier.height(10.dp))
+        if (!hasData) {
+            Text(
+                "No device data yet — run Config Generator analysis or collect Client.log first.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+            return@GlassCard
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoChip(Icons.Default.Memory, "GPU", profile.gpu ?: "—", NeonCyan, Modifier.weight(1f))
+            InfoChip(Icons.Default.DeveloperBoard, "Chipset", profile.socName ?: "—", NeonPurple, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoChip(Icons.Default.Storage, "RAM", profile.ramMb?.let { "${it / 1024} GB" } ?: "—", NeonPink, Modifier.weight(1f))
+            InfoChip(Icons.Default.Android, "Android", profile.androidVersion ?: "—", NeonGreen, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoChip(Icons.Default.AspectRatio, "Resolution", profile.resolution ?: "—", NeonAmber, Modifier.weight(1f))
+            InfoChip(Icons.Default.Hub, "Render API", profile.renderApi ?: "—", NeonGold, Modifier.weight(1f))
+        }
+        if (!profile.vulkanStatus.isNullOrBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InfoChip(Icons.Default.CheckCircle, "Vulkan", profile.vulkanStatus!!, NeonCyan, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PerformanceSection(profile: PlayerProfile) {
+    val hasData =
+        profile.fpsActual != null ||
+            profile.fpsCap != null ||
+            profile.screenPct != null ||
+            profile.shadowQ != null ||
+            profile.qualityMode != null ||
+            profile.thermalEvents > 0 ||
+            profile.gpuOom > 0 ||
+            profile.dropFrames > 0 ||
+            profile.textureErrors > 0 ||
+            profile.forbiddenCvars > 0
+    GlassCard(accentColor = NeonAmber) {
+        SectionHeader("PERFORMANCE", NeonAmber)
+        Spacer(Modifier.height(10.dp))
+        if (!hasData) {
+            Text(
+                "No performance data yet — run Config Generator analysis or collect Client.log first.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+            return@GlassCard
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoChip(
+                Icons.Default.Speed,
+                "Avg FPS",
+                profile.fpsActual?.let { "%.1f".format(it) } ?: "—",
+                NeonAmber,
+                Modifier.weight(1f),
+            )
+            InfoChip(Icons.Default.Speed, "FPS Cap", profile.fpsCap?.toString() ?: "—", NeonCyan, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoChip(
+                Icons.Default.ZoomIn,
+                "Screen %",
+                profile.screenPct?.toInt()?.let { "$it%" } ?: "—",
+                NeonPink,
+                Modifier.weight(1f),
+            )
+            InfoChip(Icons.Default.Shield, "Shadow Q", profile.shadowQ?.toString() ?: "—", NeonPurple, Modifier.weight(1f))
+        }
+        if (!profile.qualityMode.isNullOrBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InfoChip(Icons.Default.Tune, "Quality", profile.qualityMode!!, NeonGreen, Modifier.weight(1f))
+            }
+        }
+
+        if (profile.thermalEvents > 0 ||
+            profile.gpuOom > 0 ||
+            profile.dropFrames > 0 ||
+            profile.textureErrors > 0 ||
+            profile.forbiddenCvars > 0
+        ) {
+            Spacer(Modifier.height(14.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NeonAmber.copy(alpha = 0.15f)))
+            Spacer(Modifier.height(10.dp))
+            Text("DIAGNOSTICS", style = MaterialTheme.typography.labelMedium, color = NeonAmber.copy(alpha = 0.7f), letterSpacing = 2.sp)
+            Spacer(Modifier.height(8.dp))
+            DiagnosticRow("Thermal events", profile.thermalEvents)
+            DiagnosticRow("GPU OOM", profile.gpuOom)
+            DiagnosticRow("Dropped frames", profile.dropFrames)
+            DiagnosticRow("Texture errors", profile.textureErrors)
+            DiagnosticRow("Forbidden CVars", profile.forbiddenCvars)
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticRow(
+    label: String,
+    value: Int,
+) {
+    val bad = value > 0
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "$value",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = if (bad) NeonRed else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            )
+        }
     }
 }
 
@@ -436,4 +566,57 @@ private fun SectionHeader(
     accent: Color,
 ) {
     Text(text, style = MaterialTheme.typography.labelMedium, color = accent.copy(alpha = 0.7f), letterSpacing = 2.sp)
+}
+
+@Composable
+private fun ProfileLoadingAnimation(text: String) {
+    GlassCard(accentColor = NeonGreen) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val orbs = listOf(NeonGreen, NeonCyan, NeonGold)
+                orbs.forEachIndexed { index, color ->
+                    BouncingOrb(color, index)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BouncingOrb(
+    color: Color,
+    index: Int,
+) {
+    val transition = rememberInfiniteTransition(label = "orb$index")
+    val offset by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = -14f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 520, delayMillis = index * 160, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "offset$index",
+    )
+    Box(
+        Modifier
+            .size(14.dp)
+            .offset(y = offset.dp)
+            .clip(RoundedCornerShape(50))
+            .background(
+                Brush.radialGradient(listOf(color, color.copy(alpha = 0.35f))),
+            ),
+    )
 }

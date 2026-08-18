@@ -324,25 +324,41 @@ object LogParser {
         var echoSkillsUsed = 0
         var echoTransformUsed = 0
         var monthCards = 0
+        var monthCardRemainDays = 0
+        var playerId = ""
+        var currentStrength = 0
 
         for (line in lines) {
             when {
-                "切换玩家战斗音乐状态: 进入战斗" in line -> battles++
+                "切换玩家战斗音乐状态: 进入战斗" in line ||
+                    "切换玩家状态: 进入战斗造成伤害" in line -> battles++
                 "初次幻象收服" in line || "初次幻象捕捉" in line -> echoesCollected++
                 "极限闪避前闪" in line -> dodgeForward++
                 "极限闪避后闪" in line -> dodgeBack++
                 "极限闪避反击" in line -> dodgeCounter++
-                "执行角色死亡逻辑" in line -> deaths++
+                "执行角色死亡逻辑" in line || "前台角色死亡进行切人" in line -> deaths++
                 "角色下场" in line -> roleChanges++
-                "传送:" in line && "完成" in line -> teleports++
+                ("传送:" in line && "完成" in line) || "传送:完成" in line -> teleports++
                 "进入倒地状态" in line -> staggers++
-                line.contains("当前体力数据") && "UPs:" in line -> {
-                    val matches = UPS_RE.findAll(line)
-                    staminaUsed += matches.sumOf { it.groupValues[1].toIntOrNull() ?: 0 }
-                }
                 "召唤系幻象的出生特效" in line -> echoSkillsUsed++
                 "变身幻象" in line -> echoTransformUsed++
-                "月卡每日奖励" in line -> monthCards++
+                "月卡每日奖励" in line || "【月卡每日奖励】信息推送" in line -> {
+                    monthCards++
+                    val m = REMAIN_DAYS_RE.find(line)
+                    if (m != null) monthCardRemainDays = m.groupValues[1].toIntOrNull() ?: monthCardRemainDays
+                }
+                "SetUserId [playerId:" in line -> {
+                    val m = PLAYER_ID_RE.find(line)
+                    if (m != null) playerId = m.groupValues[1]
+                }
+                "当前体力数据" in line -> {
+                    val m = UPS_RE.find(line)
+                    if (m != null) {
+                        val v = m.groupValues[1].toIntOrNull() ?: 0
+                        if (v < currentStrength) staminaUsed += currentStrength - v
+                        currentStrength = v
+                    }
+                }
             }
         }
 
@@ -360,6 +376,8 @@ object LogParser {
             echoSkillsUsed = echoSkillsUsed,
             echoTransformUsed = echoTransformUsed,
             monthCards = monthCards,
+            monthCardRemainDays = monthCardRemainDays,
+            playerId = playerId,
         )
     }
 
@@ -420,4 +438,6 @@ object LogParser {
         Regex("""LogRHI:\s*Initializing\s+(\S+(?:\s+\S+)*?)\s*RHI""", RegexOption.IGNORE_CASE)
 
     private val UPS_RE = Regex("""UPs:(\d+)""")
+    private val REMAIN_DAYS_RE = Regex("""remainDays:\s*(\d+)""")
+    private val PLAYER_ID_RE = Regex("""playerId:\s*(\d+)""")
 }

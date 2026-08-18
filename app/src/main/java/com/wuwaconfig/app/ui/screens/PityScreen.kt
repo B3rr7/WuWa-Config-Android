@@ -1,7 +1,10 @@
 package com.wuwaconfig.app.ui.screens
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -9,9 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.GachaData
@@ -108,6 +114,14 @@ fun PityScreen(
                     }
                 }
 
+                if (conveneUrlLoading || gachaLoading) {
+                    item {
+                        PityLoadingAnimation(
+                            if (conveneUrlLoading) "Reading Client.log for Convene URL..." else "Fetching pull history from Kuro servers...",
+                        )
+                    }
+                }
+
                 if (!backendStatus.connected) {
                     item {
                         GlassCard(accentColor = NeonRed) {
@@ -196,19 +210,42 @@ fun PityScreen(
 @Composable
 private fun GachaSummary(data: GachaData) {
     GlassCard(accentColor = NeonGold) {
-        Text("Summary", style = MaterialTheme.typography.labelMedium, color = NeonGold.copy(alpha = 0.7f))
-        Spacer(Modifier.height(8.dp))
+        Text(
+            "PITY OVERVIEW",
+            style = MaterialTheme.typography.labelMedium,
+            color = NeonGold.copy(alpha = 0.8f),
+            letterSpacing = 3.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            StatItem("${data.totalPulls}", "Pulls", NeonCyan)
-            StatItem("${data.fiveStars}", "★5", NeonGold)
-            StatItem("${data.fourStars}", "★4", NeonPurple)
+            HeroStat("${data.totalPulls}", "Total Pulls", NeonCyan)
+            HeroStat("${data.fiveStars}", "★5", NeonGold)
+            HeroStat("${data.fourStars}", "★4", NeonPurple)
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(16.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)),
+        )
+        Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             StatItem(if (data.avgPity5 > 0) "%.1f".format(data.avgPity5) else "—", "Avg ★5 Pity", NeonGold)
             StatItem(if (data.avgPity4 > 0) "%.1f".format(data.avgPity4) else "—", "Avg ★4 Pity", NeonPurple)
         }
     }
+
+    Spacer(Modifier.height(14.dp))
+    Text(
+        "BANNER HISTORY",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        letterSpacing = 2.sp,
+        modifier = Modifier.padding(start = 4.dp),
+    )
+    Spacer(Modifier.height(10.dp))
 
     for (pool in GachaPool.ALL) {
         val poolRecords = data.records.filter { it.cardPoolType == pool.type }
@@ -225,10 +262,18 @@ private fun GachaSummary(data: GachaData) {
 
         GlassCard(accentColor = accent) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    Modifier
+                        .size(10.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(accent),
+                )
+                Spacer(Modifier.width(8.dp))
                 Text(
                     pool.label,
                     style = MaterialTheme.typography.labelMedium,
-                    color = accent.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
@@ -237,15 +282,15 @@ private fun GachaSummary(data: GachaData) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (pool5 > 0) {
-                    Spacer(Modifier.width(6.dp))
-                    Text("★5×$pool5", style = MaterialTheme.typography.labelSmall, color = NeonGold)
+                    Spacer(Modifier.width(8.dp))
+                    Text("★5×$pool5", style = MaterialTheme.typography.labelSmall, color = NeonGold, fontWeight = FontWeight.Bold)
                 }
                 if (pool4 > 0) {
                     Spacer(Modifier.width(6.dp))
                     Text("★4×$pool4", style = MaterialTheme.typography.labelSmall, color = NeonPurple)
                 }
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
 
             poolRecords.take(50).forEach { record ->
                 RecordRow(record)
@@ -255,14 +300,25 @@ private fun GachaSummary(data: GachaData) {
                     "+ ${poolRecords.size - 50} more...",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
             }
         }
+        Spacer(Modifier.height(8.dp))
     }
 }
 
 @Composable
 private fun PredictionSection(predictions: List<PityPrediction>) {
+    Text(
+        "NEXT ★5 PREDICTION",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        letterSpacing = 2.sp,
+        modifier = Modifier.padding(start = 4.dp),
+    )
+    Spacer(Modifier.height(10.dp))
+
     for (pred in predictions) {
         val accent =
             when (pred.status) {
@@ -271,35 +327,74 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
                 else -> NeonCyan
             }
         GlassCard(accentColor = accent) {
-            Text("Next ★5 Prediction — ${pred.poolLabel}", style = MaterialTheme.typography.labelMedium, color = accent.copy(alpha = 0.7f))
-            Spacer(Modifier.height(10.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Status: ", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    pred.poolLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
                 val statusLabel =
                     when (pred.status) {
-                        "Guaranteed" -> "Guaranteed ★5 Limited"
-                        "50/50" -> "50/50 — Win or Lose?"
-                        "75/25" -> "75/25 — Weapon Banner"
+                        "Guaranteed" -> "Guaranteed"
+                        "50/50" -> "50 / 50"
+                        "75/25" -> "75 / 25"
                         else -> pred.status
                     }
-                Text(statusLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = accent)
+                StatusPill(statusLabel, accent)
+            }
+            Spacer(Modifier.height(14.dp))
+            PityProgressBar(
+                pulls = pred.pullsSinceLastFive,
+                hardPity = pred.hardPity,
+                softThreshold = pred.softPityThreshold,
+                accent = accent,
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    "${pred.pullsSinceLastFive} / ${pred.hardPity}",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = accent,
+                )
+                Text(
+                    "Soft ${pred.softPityThreshold} · Hard ${pred.hardPity}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                )
             }
 
             if (pred.isInSoftPity) {
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        "⚠ In soft pity (pull ${pred.pullsSinceLastFive}/${pred.hardPity})",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = NeonAmber,
-                    )
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = NeonAmber.copy(alpha = 0.15f),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Soft pity active — your ★5 rate is boosted!",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = NeonAmber,
+                        )
+                    }
                 }
             }
-            Spacer(Modifier.height(4.dp))
+
+            Spacer(Modifier.height(12.dp))
 
             if (pred.status != "75/25" && pred.lastFiveStarName.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -316,41 +411,33 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
 
                 if (pred.status == "Guaranteed") {
                     Text(
-                        "You lost 50/50 to ${pred.lastFiveStarName}. Next ★5 is guaranteed!",
+                        "You lost the 50/50 to ${pred.lastFiveStarName}. Next ★5 is guaranteed.",
                         style = MaterialTheme.typography.bodySmall,
                         color = NeonGold,
                     )
                 } else if (pred.status == "50/50") {
                     Text(
-                        "You won 50/50 on ${pred.lastFiveStarName}. Next ★5 is 50/50.",
+                        "You won the 50/50 on ${pred.lastFiveStarName}. Next ★5 is a 50/50.",
                         style = MaterialTheme.typography.bodySmall,
                         color = NeonAmber,
                     )
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(10.dp))
             }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                StatItem("${pred.pullsSinceLastFive}", "Pulls Since ★5", accent)
-                StatItem("${pred.pullsUntilHardPity}", "To Hard Pity", if (pred.isInSoftPity) NeonAmber else NeonCyan)
-                StatItem("~${pred.estimatedNextFive}", "Est. Next ★5", NeonGold)
+                StatItem("${pred.pullsSinceLastFive}", "Since ★5", accent)
+                StatItem("${pred.pullsUntilHardPity}", "To Hard", if (pred.isInSoftPity) NeonAmber else NeonCyan)
+                StatItem("~${pred.estimatedNextFive}", "Est. ★5", NeonGold)
             }
 
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 StatItem("${pred.pullsSinceLastFourStar}", "Since ★4", MaterialTheme.colorScheme.onSurfaceVariant)
-                StatItem("~${pred.estimatedNextFourStar}", "Est. Next ★4", MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            if (pred.status == "50/50") {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "If you lose 50/50 → next is guaranteed.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                )
+                StatItem("~${pred.estimatedNextFourStar}", "Est. ★4", MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -423,6 +510,13 @@ private fun RecordRow(record: GachaRecord) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Box(
+            Modifier
+                .size(7.dp)
+                .clip(RoundedCornerShape(50))
+                .background(color),
+        )
+        Spacer(Modifier.width(8.dp))
         Text(
             record.name,
             style = MaterialTheme.typography.bodySmall,
@@ -437,4 +531,125 @@ private fun RecordRow(record: GachaRecord) {
         val t = record.time.substringAfter(" ").take(5)
         Text(t, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
     }
+}
+
+@Composable
+private fun PityProgressBar(
+    pulls: Int,
+    hardPity: Int,
+    softThreshold: Int,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    val fillFrac = (pulls.toFloat() / hardPity).coerceIn(0f, 1f)
+    val softFrac = (softThreshold.toFloat() / hardPity).coerceIn(0f, 1f)
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.18f)),
+    ) {
+        Box(
+            Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxWidth(1f - softFrac)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(NeonAmber.copy(alpha = 0.22f), NeonAmber.copy(alpha = 0.45f)),
+                    ),
+                ),
+        )
+        Box(
+            Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxWidth(fillFrac)
+                .background(
+                    Brush.horizontalGradient(listOf(accent.copy(alpha = 0.65f), accent)),
+                    RoundedCornerShape(7.dp),
+                ),
+        )
+    }
+}
+
+@Composable
+private fun StatusPill(
+    text: String,
+    color: Color,
+) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(color.copy(alpha = 0.15f))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
+    }
+}
+
+@Composable
+private fun HeroStat(
+    value: String,
+    label: String,
+    accent: Color,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = accent)
+        Spacer(Modifier.height(2.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun PityLoadingAnimation(text: String) {
+    GlassCard(accentColor = NeonPurple) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val orbs = listOf(NeonCyan, NeonGold, NeonPurple)
+                orbs.forEachIndexed { index, color ->
+                    BouncingOrb(color, index)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BouncingOrb(
+    color: Color,
+    index: Int,
+) {
+    val transition = rememberInfiniteTransition(label = "orb$index")
+    val offset by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = -14f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 520, delayMillis = index * 160, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "offset$index",
+    )
+    Box(
+        Modifier
+            .size(14.dp)
+            .offset(y = offset.dp)
+            .clip(RoundedCornerShape(50))
+            .background(
+                Brush.radialGradient(listOf(color, color.copy(alpha = 0.35f))),
+            ),
+    )
 }

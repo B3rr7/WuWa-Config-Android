@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.ui.screens
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -75,22 +77,16 @@ fun BattleStatsScreen(
                 }
 
                 if (stats == null) {
-                    GlassButton(
-                        onClick = { viewModel.loadBattleStats() },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = backendStatus.connected && !loading,
-                        accentColor = NeonGreen,
-                        contentColor = Color.White,
-                    ) {
-                        if (loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp,
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text("Loading...", fontWeight = FontWeight.Bold)
-                        } else {
+                    if (loading) {
+                        BattleStatsLoadingAnimation("Reading Client.log for battle stats...")
+                    } else {
+                        GlassButton(
+                            onClick = { viewModel.loadBattleStats() },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = backendStatus.connected,
+                            accentColor = NeonGreen,
+                            contentColor = Color.White,
+                        ) {
                             Icon(Icons.Default.SportsEsports, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(10.dp))
                             Text("Load Battle Stats", fontWeight = FontWeight.Bold)
@@ -184,6 +180,10 @@ private fun BattleStatsHeader(stats: BattleStats) {
                 MiniBadge("${stats.staggers} Staggers", NeonAmber)
                 MiniBadge("${stats.staminaUsed} Stamina", NeonCyan)
             }
+            if (stats.playerId.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                MiniBadge("ID: ${stats.playerId}", NeonGreen)
+            }
         }
     }
 }
@@ -244,8 +244,10 @@ private fun BattleStatsContent(stats: BattleStats) {
     SectionCard("OTHER", NeonPink) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatCell(Icons.Default.CardMembership, "Monthly Cards", "${stats.monthCards}", NeonPink, Modifier.weight(1f))
-            StatCell(Icons.Default.Storage, "Log Size", formatBytes(stats.logSizeBytes), NeonGreen, Modifier.weight(1f))
+            StatCell(Icons.Default.DateRange, "MC Days Left", "${stats.monthCardRemainDays}", NeonPink.copy(alpha = 0.7f), Modifier.weight(1f))
         }
+        Spacer(Modifier.height(8.dp))
+        StatCell(Icons.Default.Storage, "Log Size", formatBytes(stats.logSizeBytes), NeonGreen, Modifier.fillMaxWidth())
     }
 }
 
@@ -291,4 +293,57 @@ private fun formatBytes(bytes: Long): String {
         bytes >= 1_000 -> "${"%.1f".format(bytes / 1_000.0)} KB"
         else -> "$bytes B"
     }
+}
+
+@Composable
+private fun BattleStatsLoadingAnimation(text: String) {
+    GlassCard(accentColor = NeonGreen) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val orbs = listOf(NeonGreen, NeonRed, NeonCyan)
+                orbs.forEachIndexed { index, color ->
+                    BouncingOrb(color, index)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BouncingOrb(
+    color: Color,
+    index: Int,
+) {
+    val transition = rememberInfiniteTransition(label = "orb$index")
+    val offset by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = -14f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 520, delayMillis = index * 160, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "offset$index",
+    )
+    Box(
+        Modifier
+            .size(14.dp)
+            .offset(y = offset.dp)
+            .clip(RoundedCornerShape(50))
+            .background(
+                Brush.radialGradient(listOf(color, color.copy(alpha = 0.35f))),
+            ),
+    )
 }

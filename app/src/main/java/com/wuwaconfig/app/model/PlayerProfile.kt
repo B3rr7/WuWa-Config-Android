@@ -19,4 +19,23 @@ data class PlayerProfile(
     val battlePassPurchased: Boolean = false,
     val serverLevels: List<Pair<String, Int>> = emptyList(),
     val loopTowerSeason: Int? = null,
+    // Device / hardware (from Client.log)
+    val gpu: String? = null,
+    val socName: String? = null,
+    val ramMb: Int? = null,
+    val androidVersion: String? = null,
+    val resolution: String? = null,
+    val renderApi: String? = null,
+    val vulkanStatus: String? = null,
+    // Performance / diagnostics (from Client.log)
+    val fpsActual: Float? = null,
+    val fpsCap: Int? = null,
+    val screenPct: Float? = null,
+    val shadowQ: Int? = null,
+    val qualityMode: String? = null,
+    val thermalEvents: Int = 0,
+    val gpuOom: Int = 0,
+    val dropFrames: Int = 0,
+    val textureErrors: Int = 0,
+    val forbiddenCvars: Int = 0,
 )

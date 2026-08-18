@@ -14,6 +14,8 @@ data class BattleStats(
     val echoSkillsUsed: Int = 0,
     val echoTransformUsed: Int = 0,
     val monthCards: Int = 0,
+    val monthCardRemainDays: Int = 0,
+    val playerId: String = "",
     val logSizeBytes: Long = 0,
 ) {
     operator fun plus(other: BattleStats): BattleStats =
@@ -31,6 +33,8 @@ data class BattleStats(
             echoSkillsUsed = echoSkillsUsed + other.echoSkillsUsed,
             echoTransformUsed = echoTransformUsed + other.echoTransformUsed,
             monthCards = monthCards + other.monthCards,
+            monthCardRemainDays = maxOf(monthCardRemainDays, other.monthCardRemainDays),
+            playerId = if (other.playerId.isNotEmpty()) other.playerId else playerId,
             logSizeBytes = logSizeBytes + other.logSizeBytes,
         )
 }

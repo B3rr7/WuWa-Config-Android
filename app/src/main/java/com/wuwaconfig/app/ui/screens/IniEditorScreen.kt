@@ -1,10 +1,10 @@
 package com.wuwaconfig.app.ui.screens
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -12,19 +12,16 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.AnnotatedString
@@ -137,6 +134,7 @@ fun IniEditorScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 if (editingFileName != null) editingFileName!! else "INI Editor",
+                                fontFamily = RajdhaniBold,
                                 fontWeight = FontWeight.Bold,
                             )
                             if (editingFileName != null && isDirty) {
@@ -204,18 +202,17 @@ fun IniEditorScreen(
                         modifier = Modifier.fillMaxSize().padding(padding),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = NeonCyan)
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                if (editingFileName != null) "Saving $editingFileName..." else "Loading...",
-                                color = NeonCyan,
-                            )
-                        }
+                        IniLoadingAnimation(
+                            if (editingFileName != null) "Saving $editingFileName..." else "Loading...",
+                        )
                     }
                 }
                 editingFileName != null && iniContent != null -> {
                     Column(Modifier.fillMaxSize().padding(padding)) {
+                        IniEditorStatusBar(
+                            lineCount = lineCount,
+                            isDirty = isDirty,
+                        )
                         if (showSearch) {
                             IniSearchBar(
                                 query = query,
@@ -304,65 +301,10 @@ fun IniEditorScreen(
                     }
                 }
                 else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(padding),
-                        contentPadding = PaddingValues(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        item {
-                            Spacer(Modifier.height(4.dp))
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Description,
-                                        null,
-                                        tint = NeonAmber,
-                                        modifier = Modifier.size(26.dp),
-                                    )
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(
-                                        "Config Files",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = NeonAmber,
-                                        fontWeight = FontWeight.Bold,
-                                    )
-                                }
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    "${GamePaths.MONITORED_FILES.size} monitored INI files · tap to edit",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
-                                )
-                            }
-                            Spacer(Modifier.height(6.dp))
-                        }
-                        itemsIndexed(GamePaths.MONITORED_FILES) { index, fileName ->
-                            IniFileCard(
-                                fileName = fileName,
-                                description = iniFileDescription(fileName),
-                                accent = iniFileAccent(fileName),
-                                shape = iniFileShape(index),
-                                onClick = { viewModel.readIniFile(fileName) },
-                            )
-                        }
-                        item {
-                            Spacer(Modifier.height(8.dp))
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = GUTTER_BG.copy(alpha = 0.6f)),
-                                shape = RoundedCornerShape(12.dp),
-                            ) {
-                                Text(
-                                    "Changes are pushed directly to device and hashes are refreshed — the game cannot detect tampering.",
-                                    modifier = Modifier.padding(14.dp),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                )
-                            }
-                        }
-                    }
+                    IniFileGrid(
+                        padding = padding,
+                        onFileClick = { viewModel.readIniFile(it) },
+                    )
                 }
             }
 
@@ -481,57 +423,146 @@ private fun IniSearchBar(
 }
 
 @Composable
-private fun IniFileCard(
+private fun IniFileGrid(
+    padding: PaddingValues,
+    onFileClick: (String) -> Unit,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier.fillMaxSize().padding(padding).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(bottom = 8.dp),
+    ) {
+        item(span = { GridItemSpan(2) }) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Brush.linearGradient(listOf(NeonCyan, NeonBlue))),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.Description, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            "Config Files",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontFamily = RajdhaniBold,
+                            color = NeonCyan,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            "${GamePaths.MONITORED_FILES.size} monitored INI files · tap to edit",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+        }
+        itemsIndexed(GamePaths.MONITORED_FILES) { _, fileName ->
+            IniFileTile(
+                fileName = fileName,
+                description = iniFileDescription(fileName),
+                accent = iniFileAccent(fileName),
+                onClick = { onFileClick(fileName) },
+            )
+        }
+        item(span = { GridItemSpan(2) }) {
+            GlassCard(accentColor = NeonCyan) {
+                Text(
+                    "Changes are pushed directly to device and hashes are refreshed — the game cannot detect tampering.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun IniFileTile(
     fileName: String,
     description: String,
     accent: Color,
-    shape: androidx.compose.ui.graphics.Shape,
     onClick: () -> Unit,
 ) {
     GlassCard(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         accentColor = accent,
-        shape = shape,
     ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.5f)))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.Description, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                fileName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontFamily = RajdhaniBold,
+                color = accent,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Edit", style = MaterialTheme.typography.labelSmall, color = accent, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.width(2.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = accent, modifier = Modifier.size(14.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun IniEditorStatusBar(
+    lineCount: Int,
+    isDirty: Boolean,
+) {
+    GlassCard(accentColor = if (isDirty) NeonAmber else NeonCyan) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(42.dp)
-                        .background(accent.copy(alpha = 0.16f), shape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Default.Description,
-                    null,
-                    tint = accent,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    fileName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = accent,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = accent.copy(alpha = 0.65f),
-                )
-            }
-            Spacer(Modifier.width(8.dp))
             Text(
-                "Edit ›",
-                style = MaterialTheme.typography.bodySmall,
-                color = accent,
-                fontWeight = FontWeight.SemiBold,
+                "$lineCount lines",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isDirty) NeonAmber else NeonCyan,
+                fontWeight = FontWeight.Bold,
             )
+            Spacer(Modifier.weight(1f))
+            if (isDirty) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(8.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(NeonRed),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Unsaved", style = MaterialTheme.typography.labelSmall, color = NeonRed, fontWeight = FontWeight.Bold)
+                }
+            } else {
+                Text("Unchanged", style = MaterialTheme.typography.labelSmall, color = NeonGreen, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }
@@ -554,15 +585,6 @@ private fun iniFileAccent(fileName: String): Color =
         "Scalability.ini" -> NeonAmber
         "Hardware.ini" -> NeonPink
         else -> NeonBlue
-    }
-
-private fun iniFileShape(index: Int): androidx.compose.ui.graphics.Shape =
-    when (index % 5) {
-        0 -> RoundedCornerShape(18.dp)
-        1 -> RoundedCornerShape(topStart = 22.dp, bottomEnd = 22.dp, topEnd = 6.dp, bottomStart = 6.dp)
-        2 -> RoundedCornerShape(6.dp)
-        3 -> RoundedCornerShape(topStart = 6.dp, bottomEnd = 6.dp, topEnd = 22.dp, bottomStart = 22.dp)
-        else -> RoundedCornerShape(14.dp)
     }
 
 private fun findMatches(
@@ -623,3 +645,56 @@ private fun highlightIni(
             }
         }
     }
+
+@Composable
+private fun IniLoadingAnimation(text: String) {
+    GlassCard(accentColor = NeonCyan) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val orbs = listOf(NeonCyan, NeonPurple, NeonGreen)
+                orbs.forEachIndexed { index, color ->
+                    BouncingOrb(color, index)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BouncingOrb(
+    color: Color,
+    index: Int,
+) {
+    val transition = rememberInfiniteTransition(label = "orb$index")
+    val offset by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = -14f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 520, delayMillis = index * 160, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "offset$index",
+    )
+    Box(
+        Modifier
+            .size(14.dp)
+            .offset(y = offset.dp)
+            .clip(RoundedCornerShape(50))
+            .background(
+                Brush.radialGradient(listOf(color, color.copy(alpha = 0.35f))),
+            ),
+    )
+}
