@@ -374,9 +374,11 @@ app/
 - [Telegram](https://t.me/Yt_Player42)
 - [Discord](https://discord.gg/5WP9nN2e2s)
 
-### ⭐ Star History
+### 📥 Download History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=B3rr7/WuWa-Config-Android&type=Date)](https://star-history.com/#B3rr7/WuWa-Config-Android&Date)
+[![Downloads](https://img.shields.io/github/downloads/B3rr7/WuWa-Config-Android/total?style=flat&logo=github&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
+
+Live total GitHub release downloads (via the GitHub API). In-app, WuWaConfig also keeps a local history of every config you deploy and update you download: the last 20 deployments are tracked (backend used, target files, timestamp) and viewable in-app, and downloaded update APKs + release notes are recorded so you can re-install a previous version without leaving the app. Everything is stored privately in the app's `filesDir` (`deploy_history.json`); nothing is uploaded.
 
 ---
 
