@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.content.pm.Signature
 import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
@@ -174,12 +173,18 @@ object UpdateManager {
                 }
             val installed = pm.getPackageInfo(context.packageName, flags) ?: return false
             val archive = pm.getPackageArchiveInfo(apkFile.absolutePath, flags) ?: return false
+
             val installedCerts = signingCerts(installed)
             val archiveCerts = signingCerts(archive)
+            val installedHistory = signingHistory(installed)
             if (installedCerts.isEmpty() || archiveCerts.isEmpty()) return false
-            val installedHashes = installedCerts.map { sha256Hex(it.toByteArray()) }.toSet()
-            val archiveHashes = archiveCerts.map { sha256Hex(it.toByteArray()) }.toSet()
-            val matches = installedHashes == archiveHashes
+
+            val installedHashes = (installedCerts + installedHistory).map { sha256Hex(it) }.toSet()
+            val archiveHashes = archiveCerts.map { sha256Hex(it) }.toSet()
+
+            // Every cert signing the downloaded APK must also be present in the
+            // installed app's active certs or its signing history (key rotation).
+            val matches = archiveHashes.all { it in installedHashes }
             if (!matches) {
                 LogRepository.add("UpdateManager: APK signature mismatch — refusing update", LogLevel.ERROR)
             }
@@ -190,13 +195,27 @@ object UpdateManager {
         }
     }
 
+    /** Active signing certificates (X.509 DER) of [pi]. Robust across API levels and v1/v2/v3 schemes. */
     @Suppress("DEPRECATION")
-    private fun signingCerts(pi: PackageInfo): Array<Signature> {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            pi.signingInfo?.apkContentsSigners ?: emptyArray()
-        } else {
-            pi.signatures ?: emptyArray()
+    private fun signingCerts(pi: PackageInfo): List<ByteArray> {
+        val info = pi.signingInfo
+        val signers = info?.apkContentsSigners
+        // getPackageArchiveInfo sometimes leaves signingInfo null/empty while
+        // still populating the deprecated `signatures` field — fall back to it.
+        if (!signers.isNullOrEmpty()) return signers.map { it.toByteArray() }
+        if (!pi.signatures.isNullOrEmpty()) return pi.signatures!!.map { it.toByteArray() }
+        if (info != null && info.signingCertificateHistory?.isNotEmpty() == true) {
+            return info.signingCertificateHistory!!.map { it.toByteArray() }
         }
+        return emptyList()
+    }
+
+    /** Prior signing certificates (key-rotation history) of [pi], for subset matching. */
+    @Suppress("DEPRECATION")
+    private fun signingHistory(pi: PackageInfo): List<ByteArray> {
+        val info = pi.signingInfo ?: return emptyList()
+        val history = info.signingCertificateHistory ?: return emptyList()
+        return history.map { it.toByteArray() }
     }
 
     fun openForInstall(

@@ -75,4 +75,40 @@ class UpdateManagerTest {
         assertFalse(UpdateManager.verifySignatureMatchesInstalled(ctx, apk))
         apk.delete()
     }
+
+    @Test
+    fun `archive with null signingInfo falls back to deprecated signatures`() {
+        val sig = sigWith("same-cert-bytes")
+        val installedPi = pkgInfoWith(sig)
+        val archivePi = PackageInfo()
+        archivePi.signatures = arrayOf(sig)
+        archivePi.signingInfo = null
+        val pm = Mockito.mock(PackageManager::class.java)
+        Mockito.`when`(pm.getPackageInfo(Mockito.eq("com.wuwaconfig.app"), Mockito.anyInt())).thenReturn(installedPi)
+        Mockito.`when`(pm.getPackageArchiveInfo(Mockito.anyString(), Mockito.anyInt())).thenReturn(archivePi)
+        val ctx = makeContext(pm, "com.wuwaconfig.app")
+        val apk = File.createTempFile("fake", ".apk")
+        assertTrue(UpdateManager.verifySignatureMatchesInstalled(ctx, apk))
+        apk.delete()
+    }
+
+    @Test
+    fun `key rotation history accepts rotated archive cert`() {
+        val current = sigWith("current-cert")
+        val old = sigWith("old-cert")
+        val installedPi = PackageInfo()
+        installedPi.signatures = arrayOf(current)
+        val signingInfo = Mockito.mock(SigningInfo::class.java)
+        Mockito.`when`(signingInfo.apkContentsSigners).thenReturn(arrayOf(current))
+        Mockito.`when`(signingInfo.signingCertificateHistory).thenReturn(arrayOf(current, old))
+        installedPi.signingInfo = signingInfo
+        val archivePi = pkgInfoWith(old)
+        val pm = Mockito.mock(PackageManager::class.java)
+        Mockito.`when`(pm.getPackageInfo(Mockito.eq("com.wuwaconfig.app"), Mockito.anyInt())).thenReturn(installedPi)
+        Mockito.`when`(pm.getPackageArchiveInfo(Mockito.anyString(), Mockito.anyInt())).thenReturn(archivePi)
+        val ctx = makeContext(pm, "com.wuwaconfig.app")
+        val apk = File.createTempFile("fake", ".apk")
+        assertTrue(UpdateManager.verifySignatureMatchesInstalled(ctx, apk))
+        apk.delete()
+    }
 }

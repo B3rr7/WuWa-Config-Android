@@ -121,39 +121,35 @@ object LogParser {
         var hasMetal = false
 
         for (line in text.lineSequence()) {
-            val l = line.lowercase()
-
             // ── Counting (single pass) ──
             // NOTE: UI dynamic-atlas format warnings ("LogDynamicAtlas ... Error pixel
             // format") are unrelated to streaming/VRAM pressure and must not be counted
             // here, otherwise low-end devices get falsely flagged as VRAM-starved.
-            if ("logdynamicatlas" !in l &&
-                "out of memory" !in l &&
-                ("non-streamed mips" in l || "failed to load texture" in l)
-            ) {
+            val oomHit = OOM_RE.containsMatchIn(line)
+            if (oomHit) gpuOom++
+            if (!oomHit && !TEXTURE_SKIP_RE.containsMatchIn(line) && TEXTURE_HIT_RE.containsMatchIn(line)) {
                 textureErrors++
             }
-            if ("out of memory" in l || "gpu oom" in l || "vulkanoom" in l) gpuOom++
             if (FRAME_DROP_RE.containsMatchIn(line)) dropFrames++
             if (THERMAL_RE.containsMatchIn(line)) thermalEvents++
             if (ADJUST_TRIGGER_RE.containsMatchIn(line)) autoAdjustTriggers++
             if (ADJUST_RECOVER_RE.containsMatchIn(line)) autoAdjustRecoveries++
-            if ("timeout" in l || "connection refused" in l || "connection reset" in l ||
-                "unreachable" in l || "dns fail" in l || "dns failure" in l ||
-                "socket error" in l || "network fail" in l || "network failure" in l ||
-                "ping loss" in l
-            ) {
-                networkErrors++
-            }
+            if (NETWORK_RE.containsMatchIn(line)) networkErrors++
 
-            // ── Flags ──
-            if ("islowmemorymobile: true" in l) isLowMem = true
-            if ("islowmemorymobile: false" in l) isLowMem = false
-            if ("vulkanrhi" in l) hasVulkanRhi = true
-            if ("opengl" in l || "opengl es" in l) hasOpenGl = true
-            if ("vulkan" in l) hasVulkan = true
-            if ("directx" in l) hasDirectX = true
-            if ("metal" in l) hasMetal = true
+            // ── Flags (combined single-pass match) ──
+            LOW_MEM_RE.find(line)?.let { m ->
+                isLowMem = m.groupValues[1].lowercase() == "true"
+            }
+            FLAG_RE.find(line)?.let { m ->
+                val g = m.groupValues
+                if (g[1].isNotEmpty()) hasVulkanRhi = true
+                if (g[2].isNotEmpty() || g[3].isNotEmpty()) hasOpenGl = true
+                if (g[4].isNotEmpty()) hasVulkan = true
+                if (g[5].isNotEmpty()) hasDirectX = true
+                if (g[6].isNotEmpty()) hasMetal = true
+            }
+            // "vulkanrhi" contains "vulkan", so mirror the original substring behaviour.
+            if (hasVulkanRhi) hasVulkan = true
 
             // ── Field extraction (first match wins) ──
             if (gpu == null) {
@@ -248,19 +244,16 @@ object LogParser {
             forbiddenCvars = activeCvars.keys.count { ForbiddenCvars.isForbidden(it) }
         }
 
-        // ── Post-loop resolution ──
-        gameApi = gameApi
-            ?: deviceProfile?.let { if (it.endsWith("_GL", ignoreCase = true)) "OpenGL ES" else null }
-            ?: activeCvars["r.RHI"]?.let { cvar ->
-                when {
-                    "Vulkan" in cvar -> "Vulkan"
-                    "OpenGL" in cvar -> "OpenGL ES"
-                    else -> null
-                }
-            }
+        // ── Post-loop API resolution (single source of truth) ──
+        val explicitApi =
+            gameApi
+                ?: deviceProfile?.let { if (it.endsWith("_GL", ignoreCase = true)) "OpenGL ES" else null }
+                ?: apiFromRhiToken(activeCvars["r.RHI"])
+        gameApi = explicitApi
+        val api = explicitApi ?: apiFromFlags(hasVulkan, hasOpenGl, hasDirectX, hasMetal)
 
         val vulkanStatus =
-            when (gameApi) {
+            when (explicitApi) {
                 "Vulkan" -> "available"
                 "OpenGL ES" -> "not_available"
                 else ->
@@ -269,14 +262,6 @@ object LogParser {
                         hasOpenGl -> "not_available"
                         else -> null
                     }
-            }
-        val api =
-            gameApi ?: when {
-                hasVulkan -> "Vulkan"
-                hasOpenGl -> "OpenGL ES"
-                hasDirectX -> "DirectX"
-                hasMetal -> "Metal"
-                else -> null
             }
 
         return LogInfo(
@@ -386,6 +371,30 @@ object LogParser {
         return stats.copy(logSizeBytes = text.length.toLong())
     }
 
+    /** Maps an RHI CVar value (e.g. from `r.RHI`) to a normalized API name. */
+    private fun apiFromRhiToken(token: String?): String? =
+        when {
+            token == null -> null
+            "Vulkan" in token -> "Vulkan"
+            "OpenGL" in token -> "OpenGL ES"
+            else -> null
+        }
+
+    /** Derives the rendering API from the per-line graphics-API flags. */
+    private fun apiFromFlags(
+        hasVulkan: Boolean,
+        hasOpenGl: Boolean,
+        hasDirectX: Boolean,
+        hasMetal: Boolean,
+    ): String? =
+        when {
+            hasVulkan -> "Vulkan"
+            hasOpenGl -> "OpenGL ES"
+            hasDirectX -> "DirectX"
+            hasMetal -> "Metal"
+            else -> null
+        }
+
     private val XOR_LUT =
         ByteArray(256) { i -> (if (i % 2 == 1) (i xor 0xA5) else (i xor 0xEF)).toByte() }
 
@@ -395,6 +404,20 @@ object LogParser {
         Regex("""thermal\s*(?:throttle|limit|event|warning)""", RegexOption.IGNORE_CASE)
     private val ADJUST_TRIGGER_RE = Regex("""自动渲染调节触发前""")
     private val ADJUST_RECOVER_RE = Regex("""自动渲染调节恢复前""")
+
+    // Combined matchers — each scans the line once instead of one substring
+    // search per keyword, cutting the per-line cost from ~22 scans to a handful.
+    private val TEXTURE_SKIP_RE = Regex("""logdynamicatlas""", RegexOption.IGNORE_CASE)
+    private val TEXTURE_HIT_RE = Regex("""non-streamed mips|failed to load texture""", RegexOption.IGNORE_CASE)
+    private val OOM_RE = Regex("""out of memory|gpu oom|vulkanoom""", RegexOption.IGNORE_CASE)
+    private val NETWORK_RE =
+        Regex(
+            """timeout|connection refused|connection reset|unreachable|dns fail|dns failure|socket error|network fail|network failure|ping loss""",
+            RegexOption.IGNORE_CASE,
+        )
+    private val LOW_MEM_RE = Regex("""islowmemorymobile:\s*(true|false)""", RegexOption.IGNORE_CASE)
+    private val FLAG_RE =
+        Regex("""(vulkanrhi)|(opengl es)|(opengl)|(vulkan)|(directx)|(metal)""", RegexOption.IGNORE_CASE)
 
     private val GPU_RE = Regex("""K#GPUFamily\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE)
     private val GPU_LOGINIT_RE = Regex("""LogInit.*GPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE)
