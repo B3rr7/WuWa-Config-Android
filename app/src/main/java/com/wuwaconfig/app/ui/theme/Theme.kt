@@ -26,10 +26,33 @@ import androidx.core.view.WindowCompat
 internal fun fontFamilyForName(name: String): FontFamily =
     when (name) {
         "Rajdhani" -> RajdhaniBold
-        "Serif" -> FontFamily.Serif
-        "Monospace" -> FontFamily.Monospace
-        else -> RajdhaniBold
+        "Serif" -> SerifFamily
+        "Monospace" -> MonospaceFamily
+        else -> FontFamily.Default
     }
+
+// Bake the selected family into every material text style. Relying only on the
+// ambient LocalTextStyle override leaves the typography styles (body/subtitle)
+// with fontFamily=null, so they keep the system font — wiring it here makes the
+// choice apply to titles, subtitles, body text, and quick-action labels alike.
+private fun typographyWithFont(family: FontFamily): androidx.compose.material3.Typography =
+    Typography.copy(
+        displayLarge = Typography.displayLarge.copy(fontFamily = family),
+        displayMedium = Typography.displayMedium.copy(fontFamily = family),
+        displaySmall = Typography.displaySmall.copy(fontFamily = family),
+        headlineLarge = Typography.headlineLarge.copy(fontFamily = family),
+        headlineMedium = Typography.headlineMedium.copy(fontFamily = family),
+        headlineSmall = Typography.headlineSmall.copy(fontFamily = family),
+        titleLarge = Typography.titleLarge.copy(fontFamily = family),
+        titleMedium = Typography.titleMedium.copy(fontFamily = family),
+        titleSmall = Typography.titleSmall.copy(fontFamily = family),
+        bodyLarge = Typography.bodyLarge.copy(fontFamily = family),
+        bodyMedium = Typography.bodyMedium.copy(fontFamily = family),
+        bodySmall = Typography.bodySmall.copy(fontFamily = family),
+        labelLarge = Typography.labelLarge.copy(fontFamily = family),
+        labelMedium = Typography.labelMedium.copy(fontFamily = family),
+        labelSmall = Typography.labelSmall.copy(fontFamily = family),
+    )
 
 private val DarkColorScheme =
     darkColorScheme(
@@ -139,16 +162,17 @@ fun WuWaConfigTheme(
         }
     }
 
+    val family = fontFamilyForName(fontFamilyName)
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = typographyWithFont(family),
     ) {
         val density = LocalDensity.current
         val scale = fontScale.coerceIn(0.75f, 1.5f)
         val scaledDensity = Density(density.density, scale)
         CompositionLocalProvider(
             LocalDensity provides scaledDensity,
-            LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = fontFamilyForName(fontFamilyName)),
+            LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = family),
         ) {
             content()
         }
