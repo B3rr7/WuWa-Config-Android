@@ -8,7 +8,34 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.wuwaconfig.app.R
 
-val RajdhaniBold = FontFamily(Font(R.font.rajdhani_bold, FontWeight.Bold))
+// Only the bold Rajdhani file is bundled, so register it for every weight the UI
+// uses — otherwise Normal/Medium/SemiBold text silently falls back to the system
+// font and Rajdhani looks identical to the default family.
+val RajdhaniBold =
+    FontFamily(
+        Font(R.font.rajdhani_bold, FontWeight.Normal),
+        Font(R.font.rajdhani_bold, FontWeight.Medium),
+        Font(R.font.rajdhani_bold, FontWeight.SemiBold),
+        Font(R.font.rajdhani_bold, FontWeight.Bold),
+    )
+
+// Bundled to guarantee distinct rendering regardless of the device's generic
+// font fallback (some ROMs map both serif and monospace to the same Noto face).
+val SerifFamily =
+    FontFamily(
+        Font(R.font.serif, FontWeight.Normal),
+        Font(R.font.serif, FontWeight.Medium),
+        Font(R.font.serif, FontWeight.SemiBold),
+        Font(R.font.serif, FontWeight.Bold),
+    )
+
+val MonospaceFamily =
+    FontFamily(
+        Font(R.font.monospace, FontWeight.Normal),
+        Font(R.font.monospace, FontWeight.Medium),
+        Font(R.font.monospace, FontWeight.SemiBold),
+        Font(R.font.monospace, FontWeight.Bold),
+    )
 
 val DisplayBold =
     TextStyle(
