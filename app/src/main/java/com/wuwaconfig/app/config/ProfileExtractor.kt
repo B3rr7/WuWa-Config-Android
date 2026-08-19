@@ -387,8 +387,11 @@ class ProfileExtractor(
         val cleaned = ts.takeWhile { it.isDigit() || it == '.' }
         val seconds = cleaned.toDoubleOrNull()
         if (seconds != null && seconds > 0) {
+            // Accept either unix-seconds or unix-milliseconds; a value past ~year 2286
+            // in seconds (1e10) is effectively always milliseconds.
+            val millis = if (seconds >= 1e10) seconds else seconds * 1000
             val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
-            return sdf.format(java.util.Date((seconds * 1000).toLong()))
+            return sdf.format(java.util.Date(millis.toLong().coerceAtLeast(0L)))
         }
         return ts.take(19)
     }
