@@ -13,7 +13,7 @@
 
 **Boost your FPS · Tune your graphics · Stay private**
 
-[📥 Download APK](https://github.com/B3rr7/WuWa-Config-Android/releases) · [📖 User Guide](https://github.com/B3rr7/WuWa-Config-Android) · [💬 Discord](https://discord.gg/5WP9nN2e2s)
+[📥 Download APK](https://github.com/B3rr7/WuWa-Config-Android/releases) · [🌐 Website](https://b3rr7.github.io/WuWa-Config-Android/) · [💬 Discord](https://discord.gg/5WP9nN2e2s)
 
 </div>
 
@@ -146,6 +146,15 @@ If you have multiple devices (USB + wireless): `adb -s 192.168.x.x:5555 usb`
 ---
 
 ## 🖥️ Screens
+
+<p align="center">
+  <img src="screenshots/screen-01.webp" width="200" alt="WuWaConfig Android app screenshot 1">
+  <img src="screenshots/screen-02.webp" width="200" alt="WuWaConfig Android app screenshot 2">
+  <img src="screenshots/screen-03.webp" width="200" alt="WuWaConfig Android app screenshot 3">
+  <img src="screenshots/screen-04.webp" width="200" alt="WuWaConfig Android app screenshot 4">
+  <img src="screenshots/screen-05.webp" width="200" alt="WuWaConfig Android app screenshot 5">
+  <img src="screenshots/screen-06.webp" width="200" alt="WuWaConfig Android app screenshot 6">
+</p>
 
 ### Home
 - **Backend Status** — current access method, connection state. Tap chip to cycle methods.
