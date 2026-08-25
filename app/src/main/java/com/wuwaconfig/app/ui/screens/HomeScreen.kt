@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.adb.PortScanner
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.model.LogRepository
+import com.wuwaconfig.app.ui.BackupViewModel
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.*
@@ -61,6 +62,7 @@ private fun matchTarget(displayName: String): String? {
 fun HomeScreen(
     viewModel: MainViewModel,
     deployHistoryViewModel: DeployHistoryViewModel,
+    backupViewModel: BackupViewModel,
     onNavigateToBackups: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToConfigGen: () -> Unit,
@@ -72,18 +74,18 @@ fun HomeScreen(
     onNavigateToIniEditor: () -> Unit = {},
 ) {
     val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
-    val backups by deployHistoryViewModel.backups.collectAsStateWithLifecycle()
+    val backups by backupViewModel.backups.collectAsStateWithLifecycle()
     val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
     val deployRecords by deployHistoryViewModel.deployRecords.collectAsStateWithLifecycle()
     val deployHistoryEnabled by viewModel.deployHistoryEnabled.collectAsStateWithLifecycle()
     val customDeploySuccess by deployHistoryViewModel.customDeploySuccess.collectAsStateWithLifecycle()
-    val backupFeedback by deployHistoryViewModel.backupFeedback.collectAsStateWithLifecycle()
+    val backupFeedback by backupViewModel.backupFeedback.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(backupFeedback) {
         backupFeedback?.let {
             snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
-            deployHistoryViewModel.clearBackupFeedback()
+            backupViewModel.clearBackupFeedback()
         }
     }
 

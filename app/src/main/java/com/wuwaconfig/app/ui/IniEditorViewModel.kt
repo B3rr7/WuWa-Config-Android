@@ -4,10 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.wuwaconfig.app.WuWaConfigApp
-import com.wuwaconfig.app.backend.computeMd5
 import com.wuwaconfig.app.config.ConfigManager
-import com.wuwaconfig.app.config.extractHash
-import com.wuwaconfig.app.model.GamePaths
+import com.wuwaconfig.app.config.HashSync
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +19,8 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
             ?: throw IllegalStateException("IniEditorViewModel requires WuWaConfigApp application")
 
     private val configManager: ConfigManager by lazy { ConfigManager(app, { app.backend }) }
+
+    private val hashSync: HashSync by lazy { HashSync({ app.backend }, configManager) }
 
     private val _editingFileName = MutableStateFlow<String?>(null)
     val editingFileName: StateFlow<String?> = _editingFileName.asStateFlow()
@@ -101,59 +101,18 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /**
+     * Unified device-hash check (shared with the deploy pipeline).
+     * [onResult] receives `true` when hashes were out of sync and a refresh ran.
+     */
     fun syncConfigHashes(onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             try {
-                addLog("Hash sync: checking device config hashes...")
-                val hashContent = app.backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
-                if (hashContent.isBlank()) {
-                    addLog("Hash sync: no hash file found, creating fresh...")
-                    configManager.refreshConfigHashes().onSuccess { addLog(it) }
-                    onResult(true)
-                    return@launch
-                }
-                var needsRefresh = false
-                for (name in GamePaths.MONITORED_FILES) {
-                    val actualHashResult = computeIniHash(name)
-                    if (actualHashResult.isFailure) {
-                        addLog("Hash sync: SKIPPING $name — cannot compute hash", LogLevel.ERROR)
-                        needsRefresh = true
-                        continue
-                    }
-                    val actualHash = actualHashResult.getOrThrow()
-                    val storedHash = extractHash(hashContent, name)
-                    if (storedHash != null && storedHash != actualHash) {
-                        addLog("Hash sync: $name hash mismatch (stored=$storedHash, actual=$actualHash)", LogLevel.WARNING)
-                        needsRefresh = true
-                    } else if (storedHash == null) {
-                        addLog("Hash sync: $name has no stored hash", LogLevel.WARNING)
-                        needsRefresh = true
-                    } else {
-                        addLog("Hash sync: $name hash OK ($actualHash)")
-                    }
-                }
-                if (needsRefresh) {
-                    addLog("Hash sync: refreshing hashes on device...")
-                    configManager.refreshConfigHashes().onSuccess { addLog(it) }
-                }
-                onResult(!needsRefresh)
+                onResult(hashSync.syncIfNeeded())
             } catch (e: Exception) {
                 addLog("Hash sync: error: ${e.message}", LogLevel.ERROR)
                 onResult(false)
             }
         }
-    }
-
-    private suspend fun computeIniHash(name: String): Result<String> {
-        val path = "${GamePaths.TARGET_DIR}/$name"
-        val bytesResult = app.backend.readFileBytes(path)
-        if (bytesResult.isFailure) {
-            addLog("Hash sync: readFileBytes FAILED for $name: ${bytesResult.exceptionOrNull()?.message}", LogLevel.ERROR)
-            return Result.failure(bytesResult.exceptionOrNull()!!)
-        }
-        val bytes = bytesResult.getOrThrow()
-        val hash = computeMd5(bytes)
-        addLog("Hash sync: computed hash for $name = $hash (${bytes.size} bytes)")
-        return Result.success(hash)
     }
 }

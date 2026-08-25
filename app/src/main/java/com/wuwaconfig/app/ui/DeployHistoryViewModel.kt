@@ -14,15 +14,10 @@ import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.AdbBackend
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.backend.SafBackend
-import com.wuwaconfig.app.backend.computeMd5
 import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.config.DeployHistoryStore
-import com.wuwaconfig.app.config.extractHash
-import com.wuwaconfig.app.model.BattleStats
-import com.wuwaconfig.app.model.BattleStatsStore
-import com.wuwaconfig.app.model.ConfigBackup
+import com.wuwaconfig.app.config.HashSync
 import com.wuwaconfig.app.model.DeployRecord
-import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.LogAnalysisStore
 import com.wuwaconfig.app.model.LogInfo
@@ -32,12 +27,10 @@ import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.service.AdbConnectionService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 import java.text.SimpleDateFormat
@@ -52,22 +45,17 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     val configGenerator get() = app.configGenerator
     val cvarDatabase get() = app.cvarDatabase
 
+    private val ops get() = app.deviceOps
+
     val configManager: ConfigManager by lazy {
         ConfigManager(getApplication(), { app.backend }, backupStorageDir)
     }
 
-    private val _backendStatus = MutableStateFlow(BackendStatus())
-    val backendStatus: StateFlow<BackendStatus> = _backendStatus.asStateFlow()
-
-    private val _backups = MutableStateFlow<List<ConfigBackup>>(emptyList())
-    val backups: StateFlow<List<ConfigBackup>> = _backups.asStateFlow()
-
-    private val _backupFeedback = MutableStateFlow<String?>(null)
-    val backupFeedback: StateFlow<String?> = _backupFeedback.asStateFlow()
-
-    fun clearBackupFeedback() {
-        _backupFeedback.value = null
-    }
+    // Device session state lives in WuWaConfigApp so every ViewModel observes
+    // the same truth; these are forwarding shims for existing call sites.
+    val backendStatus: StateFlow<BackendStatus> = app.backendStatus
+    val isApplying: StateFlow<Boolean> = ops.isApplying
+    val operationCancelled: StateFlow<Boolean> = ops.operationCancelled
 
     private val _deployResult = MutableStateFlow<String?>(null)
     val deployResult: StateFlow<String?> = _deployResult.asStateFlow()
@@ -92,45 +80,12 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     private val _verificationReport = MutableStateFlow<VerificationReport?>(null)
     val verificationReport: StateFlow<VerificationReport?> = _verificationReport.asStateFlow()
 
-    private val _isApplying = MutableStateFlow(false)
-    val isApplying: StateFlow<Boolean> = _isApplying.asStateFlow()
-    private var activeJob: Job? = null
-
-    private val opMutex = Mutex()
-
-    private val _operationCancelled = MutableStateFlow(false)
-    val operationCancelled: StateFlow<Boolean> = _operationCancelled.asStateFlow()
-
-    /**
-     * Serializes every device-touching operation (connect, deploy, backup, clean,
-     * analyze) behind [opMutex] so a connect/switch/disconnect can never yank the
-     * backend out from under an in-flight write. Cancellation propagates: the
-     * cancelled job unwinds through its own finally blocks before the lock is
-     * released, so a new op cannot start while the old one is still writing.
-     */
-    private fun launchBackendOp(
-        managesBusyFlag: Boolean,
-        block: suspend kotlinx.coroutines.CoroutineScope.() -> Unit,
-    ): Job =
-        viewModelScope.launch {
-            _operationCancelled.value = false
-            if (!opMutex.tryLock()) {
-                addLog("Busy: another device operation is still running", LogLevel.WARNING)
-                if (managesBusyFlag) _isApplying.value = false
-                return@launch
-            }
-            try {
-                block()
-            } catch (e: CancellationException) {
-                addLog("Operation cancelled.", LogLevel.WARNING)
-                throw e
-            } finally {
-                opMutex.unlock()
-            }
-        }.also { activeJob = it }
-
+    /** Deploy-verify progress (log analysis has its own in LogInsightsViewModel). */
     private val _readingProgress = MutableStateFlow(0)
     val readingProgress: StateFlow<Int> = _readingProgress.asStateFlow()
+
+    /** Composition-root hook: invoked after device mutations so backup lists refresh. */
+    var onDeviceMutated: (() -> Unit)? = null
 
     private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -162,52 +117,37 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     val termsVersionAccepted: Int
         get() = prefs.getInt("terms_version", 0)
 
-    fun changeBackupDir(newDir: String) {
-        prefs.edit().putString("backup_dir", newDir).apply()
-        viewModelScope.launch { loadBackups() }
-        addLog("Backup dir changed to $newDir")
-    }
-
-    fun initDownloadBackupDir() {
-        if (prefs.getBoolean("setup_done", false) && prefs.contains("backup_dir")) return
-        val targetDir = getApplication<Application>().getExternalFilesDir("backups")
-        if (targetDir != null) {
-            targetDir.mkdirs()
-            changeBackupDir(targetDir.absolutePath)
-        }
-    }
-
     fun switchTo(method: AccessMethod) {
-        if (_isApplying.value || opMutex.isLocked) {
+        if (ops.isApplying.value || ops.mutex.isLocked) {
             addLog("Cannot switch backend while an operation is running", LogLevel.WARNING)
             return
         }
-        if (_backendStatus.value.connected) disconnect()
+        if (app.backendStatusValue.connected) disconnect()
         app.switchTo(method)
-        _backendStatus.value = BackendStatus(method = method)
+        app.setBackendStatus(BackendStatus(method = method))
         addLog("Switched to ${method.name} mode")
     }
 
     fun connect() {
-        if (_backendStatus.value.connected) {
+        if (app.backendStatusValue.connected) {
             addLog("Already connected")
             return
         }
-        val method = _backendStatus.value.method
-        _backendStatus.value = BackendStatus(method = method)
+        val method = app.backendStatusValue.method
+        app.setBackendStatus(BackendStatus(method = method))
         addLog("Connecting via ${method.name}...")
-        launchBackendOp(managesBusyFlag = false) {
+        ops.launchBackendOp(managesBusyFlag = false) {
             when (method) {
                 AccessMethod.SHIZUKU -> {
                     try {
                         if (Shizuku.getVersion() < 0 || Shizuku.checkSelfPermission() != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                            _backendStatus.value = BackendStatus(method = method, errorMessage = "Shizuku not running or permission not granted.")
+                            app.setBackendStatus(BackendStatus(method = method, errorMessage = "Shizuku not running or permission not granted."))
                             addLog("ERROR: Shizuku not available")
                             return@launchBackendOp
                         }
                         addLog("Shizuku is ready!")
                     } catch (_: Exception) {
-                        _backendStatus.value = BackendStatus(method = method, errorMessage = "Shizuku not running. Start Shizuku first.")
+                        app.setBackendStatus(BackendStatus(method = method, errorMessage = "Shizuku not running. Start Shizuku first."))
                         addLog("ERROR: Shizuku not running")
                         return@launchBackendOp
                     }
@@ -215,7 +155,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 AccessMethod.SAF -> {
                     val saf = app.backend as? SafBackend
                     if (saf == null || saf.treeUri == null) {
-                        _backendStatus.value = BackendStatus(method = method, errorMessage = "No SAF directory selected. Tap Pick Directory to choose the game config folder.")
+                        app.setBackendStatus(BackendStatus(method = method, errorMessage = "No SAF directory selected. Tap Pick Directory to choose the game config folder."))
                         addLog("ERROR: SAF directory not selected")
                         return@launchBackendOp
                     }
@@ -229,11 +169,11 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             val port =
                 com.wuwaconfig.app.adb.PortScanner.lastAdbPort?.let {
                         p ->
-                    if (p > 0) p else _backendStatus.value.port
-                } ?: _backendStatus.value.port
+                    if (p > 0) p else app.backendStatusValue.port
+                } ?: app.backendStatusValue.port
 
             if (result.isSuccess) {
-                _backendStatus.value = BackendStatus(method = method, connected = true, host = ip, port = port)
+                app.setBackendStatus(BackendStatus(method = method, connected = true, host = ip, port = port))
                 addLog("Connected via ${method.name}!")
                 if (method == AccessMethod.ADB) {
                     try {
@@ -249,15 +189,18 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                         addLog("On Android 13+ this is blocked. Use ROOT, Shizuku, or SAF instead.")
                     }
                 }
-                loadBackups()
+                onDeviceMutated?.invoke()
                 syncConfigHashes()
             } else {
                 val message = friendlyBackendError(result.exceptionOrNull()?.message)
-                _backendStatus.value =
+                app.setBackendStatus(
                     BackendStatus(
-                        method = method, connected = false, host = ip,
+                        method = method,
+                        connected = false,
+                        host = ip,
                         errorMessage = message,
-                    )
+                    ),
+                )
                 addLog("ERROR: $message")
             }
         }
@@ -287,7 +230,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     addLog("Shizuku permission granted!")
                     connect()
                 } else {
-                    _backendStatus.value = _backendStatus.value.copy(errorMessage = "Shizuku permission denied")
+                    app.setBackendStatus(app.backendStatusValue.copy(errorMessage = "Shizuku permission denied"))
                     addLog("ERROR: Shizuku permission denied")
                 }
             }
@@ -324,34 +267,36 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     ) {
         val port = portText.toIntOrNull()
         if (port == null || port !in 1..65535) {
-            _backendStatus.value =
+            app.setBackendStatus(
                 BackendStatus(
-                    method = AccessMethod.ADB, errorMessage = "Invalid port. Enter a number between 1-65535.",
-                )
+                    method = AccessMethod.ADB,
+                    errorMessage = "Invalid port. Enter a number between 1-65535.",
+                ),
+            )
             return
         }
-        if (_backendStatus.value.connected) {
+        if (app.backendStatusValue.connected) {
             addLog("Already connected")
             return
         }
-        launchBackendOp(managesBusyFlag = false) {
-            _backendStatus.value = BackendStatus(method = AccessMethod.ADB)
+        ops.launchBackendOp(managesBusyFlag = false) {
+            app.setBackendStatus(BackendStatus(method = AccessMethod.ADB))
             addLog("Connecting to $host:$port...")
             val backend = app.backend
             if (backend is AdbBackend) {
                 val result = backend.connectTo(host, port)
                 if (result.isSuccess) {
-                    _backendStatus.value = BackendStatus(method = AccessMethod.ADB, connected = true, host = host, port = port)
+                    app.setBackendStatus(BackendStatus(method = AccessMethod.ADB, connected = true, host = host, port = port))
                     addLog("Connected to $host:$port!")
                     try {
                         getApplication<Application>().startForegroundService(Intent(getApplication(), AdbConnectionService::class.java))
                     } catch (e: Exception) {
                         addLog("WARN: failed to start ADB connection service: ${e.message}", LogLevel.WARNING)
                     }
-                    loadBackups()
+                    onDeviceMutated?.invoke()
                 } else {
                     val msg = friendlyBackendError(result.exceptionOrNull()?.message)
-                    _backendStatus.value = BackendStatus(method = AccessMethod.ADB, host = host, errorMessage = msg)
+                    app.setBackendStatus(BackendStatus(method = AccessMethod.ADB, host = host, errorMessage = msg))
                     addLog("ERROR: $msg")
                 }
             }
@@ -389,21 +334,19 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun cancelOperation() {
-        if (!_isApplying.value) return
-        _operationCancelled.value = true
-        activeJob?.cancel()
-        app.backend.disconnect()
-        _backendStatus.value = BackendStatus(method = _backendStatus.value.method)
-        addLog("Cancelling operation...")
+        ops.requestCancel(
+            disconnect = { app.backend.disconnect() },
+            resetBackendStatus = { app.setBackendStatus(BackendStatus(method = app.backendStatusValue.method)) },
+        )
     }
 
     fun disconnect() {
-        if (_isApplying.value || opMutex.isLocked) {
+        if (ops.isApplying.value || ops.mutex.isLocked) {
             addLog("Cannot disconnect while an operation is running — use Cancel instead", LogLevel.WARNING)
             return
         }
         app.backend.disconnect()
-        val method = _backendStatus.value.method
+        val method = app.backendStatusValue.method
         if (method == AccessMethod.SAF) {
             val saf = app.backend as? SafBackend
             saf?.clearTreeUri()
@@ -415,102 +358,15 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 addLog("WARN: failed to stop ADB connection service: ${e.message}", LogLevel.WARNING)
             }
         }
-        _backendStatus.value = BackendStatus(method = method)
-        _isApplying.value = false
+        app.setBackendStatus(BackendStatus(method = method))
+        ops.setApplying(false)
         addLog("Disconnected.")
     }
 
-    fun createBackup(
-        name: String,
-        selectedFiles: Set<String>? = null,
-    ) {
-        if (_isApplying.value || !_backendStatus.value.connected) return
-        _isApplying.value = true
-        launchBackendOp(managesBusyFlag = true) {
-            try {
-                addLog("Creating backup: $name...")
-                val result = configManager.createBackup(name, selectedFiles = selectedFiles)
-                if (result.isSuccess) {
-                    addLog("Backup created")
-                    _backupFeedback.value = "Backup '$name' created (${selectedFiles?.size ?: 5} files)"
-                    loadBackups()
-                } else {
-                    _backupFeedback.value = "Backup failed: ${result.exceptionOrNull()?.message}"
-                }
-            } catch (e: SecurityException) {
-                Log.e("WuWaConfig", "createBackup permission denied", e)
-                _backupFeedback.value = "Permission denied — check Shizuku/ADB authorization."
-            } catch (e: java.io.IOException) {
-                Log.e("WuWaConfig", "createBackup I/O error", e)
-                _backupFeedback.value = "I/O error: ${e.message}"
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e("WuWaConfig", "createBackup crashed", e)
-                _backupFeedback.value = "Backup failed: ${e.message}"
-            } finally {
-                _isApplying.value = false
-            }
-        }
-    }
-
-    fun restoreBackup(
-        backup: ConfigBackup,
-        selectedFiles: Set<String>? = null,
-    ) {
-        if (_isApplying.value || !_backendStatus.value.connected) return
-        _isApplying.value = true
-        launchBackendOp(managesBusyFlag = true) {
-            try {
-                addLog("Restoring backup: ${backup.name}...")
-                val preSnapshot = configManager.snapshotHashFile().getOrNull()
-                val result = configManager.restoreBackup(backup, { msg -> addLog(msg) }, selectedFiles = selectedFiles)
-                if (result.isSuccess) {
-                    addLog("SUCCESS: ${result.getOrThrow()}")
-                    _backupFeedback.value = "Backup '${backup.name}' restored"
-                    configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
-                        .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
-                } else {
-                    _backupFeedback.value = "Restore failed: ${result.exceptionOrNull()?.message}"
-                }
-            } catch (e: SecurityException) {
-                Log.e("WuWaConfig", "restoreBackup permission denied", e)
-                _backupFeedback.value = "Permission denied — check Shizuku/ADB authorization."
-            } catch (e: java.io.IOException) {
-                Log.e("WuWaConfig", "restoreBackup I/O error", e)
-                _backupFeedback.value = "I/O error: ${e.message}"
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e("WuWaConfig", "restoreBackup crashed", e)
-                _backupFeedback.value = "Restore failed: ${e.message}"
-            } finally {
-                _isApplying.value = false
-                loadBackups()
-            }
-        }
-    }
-
-    fun deleteBackup(backup: ConfigBackup) {
-        launchBackendOp(managesBusyFlag = false) {
-            try {
-                addLog("Deleting backup: ${backup.name}...")
-                configManager.deleteLocalBackup(backup)
-                loadBackups()
-                addLog("Backup deleted")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                addLog("CRASH: ${e.message}")
-                Log.e("WuWaConfig", "deleteBackup crashed", e)
-            }
-        }
-    }
-
     fun collectClientLog() {
-        if (_isApplying.value || !_backendStatus.value.connected) return
-        _isApplying.value = true
-        launchBackendOp(managesBusyFlag = true) {
+        if (ops.isApplying.value || !app.backendStatusValue.connected) return
+        ops.setApplying(true)
+        ops.launchBackendOp(managesBusyFlag = true) {
             try {
                 addLog("Collecting Client.log...")
                 val result = configManager.collectClientLog { msg -> addLog(msg) }
@@ -531,7 +387,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "collectClientLog crashed", e)
             } finally {
-                _isApplying.value = false
+                ops.setApplying(false)
             }
         }
     }
@@ -549,7 +405,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun compareDeployOutcome(id: String) {
-        launchBackendOp(managesBusyFlag = false) {
+        ops.launchBackendOp(managesBusyFlag = false) {
             try {
                 if (deployHistoryStore.getRecord(id) == null) return@launchBackendOp
                 addLog("Pulling Client.log for deploy outcome comparison...")
@@ -581,7 +437,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun retuneAndDeploy(recordId: String) {
-        launchBackendOp(managesBusyFlag = false) {
+        ops.launchBackendOp(managesBusyFlag = false) {
             try {
                 val record = deployHistoryStore.getRecord(recordId) ?: return@launchBackendOp
                 val profile =
@@ -616,7 +472,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     )
                 val profileOverride = com.wuwaconfig.app.config.CvarOptimizer.toPresetProfile(adjustedProfile)
                 val generated = configGenerator.generate(record.presetName, opts, profileOverride = profileOverride)
-                _isApplying.value = true
+                ops.setApplying(true)
                 performDeploy(generated, opts, adjustedProfile)
             } catch (e: CancellationException) {
                 throw e
@@ -632,13 +488,13 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         opts: com.wuwaconfig.app.model.GeneratorOptions = com.wuwaconfig.app.model.GeneratorOptions(),
         retuneProfile: com.wuwaconfig.app.config.CvarOptimizer.OptimizedProfile? = null,
     ): Boolean {
-        if (_isApplying.value || !_backendStatus.value.connected) {
-            val why = if (!_backendStatus.value.connected) "not connected" else "another operation is running"
+        if (ops.isApplying.value || !app.backendStatusValue.connected) {
+            val why = if (!app.backendStatusValue.connected) "not connected" else "another operation is running"
             addLog("Deploy skipped: $why", LogLevel.WARNING)
             return false
         }
-        _isApplying.value = true
-        launchBackendOp(managesBusyFlag = true) {
+        ops.setApplying(true)
+        ops.launchBackendOp(managesBusyFlag = true) {
             performDeploy(ini, opts, retuneProfile)
         }
         return true
@@ -749,7 +605,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     }
                 }
                 if (prefs.getBoolean("deploy_history", true)) {
-                    val cachedLogInfo = _logAnalysis.value ?: LogAnalysisStore.load(getApplication())?.logInfo
+                    val cachedLogInfo = LogAnalysisStore.load(getApplication())?.logInfo
                     val baselinePair: Pair<LogInfo, String> =
                         if (cachedLogInfo != null) {
                             cachedLogInfo to ""
@@ -815,7 +671,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             addLog("CRASH: ${e.message}")
             Log.e("WuWaConfig", "deployGeneratedConfigs crashed", e)
         } finally {
-            _isApplying.value = false
+            ops.setApplying(false)
         }
     }
 
@@ -827,9 +683,9 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         hardwareIni: String? = null,
         backupAllInis: Boolean = false,
     ) {
-        if (_isApplying.value || !_backendStatus.value.connected) return
-        _isApplying.value = true
-        launchBackendOp(managesBusyFlag = true) {
+        if (ops.isApplying.value || !app.backendStatusValue.connected) return
+        ops.setApplying(true)
+        ops.launchBackendOp(managesBusyFlag = true) {
             try {
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
                 val fileNames =
@@ -870,7 +726,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${selected.size} file(s) applied (${selected.joinToString(", ")})")
                     _customDeploySuccess.value = "${selected.size} file(s) deployed: ${selected.joinToString(", ")}"
-                    loadBackups()
+                    onDeviceMutated?.invoke()
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
                         .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                 } else {
@@ -888,28 +744,27 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "applyCustomFiles crashed", e)
             } finally {
-                _isApplying.value = false
+                ops.setApplying(false)
             }
         }
     }
 
     fun cleanConfigFiles(selectedFiles: Set<String>? = null) {
-        if (_isApplying.value || !_backendStatus.value.connected) return
-        _isApplying.value = true
-        launchBackendOp(managesBusyFlag = true) {
+        if (ops.isApplying.value || !app.backendStatusValue.connected) return
+        ops.setApplying(true)
+        ops.launchBackendOp(managesBusyFlag = true) {
             try {
                 addLog("Cleaning config files...")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
                 val result = configManager.cleanConfigFiles(selectedFiles = selectedFiles) { msg -> addLog(msg) }
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
-                    _backupFeedback.value = "Config files cleaned"
-                    loadBackups()
+                    addLog("Config files cleaned", LogLevel.SUCCESS)
+                    onDeviceMutated?.invoke()
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
                         .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                 } else {
                     addLog(result.exceptionOrNull()?.message ?: "Clean failed")
-                    _backupFeedback.value = "Clean failed: ${result.exceptionOrNull()?.message ?: "unknown error"}"
                 }
             } catch (e: SecurityException) {
                 Log.e("WuWaConfig", "cleanConfigFiles permission denied", e)
@@ -923,28 +778,27 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "cleanConfigFiles crashed", e)
             } finally {
-                _isApplying.value = false
+                ops.setApplying(false)
             }
         }
     }
 
     fun deleteSelectedConfigFiles(selectedFiles: Set<String>) {
-        if (_isApplying.value || !_backendStatus.value.connected) return
-        _isApplying.value = true
-        launchBackendOp(managesBusyFlag = true) {
+        if (ops.isApplying.value || !app.backendStatusValue.connected) return
+        ops.setApplying(true)
+        ops.launchBackendOp(managesBusyFlag = true) {
             try {
                 addLog("Deleting ${selectedFiles.size} config file(s): ${selectedFiles.joinToString(", ")}")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
                 val result = configManager.deleteConfigFiles(selectedFiles)
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
-                    _backupFeedback.value = "Deleted ${selectedFiles.size} config file(s)"
-                    loadBackups()
+                    addLog("Deleted ${selectedFiles.size} config file(s)", LogLevel.SUCCESS)
+                    onDeviceMutated?.invoke()
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { addLog(it) }
                         .onFailure { e -> addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR) }
                 } else {
                     addLog(result.exceptionOrNull()?.message ?: "Delete failed")
-                    _backupFeedback.value = "Delete failed: ${result.exceptionOrNull()?.message ?: "unknown error"}"
                 }
             } catch (e: SecurityException) {
                 Log.e("WuWaConfig", "deleteSelectedConfigFiles permission denied", e)
@@ -958,61 +812,25 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "deleteSelectedConfigFiles crashed", e)
             } finally {
-                _isApplying.value = false
+                ops.setApplying(false)
             }
         }
     }
 
-    private suspend fun computeIniHash(name: String): Result<String> {
-        val path = "${GamePaths.TARGET_DIR}/$name"
-        val bytesResult = app.backend.readFileBytes(path)
-        if (bytesResult.isFailure) {
-            addLog("Hash sync: readFileBytes FAILED for $name: ${bytesResult.exceptionOrNull()?.message}", LogLevel.ERROR)
-            return Result.failure(bytesResult.exceptionOrNull()!!)
-        }
-        val bytes = bytesResult.getOrThrow()
-        val hash = computeMd5(bytes)
-        addLog("Hash sync: computed hash for $name = $hash (${bytes.size} bytes)")
-        return Result.success(hash)
-    }
+    private val hashSync: HashSync by lazy { HashSync({ app.backend }, configManager) }
 
+    /**
+     * Unified device-hash check. [onResult] receives `true` when the hashes were
+     * out of sync and a refresh ran (shared contract with the INI editor).
+     */
     fun syncConfigHashes(onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            addLog("Hash sync: checking device config hashes...")
-            val hashContent = app.backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
-            if (hashContent.isBlank()) {
-                addLog("Hash sync: no hash file found, creating fresh...")
-                configManager.refreshConfigHashes().onSuccess { addLog(it) }
-                onResult(true)
-                return@launch
+            try {
+                onResult(hashSync.syncIfNeeded())
+            } catch (e: Exception) {
+                addLog("Hash sync: error: ${e.message}", LogLevel.ERROR)
+                onResult(false)
             }
-            var needsRefresh = false
-            for (name in GamePaths.MONITORED_FILES) {
-                val actualHashResult = computeIniHash(name)
-                if (actualHashResult.isFailure) {
-                    addLog("Hash sync: SKIPPING $name — cannot compute hash", LogLevel.ERROR)
-                    needsRefresh = true
-                    continue
-                }
-                val actualHash = actualHashResult.getOrThrow()
-                val storedHash = extractHash(hashContent, name)
-                if (storedHash != null && storedHash != actualHash) {
-                    addLog("Hash sync: $name hash mismatch (stored=$storedHash, actual=$actualHash)", LogLevel.WARNING)
-                    needsRefresh = true
-                } else if (storedHash == null) {
-                    addLog("Hash sync: $name has no stored hash", LogLevel.WARNING)
-                    needsRefresh = true
-                } else {
-                    addLog("Hash sync: $name hash OK ($actualHash)")
-                }
-            }
-            if (needsRefresh) {
-                addLog("Hash sync: refreshing to match current files...")
-                configManager.refreshConfigHashes().onSuccess { addLog(it) }
-            } else {
-                addLog("Hash sync: all hashes match", LogLevel.SUCCESS)
-            }
-            onResult(needsRefresh)
         }
     }
 
@@ -1065,214 +883,6 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 null
             }
         }
-
-    private suspend fun loadBackups() {
-        _backups.value =
-            withContext(Dispatchers.IO) { configManager.getLocalBackups() }
-    }
-
-    private val _logAnalysis = MutableStateFlow<LogInfo?>(null)
-    val logAnalysis: StateFlow<LogInfo?> = _logAnalysis.asStateFlow()
-
-    private val _brainRecommendation = MutableStateFlow<com.wuwaconfig.app.config.BrainRecommendation?>(null)
-    val brainRecommendation: StateFlow<com.wuwaconfig.app.config.BrainRecommendation?> = _brainRecommendation.asStateFlow()
-
-    private val _battleStats = MutableStateFlow<BattleStats?>(null)
-    val battleStats: StateFlow<BattleStats?> = _battleStats.asStateFlow()
-    private val _battleStatsFromCache = MutableStateFlow(false)
-    val battleStatsFromCache: StateFlow<Boolean> = _battleStatsFromCache.asStateFlow()
-
-    private val _battleStatsLoading = MutableStateFlow(false)
-    val battleStatsLoading: StateFlow<Boolean> = _battleStatsLoading.asStateFlow()
-
-    fun analyzeClientLog(allowRestrictedCvars: Boolean = true) {
-        if (_isApplying.value || !_backendStatus.value.connected) return
-        _isApplying.value = true
-        launchBackendOp(managesBusyFlag = true) {
-            _logAnalysis.value = null
-            _brainRecommendation.value = null
-            try {
-                _readingProgress.value = 0
-                addLog("Pulling full Client.log from device...")
-                _readingProgress.value = 10
-                val result = configManager.readFullClientLogWithMetadata()
-                if (result.isSuccess) {
-                    _readingProgress.value = 60
-                    val (text, decrypted) = result.getOrThrow()
-                    addLog(if (decrypted == com.wuwaconfig.app.config.LogParser.DecodeResult.DECRYPTED) "Encrypted log detected; decrypted successfully." else "Plain log detected.")
-
-                    _readingProgress.value = 75
-                    val initialInfo = withContext(Dispatchers.Default) { com.wuwaconfig.app.config.LogParser.parseLog(text) }
-                    val analysisText =
-                        if (initialInfo.gpu == null && initialInfo.deviceModel == null && initialInfo.cpuName == null && initialInfo.ramMb == null) {
-                            addLog("No device data in current log, checking backup logs...")
-                            _readingProgress.value = 80
-                            val backupResult = configManager.readFullLatestBackupLog()
-                            if (backupResult.isSuccess) {
-                                val (backupText, _) = backupResult.getOrThrow()
-                                addLog("Merging backup log with current log for complete analysis")
-                                "$backupText\n$text"
-                            } else {
-                                addLog("Backup log not available: ${backupResult.exceptionOrNull()?.message}", LogLevel.WARNING)
-                                text
-                            }
-                        } else {
-                            text
-                        }
-                    _readingProgress.value = 95
-                    // Reuse the parse we already did for the backup-merge decision when the
-                    // text is unchanged; only re-parse if a backup log was merged in.
-                    doAnalyzeLogText(analysisText, allowRestrictedCvars, if (analysisText == text) initialInfo else null)
-                } else {
-                    addLog("FAILED: ${result.exceptionOrNull()?.message}")
-                }
-            } catch (e: SecurityException) {
-                Log.e("WuWaConfig", "analyzeClientLog permission denied", e)
-                addLog("CRASH: permission denied: ${e.message}")
-            } catch (e: java.io.IOException) {
-                Log.e("WuWaConfig", "analyzeClientLog I/O error", e)
-                addLog("CRASH: I/O error: ${e.message}")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                addLog("CRASH: ${e.message}")
-                Log.e("WuWaConfig", "analyzeClientLog crashed", e)
-            } finally {
-                _readingProgress.value = 0
-                _isApplying.value = false
-            }
-        }
-    }
-
-    fun analyzeClientLogBytes(
-        bytes: ByteArray,
-        allowRestrictedCvars: Boolean = true,
-    ) {
-        if (_isApplying.value) return
-        _isApplying.value = true
-        launchBackendOp(managesBusyFlag = true) {
-            try {
-                _readingProgress.value = 0
-                addLog("Decoding imported log...")
-                val (text, decrypted) = com.wuwaconfig.app.config.LogParser.decodeLogBytes(bytes)
-                addLog(if (decrypted == com.wuwaconfig.app.config.LogParser.DecodeResult.DECRYPTED) "Encrypted imported log decrypted successfully." else "Imported plain log.")
-                _readingProgress.value = 95
-                doAnalyzeLogText(text, allowRestrictedCvars)
-            } catch (e: java.io.IOException) {
-                Log.e("WuWaConfig", "analyzeClientLogBytes I/O error", e)
-                addLog("CRASH: I/O error: ${e.message}")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                addLog("CRASH: ${e.message}")
-                Log.e("WuWaConfig", "analyzeClientLogBytes crashed", e)
-            } finally {
-                _readingProgress.value = 0
-                _isApplying.value = false
-            }
-        }
-    }
-
-    private suspend fun doAnalyzeLogText(
-        text: String,
-        allowRestrictedCvars: Boolean = true,
-        preParsedLogInfo: com.wuwaconfig.app.model.LogInfo? = null,
-    ) {
-        _logAnalysis.value = null
-        _brainRecommendation.value = null
-        try {
-            addLog("Parsing log...")
-            val info =
-                preParsedLogInfo ?: withContext(Dispatchers.Default) {
-                    com.wuwaconfig.app.config.LogParser.parseLog(text)
-                }
-            _logAnalysis.value = info
-            addLog("GPU: ${info.gpu ?: "unknown"}, RAM: ${info.ramMb ?: "?"}MB")
-            _readingProgress.value = 98
-            val brain =
-                withContext(Dispatchers.Default) {
-                    com.wuwaconfig.app.config.SmartBrain.scoreRecommendation(info, cvarDatabase, allowRestrictedCvars)
-                }
-            _brainRecommendation.value = brain
-            addLog("Brain recommends: ${brain.preset} (score: ${brain.score})")
-
-            withContext(Dispatchers.IO) {
-                val battleStats = com.wuwaconfig.app.config.LogParser.parseBattleStats(text)
-                BattleStatsStore.save(getApplication(), battleStats)
-                LogAnalysisStore.save(getApplication(), info, brain)
-                val report =
-                    com.wuwaconfig.app.config.SmartBrain.buildReportText(info, brain, cvarDatabase)
-                LogRepository.saveSmartBrainReport(report)
-            }
-            addLog("Analysis cached for quick viewing")
-        } catch (e: java.io.IOException) {
-            Log.e("WuWaConfig", "doAnalyzeLogText I/O error", e)
-            addLog("CRASH: I/O error: ${e.message}")
-        } catch (e: Exception) {
-            addLog("CRASH: ${e.message}")
-            Log.e("WuWaConfig", "doAnalyzeLogText crashed", e)
-        }
-    }
-
-    fun restoreAnalysisFromCache() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val cached = LogAnalysisStore.load(getApplication())
-            if (cached != null) {
-                _logAnalysis.value = cached.logInfo
-                _brainRecommendation.value = cached.brainRecommendation
-            }
-        }
-    }
-
-    suspend fun loadBattleStatsFromCache(): Boolean =
-        withContext(Dispatchers.IO) {
-            val cached = BattleStatsStore.load(getApplication())
-            if (cached != null) {
-                _battleStats.value = cached
-                _battleStatsFromCache.value = true
-                true
-            } else {
-                false
-            }
-        }
-
-    fun refreshBattleStats() {
-        viewModelScope.launch(Dispatchers.IO) { BattleStatsStore.clear(getApplication()) }
-        _battleStats.value = null
-        _battleStatsFromCache.value = false
-        loadBattleStats()
-    }
-
-    fun loadBattleStats() {
-        if (_battleStatsLoading.value || !_backendStatus.value.connected) return
-        launchBackendOp(managesBusyFlag = false) {
-            _battleStats.value = null
-            _battleStatsLoading.value = true
-            addLog("Reading Client.log for battle stats...")
-            try {
-                val result = configManager.readBattleStats()
-                if (result.isSuccess) {
-                    _battleStats.value = result.getOrThrow()
-                    addLog("Battle stats loaded")
-                } else {
-                    addLog("FAILED: ${result.exceptionOrNull()?.message}")
-                }
-            } catch (e: SecurityException) {
-                Log.e("WuWaConfig", "loadBattleStats permission denied", e)
-                addLog("CRASH: permission denied: ${e.message}")
-            } catch (e: java.io.IOException) {
-                Log.e("WuWaConfig", "loadBattleStats I/O error", e)
-                addLog("CRASH: I/O error: ${e.message}")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                addLog("CRASH: ${e.message}")
-                Log.e("WuWaConfig", "loadBattleStats crashed", e)
-            } finally {
-                _battleStatsLoading.value = false
-            }
-        }
-    }
 
     fun addLog(
         message: String,
