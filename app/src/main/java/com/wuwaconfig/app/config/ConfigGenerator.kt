@@ -27,8 +27,10 @@ data class PresetProfile(
     /**
      * Maps the preset's fine-grained [detail] rank onto the three boolean gates the
      * generator historically branched on (`>0` / `>1` / `>2`). Preserving this mapping
-     * keeps every existing branch's meaning intact while letting the 8 presets occupy
-     * distinct ranks (0..7) so high/ultra/cinematic no longer collapse to identical output.
+     * keeps every existing branch's meaning intact. The 8 presets now occupy distinct
+     * `detail` ranks (0..7) so high/ultra/cinematic no longer collapse to identical output.
+     * Likewise `q0/q1/q2`, `shadow`, `mipbias`, `flod`, `vd`, `shadowRes`, `streaming`,
+     * `grasscull` and `ssr` carry per-preset-tuned values that the builders actually consume.
      */
     val q0: Boolean get() = detail > 0
     val q1: Boolean get() = detail > 1
@@ -169,22 +171,27 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             "Paths=../../../Engine/Plugins/Runtime/Nvidia/NRD/Content",
         )
 
+    private val HEADER_TIME_FMT = SimpleDateFormat("yyyy.MM.dd @ HH:mm", Locale.US)
+
     fun configHeader(
         platform: String,
         preset: String,
         logInfo: LogInfo,
     ): String {
-        val timestamp = SimpleDateFormat("yyyy.MM.dd @ HH:mm", Locale.US).format(Date())
-        val device = logInfo.deviceModel ?: "Generic"
-        val gpu = logInfo.gpu ?: "Generic GPU"
+        // Pad/truncate to a fixed width so the ASCII box never misaligns when a
+        // device model / GPU string is longer than the field reserves.
+        val timestamp = HEADER_TIME_FMT.format(Date())
+        val device = (logInfo.deviceModel ?: "Generic").take(30).padEnd(30)
+        val gpu = (logInfo.gpu ?: "Generic GPU").take(30).padEnd(30)
+        val presetName = preset.uppercase().take(30).padEnd(30)
         return listOf(
             "; ┌───[ P42 TOOLKIT :: PERFORMANCE CONFIG ]──────────────────────────────────┐",
             "; │                                                                          │",
             "; │   ██████╗  ██╗  ██╗██████╗    [ ENGINE ] : Unreal Engine 4 / WutheringWaves│",
-            "; │   ██╔══██╗ ██║  ██║╚════██╗   [ PRESET ] : ${preset.uppercase().padEnd(30)}│",
-            "; │   ██████╔╝ ███████║ █████╔╝   [ DEVICE ] : ${device.padEnd(30)}│",
-            "; │   ██╔═══╝  ╚════██║██╔═══╝    [ GPU    ] : ${gpu.padEnd(30)}│",
-            "; │   ██║           ██║███████╗   [ TIME   ] : ${timestamp.padEnd(30)}│",
+            "; │   ██╔══██╗ ██║  ██║╚════██╗   [ PRESET ] : $presetName│",
+            "; │   ██████╔╝ ███████║ █████╔╝   [ DEVICE ] : $device│",
+            "; │   ██╔═══╝  ╚════██║██╔═══╝    [ GPU    ] : $gpu│",
+            "; │   ██║           ██║███████╗   [ TIME   ] : $timestamp│",
             "; │   ╚═╝           ╚═╝╚══════╝                                              │",
             "; └──────────────────────────────────────────────────────────────────────────┘",
             "",
@@ -231,14 +238,17 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 LogRepository.add("ConfigGenerator: using CvarOptimizer per-device tuning")
                 CvarOptimizer.toPresetProfile(CvarOptimizer.optimizeProfile(logInfo))
             } else {
-                PRESETS[preset] ?: error("Unknown preset: $preset")
+                PRESETS[preset] ?: run {
+                    LogRepository.add("ConfigGenerator: unknown preset '$preset' — falling back to 'balanced'", LogLevel.WARNING)
+                    PRESETS.getValue("balanced")
+                }
             }
         LogRepository.add("ConfigGenerator: building Engine.ini")
         val rawEngine = buildAndroidEngineIni(p, opts, corePaths, logInfo, preset)
         val engine =
             if (opts.importFromLog && logInfo.activeCvars.isNotEmpty()) {
                 LogRepository.add("ConfigGenerator: merging with ${logInfo.activeCvars.size} log CVars")
-                mergeWithLogCvars(rawEngine, logInfo.activeCvars, opts)
+                mergeWithLogCvars(rawEngine, logInfo.activeCvars)
             } else {
                 rawEngine
             }
@@ -264,7 +274,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             val strippedCount =
                 deduplicatedEngine.lines().size - finalEngine.lines().size +
                     dp.lines().size - finalDp.lines().size +
-                    gus.lines().size - finalGus.lines().size
+                    gus.lines().size - finalGus.lines().size +
+                    sc.lines().size - finalSc.lines().size +
+                    hw.lines().size - finalHw.lines().size
             if (strippedCount > 0) {
                 LogRepository.add("ConfigGenerator: stripped $strippedCount forbidden CVar(s) (restricted CVars OFF)", LogLevel.WARNING)
             }
@@ -346,15 +358,76 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
     private fun computeDeviceTier(logInfo: LogInfo): DeviceTier {
         val gpu = (logInfo.gpu ?: "").lowercase()
         val hasThermalIssues = logInfo.thermalEvents >= 5
+        // High-end: Adreno 740+/8xx (720/725/735 are upper-mid), Mali G72+ mid-gen
+        // and newer big cores. The old "adreno 8 gen" branch could never match a GPU
+        // string ("Gen" appears in SoC names) and Mali-G71 is ancient.
         val isHighEnd =
-            Regex("""adreno.*7\d{2}""").containsMatchIn(gpu) ||
-                Regex("""adreno.*8\d{2}""").containsMatchIn(gpu) ||
-                Regex("""adreno.*8\s*gen""").containsMatchIn(gpu) ||
-                Regex("""mali-g(7\d{1,2}|8\d{1,2}|9\d{1,2})""").containsMatchIn(gpu)
+            HIGH_END_GPU_PATTERNS.any { it.containsMatchIn(gpu) }
         val isMid =
-            Regex("""adreno.*6\d{2}""").containsMatchIn(gpu) ||
-                Regex("""mali-g(5\d{1,2}|6\d{1,2})""").containsMatchIn(gpu)
+            MID_GPU_PATTERNS.any { it.containsMatchIn(gpu) }
         return DeviceTier.fromTier(isHighEnd, isMid, hasThermalIssues)
+    }
+
+    private companion object {
+        private const val GRASSCULL_TIER_CEILING_MULT = 20
+
+        // High-end: Adreno 740+/8xx (720/725/735 are upper-mid), Mali G72+ (not ancient G71).
+        private val HIGH_END_GPU_PATTERNS =
+            listOf(
+                Regex("""adreno.*7[4-9]\d"""),
+                Regex("""adreno.*8\d{2}"""),
+                Regex("""mali-g(7[2-9]\d|8\d{1,2}|9\d{1,2})"""),
+            )
+        private val MID_GPU_PATTERNS =
+            listOf(
+                Regex("""adreno.*6\d{2}"""),
+                Regex("""adreno.*7[1-3]\d"""),
+                Regex("""mali-g(5\d{1,2}|6\d{1,2})"""),
+            )
+
+        // Precompiled once so device-profile detection no longer recompiles ~20 patterns.
+        private val CHIPSET_PROFILES =
+            listOf(
+                Regex("""snapdragon\s*8\s*elite|sm8750|adreno\s*830""", RegexOption.IGNORE_CASE) to "Android_Adreno830",
+                Regex("""snapdragon\s*8\s*gen\s*3|sm8650|adreno\s*750""", RegexOption.IGNORE_CASE) to "Android_Adreno750",
+                Regex("""snapdragon\s*8\s*gen\s*2|sm8550|adreno\s*740""", RegexOption.IGNORE_CASE) to "Android_Adreno740",
+                Regex("""snapdragon\s*8\s*\+?\s*gen\s*1|sm8475|sm8450|adreno\s*730""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
+                Regex("""snapdragon\s*7|sm7\d{3}|adreno\s*7""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
+                Regex("""snapdragon\s*6|snapdragon\s*695|snapdragon\s*680|sm6\d{3}|adreno\s*6""", RegexOption.IGNORE_CASE) to "Android_Adreno6xx",
+                Regex("""adreno\s*5""", RegexOption.IGNORE_CASE) to "Android_Adreno5xx",
+                Regex("""adreno\s*4""", RegexOption.IGNORE_CASE) to "Android_Adreno4xx",
+                Regex("""dimensity\s*94|mali-g925""", RegexOption.IGNORE_CASE) to "Android_Mali_G925",
+                Regex("""dimensity\s*93|mali-g720""", RegexOption.IGNORE_CASE) to "Android_Mali_G720",
+                Regex("""dimensity\s*92|mali-g715""", RegexOption.IGNORE_CASE) to "Android_Mali_G715",
+                Regex("""dimensity\s*90|mali-g710""", RegexOption.IGNORE_CASE) to "Android_Mali_G710",
+                Regex("""dimensity\s*8|mali-g61[0-9]|mali-g615""", RegexOption.IGNORE_CASE) to "Android_Mali_G615",
+                Regex("""dimensity\s*7|mali-g6""", RegexOption.IGNORE_CASE) to "Android_Mali_G61x",
+                Regex("""dimensity\s*6|mali-g57""", RegexOption.IGNORE_CASE) to "Android_Mali_G57",
+                Regex("""exynos\s*24|xclipse\s*9""", RegexOption.IGNORE_CASE) to "Android_Xclipse9xx",
+                Regex("""exynos\s*13|xclipse\s*5""", RegexOption.IGNORE_CASE) to "Android_Xclipse5xx",
+                Regex("""kirin|maleoon""", RegexOption.IGNORE_CASE) to "Android_Maleoon",
+            )
+        private val GPU_ONLY_PROFILES =
+            listOf(
+                Regex("""adreno\s*830""", RegexOption.IGNORE_CASE) to "Android_Adreno830",
+                Regex("""adreno\s*750""", RegexOption.IGNORE_CASE) to "Android_Adreno750",
+                Regex("""adreno\s*740""", RegexOption.IGNORE_CASE) to "Android_Adreno740",
+                Regex("""adreno\s*730""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
+                Regex("""adreno\s*7""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
+                Regex("""adreno\s*6""", RegexOption.IGNORE_CASE) to "Android_Adreno6xx",
+                Regex("""adreno\s*5""", RegexOption.IGNORE_CASE) to "Android_Adreno5xx",
+                Regex("""adreno\s*4""", RegexOption.IGNORE_CASE) to "Android_Adreno4xx",
+                Regex("""mali-g925""", RegexOption.IGNORE_CASE) to "Android_Mali_G925",
+                Regex("""mali-g720""", RegexOption.IGNORE_CASE) to "Android_Mali_G720",
+                Regex("""mali-g715""", RegexOption.IGNORE_CASE) to "Android_Mali_G715",
+                Regex("""mali-g710""", RegexOption.IGNORE_CASE) to "Android_Mali_G710",
+                Regex("""mali-g615""", RegexOption.IGNORE_CASE) to "Android_Mali_G615",
+                Regex("""mali-g6""", RegexOption.IGNORE_CASE) to "Android_Mali_G61x",
+                Regex("""mali-g57""", RegexOption.IGNORE_CASE) to "Android_Mali_G57",
+                Regex("""xclipse\s*9""", RegexOption.IGNORE_CASE) to "Android_Xclipse9xx",
+                Regex("""xclipse\s*5""", RegexOption.IGNORE_CASE) to "Android_Xclipse5xx",
+                Regex("""maleoon""", RegexOption.IGNORE_CASE) to "Android_Maleoon",
+            )
     }
 
     private fun buildAndroidEngineIni(
@@ -500,6 +573,10 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
     private fun buildShadowSection(ctx: EngineIniContext): List<String> {
         val p = ctx.p
         val sc = ctx.shadowCascade
+        // Preset-tuned shadowRes finally reaches the output, capped by device tier so
+        // a 4096 cinematic preset on low RAM degrades gracefully instead of exploding.
+        val tierCap = if (ctx.dt.isHighEnd) 4096 else if (ctx.dt.isMid) 2048 else 1024
+        val shadowRes = minOf(p.shadowRes, tierCap)
         return listOf(
             "; ── SHADOW ───────────────────────────────────────────",
             "r.Shadow.KuroEnablePointLightShadow=${if (p.shadow >= 3) 1 else 0}",
@@ -509,8 +586,8 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             "r.Kuro.GlobalLightQuality_PC=${if (p.shadow >= 4) 4 else if (p.shadow >= 2) 3 else 2}",
             "r.Kuro.GlobalLightShadowQuality_PC=${if (p.shadow >= 4) 4 else if (p.shadow >= 2) 3 else 2}",
             "r.Shadow.RadiusThreshold=${if (p.shadow >= 3) 0.06 else 0.12}",
-            "r.Shadow.PerObjectResolutionMax=${if (p.shadow >= 3) 2048 else if (p.shadow >= 2) 1024 else 512}",
-            "r.Shadow.MaxResolution=${if (p.shadow >= 3) 2048 else if (p.shadow >= 2) 1024 else 512}",
+            "r.Shadow.PerObjectResolutionMax=$shadowRes",
+            "r.Shadow.MaxResolution=$shadowRes",
             "r.Shadow.RadiusThresholdOverrideEnable=0",
             "r.Shadow.PerObjectResolutionMin=64",
             "r.MobileNumDynamicPointLights=2",
@@ -532,7 +609,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             "r.streaming.TexturePoolSizeMode=1",
             "r.Streaming.KuroMinFOVFactorForStreaming=0.2",
             "r.Streaming.GroupBoost.MediumNpcTextureFactor=${if (p.q0) "1.5" else "1.2"}",
-            "r.Streaming.PoolSizeForMeshes=${(dt.streamPool * 0.3).toInt()}",
+            // Preset `streaming` scales the tier pool: potato 0.3x … cinematic 6x,
+            // clamped to the physical tier budget.
+            "r.Streaming.PoolSizeForMeshes=${(dt.streamPool * 0.3 * p.streaming).toInt().coerceIn(96, dt.streamPool)}",
             "r.Streaming.UsingKuroStreamingPriority=2",
             "r.Streaming.AmortizeCPUToGPUCopy=1",
             "r.Streaming.DefragDynamicBounds=1",
@@ -595,12 +674,21 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             lines.add("r.Mobile.SceneObjMobileSSR=0")
             lines.add("r.Kuro.EnablePlanarReflection=0")
         } else {
-            lines.add("r.Mobile.WaterSSR=${if (dt.isHighEnd && p.q0) 1 else 0}")
-            lines.add("r.Mobile.WaterSSRStep=${if (p.q1) 12 else 8}")
-            lines.add("r.Mobile.SSR=${if (dt.isHighEnd && p.q0) 1 else 0}")
-            lines.add("r.Mobile.SceneObjMobileSSR=${if (dt.isHighEnd && p.q1) 1 else 0}")
-            lines.add("r.Kuro.EnablePlanarReflection=${if (dt.isHighEnd && p.q1) 1 else 0}")
-            lines.add("r.SSR.MaxRoughness=${if (p.q1) 1.0 else 0.6}")
+            // The per-preset-tuned `ssr` rank now drives SSR magnitude and the
+            // enable thresholds, while the device-tier gate (isHighEnd) keeps weak
+            // GPUs off the most expensive reflections.
+            val ssrStep =
+                when {
+                    p.ssr >= 4 -> 16
+                    p.ssr >= 2 -> 12
+                    else -> 8
+                }
+            lines.add("r.Mobile.WaterSSR=${if (dt.isHighEnd && p.ssr > 0) 1 else 0}")
+            lines.add("r.Mobile.WaterSSRStep=$ssrStep")
+            lines.add("r.Mobile.SSR=${if (dt.isHighEnd && p.ssr > 0) 1 else 0}")
+            lines.add("r.Mobile.SceneObjMobileSSR=${if (dt.isHighEnd && p.ssr >= 2) 1 else 0}")
+            lines.add("r.Kuro.EnablePlanarReflection=${if (dt.isHighEnd && p.ssr >= 3) 1 else 0}")
+            lines.add("r.SSR.MaxRoughness=${if (p.ssr >= 4) 1.0 else 0.6}")
             lines.add("r.SSR.HalfResSceneColor=1")
         }
         lines.add("r.DistanceFieldAO=0")
@@ -619,7 +707,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         lines.add("r.SSFS.FullPrecision=${if (p.q1) 1 else 0}")
         lines.add("r.SSS.HalfRes=${if (p.q1) 0 else 1}")
         lines.add("r.SSS.Quality=${if (p.q1) 2 else 1}")
-        if (p.detail >= 4) {
+        if (p.detail >= 4 && !ctx.opts.disableSSR) {
             lines.add("; Cinematic premium — flagship only")
             lines.add("r.Kuro.EnablePlanarReflection=1")
             lines.add("r.ContactShadows=1")
@@ -652,17 +740,26 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         lines.add("r.FogVisibilityCulling.Opacity=${if (p.q1) "0.8" else "0.5"}")
         lines.add("foliage.LODOptimize=1")
         lines.add("r.EnableAggressivePVS=1")
+        // Preset-tuned view distance / foliage LOD now drive output directly
+        // (previously tuned-but-dead fields); Hardware.ini shares the same source.
+        val viewDistance = p.vd.coerceIn(0.2, 5.0)
+        // Preset-tuned grasscull is the target cull distance; the device tier supplies a
+        // safety ceiling (×GRASSCULL_TIER_CEILING_MULT of its own cull budget) so a
+        // cinematic preset on a weak phone is clamped instead of exploding draw distance.
+        val grassBase = minOf(p.grasscull, dt.grassCull * GRASSCULL_TIER_CEILING_MULT)
+        val foliageLod = p.flod.coerceIn(0.3, 5.0)
+        lines.add("r.ViewDistanceScale=$viewDistance")
         lines.add("r.Kuro.MobileISMDecideDistance=${dt.ismDist}.0")
         lines.add("r.Kuro.MobileISMMeshRadiusMax=${dt.ismRad}.0")
-        lines.add("r.Kuro.Foliage.MobileGrassCullDistanceMax=${dt.grassCull}")
-        lines.add("r.Kuro.Foliage.MobileGrass3_0CullDistanceMax=${dt.grassCull}")
-        lines.add("r.Kuro.Foliage.MobileMiddleCullDistanceMin=${(dt.grassCull * 1.8).toInt()}")
-        lines.add("r.Kuro.Foliage.MobileMiddleCullDistanceMax=${(dt.grassCull * 2.2).toInt()}")
-        lines.add("r.Kuro.Foliage.MobileFarCullDistanceMin=${(dt.grassCull * 2.8).toInt()}")
-        lines.add("r.Kuro.Foliage.MobileFarCullDistanceMax=${(dt.grassCull * 3.2).toInt()}")
+        lines.add("r.Kuro.Foliage.MobileGrassCullDistanceMax=$grassBase")
+        lines.add("r.Kuro.Foliage.MobileGrass3_0CullDistanceMax=$grassBase")
+        lines.add("r.Kuro.Foliage.MobileMiddleCullDistanceMin=${(grassBase * 1.8).toInt()}")
+        lines.add("r.Kuro.Foliage.MobileMiddleCullDistanceMax=${(grassBase * 2.2).toInt()}")
+        lines.add("r.Kuro.Foliage.MobileFarCullDistanceMin=${(grassBase * 2.8).toInt()}")
+        lines.add("r.Kuro.Foliage.MobileFarCullDistanceMax=${(grassBase * 3.2).toInt()}")
         lines.add("foliage.DensityScale=${if (dt.isHighEnd && p.q1) 1.5 else if (p.q0) 1.0 else 0.6}")
         lines.add("grass.DensityScale=${if (dt.isHighEnd && p.q1) 1.5 else if (p.q0) 1.0 else 0.6}")
-        lines.add("foliage.LODDistanceScale=${if (p.q1) 1.2 else if (p.q0) 1.0 else 0.7}")
+        lines.add("foliage.LODDistanceScale=${"%.2f".format(foliageLod)}")
         lines.add("")
         return lines
     }
@@ -820,7 +917,6 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             lines.add("r.MobileNumDynamicPointLights=0")
             lines.add("r.Mobile.AllowMovableDirectionalLights=1")
             lines.add("r.Mobile.EnableMovableSpotlights=0")
-            lines.add("r.Mobile.EnableMovableSpotLights=0")
             lines.add("r.Mobile.EnableMovableSpotlightsShadow=0")
             lines.add("r.Mobile.EnableKuroSpotlightsShadow=0")
             lines.add("r.Mobile.EnableMovableLightCSMShaderCulling=1")
@@ -925,7 +1021,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             lines.add("r.Kuro.Foliage.MobileFarCullDistanceMax=6500")
             lines.add("r.Kuro.NpcDisappearDistance=8000")
             lines.add("r.Kuro.MobileISMDecideDistance=12000.0")
-            lines.add("r.Kuro.MobileISMMeshRadiusMax=200.0")
+            lines.add("r.Kuro.MobileISMMeshRadiusMax=2000.0")
             lines.add("r.Mobile.WaterSSR=0")
             lines.add("r.Mobile.SSR=0")
             lines.add("r.Mobile.SceneObjMobileSSR=0")
@@ -1043,29 +1139,18 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 5.0
             }
 
+        // CHIPSET_PROFILES / GPU_ONLY_PROFILES are declared once at the class companion
+        // (see the companion object near the top) — they are referenced here by name.
+
         fun profileFromChipset(): String? {
             val t = socText
-            return when {
-                Regex("""snapdragon\s*8\s*elite|sm8750|adreno\s*830""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("adreno 830") -> "Android_Adreno830"
-                Regex("""snapdragon\s*8\s*gen\s*3|sm8650|adreno\s*750""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("adreno 750") -> "Android_Adreno750"
-                Regex("""snapdragon\s*8\s*gen\s*2|sm8550|adreno\s*740""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("adreno 740") -> "Android_Adreno740"
-                Regex("""snapdragon\s*8\s*\+?\s*gen\s*1|sm8475|sm8450|adreno\s*730""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("adreno 730") -> "Android_Adreno7xx"
-                Regex("""snapdragon\s*7|sm7\d{3}|adreno\s*7""", RegexOption.IGNORE_CASE).containsMatchIn(t) || Regex("""adreno\s*7""", RegexOption.IGNORE_CASE).containsMatchIn(gpu) -> "Android_Adreno7xx"
-                Regex("""snapdragon\s*6|snapdragon\s*695|snapdragon\s*680|sm6\d{3}|adreno\s*6""", RegexOption.IGNORE_CASE).containsMatchIn(t) || Regex("""adreno\s*6""", RegexOption.IGNORE_CASE).containsMatchIn(gpu) -> "Android_Adreno6xx"
-                Regex("""adreno\s*5""", RegexOption.IGNORE_CASE).containsMatchIn(t) || Regex("""adreno\s*5""", RegexOption.IGNORE_CASE).containsMatchIn(gpu) -> "Android_Adreno5xx"
-                Regex("""adreno\s*4""", RegexOption.IGNORE_CASE).containsMatchIn(t) || Regex("""adreno\s*4""", RegexOption.IGNORE_CASE).containsMatchIn(gpu) -> "Android_Adreno4xx"
-                Regex("""dimensity\s*94|mali-g925""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("mali-g925") -> "Android_Mali_G925"
-                Regex("""dimensity\s*93|mali-g720""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("mali-g720") -> "Android_Mali_G720"
-                Regex("""dimensity\s*92|mali-g715""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("mali-g715") -> "Android_Mali_G715"
-                Regex("""dimensity\s*90|mali-g710""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("mali-g710") -> "Android_Mali_G710"
-                Regex("""dimensity\s*8|mali-g61[0-9]|mali-g615""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("mali-g615") -> "Android_Mali_G615"
-                Regex("""dimensity\s*7|mali-g6""", RegexOption.IGNORE_CASE).containsMatchIn(t) || Regex("""mali-g6""", RegexOption.IGNORE_CASE).containsMatchIn(gpu) -> "Android_Mali_G61x"
-                Regex("""dimensity\s*6|mali-g57""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("mali-g57") -> "Android_Mali_G57"
-                Regex("""exynos\s*24|xclipse\s*9""", RegexOption.IGNORE_CASE).containsMatchIn(t) || Regex("""xclipse\s*9""", RegexOption.IGNORE_CASE).containsMatchIn(gpu) -> "Android_Xclipse9xx"
-                Regex("""exynos\s*13|xclipse\s*5""", RegexOption.IGNORE_CASE).containsMatchIn(t) || Regex("""xclipse\s*5""", RegexOption.IGNORE_CASE).containsMatchIn(gpu) -> "Android_Xclipse5xx"
-                Regex("""kirin|maleoon""", RegexOption.IGNORE_CASE).containsMatchIn(t) || gpu.contains("maleoon") -> "Android_Maleoon"
-                else -> null
+            for ((pattern, profile) in CHIPSET_PROFILES) {
+                if (pattern.containsMatchIn(t)) return profile
             }
+            for ((pattern, profile) in GPU_ONLY_PROFILES) {
+                if (pattern.containsMatchIn(gpu)) return profile
+            }
+            return null
         }
 
         fun sanitizeProfileName(name: String?): String? {
@@ -1278,7 +1363,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             "WindowPosY=-1",
             "FullscreenMode=0",
             "GameQualitySettingLevel=$kuroQ",
-            "LastConfirmedFullscreenMode=1",
+            "LastConfirmedFullscreenMode=0",
             "PreferredFullscreenMode=0",
             "Version=5",
             "AudioQualityLevel=0",
@@ -1417,6 +1502,36 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 listOf("", "[ShadingQuality@2]", "r.HairStrands.SkyAO.SampleCount=4", "r.HairStrands.SkyLighting.IntegrationType=2", "r.HairStrands.Visibility.MSAA.SamplePerPixel=4"),
                 listOf("", "[ShadingQuality@3]", "r.HairStrands.SkyAO.SampleCount=4", "r.HairStrands.SkyLighting.IntegrationType=2", "r.HairStrands.Visibility.MSAA.SamplePerPixel=4"),
                 listOf(
+                    "", "[KuroRenderQuality@1]",
+                    "KuroRenderQuality.LevelName=均衡",
+                    "r.StaticMeshLODDistanceScale=2",
+                    "r.ScreenSizeCullRatioFactor=80",
+                    "r.DrawKuroPPLensflare=1",
+                    "r.Kuro.NpcDisappearDistance=1400",
+                    "r.Kuro.SkeletalMesh.LODDistanceScale=0.4",
+                    "r.Kuro.FloatingStaticMeshTickFactor=1.8",
+                    "r.Kuro.FlickerLightActorTickFactor=6.0",
+                    "r.Kuro.MaterialDesktopQualityShoulderRender=1",
+                    "r.Kuro.GlobalPointCloudStreamEnabled=0",
+                    "foliage.DensityType=0",
+                    "foliage.DensityScaleLOD.Switch=0",
+                ),
+                listOf(
+                    "", "[KuroRenderQuality@2]",
+                    "KuroRenderQuality.LevelName=画质优先偏性能",
+                    "r.StaticMeshLODDistanceScale=1.5",
+                    "r.ScreenSizeCullRatioFactor=60",
+                    "r.DrawKuroPPLensflare=1",
+                    "r.Kuro.NpcDisappearDistance=1600",
+                    "r.Kuro.SkeletalMesh.LODDistanceScale=0.5",
+                    "r.Kuro.FloatingStaticMeshTickFactor=1.5",
+                    "r.Kuro.FlickerLightActorTickFactor=4.0",
+                    "r.Kuro.MaterialDesktopQualityShoulderRender=2",
+                    "r.Kuro.GlobalPointCloudStreamEnabled=0",
+                    "foliage.DensityType=1",
+                    "foliage.DensityScaleLOD.Switch=0",
+                ),
+                listOf(
                     "", "[KuroRenderQuality@0]",
                     "KuroRenderQuality.LevelName=极致性能",
                     "r.StaticMeshLODDistanceScale=3",
@@ -1497,11 +1612,11 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             "; Anisotropic filtering",
             "+CVars=r.MaxAnisotropy=${dt.maxAniso}",
             "",
-            "; LOD bias",
-            "+CVars=r.Streaming.MipBias=${if (p.q1) 0 else 1}",
+            "; LOD bias — same ladder as Engine.ini so files never disagree",
+            "+CVars=r.Streaming.MipBias=${if (p.mipbias < 0) 0 else p.mipbias}",
             "",
-            "; Foliage LOD",
-            "+CVars=foliage.LODDistanceScale=${"%.1f".format(p.flod)}",
+            "; Foliage LOD — preset-tuned value shared with Engine.ini",
+            "+CVars=foliage.LODDistanceScale=${"%.2f".format(p.flod.coerceIn(0.3, 5.0))}",
         ).joinToString("\n")
     }
 

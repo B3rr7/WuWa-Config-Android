@@ -63,4 +63,29 @@ class CvarDatabaseOptimizeTest {
         assertTrue(line.contains("[CvarDB]"))
         assertTrue(line.contains("unknown"))
     }
+
+    @Test
+    fun `inline trailing comments do not break redundant default detection`() {
+        val ini = "r.Kuro.AutoExposure=1 ; keep me lit\n"
+        val out = optimizeIniTextImpl(ini, allCvars, monitored, defaults)
+        assertTrue("inline comment must still flag the redundant default", out.contains("[CvarDB]") && out.contains("redundant"))
+        assertTrue(out.contains("r.Kuro.AutoExposure=1"))
+    }
+
+    @Test
+    fun `removal directive lines are never flagged as unknown`() {
+        val ini = "-CVars=r.Kuro.AutoExposure\n-CVARS=foliage.DensityScale\n"
+        val out = optimizeIniTextImpl(ini, allCvars, monitored, defaults)
+        assertFalse("removal directives must be preserved verbatim", out.contains("[CvarDB]"))
+        assertTrue(out.contains("-CVars=r.Kuro.AutoExposure"))
+        assertTrue(out.contains("-CVARS=foliage.DensityScale"))
+    }
+
+    @Test
+    fun `inline comment on a differing known cvar keeps it active`() {
+        val ini = "r.Kuro.AutoExposure=0 ; dimmed for battery\n"
+        val out = optimizeIniTextImpl(ini, allCvars, monitored, defaults)
+        assertFalse("value differs from default, must stay active", out.contains("[CvarDB]"))
+        assertTrue(out.contains("r.Kuro.AutoExposure=0"))
+    }
 }

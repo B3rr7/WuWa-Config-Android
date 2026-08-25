@@ -185,8 +185,8 @@ class ConfigGeneratorTest {
         assertTrue(result.ini.engine.isNotBlank())
         val engineText = result.ini.engine
         assertTrue(
-            "High-end GPU should set high grassCull (2000)",
-            engineText.contains("r.Kuro.Foliage.MobileGrassCullDistanceMax=2000"),
+            "High-end GPU with 'high' preset should use the preset-tuned grassCull (20000)",
+            engineText.contains("r.Kuro.Foliage.MobileGrassCullDistanceMax=20000"),
         )
     }
 
@@ -203,8 +203,8 @@ class ConfigGeneratorTest {
         assertTrue(result.ini.engine.isNotBlank())
         val engineText = result.ini.engine
         assertTrue(
-            "Low-end GPU should set low grassCull (800)",
-            engineText.contains("r.Kuro.Foliage.MobileGrassCullDistanceMax=800"),
+            "Low-end GPU with 'high' preset should clamp grassCull to the tier ceiling (16000)",
+            engineText.contains("r.Kuro.Foliage.MobileGrassCullDistanceMax=16000"),
         )
     }
 
@@ -238,17 +238,15 @@ class ConfigGeneratorTest {
     }
 
     @Test
-    fun `generateWithCorePaths unknown preset throws`() {
-        try {
+    fun `generateWithCorePaths unknown preset falls back to balanced`() {
+        val result =
             generator.generateWithCorePaths(
                 preset = "nonexistent",
                 opts = defaultOpts,
                 corePaths = emptyList(),
                 logInfo = LogInfo(),
             )
-            org.junit.Assert.fail("Should have thrown for unknown preset")
-        } catch (e: IllegalStateException) {
-            assertTrue(e.message!!.contains("Unknown preset"))
-        }
+        assertTrue(result.ini.engine.isNotBlank())
+        assertEquals("nonexistent", result.activePreset)
     }
 }

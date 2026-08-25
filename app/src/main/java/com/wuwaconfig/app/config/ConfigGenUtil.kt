@@ -1,7 +1,6 @@
 package com.wuwaconfig.app.config
 
 import com.wuwaconfig.app.model.CvarEntry
-import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.LogInfo
 
 private val CVAR_PREFIXES =
@@ -83,22 +82,15 @@ fun extractCoreSystemPaths(
 fun mergeWithLogCvars(
     generatedIni: String,
     logCvars: Map<String, String>,
-    opts: GeneratorOptions,
 ): String {
     val generatedKeys = extractCvarNames(generatedIni).map { it.lowercase() }.toSet()
     val logLines = mutableListOf<String>()
     for ((key, value) in logCvars) {
         val kl = key.lowercase()
-        val isMergeable =
-            kl.startsWith("sg.") || kl.startsWith("r.") || kl.startsWith("fx.") ||
-                kl.startsWith("foliage.") || kl.startsWith("grass.") || kl.startsWith("a.") ||
-                kl.startsWith("niagara.") || kl.startsWith("kuro.") || kl.startsWith("lod.") ||
-                kl.startsWith("s.") || kl.startsWith("gc.") || kl.startsWith("compat.") ||
-                kl.startsWith("cook.")
-        if (isMergeable) {
-            if (kl !in generatedKeys) {
-                logLines.add("$key=$value")
-            }
+        // Same prefix family as the generator emits — keeps merge scope in lockstep
+        // with extract/dedup instead of a drifted inline copy.
+        if (CVAR_PREFIXES.any { kl.startsWith(it) } && kl !in generatedKeys) {
+            logLines.add("$key=$value")
         }
     }
     if (logLines.isEmpty()) return generatedIni
@@ -156,7 +148,7 @@ fun parseCvarEntries(
         val trimmed = line.trim()
         if (trimmed.startsWith("[")) continue
         if (trimmed.startsWith(";")) {
-            val cat = trimmed.removePrefix(";").trim().removePrefix("──").trim().removeSuffix("──").trim()
+            val cat = trimmed.removePrefix(";").trim().trim('─').trim()
             if (cat.isNotEmpty() && !cat.startsWith("═")) currentCategory = cat
             continue
         }
@@ -178,24 +170,27 @@ fun applyCvarOverrides(
 ): String {
     if (overrides.isEmpty()) return text
     val lines = text.lines().toMutableList()
-    // First-occurrence index of each cvar key, mirroring the previous indexOfFirst
-    // behavior while avoiding an O(overrides * lines) scan.
-    val keyToIndex = mutableMapOf<String, Int>()
+    // Every index per key — deduplicateIniText keeps the LAST occurrence, so an
+    // override applied only to the first occurrence was silently discarded for
+    // any cvar emitted more than once (~20 keys via perf-tweaks/ToA/thermal).
+    val indicesByKey = mutableMapOf<String, MutableList<Int>>()
     for (i in lines.indices) {
         val trimmed = lines[i].trim()
         val eq = trimmed.indexOf('=')
         if (eq > 0) {
             val key = trimmed.substring(0, eq).trim()
-            keyToIndex.putIfAbsent(key, i)
+            indicesByKey.getOrPut(key) { mutableListOf() }.add(i)
         }
     }
     for ((key, newValue) in overrides) {
-        val idx = keyToIndex[key] ?: continue
-        val raw = lines[idx]
-        val rawEq = raw.indexOf('=')
-        val existingVal = raw.substring(rawEq + 1).trim()
-        if (existingVal != newValue) {
-            lines[idx] = raw.substring(0, rawEq + 1) + newValue
+        val idxs = indicesByKey[key] ?: continue
+        for (idx in idxs) {
+            val raw = lines[idx]
+            val rawEq = raw.indexOf('=')
+            val existingVal = raw.substring(rawEq + 1).trim()
+            if (existingVal != newValue) {
+                lines[idx] = raw.substring(0, rawEq + 1) + newValue
+            }
         }
     }
     return lines.joinToString("\n")
