@@ -93,7 +93,11 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
             )
         } catch (_: Exception) {
         }
-        _gachaHistory.value = GachaHistoryStore.load(getApplication())
+        // JSON file read + Gson parse — keep off the main thread.
+        viewModelScope.launch(Dispatchers.IO) {
+            val loaded = GachaHistoryStore.load(getApplication())
+            _gachaHistory.value = loaded
+        }
     }
 
     override fun onCleared() {
@@ -105,12 +109,15 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearGachaHistory() {
-        GachaHistoryStore.delete(getApplication())
+        viewModelScope.launch(Dispatchers.IO) { GachaHistoryStore.delete(getApplication()) }
         _gachaHistory.value = null
         addLog("Gacha history cleared")
     }
 
-    fun gachaHistoryRemainingHours(): Long = GachaHistoryStore.getRemainingHours(getApplication())
+    fun gachaHistoryRemainingHours(): Long =
+        _gachaHistory.value?.let { entry ->
+            maxOf((entry.expiresAt - System.currentTimeMillis()) / (60 * 60 * 1000), 0L)
+        } ?: 0L
 
     fun restoreGachaFromHistory() {
         val entry = _gachaHistory.value ?: return
@@ -217,8 +224,10 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
             if (result.isSuccess) {
                 val data = result.getOrThrow()
                 _gachaData.value = data
-                GachaHistoryStore.save(getApplication(), data)
-                _gachaHistory.value = GachaHistoryStore.load(getApplication())
+                withContext(Dispatchers.IO) {
+                    GachaHistoryStore.save(getApplication(), data)
+                    _gachaHistory.value = GachaHistoryStore.load(getApplication())
+                }
                 addLog("Loaded ${data.totalPulls} pulls (${data.fiveStars}★5, ${data.fourStars}★4)")
                 if (data.poolsWithData.isNotEmpty()) {
                     addLog("Pools: ${data.poolsWithData.size} with records")

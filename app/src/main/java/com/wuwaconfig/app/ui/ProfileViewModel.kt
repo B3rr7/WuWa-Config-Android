@@ -34,9 +34,12 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     val configModifyCounts: StateFlow<Map<String, Int>> = _configModifyCounts.asStateFlow()
 
     init {
-        val cached = profileStore.load()
-        if (cached != null) {
-            _playerProfile.value = cached
+        // JSON file read + Gson parse — keep off the main thread.
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val cached = profileStore.load()
+            if (cached != null) {
+                _playerProfile.value = cached
+            }
         }
     }
 
@@ -71,7 +74,9 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 if (result.isSuccess) {
                     val profile = result.getOrThrow()
                     _playerProfile.value = profile
-                    profileStore.save(profile)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        profileStore.save(profile)
+                    }
                     addLog("Profile loaded")
                     loadConfigModifyCounts()
                 } else {

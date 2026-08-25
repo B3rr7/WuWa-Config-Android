@@ -164,7 +164,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     fun changeBackupDir(newDir: String) {
         prefs.edit().putString("backup_dir", newDir).apply()
-        loadBackups()
+        viewModelScope.launch { loadBackups() }
         addLog("Backup dir changed to $newDir")
     }
 
@@ -1020,51 +1020,55 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         return app.backend.executeShellCommand(cmd)
     }
 
-    fun readUriContent(uri: Uri): Result<String> {
-        return try {
-            val ctx = getApplication<Application>()
-            val stream =
-                ctx.contentResolver.openInputStream(uri)
-                    ?: return Result.failure(Exception("Cannot open file"))
-            val text = stream.use { java.io.BufferedReader(java.io.InputStreamReader(it)).readText() }
-            Result.success(text)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    fun readUriBytes(uri: Uri): Result<ByteArray> {
-        return try {
-            val ctx = getApplication<Application>()
-            val stream =
-                ctx.contentResolver.openInputStream(uri)
-                    ?: return Result.failure(Exception("Cannot open file"))
-            val bytes = stream.use { it.readBytes() }
-            Result.success(bytes)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    fun getFileName(uri: Uri): String? {
-        return try {
-            val ctx = getApplication<Application>()
-            val cursor = ctx.contentResolver.query(uri, null, null, null, null)
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (idx >= 0) it.getString(idx) else null
-                } else {
-                    null
-                }
+    suspend fun readUriContent(uri: Uri): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val ctx = getApplication<Application>()
+                val stream =
+                    ctx.contentResolver.openInputStream(uri)
+                        ?: return@withContext Result.failure(Exception("Cannot open file"))
+                val text = stream.use { java.io.BufferedReader(java.io.InputStreamReader(it)).readText() }
+                Result.success(text)
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-        } catch (_: Exception) {
-            null
         }
-    }
 
-    private fun loadBackups() {
-        _backups.value = configManager.getLocalBackups()
+    suspend fun readUriBytes(uri: Uri): Result<ByteArray> =
+        withContext(Dispatchers.IO) {
+            try {
+                val ctx = getApplication<Application>()
+                val stream =
+                    ctx.contentResolver.openInputStream(uri)
+                        ?: return@withContext Result.failure(Exception("Cannot open file"))
+                val bytes = stream.use { it.readBytes() }
+                Result.success(bytes)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun getFileName(uri: Uri): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val ctx = getApplication<Application>()
+                val cursor = ctx.contentResolver.query(uri, null, null, null, null)
+                cursor?.use {
+                    if (it.moveToFirst()) {
+                        val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (idx >= 0) it.getString(idx) else null
+                    } else {
+                        null
+                    }
+                }
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+    private suspend fun loadBackups() {
+        _backups.value =
+            withContext(Dispatchers.IO) { configManager.getLocalBackups() }
     }
 
     private val _logAnalysis = MutableStateFlow<LogInfo?>(null)
@@ -1192,7 +1196,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             _brainRecommendation.value = brain
             addLog("Brain recommends: ${brain.preset} (score: ${brain.score})")
 
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 val battleStats = com.wuwaconfig.app.config.LogParser.parseBattleStats(text)
                 BattleStatsStore.save(getApplication(), battleStats)
                 LogAnalysisStore.save(getApplication(), info, brain)
@@ -1211,25 +1215,29 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun restoreAnalysisFromCache() {
-        val cached = LogAnalysisStore.load(getApplication())
-        if (cached != null) {
-            _logAnalysis.value = cached.logInfo
-            _brainRecommendation.value = cached.brainRecommendation
+        viewModelScope.launch(Dispatchers.IO) {
+            val cached = LogAnalysisStore.load(getApplication())
+            if (cached != null) {
+                _logAnalysis.value = cached.logInfo
+                _brainRecommendation.value = cached.brainRecommendation
+            }
         }
     }
 
-    fun loadBattleStatsFromCache(): Boolean {
-        val cached = BattleStatsStore.load(getApplication())
-        if (cached != null) {
-            _battleStats.value = cached
-            _battleStatsFromCache.value = true
-            return true
+    suspend fun loadBattleStatsFromCache(): Boolean =
+        withContext(Dispatchers.IO) {
+            val cached = BattleStatsStore.load(getApplication())
+            if (cached != null) {
+                _battleStats.value = cached
+                _battleStatsFromCache.value = true
+                true
+            } else {
+                false
+            }
         }
-        return false
-    }
 
     fun refreshBattleStats() {
-        BattleStatsStore.clear(getApplication())
+        viewModelScope.launch(Dispatchers.IO) { BattleStatsStore.clear(getApplication()) }
         _battleStats.value = null
         _battleStatsFromCache.value = false
         loadBattleStats()

@@ -29,6 +29,7 @@ import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.*
 import com.wuwaconfig.app.ui.theme.*
+import kotlinx.coroutines.launch
 
 private data class PickedFile(
     val displayName: String,
@@ -95,21 +96,26 @@ fun HomeScreen(
     var adbHost by remember { mutableStateOf(PortScanner.getDeviceIp()) }
     var adbPort by remember { mutableStateOf("") }
 
+    val pickerScope = rememberCoroutineScope()
+
     val filePickerLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenMultipleDocuments(),
         ) { uris: List<Uri> ->
             if (uris.isNotEmpty()) {
-                val matched =
-                    uris.mapNotNull { uri ->
-                        val name = deployHistoryViewModel.getFileName(uri) ?: return@mapNotNull null
-                        val target = matchTarget(name) ?: return@mapNotNull null
-                        val content = deployHistoryViewModel.readUriContent(uri).getOrNull() ?: return@mapNotNull null
-                        PickedFile(displayName = name, targetName = target, content = content)
+                // ContentResolver reads are blocking IO — keep them off the main thread.
+                pickerScope.launch {
+                    val matched =
+                        uris.mapNotNull { uri ->
+                            val name = deployHistoryViewModel.getFileName(uri) ?: return@mapNotNull null
+                            val target = matchTarget(name) ?: return@mapNotNull null
+                            val content = deployHistoryViewModel.readUriContent(uri).getOrNull() ?: return@mapNotNull null
+                            PickedFile(displayName = name, targetName = target, content = content)
+                        }
+                    if (matched.isNotEmpty()) {
+                        pickedFiles = matched
+                        customConfigState = CustomConfigState.REVIEW
                     }
-                if (matched.isNotEmpty()) {
-                    pickedFiles = matched
-                    customConfigState = CustomConfigState.REVIEW
                 }
             }
         }

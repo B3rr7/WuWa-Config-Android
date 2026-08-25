@@ -2,7 +2,6 @@ package com.wuwaconfig.app
 
 import android.app.Application
 import android.content.Context
-import android.os.Environment
 import com.wuwaconfig.app.adb.AdbCrypto
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.AccessMethod
@@ -83,9 +82,10 @@ class WuWaConfigApp : Application() {
         instance = this
         _backend = null
         LogRepository.init()
-        cleanupOldClientLogs()
         cvarDatabase = CvarDatabase(assets)
         configGenerator = ConfigGenerator(cvarDatabase)
+        // Disk stats + Downloads listing have no business on the main thread.
+        appScope.launch(Dispatchers.IO) { cleanupOldClientLogs() }
         appScope.launch { cvarDatabase.load() }
         deployHistoryStore = DeployHistoryStore(File(filesDir, "deploy_history.json"))
         profileStore = ProfileStore(File(filesDir, "player_profile.json"))
@@ -186,9 +186,9 @@ class WuWaConfigApp : Application() {
     private fun cleanupOldClientLogs() {
         val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         val dirs =
-            listOf(
+            listOfNotNull(
                 File(filesDir, "backups"),
-                File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WuWaConfig"),
+                LogRepository.publicBaseDir()?.let { File(it.absolutePath) },
             )
         for (dir in dirs) {
             val file = File(dir, "Client.log")
