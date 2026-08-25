@@ -30,9 +30,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.wuwaconfig.app.service.AdbConnectionService
+import com.wuwaconfig.app.ui.BackupViewModel
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.GachaViewModel
 import com.wuwaconfig.app.ui.IniEditorViewModel
+import com.wuwaconfig.app.ui.LogInsightsViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.ProfileViewModel
 import com.wuwaconfig.app.ui.SettingsViewModel
@@ -72,9 +74,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private val deployHistoryViewModel: DeployHistoryViewModel by viewModels()
+    private val backupViewModel: BackupViewModel by viewModels()
+    private val logInsightsViewModel: LogInsightsViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Device mutations (deploys, auto-backups) refresh the backup list.
+        deployHistoryViewModel.onDeviceMutated = { backupViewModel.refreshBackups() }
 
         setContent {
             val mainViewModel: MainViewModel = viewModel()
@@ -100,14 +106,14 @@ class MainActivity : ComponentActivity() {
                         onAccept = {
                             mainViewModel.acceptTerms()
                             mainViewModel.postAcceptInit()
-                            deployHistoryViewModel.initDownloadBackupDir()
+                            backupViewModel.initDownloadBackupDir()
                             showTerms = false
                             this@MainActivity.requestStoragePermissions()
                             this@MainActivity.initExternalBackupDir()
                         },
                     )
                 } else {
-                    AppNavigation(mainViewModel, deployHistoryViewModel, settingsViewModel, gachaViewModel, profileViewModel)
+                    AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel)
                 }
             }
         }
@@ -120,7 +126,7 @@ class MainActivity : ComponentActivity() {
 
     private fun initExternalBackupDir() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) return
-        deployHistoryViewModel.initDownloadBackupDir()
+        backupViewModel.initDownloadBackupDir()
     }
 
     private val permissionsLauncher =
@@ -161,6 +167,8 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation(
     viewModel: MainViewModel,
     deployHistoryViewModel: DeployHistoryViewModel,
+    backupViewModel: BackupViewModel,
+    insightsViewModel: LogInsightsViewModel,
     settingsViewModel: SettingsViewModel,
     gachaViewModel: GachaViewModel,
     profileViewModel: ProfileViewModel,
@@ -216,6 +224,7 @@ fun AppNavigation(
             HomeScreen(
                 viewModel = viewModel,
                 deployHistoryViewModel = deployHistoryViewModel,
+                backupViewModel = backupViewModel,
                 onNavigateToBackups = { navController.navigate("backups") },
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToConfigGen = { navController.navigate("configgen") },
@@ -235,7 +244,8 @@ fun AppNavigation(
             popExitTransition = popExit,
         ) {
             BackupScreen(
-                viewModel = deployHistoryViewModel,
+                viewModel = backupViewModel,
+                deployHistoryViewModel = deployHistoryViewModel,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -249,6 +259,7 @@ fun AppNavigation(
             ConfigGenScreen(
                 viewModel = viewModel,
                 deployHistoryViewModel = deployHistoryViewModel,
+                insightsViewModel = insightsViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToReviewTune = {
                     navController.navigate("reviewtune")
@@ -290,8 +301,8 @@ fun AppNavigation(
                 backendStatus = deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle().value,
                 chipsetInfo = chipsetInfo,
                 gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR,
-                backupStorageDir = deployHistoryViewModel.backupStorageDir,
-                onChangeBackupDir = { newDir -> deployHistoryViewModel.changeBackupDir(newDir) },
+                backupStorageDir = backupViewModel.backupStorageDir,
+                onChangeBackupDir = { newDir -> backupViewModel.changeBackupDir(newDir) },
             )
         }
         composable(
@@ -340,7 +351,7 @@ fun AppNavigation(
             popExitTransition = popExit,
         ) {
             BattleStatsScreen(
-                viewModel = deployHistoryViewModel,
+                viewModel = insightsViewModel,
                 onBack = { navController.popBackStack() },
             )
         }

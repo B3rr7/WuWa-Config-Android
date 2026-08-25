@@ -36,6 +36,7 @@ import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
+import com.wuwaconfig.app.ui.LogInsightsViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
@@ -56,14 +57,15 @@ import kotlin.random.Random
 fun ConfigGenScreen(
     viewModel: MainViewModel,
     deployHistoryViewModel: DeployHistoryViewModel,
+    insightsViewModel: LogInsightsViewModel,
     onBack: () -> Unit,
     onNavigateToReviewTune: () -> Unit = {},
 ) {
     val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
     val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
     val readingProgress by deployHistoryViewModel.readingProgress.collectAsStateWithLifecycle()
-    val logInfo by deployHistoryViewModel.logAnalysis.collectAsStateWithLifecycle()
-    val brain by deployHistoryViewModel.brainRecommendation.collectAsStateWithLifecycle()
+    val logInfo by insightsViewModel.logAnalysis.collectAsStateWithLifecycle()
+    val brain by insightsViewModel.brainRecommendation.collectAsStateWithLifecycle()
     val deployResult by deployHistoryViewModel.deployResult.collectAsStateWithLifecycle()
     val verificationReport by deployHistoryViewModel.verificationReport.collectAsStateWithLifecycle()
     val colorful by viewModel.colorfulUi.collectAsStateWithLifecycle()
@@ -121,7 +123,7 @@ fun ConfigGenScreen(
                 scope.launch {
                     val result = deployHistoryViewModel.readUriBytes(uri)
                     if (result.isSuccess) {
-                        deployHistoryViewModel.analyzeClientLogBytes(result.getOrThrow())
+                        insightsViewModel.analyzeClientLogBytes(result.getOrThrow())
                     } else {
                         deployHistoryViewModel.addLog("FAILED: ${result.exceptionOrNull()?.message}")
                     }
@@ -259,7 +261,7 @@ fun ConfigGenScreen(
                 else -> {}
             }
         }
-        deployHistoryViewModel.restoreAnalysisFromCache()
+        insightsViewModel.restoreAnalysisFromCache()
     }
 
     LaunchedEffect(brain) {
@@ -314,7 +316,7 @@ fun ConfigGenScreen(
                         logInfo = logInfo,
                         brain = brain,
                         allowRestrictedCvars = allowRestrictedCvars,
-                        onAnalyzeDevice = { deployHistoryViewModel.analyzeClientLog() },
+                        onAnalyzeDevice = { insightsViewModel.analyzeClientLog() },
                         onImportLog = { logPickerLauncher.launch(arrayOf("*/*")) },
                     )
                 }

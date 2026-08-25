@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.BattleStats
-import com.wuwaconfig.app.ui.DeployHistoryViewModel
+import com.wuwaconfig.app.ui.LogInsightsViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassTopBar
@@ -35,7 +35,7 @@ import com.wuwaconfig.app.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BattleStatsScreen(
-    viewModel: DeployHistoryViewModel,
+    viewModel: LogInsightsViewModel,
     onBack: () -> Unit,
 ) {
     val stats by viewModel.battleStats.collectAsStateWithLifecycle()

@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -58,6 +59,22 @@ class WuWaConfigApp : Application() {
         private set
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    /**
+     * App-scoped serializer for device operations plus the connection status it
+     * guards. Shared by all ViewModels: the backend is app-scoped, so the busy
+     * flag, cancel flag, and connection status must be too.
+     */
+    val deviceOps by lazy { com.wuwaconfig.app.ui.DeviceOps() }
+
+    private val _backendStatus = MutableStateFlow(com.wuwaconfig.app.backend.BackendStatus())
+    val backendStatus: kotlinx.coroutines.flow.StateFlow<com.wuwaconfig.app.backend.BackendStatus> = _backendStatus.asStateFlow()
+
+    internal fun setBackendStatus(status: com.wuwaconfig.app.backend.BackendStatus) {
+        _backendStatus.value = status
+    }
+
+    val backendStatusValue: com.wuwaconfig.app.backend.BackendStatus get() = _backendStatus.value
 
     // Background appearance (shared with GradientBackground)
     val backgroundImageUri = MutableStateFlow<String?>(null)
