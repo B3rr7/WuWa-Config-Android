@@ -1,7 +1,9 @@
 package com.wuwaconfig.app.model
 
+import android.os.Build
 import android.os.Environment
 import androidx.compose.runtime.mutableStateListOf
+import com.wuwaconfig.app.WuWaConfigApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,23 +24,43 @@ object LogRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val diskMutex = Mutex()
 
+    @Volatile
+    private var diskWriteWarned = false
+
     private const val MAX_ENTRIES = 1000
     private const val MAX_FILE_SIZE = 5 * 1024 * 1024L
 
+    /** Downloads root when All-Files-Access is granted, else null. */
+    fun publicBaseDir(): File? {
+        val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
+        if (!granted) return null
+        return File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            "WuWaConfig",
+        )
+    }
+
+    /** App-scoped storage that never needs a runtime grant. */
+    private fun fallbackBaseDir(): File {
+        val ext = WuWaConfigApp.instance.getExternalFilesDir(null)
+        return File(ext ?: WuWaConfigApp.instance.filesDir, "WuWaConfig")
+    }
+
     fun init() {
+        var usedFallback = false
         synchronized(lock) {
             if (logFile != null) return
-            val dir =
-                File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                    "WuWaConfig/logs",
-                ).also { it.mkdirs() }
+            val base = publicBaseDir() ?: fallbackBaseDir().also { usedFallback = true }
+            val dir = File(base, "logs").also { it.mkdirs() }
             logFile = File(dir, "app.log")
         }
         scope.launch {
             val items = loadFromDiskAsync()
             synchronized(lock) {
                 entries.addAll(items)
+            }
+            if (usedFallback) {
+                add("Public Downloads not writable (missing All-Files-Access); disk logs moved to app storage", LogLevel.WARNING)
             }
         }
     }
@@ -71,15 +93,14 @@ object LogRepository {
 
     suspend fun saveSnapshot(): File? {
         val fileName = "WuWaConfig_${dateStamp()}.txt"
-        val dir =
-            File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "WuWaConfig",
-            ).also { it.mkdirs() }
+        var usedFallback = false
+        val base = publicBaseDir() ?: fallbackBaseDir().also { usedFallback = true }
+        val dir = base.also { it.mkdirs() }
         val file = File(dir, fileName)
         val content = synchronized(lock) { entries.joinToString("\n") { lineFormat(it) } }
         return try {
             withContext(Dispatchers.IO) { file.writeText(content) }
+            if (usedFallback) add("Snapshot saved to app storage (Downloads unavailable): ${file.absolutePath}", LogLevel.WARNING)
             file
         } catch (_: Exception) {
             null
@@ -88,14 +109,16 @@ object LogRepository {
 
     suspend fun saveSmartBrainReport(text: String): File? {
         return try {
-            val dir =
-                File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                    "WuWaConfig",
-                ).also { it.mkdirs() }
+            var usedFallback = false
+            val base = publicBaseDir() ?: fallbackBaseDir().also { usedFallback = true }
+            val dir = base.also { it.mkdirs() }
             val file = File(dir, "smartbrain_report.txt")
             withContext(Dispatchers.IO) { file.writeText(text) }
-            add("SmartBrain: report saved to ${file.absolutePath}")
+            if (usedFallback) {
+                add("SmartBrain report saved to app storage (Downloads unavailable)", LogLevel.WARNING)
+            } else {
+                add("SmartBrain: report saved to ${file.absolutePath}")
+            }
             file
         } catch (e: Exception) {
             add("SmartBrain: failed to save report: ${e.message}", LogLevel.WARNING)
@@ -141,28 +164,37 @@ object LogRepository {
                     val file = logFile ?: return@withLock
                     file.appendText("${lineFormat(entry)}\n")
                     if (file.length() > MAX_FILE_SIZE) rotate()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    // Never recurse into add() from here — record one in-memory
+                    // warning so broken disk logging is at least visible once.
+                    if (!diskWriteWarned) {
+                        diskWriteWarned = true
+                        synchronized(lock) {
+                            entries.add(
+                                LogEntry(
+                                    "Disk logging unavailable (${e.message}); keeping memory-only",
+                                    timestamp(),
+                                    LogLevel.WARNING,
+                                ),
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 
     private fun rotate() {
+        val dir = logFile?.parentFile ?: return
+        val file1 = File(dir, "app.1.log")
+        val file2 = File(dir, "app.2.log")
+        file2.delete()
+        // Same-directory rename(2) is atomic and cheap — no copy-through-tmp.
+        if (file1.exists() && !file1.renameTo(file2)) return
+        val current = logFile
+        if (current != null && current.exists() && !current.renameTo(file1)) return
         try {
-            val dir = logFile?.parentFile ?: return
-            val file1 = File(dir, "app.1.log")
-            val file2 = File(dir, "app.2.log")
-            val tmp = File(dir, "app.rot")
-            file2.delete()
-            file1.takeIf { it.exists() }?.let {
-                it.copyTo(tmp, overwrite = true)
-                tmp.renameTo(file2)
-            }
-            logFile?.takeIf { it.exists() }?.let {
-                it.copyTo(tmp, overwrite = true)
-                tmp.renameTo(file1)
-            }
-            logFile?.writeText("")
+            current?.createNewFile()
         } catch (_: Exception) {
         }
     }

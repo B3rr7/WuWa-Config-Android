@@ -2,6 +2,7 @@ package com.wuwaconfig.app.config
 
 import com.google.gson.Gson
 import com.wuwaconfig.app.model.PlayerProfile
+import com.wuwaconfig.app.util.writeAtomic
 import java.io.File
 
 class ProfileStore(private val storeFile: File) {
@@ -18,7 +19,10 @@ class ProfileStore(private val storeFile: File) {
     }
 
     fun save(profile: PlayerProfile) {
-        storeFile.writeText(gson.toJson(profile))
+        try {
+            storeFile.writeAtomic(gson.toJson(profile))
+        } catch (_: Exception) {
+        }
     }
 
     fun delete() {

@@ -91,6 +91,13 @@ object GachaApi {
             if (!anySuccess && anyFailure != null) {
                 return Result.failure(anyFailure)
             }
+            // Every pool answered but rejected the query (bad/expired recordId,
+            // wrong playerId...) — that must not masquerade as an empty history.
+            if (!anySuccess) {
+                return Result.failure(
+                    Exception(lastErrorMsg ?: "Server returned no gacha data for any pool"),
+                )
+            }
 
             val totalPulls = records.size
             val fiveStars = records.count { it.qualityLevel == 5 }

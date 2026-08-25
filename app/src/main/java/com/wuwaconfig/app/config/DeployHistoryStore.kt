@@ -5,6 +5,7 @@ import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.model.DeployComparison
 import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.LogInfo
+import com.wuwaconfig.app.util.writeAtomic
 import java.io.File
 
 class DeployHistoryStore(private val storeFile: File) {
@@ -86,7 +87,7 @@ class DeployHistoryStore(private val storeFile: File) {
 
     private fun saveLocked() {
         try {
-            storeFile.writeText(gson.toJson(records))
+            storeFile.writeAtomic(gson.toJson(records))
         } catch (_: Exception) {
         }
     }
