@@ -4,41 +4,42 @@ import com.wuwaconfig.app.model.DeployComparison
 import com.wuwaconfig.app.model.LogInfo
 
 object CvarOptimizer {
+    // Precompiled once; the old body rebuilt ~25 Regex objects on every call.
+    private val GPU_TIER_PATTERNS =
+        listOf(
+            (Regex("""adreno.*8[3-9]\d|adreno.*8[12]\d""") to "flagship"),
+            (Regex("""tensor\s*g[345]""") to "flagship"),
+            (Regex("""dimensity\s*9[3-9]\d\d?""") to "flagship"),
+            (Regex("""apple\s*(m[34]|a18)""") to "flagship"),
+            (Regex("""adreno.*7[5-9]\d|adreno.*8[0]\d""") to "high"),
+            (Regex("""tensor\s*g[12]""") to "high"),
+            (Regex("""dimensity\s*(9[0-2]\d|8[5-9]\d)""") to "high"),
+            (Regex("""exynos\s*2200""") to "high"),
+            (Regex("""kirin\s*9000""") to "high"),
+            (Regex("""mali-g[78]\d\d|mali-g9""") to "high"),
+            (Regex("""apple\s*(m[12]|a1[67])""") to "high"),
+            (Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""") to "mid_high"),
+            (Regex("""dimensity\s*(8[0-4]\d|7[3-9]\d)""") to "mid_high"),
+            (Regex("""tensor""") to "mid_high"),
+            (Regex("""exynos\s*2[1-3]00""") to "mid_high"),
+            (Regex("""kirin\s*9[1-9]\d\d?""") to "mid_high"),
+            (Regex("""xclipse""") to "mid_high"),
+            (Regex("""apple\s*a1[45]""") to "mid_high"),
+            (Regex("""adreno.*6[0-4]\d|mali-g[6-7]\d\d|mali-g615""") to "mid"),
+            (Regex("""dimensity\s*[0-9]{3}""") to "mid"),
+            (Regex("""exynos\s*[0-9]{4}""") to "mid"),
+            (Regex("""kirin\s*[0-9]{4}""") to "mid"),
+            (Regex("""apple\s*a1[23]""") to "mid"),
+            (Regex("""adreno.*5\d\d|mali-g5[0-9]\d|mali-g57""") to "mid_low"),
+            (Regex("""adreno.*[34]\d\d|mali-g[34]""") to "low"),
+        )
+
     fun getGPUTier(gpu: String?): String {
         val g = gpu?.lowercase() ?: return "unknown"
-        return when {
-            Regex("""adreno.*8[3-9]\d|adreno.*8[12]\d""").containsMatchIn(g) -> "flagship"
-            Regex("""tensor\s*g[345]""").containsMatchIn(g) -> "flagship"
-            Regex("""dimensity\s*9[3-9]\d\d?""").containsMatchIn(g) -> "flagship"
-            Regex("""apple\s*(m[34]|a18)""").containsMatchIn(g) -> "flagship"
-
-            Regex("""adreno.*7[5-9]\d|adreno.*8[0]\d""").containsMatchIn(g) -> "high"
-            Regex("""tensor\s*g[12]""").containsMatchIn(g) -> "high"
-            Regex("""dimensity\s*(9[0-2]\d|8[5-9]\d)""").containsMatchIn(g) -> "high"
-            Regex("""exynos\s*2200""").containsMatchIn(g) -> "high"
-            Regex("""kirin\s*9000""").containsMatchIn(g) -> "high"
-            Regex("""mali-g[78]\d\d|mali-g9""").containsMatchIn(g) -> "high"
-            Regex("""apple\s*(m[12]|a1[67])""").containsMatchIn(g) -> "high"
-
-            Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""").containsMatchIn(g) -> "mid_high"
-            Regex("""dimensity\s*(8[0-4]\d|7[3-9]\d)""").containsMatchIn(g) -> "mid_high"
-            Regex("""tensor""").containsMatchIn(g) -> "mid_high"
-            Regex("""exynos\s*2[1-3]00""").containsMatchIn(g) -> "mid_high"
-            Regex("""kirin\s*9[1-9]\d\d?""").containsMatchIn(g) -> "mid_high"
-            Regex("""xclipse""").containsMatchIn(g) -> "mid_high"
-            Regex("""apple\s*a1[45]""").containsMatchIn(g) -> "mid_high"
-
-            Regex("""adreno.*6[0-4]\d|mali-g[6-7]\d\d|mali-g615""").containsMatchIn(g) -> "mid"
-            Regex("""dimensity\s*[0-9]{3}""").containsMatchIn(g) -> "mid"
-            Regex("""exynos\s*[0-9]{4}""").containsMatchIn(g) -> "mid"
-            Regex("""kirin\s*[0-9]{4}""").containsMatchIn(g) -> "mid"
-            Regex("""apple\s*a1[23]""").containsMatchIn(g) -> "mid"
-
-            Regex("""adreno.*5\d\d|mali-g5[0-9]\d|mali-g57""").containsMatchIn(g) -> "mid_low"
-
-            Regex("""adreno.*[34]\d\d|mali-g[34]""").containsMatchIn(g) -> "low"
-            else -> "unknown"
+        for ((pattern, tier) in GPU_TIER_PATTERNS) {
+            if (pattern.containsMatchIn(g)) return tier
         }
+        return "unknown"
     }
 
     data class OptimizedProfile(
@@ -217,7 +218,12 @@ object CvarOptimizer {
             return current.copy(
                 screen = newScreen,
                 shadow = newShadow,
-                shadowRes = if (current.shadow >= 2) 256 else current.shadowRes,
+                shadowRes =
+                    when (newShadow) {
+                        3, 4, 5 -> 1024 // reduced from 2048 on degrade to save VRAM
+                        1, 2 -> 256
+                        else -> 128
+                    },
                 ssr = newSsr,
                 mipbias = newMipbias,
                 vd = newVd,

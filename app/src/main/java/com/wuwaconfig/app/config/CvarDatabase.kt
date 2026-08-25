@@ -167,7 +167,12 @@ internal fun optimizeIniTextImpl(
             out.add(line)
             continue
         }
-        val cvarLine = trimmed.removePrefix("+CVars=").removePrefix("-CVars=").trim()
+        // A removal directive (`-CVars=...`, case-insensitive) is never "unknown" — keep it verbatim.
+        if (trimmed.startsWith("-CVars=", ignoreCase = true)) {
+            out.add(line)
+            continue
+        }
+        val cvarLine = trimmed.removePrefix("+CVars=").trim()
         if (cvarLine.isEmpty() ||
             cvarLine.startsWith(";") ||
             cvarLine.startsWith("#") ||
@@ -183,7 +188,10 @@ internal fun optimizeIniTextImpl(
             continue
         }
         val key = cvarLine.substring(0, eq).trim()
-        val value = cvarLine.substring(eq + 1).trim()
+        // Strip an inline trailing comment so redundant/default comparisons see the
+        // real value (UE INI treats ';' as a comment marker, never a value char).
+        val rawValue = cvarLine.substring(eq + 1).trim()
+        val value = rawValue.substringBefore(';').trim()
         val k = key.lowercase()
         val reason =
             when {

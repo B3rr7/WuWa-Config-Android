@@ -44,9 +44,17 @@ class ConfigGenUtilTest {
     }
 
     @Test
-    fun `overrides first occurrence when key repeats`() {
+    fun `overrides every occurrence when key repeats`() {
         val ini = "r.Foo=1\nr.Foo=2"
         val out = applyCvarOverrides(ini, mapOf("r.Foo" to "9"))
-        assertEquals("r.Foo=9\nr.Foo=2", out)
+        assertEquals("r.Foo=9\nr.Foo=9", out)
+    }
+
+    fun `preserves dedup-last-wins semantics after override`() {
+        // deduplicateIniText keeps the LAST occurrence; applyCvarOverrides must touch all
+        // of them so the surviving (last) occurrence is actually updated.
+        val ini = "r.Bar=1\n; comment\nr.Bar=2"
+        val out = applyCvarOverrides(ini, mapOf("r.Bar" to "7"))
+        assertEquals("r.Bar=7\n; comment\nr.Bar=7", out)
     }
 }
