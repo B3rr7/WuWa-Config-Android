@@ -26,7 +26,10 @@ class RootBackend : AccessBackend {
                         val reader = async(Dispatchers.IO) { process.inputStream.bufferedReader().readText().trim() }
                         val exited = process.waitFor(10, TimeUnit.SECONDS)
                         if (!exited) {
-                            process.destroyForcibly()
+                            try {
+                                process.destroyForcibly()
+                            } catch (_: Exception) {
+                            }
                             reader.cancel()
                             Pair("", true)
                         } else {
@@ -71,7 +74,10 @@ class RootBackend : AccessBackend {
                         val reader = async(Dispatchers.IO) { process.inputStream.bufferedReader().readText() }
                         val exited = process.waitFor(10, TimeUnit.SECONDS)
                         if (!exited) {
-                            process.destroyForcibly()
+                            try {
+                                process.destroyForcibly()
+                            } catch (_: Exception) {
+                            }
                             reader.cancel()
                             Pair("", true)
                         } else {

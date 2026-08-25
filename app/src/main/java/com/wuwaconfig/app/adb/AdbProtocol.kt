@@ -52,6 +52,10 @@ object AdbProtocol {
         val cmdInt = ByteBuffer.wrap(cmd).order(ByteOrder.LITTLE_ENDIAN).int
         if (magic != (cmdInt xor 0xFFFFFFFF.toInt())) return null
 
+        // Never trust the wire: a hostile peer answering a scanned port could
+        // otherwise request an Int.MAX_VALUE-sized allocation.
+        if (dataLength < 0 || dataLength > MAX_DATA) return null
+
         val payload =
             if (dataLength > 0) {
                 val data = ByteArray(dataLength)

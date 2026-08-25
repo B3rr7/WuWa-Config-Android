@@ -4,8 +4,6 @@ import android.os.Binder
 import android.os.IBinder
 import android.os.Parcel
 import android.util.Log
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
 
 class ShellUserService : Binder() {
@@ -51,8 +49,20 @@ class ShellUserService : Binder() {
     fun execCommand(command: String): String {
         return try {
             val process = ProcessBuilder("sh", "-c", command).redirectErrorStream(true).start()
-            val output = readStream(process.inputStream)
-            val exited = process.waitFor(60, TimeUnit.SECONDS)
+            // Watchdog destroys the process at the deadline even if it produces no
+            // output (a plain read would block forever on a silent hang).
+            val watchdog =
+                Thread {
+                    try {
+                        if (!process.waitFor(60, TimeUnit.SECONDS)) process.destroyForcibly()
+                    } catch (_: InterruptedException) {
+                    }
+                }
+            watchdog.isDaemon = true
+            watchdog.start()
+            val output = readBounded(process.inputStream)
+            val exited = process.waitFor(5, TimeUnit.SECONDS)
+            watchdog.interrupt()
             if (!exited) {
                 process.destroyForcibly()
                 "Command timed out after 60s"
@@ -70,7 +80,21 @@ class ShellUserService : Binder() {
         }
     }
 
-    private fun readStream(stream: java.io.InputStream): String {
-        return BufferedReader(InputStreamReader(stream)).readText()
+    /**
+     * Drains the stream with a hard cap so oversized output cannot blow past the
+     * ~1 MB binder transaction buffer in [onTransact]'s writeString.
+     */
+    private fun readBounded(stream: java.io.InputStream): String {
+        val out = java.io.ByteArrayOutputStream(MAX_BINDER_OUTPUT)
+        val buf = ByteArray(8192)
+        var total = 0
+        while (total < MAX_BINDER_OUTPUT) {
+            val toRead = minOf(buf.size, MAX_BINDER_OUTPUT - total)
+            val n = stream.read(buf, 0, toRead)
+            if (n < 0) break
+            out.write(buf, 0, n)
+            total += n
+        }
+        return out.toString("UTF-8")
     }
 }

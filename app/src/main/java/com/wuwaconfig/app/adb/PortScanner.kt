@@ -16,11 +16,16 @@ object PortScanner {
     private const val CONNECT_TIMEOUT = 300
     private const val READ_TIMEOUT = 500
 
+    @Volatile
     private var cachedIp: String? = null
+
+    @Volatile
     private var cacheTimestamp: Long = 0
     private const val CACHE_TTL_MS = 30_000L
 
-    @JvmStatic var lastAdbPort: Int? = null
+    @JvmStatic
+    @Volatile
+    var lastAdbPort: Int? = null
         private set
 
     data class ScanResult(val host: String, val port: Int)
@@ -72,12 +77,10 @@ object PortScanner {
 
     private suspend fun scanHost(host: String): Int =
         withContext(Dispatchers.IO) {
-            val range = SCAN_START..SCAN_END
             val batchSize = 50
-            val totalPorts = range.toList()
             val startTime = System.currentTimeMillis()
             val MAX_SCAN_MS = 20_000L
-            for (batch in totalPorts.chunked(batchSize)) {
+            for (batch in (SCAN_START..SCAN_END).chunked(batchSize)) {
                 if (System.currentTimeMillis() - startTime > MAX_SCAN_MS) break
                 val results =
                     coroutineScope {

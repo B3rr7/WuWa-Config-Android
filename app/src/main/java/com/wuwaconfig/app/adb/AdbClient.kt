@@ -20,6 +20,7 @@ import java.net.Socket
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 class AdbClient(private val crypto: AdbCrypto) {
     @Volatile
@@ -35,6 +36,12 @@ class AdbClient(private val crypto: AdbCrypto) {
     private var connected: Boolean = false
 
     private val localIdCounter = AtomicInteger(100)
+
+    /**
+     * Bumped on every successful connect so a stale keepalive failure (from the
+     * previous connection) cannot mark a fresh connection as disconnected.
+     */
+    private val generation = AtomicLong(0)
 
     private val instanceId = System.identityHashCode(this)
 
@@ -53,6 +60,7 @@ class AdbClient(private val crypto: AdbCrypto) {
         keepaliveJob?.cancel()
         keepaliveScope.cancel()
         keepaliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val connGen = generation.get()
         keepaliveJob =
             keepaliveScope.launch {
                 while (isActive && connected) {
@@ -63,10 +71,14 @@ class AdbClient(private val crypto: AdbCrypto) {
                         val sock = socket
                         if (sock != null && sock.isConnected && !sock.isClosed) {
                             executeShellCommand("echo ping").onFailure {
-                                Log.w("AdbClient", "keepalive[$instanceId]: heartbeat failed, marking disconnected")
-                                connected = false
+                                // Only mark disconnected if this heartbeat still belongs
+                                // to the current connection.
+                                if (generation.get() == connGen) {
+                                    Log.w("AdbClient", "keepalive[$instanceId]: heartbeat failed, marking disconnected")
+                                    connected = false
+                                }
                             }
-                        } else {
+                        } else if (generation.get() == connGen) {
                             connected = false
                         }
                     }
@@ -84,35 +96,41 @@ class AdbClient(private val crypto: AdbCrypto) {
         readTimeoutMs: Int = 60000,
     ): Result<Unit> =
         withContext(Dispatchers.IO) {
-            try {
-                Log.d("AdbClient", "connect[$instanceId]: opening socket to $host:$port")
-                socket =
-                    Socket().apply {
-                        connect(InetSocketAddress(host, port), 7000)
-                        soTimeout = readTimeoutMs
-                        keepAlive = true
-                        tcpNoDelay = true
+            // Hold the transaction mutex for the whole handshake: without this a
+            // concurrent executeShellCommand could observe half-swapped
+            // socket/input/output fields mid-reconnect.
+            txMutex.withLock {
+                try {
+                    Log.d("AdbClient", "connect[$instanceId]: opening socket to $host:$port")
+                    socket =
+                        Socket().apply {
+                            connect(InetSocketAddress(host, port), 7000)
+                            soTimeout = readTimeoutMs
+                            keepAlive = true
+                            tcpNoDelay = true
+                        }
+                    input = socket!!.getInputStream()
+                    output = socket!!.getOutputStream()
+                    Log.d("AdbClient", "connect[$instanceId]: socket opened, authenticating")
+                    val result = authenticate()
+                    Log.d("AdbClient", "connect[$instanceId]: auth result = ${result.isSuccess}")
+                    if (result.isSuccess) {
+                        connected = true
+                        generation.incrementAndGet()
+                        startKeepalive()
+                        markActivity()
+                        Log.d("AdbClient", "connect[$instanceId]: SUCCESS")
+                        Result.success(Unit)
+                    } else {
+                        Log.d("AdbClient", "connect[$instanceId]: auth failed: ${result.exceptionOrNull()?.message}")
+                        disconnect()
+                        result
                     }
-                input = socket!!.getInputStream()
-                output = socket!!.getOutputStream()
-                Log.d("AdbClient", "connect[$instanceId]: socket opened, authenticating")
-                val result = authenticate()
-                Log.d("AdbClient", "connect[$instanceId]: auth result = ${result.isSuccess}")
-                if (result.isSuccess) {
-                    connected = true
-                    startKeepalive()
-                    markActivity()
-                    Log.d("AdbClient", "connect[$instanceId]: SUCCESS")
-                    Result.success(Unit)
-                } else {
-                    Log.d("AdbClient", "connect[$instanceId]: auth failed: ${result.exceptionOrNull()?.message}")
+                } catch (e: Exception) {
+                    Log.d("AdbClient", "connect[$instanceId]: exception: $e")
                     disconnect()
-                    result
+                    Result.failure(e)
                 }
-            } catch (e: Exception) {
-                Log.d("AdbClient", "connect[$instanceId]: exception: $e")
-                disconnect()
-                Result.failure(e)
             }
         }
 
@@ -126,8 +144,14 @@ class AdbClient(private val crypto: AdbCrypto) {
             val MAX_SIGNATURE_ATTEMPTS = 2
             var publicKeySent = false
             var authAttempts = 0
+            // Wall-clock bound on the whole handshake: each round-trip is bounded by
+            // the socket timeout, so an unbounded challenge loop could hang ~8 min.
+            val deadlineMs = System.currentTimeMillis() + 30_000
 
             while (true) {
+                if (System.currentTimeMillis() > deadlineMs) {
+                    return Result.failure(Exception("ADB authorization timed out"))
+                }
                 val message =
                     AdbProtocol.readMessage(inp)
                         ?: return Result.failure(Exception("No response from ADB daemon"))
@@ -177,11 +201,14 @@ class AdbClient(private val crypto: AdbCrypto) {
         port: Int,
         host: String = "127.0.0.1",
         readTimeoutMs: Int = 60000,
-    ): Result<Unit> {
-        Log.d("AdbClient", "connectWithRegeneratedKeys[$instanceId]: regenerating RSA keys")
-        crypto.regenerateKeys()
-        return connect(port, host, readTimeoutMs)
-    }
+    ): Result<Unit> =
+        // RSA key generation plus EncryptedFile writes are too heavy for the caller
+        // (often Main) — keep them on IO.
+        withContext(Dispatchers.IO) {
+            Log.d("AdbClient", "connectWithRegeneratedKeys[$instanceId]: regenerating RSA keys")
+            crypto.regenerateKeys()
+            connect(port, host, readTimeoutMs)
+        }
 
     suspend fun executeShellCommand(command: String): Result<String> =
         withContext(Dispatchers.IO) {
@@ -211,7 +238,9 @@ class AdbClient(private val crypto: AdbCrypto) {
                             message.command.contentEquals(AdbProtocol.WRTE) -> {
                                 // Only process messages for our stream
                                 if (remoteId > 0 && message.arg1 != localId) continue@loop
-                                if (remoteId == 0) remoteId = message.arg1
+                                // WRTE arg0 is the daemon's id for our stream (our remoteId);
+                                // arg1 is our own localId.
+                                if (remoteId == 0) remoteId = message.arg0
                                 response.append(String(message.payload, Charsets.UTF_8))
                                 AdbProtocol.writeMessage(out, AdbProtocol.createOkMessage(message.arg1, message.arg0))
                             }
@@ -285,13 +314,16 @@ class AdbClient(private val crypto: AdbCrypto) {
         pkg: String,
         command: String,
     ): Result<String> {
-        val result = executeShellCommand("run-as $pkg $command 2>/dev/null; echo EXIT:\$?")
+        // Nonce sentinel so command output that legitimately starts with a
+        // fixed "EXIT:" token is not mangled by the filter below.
+        val sentinel = "EXIT_${java.lang.Long.toString(System.nanoTime(), 36)}:"
+        val result = executeShellCommand("run-as ${shQuote(pkg)} $command 2>/dev/null; echo ${sentinel}\$?")
         if (result.isSuccess) {
             val output = result.getOrThrow()
             val lines = output.lines()
-            val exitLine = lines.lastOrNull { it.startsWith("EXIT:") }
+            val exitLine = lines.lastOrNull { it.startsWith(sentinel) }
             if (exitLine != null) {
-                val exitCode = exitLine.removePrefix("EXIT:").trim().toIntOrNull() ?: -1
+                val exitCode = exitLine.removePrefix(sentinel).trim().toIntOrNull() ?: -1
                 if (exitCode != 0) {
                     val errorHint =
                         if (exitCode == 1) {
@@ -301,7 +333,7 @@ class AdbClient(private val crypto: AdbCrypto) {
                         }
                     return Result.failure(Exception("$errorHint (pkg=$pkg)"))
                 }
-                val cleanOut = lines.filterNot { it.startsWith("EXIT:") }.joinToString("\n")
+                val cleanOut = lines.filterNot { it.startsWith(sentinel) }.joinToString("\n")
                 return Result.success(cleanOut)
             }
         }

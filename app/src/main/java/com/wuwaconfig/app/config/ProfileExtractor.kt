@@ -121,11 +121,12 @@ class ProfileExtractor(
         onProgress: (Int) -> Unit = {},
     ): Result<Pair<String, LogParser.DecodeResult>> {
         onProgress(5)
-        val existsResult = backend.executeShellCommand("test -f \"$path\" 2>/dev/null && echo 1 || echo 0")
+        val quoted = shQuote(path)
+        val existsResult = backend.executeShellCommand("test -f $quoted 2>/dev/null && echo 1 || echo 0")
         val fileExists = existsResult.getOrNull()?.trim() == "1"
         if (!fileExists) return Result.failure(Exception("Client.log not found at: $path"))
 
-        val sizeResult = backend.executeShellCommand("wc -c < \"$path\" 2>/dev/null")
+        val sizeResult = backend.executeShellCommand("wc -c < $quoted 2>/dev/null")
         val fileSize = sizeResult.getOrNull()?.trim()?.toLongOrNull() ?: 0L
         if (fileSize <= 0L) return Result.failure(Exception("Client.log is empty"))
 
@@ -175,6 +176,10 @@ class ProfileExtractor(
             val logPath =
                 result.getOrNull()?.trim()
                     ?: throw Exception("No backup log found")
+            // The filename comes from remote ls output — never trust it as shell input.
+            if (!Regex("""Client-backup-[A-Za-z0-9._-]+\.log$""").containsMatchIn(logPath)) {
+                throw Exception("Unexpected backup log name: ${logPath.substringAfterLast("/").take(80)}")
+            }
             LogRepository.add("ConfigManager: reading full backup log: ${logPath.substringAfterLast("/")}")
             readRemoteLogToText(logPath).getOrThrow()
         }

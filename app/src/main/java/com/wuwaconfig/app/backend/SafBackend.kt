@@ -46,7 +46,10 @@ class SafBackend(private val context: Context) : AccessBackend {
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
                     android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
             )
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            // Without the persisted grant the tree works only until reboot — surface
+            // it now instead of a confusing "directory no longer accessible" later.
+            LogRepository.add("SAF: grant is not persistable (may stop working after reboot): ${e.message}", LogLevel.WARNING)
         }
     }
 
