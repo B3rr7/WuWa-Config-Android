@@ -90,9 +90,10 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         LogRepository.add("ADB push: $sourcePath -> $targetPath")
         val sourceFile = File(sourcePath)
         val bytes = sourceFile.readBytes()
-        val localMd5 = computeMd5(sourceFile)
+        val localMd5 = computeMd5(bytes)
         val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        val encodedPath = "/data/local/tmp/wuwaconfig_${System.currentTimeMillis()}_${(0..9999).random()}.b64"
+        val nonce = java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+        val encodedPath = "/data/local/tmp/wuwaconfig_${System.currentTimeMillis()}_$nonce.b64"
         val parent = File(targetPath).parent ?: return Result.failure(Exception("Invalid target path"))
 
         suspend fun doPush(): Result<String> {
@@ -163,7 +164,10 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
                 val result = doPush()
                 if (result.isSuccess) return result
                 lastError = result
-                client.executeShellCommand("rm -f ${shQuote(encodedPath)}; rm -f ${shQuote(targetPath)}")
+                // Clean only the staging file between attempts. Deleting the target
+                // here destroyed a previously-good deployed config whenever an early
+                // chunk failed before the decode step had touched the target.
+                client.executeShellCommand("rm -f ${shQuote(encodedPath)}")
             }
             LogRepository.add("ADB push failed after retries: ${lastError?.exceptionOrNull()?.message}", LogLevel.ERROR)
             lastError ?: Result.failure(Exception("Push failed"))
@@ -245,7 +249,8 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         val landedOut = client.executeShellCommand("test -f ${shQuote(targetPath)} && echo 1 || echo 0")
         val landed = landedOut.getOrNull()?.trim() == "1"
         if (!landed) {
-            val stage = "/data/local/tmp/wuwa_cp_${System.currentTimeMillis()}_${(0..9999).random()}"
+            val nonce = java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+            val stage = "/data/local/tmp/wuwa_cp_${System.currentTimeMillis()}_$nonce"
             val stageResult = client.executeShellCommand("cp ${shQuote(sourcePath)} ${shQuote(stage)}")
             if (stageResult.isSuccess) {
                 // The staged file is owned by shell with mode 660, which the app UID
@@ -253,13 +258,26 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
                 // (run as the app UID) can read it.
                 client.executeShellCommand("chmod 644 ${shQuote(stage)}")
                 return try {
-                    java.io.File(targetPath).parentFile?.mkdirs()
-                    java.io.File(stage).copyTo(java.io.File(targetPath), overwrite = true)
+                    val dest = java.io.File(targetPath)
+                    dest.parentFile?.mkdirs()
+                    // Copy to a local temp first: copying straight onto the target with
+                    // overwrite=true would truncate it before the staged file is known
+                    // readable. rename(2) atomically replaces an existing destination.
+                    val tmp = java.io.File.createTempFile("wuwa_dl_", null, dest.parentFile)
+                    try {
+                        java.io.File(stage).copyTo(tmp, overwrite = true)
+                        if (!tmp.renameTo(dest)) throw Exception("Failed to move file into place: $targetPath")
+                    } finally {
+                        tmp.delete()
+                    }
                     Result.success(targetPath)
                 } catch (e: Exception) {
                     Result.failure(e)
                 } finally {
-                    java.io.File(stage).delete()
+                    // The app UID cannot usually delete shell-owned files from
+                    // /data/local/tmp (no o+w on the directory) — ask the shell instead;
+                    // a local File.delete() here would silently fail and leak stages.
+                    client.executeShellCommand("rm -f ${shQuote(stage)}")
                 }
             }
         }

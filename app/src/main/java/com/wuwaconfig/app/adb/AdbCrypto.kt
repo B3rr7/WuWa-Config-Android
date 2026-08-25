@@ -46,7 +46,12 @@ class AdbCrypto(private val context: Context) {
     private fun readEncryptedBytes(file: File): ByteArray? {
         return try {
             buildEncryptedFile(file).openFileInput().use { it.readBytes() }
-        } catch (_: Exception) {
+        } catch (_: java.io.FileNotFoundException) {
+            null
+        } catch (e: Exception) {
+            // A transient Keystore hiccup here would silently rotate the ADB
+            // identity and force re-authorization — surface it at least.
+            Log.w(TAG, "Failed to read encrypted ${file.name}: ${e.message}")
             null
         }
     }
@@ -88,6 +93,13 @@ class AdbCrypto(private val context: Context) {
                 keyPair = KeyPair(publicKey, privateKey)
                 writeEncryptedBytes(pkFile, ptPrivate)
                 writeEncryptedBytes(pubFile, ptPublic)
+                // Migration complete — the plaintext originals are private-key
+                // material and must not linger in filesDir.
+                val removedPk = pkFile.delete()
+                val removedPub = pubFile.delete()
+                if (!removedPk || !removedPub) {
+                    Log.w(TAG, "Plaintext key cleanup incomplete (pk=$removedPk pub=$removedPub)")
+                }
                 Log.d(TAG, "Migrated ADB keys from plaintext to encrypted storage")
                 return
             } catch (e: Exception) {

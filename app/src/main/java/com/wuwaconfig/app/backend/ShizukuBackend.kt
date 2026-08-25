@@ -20,7 +20,11 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class ShizukuBackend(private val context: android.content.Context) : AccessBackend {
+    // Written from the main thread (onServiceConnected) and read from IO workers.
+    @Volatile
     private var shellService: IShellService? = null
+
+    @Volatile
     private var serviceConnection: ServiceConnection? = null
 
     interface IShellService {
@@ -81,7 +85,7 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
             } catch (e: Exception) {
                 disconnect()
                 LogRepository.add("Shizuku connect failed: ${e.message}", LogLevel.ERROR)
-                Result.failure(Exception("Shizuku is not running. Start Shizuku first."))
+                Result.failure(Exception("Shizuku connect failed: ${e.message ?: "unknown error"}"))
             }
         }
 
@@ -119,6 +123,14 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
 
         Shizuku.bindUserService(args, serviceConnection!!)
         if (!latch.await(15, TimeUnit.SECONDS)) {
+            // Unbind so a late onServiceConnected doesn't leave a bound UserService
+            // with no tracked cleanup.
+            try {
+                Shizuku.unbindUserService(args, serviceConnection!!, true)
+            } catch (_: Exception) {
+            }
+            serviceConnection = null
+            shellService = null
             throw Exception("UserService bind timed out")
         }
         if (shellService == null) {
@@ -162,7 +174,7 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                     val msg = e.message?.lowercase() ?: ""
                     msg.contains("service not connected") ||
                         msg.contains("remote call failed") ||
-                        msg.contains("binder") ||
+                        msg.contains("deadobject") ||
                         msg.contains("broken pipe")
                 }) {
                     parseServiceResult(
@@ -183,7 +195,7 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
             LogRepository.add("Shizuku push: $sourcePath -> $targetPath")
             val sourceFile = File(sourcePath)
             val bytes = sourceFile.readBytes()
-            val localMd5 = computeMd5(sourceFile)
+            val localMd5 = computeMd5(bytes)
             val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
             if (File(targetPath).parent == null) {
                 return@withContext Result.failure(Exception("Invalid target path"))
@@ -293,13 +305,17 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
         shellCmd: String,
         decode: (File) -> T,
     ): Result<T> {
-        val cacheDir = context.cacheDir.absolutePath
         var lastError: Exception? = null
         for (attempt in 0..2) {
             if (attempt > 0) delay(500L * attempt)
-            val tmpFile = "$cacheDir/wuwa_read_${System.currentTimeMillis()}_${(0..9999).random()}.tmp"
+            // Stage through /data/local/tmp, NOT cacheDir: the UserService runs as
+            // shell (uid 2000), which cannot traverse the app's private cache dir —
+            // so redirecting there always produced an empty file.
+            val nonce = java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+            val tmpFile = "/data/local/tmp/wuwa_read_${System.currentTimeMillis()}_$nonce.tmp"
+            val tmpQuote = shQuote(tmpFile)
             try {
-                val cmd = "$shellCmd ${shQuote(path)} > ${shQuote(tmpFile)} 2>/dev/null; echo DONE"
+                val cmd = "$shellCmd ${shQuote(path)} > $tmpQuote 2>/dev/null; chmod 644 $tmpQuote 2>/dev/null; echo DONE"
                 val result = execOrThrow(cmd)
                 if (!result.contains("DONE")) {
                     throw Exception("Command failed: $result")
@@ -308,6 +324,11 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                 if (!localFile.exists()) {
                     throw Exception("Temp file not found: $tmpFile")
                 }
+                if (localFile.length() == 0L) {
+                    // An empty stage usually means the inner command failed silently
+                    // (permission denied) while the redirect still created the file.
+                    throw Exception("Remote read produced no data for ${path.substringAfterLast("/")}")
+                }
                 val out = decode(localFile)
                 return Result.success(out)
             } catch (e: Exception) {
@@ -315,7 +336,7 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                 LogRepository.add("Shizuku readViaTemp attempt $attempt failed: ${e.message}", LogLevel.WARNING)
             } finally {
                 try {
-                    execOrThrow("rm -f ${shQuote(tmpFile)}")
+                    execOrThrow("rm -f $tmpQuote")
                 } catch (_: Exception) {
                 }
             }
@@ -390,7 +411,10 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
             }
             return if (nl < 0) "" else rest.substring(nl + 1)
         }
-        if (output.contains("Command timed out", ignoreCase = true)) {
+        // The service returns exactly this string when its watchdog kills a hung
+        // command. Match only as a prefix so log *content* containing the phrase
+        // is not misreported as a timeout.
+        if (output.trimStart().startsWith("Command timed out")) {
             throw Exception(output.trim())
         }
         return output
