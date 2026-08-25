@@ -4,6 +4,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -185,6 +186,22 @@ fun PityScreen(
                             }
                         }
                     }
+                    item {
+                        Text(
+                            "PULL HISTORY",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            letterSpacing = 2.sp,
+                            modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+                        )
+                    }
+                    for (pool in GachaPool.ALL) {
+                        val poolRecords = gachaData!!.records.filter { it.cardPoolType == pool.type }
+                        if (poolRecords.isEmpty()) continue
+                        item { PoolHistoryHeader(pool, poolRecords) }
+                        items(poolRecords.size) { idx -> RecordRow(poolRecords[idx]) }
+                        item { Spacer(Modifier.height(8.dp)) }
+                    }
                 } else if (conveneUrl != null) {
                     item {
                         GlassCard(accentColor = NeonAmber) {
@@ -236,75 +253,51 @@ private fun GachaSummary(data: GachaData) {
             StatItem(if (data.avgPity4 > 0) "%.1f".format(data.avgPity4) else "—", "Avg ★4 Pity", NeonPurple)
         }
     }
+}
 
-    Spacer(Modifier.height(14.dp))
-    Text(
-        "BANNER HISTORY",
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-        letterSpacing = 2.sp,
-        modifier = Modifier.padding(start = 4.dp),
-    )
-    Spacer(Modifier.height(10.dp))
-
-    for (pool in GachaPool.ALL) {
-        val poolRecords = data.records.filter { it.cardPoolType == pool.type }
-        if (poolRecords.isEmpty()) continue
-
-        val pool5 = poolRecords.count { it.qualityLevel == 5 }
-        val pool4 = poolRecords.count { it.qualityLevel == 4 }
-        val accent =
-            when {
-                pool5 > 0 -> NeonGold
-                pool4 > 0 -> NeonPurple
-                else -> NeonCyan
-            }
-
-        GlassCard(accentColor = accent) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    Modifier
-                        .size(10.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(accent),
-                )
+@Composable
+private fun PoolHistoryHeader(
+    pool: GachaPool,
+    records: List<GachaRecord>,
+) {
+    val pool5 = records.count { it.qualityLevel == 5 }
+    val pool4 = records.count { it.qualityLevel == 4 }
+    val accent =
+        when {
+            pool5 > 0 -> NeonGold
+            pool4 > 0 -> NeonPurple
+            else -> NeonCyan
+        }
+    GlassCard(accentColor = accent) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Box(
+                Modifier
+                    .size(10.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(accent),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                pool.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "${records.size} pulls",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (pool5 > 0) {
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    pool.label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    "${poolRecords.size} pulls",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (pool5 > 0) {
-                    Spacer(Modifier.width(8.dp))
-                    Text("★5×$pool5", style = MaterialTheme.typography.labelSmall, color = NeonGold, fontWeight = FontWeight.Bold)
-                }
-                if (pool4 > 0) {
-                    Spacer(Modifier.width(6.dp))
-                    Text("★4×$pool4", style = MaterialTheme.typography.labelSmall, color = NeonPurple)
-                }
+                Text("★5×$pool5", style = MaterialTheme.typography.labelSmall, color = NeonGold, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(8.dp))
-
-            poolRecords.take(50).forEach { record ->
-                RecordRow(record)
-            }
-            if (poolRecords.size > 50) {
-                Text(
-                    "+ ${poolRecords.size - 50} more...",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
+            if (pool4 > 0) {
+                Spacer(Modifier.width(6.dp))
+                Text("★4×$pool4", style = MaterialTheme.typography.labelSmall, color = NeonPurple)
             }
         }
-        Spacer(Modifier.height(8.dp))
     }
 }
 
