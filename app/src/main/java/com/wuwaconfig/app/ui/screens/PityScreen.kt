@@ -389,10 +389,15 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
 
             Spacer(Modifier.height(12.dp))
 
-            if (pred.status != "75/25" && pred.lastFiveStarName.isNotEmpty()) {
+            if (pred.status != "75/25") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Last ★5: ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(pred.lastFiveStarName, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = NeonGold)
+                    Text(
+                        pred.lastFiveStarName.ifEmpty { "—" },
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = NeonGold,
+                    )
                     Spacer(Modifier.width(8.dp))
                     Text(
                         pred.lastFiveStarTime,
@@ -402,19 +407,32 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
                 }
                 Spacer(Modifier.height(4.dp))
 
+                val subject = pred.currentCharacterName.ifEmpty { pred.poolLabel }
                 if (pred.status == "Guaranteed") {
                     Text(
-                        "You lost the 50/50 to ${pred.lastFiveStarName}. Next ★5 is guaranteed.",
+                        "$subject is guaranteed.",
                         style = MaterialTheme.typography.bodySmall,
                         color = NeonGold,
                     )
                 } else if (pred.status == "50/50") {
                     Text(
-                        "You won the 50/50 on ${pred.lastFiveStarName}. Next ★5 is a 50/50.",
+                        "$subject is 50 / 50.",
                         style = MaterialTheme.typography.bodySmall,
                         color = NeonAmber,
                     )
+                } else {
+                    Text(
+                        "Not enough pulls yet to estimate — keep wishing.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Simple estimate from your pull history — not a guarantee it will happen.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                )
                 Spacer(Modifier.height(10.dp))
             }
 
