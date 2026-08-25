@@ -272,6 +272,15 @@ object GachaApi {
                 "50/50"
             }
 
+        // The featured (rate-up) character of the current/last character banner: the most
+        // recent non-standard 5★ pulled. Used to name the prediction instead of the
+        // generic "Next ★5". Falls back to "" (UI then uses the pool label).
+        val currentCharacterName =
+            fiveStarRecords
+                .filter { !isStandardFive(it.name, standardFiveStars) }
+                .lastOrNull()
+                ?.name ?: ""
+
         val nearbyFives =
             fiveStarRecords.filter {
                 it.name !in standardFiveStars
@@ -310,6 +319,7 @@ object GachaApi {
             status = status,
             lastFiveStarName = lastFiveName,
             lastFiveStarTime = lastFiveTime,
+            currentCharacterName = currentCharacterName,
             pullsSinceLastFive = pullsSinceLastFive,
             estimatedNextFive = estimated,
             hardPity = HARD_PITY,
