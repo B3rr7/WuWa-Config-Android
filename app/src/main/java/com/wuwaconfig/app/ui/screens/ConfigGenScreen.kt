@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,37 +75,37 @@ fun ConfigGenScreen(
 
     val savedOptions = remember { viewModel.loadGeneratorOptions() }
 
-    var selectedPreset by remember { mutableStateOf(brain?.preset ?: "balanced") }
-    var fps by remember { mutableStateOf(savedOptions?.fps ?: 60) }
-    var unlock120 by remember { mutableStateOf(savedOptions?.unlock120 ?: false) }
-    var unlockUltra by remember { mutableStateOf(savedOptions?.unlockUltra ?: true) }
-    var vsync by remember { mutableStateOf(savedOptions?.vsync ?: true) }
-    var cooling by remember { mutableStateOf(savedOptions?.cool ?: true) }
-    var vulkan by remember { mutableStateOf(savedOptions?.vulkan ?: false) }
-    var hzb by remember { mutableStateOf(savedOptions?.hzb ?: false) }
-    var fog by remember { mutableStateOf(savedOptions?.fog ?: false) }
-    var ca by remember { mutableStateOf(savedOptions?.ca ?: true) }
-    var disableOutline by remember { mutableStateOf(savedOptions?.disableOutline ?: false) }
-    var disableRadialBlur by remember { mutableStateOf(savedOptions?.disableRadialBlur ?: false) }
-    var disableBloom by remember { mutableStateOf(savedOptions?.disableBloom ?: false) }
-    var disableAutoExposure by remember { mutableStateOf(savedOptions?.disableAutoExposure ?: false) }
-    var disableSSR by remember { mutableStateOf(savedOptions?.disableSSR ?: false) }
-    var userChangedPreset by remember { mutableStateOf(false) }
+    var selectedPreset by rememberSaveable { mutableStateOf(brain?.preset ?: "balanced") }
+    var fps by rememberSaveable { mutableStateOf(savedOptions?.fps ?: 60) }
+    var unlock120 by rememberSaveable { mutableStateOf(savedOptions?.unlock120 ?: false) }
+    var unlockUltra by rememberSaveable { mutableStateOf(savedOptions?.unlockUltra ?: true) }
+    var vsync by rememberSaveable { mutableStateOf(savedOptions?.vsync ?: true) }
+    var cooling by rememberSaveable { mutableStateOf(savedOptions?.cool ?: true) }
+    var vulkan by rememberSaveable { mutableStateOf(savedOptions?.vulkan ?: false) }
+    var hzb by rememberSaveable { mutableStateOf(savedOptions?.hzb ?: false) }
+    var fog by rememberSaveable { mutableStateOf(savedOptions?.fog ?: false) }
+    var ca by rememberSaveable { mutableStateOf(savedOptions?.ca ?: true) }
+    var disableOutline by rememberSaveable { mutableStateOf(savedOptions?.disableOutline ?: false) }
+    var disableRadialBlur by rememberSaveable { mutableStateOf(savedOptions?.disableRadialBlur ?: false) }
+    var disableBloom by rememberSaveable { mutableStateOf(savedOptions?.disableBloom ?: false) }
+    var disableAutoExposure by rememberSaveable { mutableStateOf(savedOptions?.disableAutoExposure ?: false) }
+    var disableSSR by rememberSaveable { mutableStateOf(savedOptions?.disableSSR ?: false) }
+    var userChangedPreset by rememberSaveable { mutableStateOf(false) }
 
-    var generateEngine by remember { mutableStateOf(savedOptions?.generateEngine ?: true) }
-    var generateDeviceProfiles by remember { mutableStateOf(savedOptions?.generateDeviceProfiles ?: true) }
-    var generateGameUserSettings by remember { mutableStateOf(savedOptions?.generateGameUserSettings ?: true) }
-    var generateScalability by remember { mutableStateOf(savedOptions?.generateScalability ?: false) }
-    var generateHardware by remember { mutableStateOf(savedOptions?.generateHardware ?: false) }
+    var generateEngine by rememberSaveable { mutableStateOf(savedOptions?.generateEngine ?: true) }
+    var generateDeviceProfiles by rememberSaveable { mutableStateOf(savedOptions?.generateDeviceProfiles ?: true) }
+    var generateGameUserSettings by rememberSaveable { mutableStateOf(savedOptions?.generateGameUserSettings ?: true) }
+    var generateScalability by rememberSaveable { mutableStateOf(savedOptions?.generateScalability ?: false) }
+    var generateHardware by rememberSaveable { mutableStateOf(savedOptions?.generateHardware ?: false) }
 
-    var allowRestrictedCvars by remember { mutableStateOf(savedOptions?.allowRestrictedCvars ?: true) }
-    var useAdvancedGen by remember { mutableStateOf(savedOptions?.useAdvancedGen ?: false) }
-    var optimizeWithCvarDb by remember { mutableStateOf(savedOptions?.optimizeWithCvarDb ?: true) }
-    var disableAutoAdjust by remember { mutableStateOf(savedOptions?.disableAutoAdjust ?: false) }
-    var enableGSR by remember { mutableStateOf(savedOptions?.enableGSR ?: false) }
-    var experimentalCvars by remember { mutableStateOf(savedOptions?.experimentalCvars ?: false) }
+    var allowRestrictedCvars by rememberSaveable { mutableStateOf(savedOptions?.allowRestrictedCvars ?: true) }
+    var useAdvancedGen by rememberSaveable { mutableStateOf(savedOptions?.useAdvancedGen ?: false) }
+    var optimizeWithCvarDb by rememberSaveable { mutableStateOf(savedOptions?.optimizeWithCvarDb ?: true) }
+    var disableAutoAdjust by rememberSaveable { mutableStateOf(savedOptions?.disableAutoAdjust ?: false) }
+    var enableGSR by rememberSaveable { mutableStateOf(savedOptions?.enableGSR ?: false) }
+    var experimentalCvars by rememberSaveable { mutableStateOf(savedOptions?.experimentalCvars ?: false) }
 
-    var gameMode by remember { mutableStateOf(savedOptions?.mode ?: GameMode.Overworld) }
+    var gameMode by rememberSaveable { mutableStateOf(savedOptions?.mode ?: GameMode.Overworld) }
     var tunerState by remember { mutableStateOf(TunerState()) }
     var showGoPlayDialog by remember { mutableStateOf(false) }
     var showResultDialog by remember { mutableStateOf(false) }
