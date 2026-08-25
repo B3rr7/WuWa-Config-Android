@@ -30,7 +30,9 @@ sealed interface UpdateState {
 }
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = application as WuWaConfigApp
+    private val app =
+        application as? WuWaConfigApp
+            ?: throw IllegalStateException("SettingsViewModel requires WuWaConfigApp application")
 
     val themeMode: StateFlow<String> = app.themeMode
     val deployHistoryEnabled: StateFlow<Boolean> = app.deployHistoryEnabled

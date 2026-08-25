@@ -62,11 +62,12 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         if (isFinishing) {
+            // Only stop the foreground service here — DeployHistoryViewModel.onCleared
+            // already disconnects the backend (and runs socket close off the main thread).
             try {
                 stopService(Intent(this, AdbConnectionService::class.java))
             } catch (_: Exception) {
             }
-            WuWaConfigApp.instance.backend.disconnect()
         }
     }
 
@@ -280,12 +281,14 @@ fun AppNavigation(
             popEnterTransition = popEnter,
             popExitTransition = popExit,
         ) {
+            // detect() reads Build.* — remember so it runs once, not per recomposition.
+            val chipsetInfo = remember { com.wuwaconfig.app.config.ChipsetDetector.detect() }
             SettingsScreen(
                 viewModel = settingsViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToUserGuide = { navController.navigate("userguide") },
                 backendStatus = deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle().value,
-                chipsetInfo = com.wuwaconfig.app.config.ChipsetDetector.detect(),
+                chipsetInfo = chipsetInfo,
                 gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR,
                 backupStorageDir = deployHistoryViewModel.backupStorageDir,
                 onChangeBackupDir = { newDir -> deployHistoryViewModel.changeBackupDir(newDir) },

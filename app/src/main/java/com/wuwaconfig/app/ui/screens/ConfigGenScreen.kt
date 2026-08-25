@@ -110,21 +110,24 @@ fun ConfigGenScreen(
     var deployDialogMessage by remember { mutableStateOf("") }
     var deployHashSyncMessage by remember { mutableStateOf("") }
 
+    val scope = rememberCoroutineScope()
+
     val logPickerLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocument(),
         ) { uri: Uri? ->
             if (uri != null) {
-                val result = deployHistoryViewModel.readUriBytes(uri)
-                if (result.isSuccess) {
-                    deployHistoryViewModel.analyzeClientLogBytes(result.getOrThrow())
-                } else {
-                    deployHistoryViewModel.addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                // ContentResolver reads are blocking IO — keep them off the main thread.
+                scope.launch {
+                    val result = deployHistoryViewModel.readUriBytes(uri)
+                    if (result.isSuccess) {
+                        deployHistoryViewModel.analyzeClientLogBytes(result.getOrThrow())
+                    } else {
+                        deployHistoryViewModel.addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                    }
                 }
             }
         }
-
-    val scope = rememberCoroutineScope()
 
     fun runDeployAndWait() {
         scope.launch {

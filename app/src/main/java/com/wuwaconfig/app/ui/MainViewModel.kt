@@ -59,9 +59,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun postAcceptInit() {
-        val cached = app.profileStore.load()
-        if (cached != null) {
-            addLog("Cached profile loaded")
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val cached = app.profileStore.load()
+            if (cached != null) {
+                addLog("Cached profile loaded")
+            }
         }
     }
 

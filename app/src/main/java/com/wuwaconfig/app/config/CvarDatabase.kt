@@ -8,6 +8,8 @@ import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class CvarDatabase(private val assets: AssetManager) {
@@ -20,35 +22,45 @@ class CvarDatabase(private val assets: AssetManager) {
     @Volatile
     private var _defaultValues: Map<String, String>? = null
 
+    private val loadMutex = Mutex()
+
     suspend fun load() =
-        withContext(Dispatchers.IO) {
-            if (_allCvars != null) return@withContext
-            LogRepository.add("CvarDatabase: loading from assets")
-            _allCvars =
-                assets.open("cvars/libUE4_cvars.txt").bufferedReader().readLines()
-                    .map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
-            _monitoredCvars =
-                assets.open("cvars/config_monitor_cvars.txt").bufferedReader().readLines()
-                    .map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
-            _defaultValues =
-                assets.open("cvars/config_monitor_values.txt").bufferedReader().readLines()
-                    .mapNotNull { line ->
-                        val trimmed = line.trim()
-                        if (trimmed.isBlank()) return@mapNotNull null
-                        val eq = trimmed.indexOf('=')
-                        if (eq <= 0) return@mapNotNull null
-                        trimmed.substring(0, eq).trim().lowercase() to trimmed.substring(eq + 1).trim()
-                    }.toMap()
-            LogRepository.add(
-                "CvarDatabase: loaded ${_allCvars!!.size} CVars, ${_monitoredCvars!!.size} monitored, ${_defaultValues!!.size} defaults",
-                LogLevel.SUCCESS,
-            )
+        loadMutex.withLock {
+            withContext(Dispatchers.IO) {
+                if (_allCvars != null) return@withContext
+                LogRepository.add("CvarDatabase: loading from assets")
+                // Build everything locally and publish atomically: getters key off
+                // _allCvars, so no reader can observe a half-populated database.
+                val all =
+                    assets.open("cvars/libUE4_cvars.txt").bufferedReader().readLines()
+                        .map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
+                val monitored =
+                    assets.open("cvars/config_monitor_cvars.txt").bufferedReader().readLines()
+                        .map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
+                val defaults =
+                    assets.open("cvars/config_monitor_values.txt").bufferedReader().readLines()
+                        .mapNotNull { line ->
+                            val trimmed = line.trim()
+                            if (trimmed.isBlank()) return@mapNotNull null
+                            val eq = trimmed.indexOf('=')
+                            if (eq <= 0) return@mapNotNull null
+                            trimmed.substring(0, eq).trim().lowercase() to trimmed.substring(eq + 1).trim()
+                        }.toMap()
+                _monitoredCvars = monitored
+                _defaultValues = defaults
+                _allCvars = all
+                LogRepository.add(
+                    "CvarDatabase: loaded ${all.size} CVars, ${monitored.size} monitored, ${defaults.size} defaults",
+                    LogLevel.SUCCESS,
+                )
+            }
         }
 
     private fun ensureLoaded() {
         if (_allCvars != null) return
         // Avoid blocking the caller (e.g. the main thread). The async load() invoked at
-        // Application.onCreate populates these; if somehow not loaded yet, optimizers skip
+        // Application.onCreate populates these; the mutex makes concurrent triggers
+        // single-flight so assets are never read twice. Until it lands, optimizers skip
         // safely instead of doing a synchronous asset read here.
         LogRepository.add("CvarDatabase: not loaded yet; triggering async load", LogLevel.WARNING)
         CoroutineScope(Dispatchers.IO).launch { load() }
