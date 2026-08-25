@@ -30,12 +30,14 @@ import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.service.AdbConnectionService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 import java.text.SimpleDateFormat
@@ -94,6 +96,39 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     val isApplying: StateFlow<Boolean> = _isApplying.asStateFlow()
     private var activeJob: Job? = null
 
+    private val opMutex = Mutex()
+
+    private val _operationCancelled = MutableStateFlow(false)
+    val operationCancelled: StateFlow<Boolean> = _operationCancelled.asStateFlow()
+
+    /**
+     * Serializes every device-touching operation (connect, deploy, backup, clean,
+     * analyze) behind [opMutex] so a connect/switch/disconnect can never yank the
+     * backend out from under an in-flight write. Cancellation propagates: the
+     * cancelled job unwinds through its own finally blocks before the lock is
+     * released, so a new op cannot start while the old one is still writing.
+     */
+    private fun launchBackendOp(
+        managesBusyFlag: Boolean,
+        block: suspend kotlinx.coroutines.CoroutineScope.() -> Unit,
+    ): Job =
+        viewModelScope.launch {
+            _operationCancelled.value = false
+            if (!opMutex.tryLock()) {
+                addLog("Busy: another device operation is still running", LogLevel.WARNING)
+                if (managesBusyFlag) _isApplying.value = false
+                return@launch
+            }
+            try {
+                block()
+            } catch (e: CancellationException) {
+                addLog("Operation cancelled.", LogLevel.WARNING)
+                throw e
+            } finally {
+                opMutex.unlock()
+            }
+        }.also { activeJob = it }
+
     private val _readingProgress = MutableStateFlow(0)
     val readingProgress: StateFlow<Int> = _readingProgress.asStateFlow()
 
@@ -143,6 +178,10 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun switchTo(method: AccessMethod) {
+        if (_isApplying.value || opMutex.isLocked) {
+            addLog("Cannot switch backend while an operation is running", LogLevel.WARNING)
+            return
+        }
         if (_backendStatus.value.connected) disconnect()
         app.switchTo(method)
         _backendStatus.value = BackendStatus(method = method)
@@ -150,24 +189,27 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun connect() {
-        viewModelScope.launch {
-            val method = _backendStatus.value.method
-            _backendStatus.value = BackendStatus(method = method)
-            addLog("Connecting via ${method.name}...")
-
+        if (_backendStatus.value.connected) {
+            addLog("Already connected")
+            return
+        }
+        val method = _backendStatus.value.method
+        _backendStatus.value = BackendStatus(method = method)
+        addLog("Connecting via ${method.name}...")
+        launchBackendOp(managesBusyFlag = false) {
             when (method) {
                 AccessMethod.SHIZUKU -> {
                     try {
                         if (Shizuku.getVersion() < 0 || Shizuku.checkSelfPermission() != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                             _backendStatus.value = BackendStatus(method = method, errorMessage = "Shizuku not running or permission not granted.")
                             addLog("ERROR: Shizuku not available")
-                            return@launch
+                            return@launchBackendOp
                         }
                         addLog("Shizuku is ready!")
                     } catch (_: Exception) {
                         _backendStatus.value = BackendStatus(method = method, errorMessage = "Shizuku not running. Start Shizuku first.")
                         addLog("ERROR: Shizuku not running")
-                        return@launch
+                        return@launchBackendOp
                     }
                 }
                 AccessMethod.SAF -> {
@@ -175,7 +217,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     if (saf == null || saf.treeUri == null) {
                         _backendStatus.value = BackendStatus(method = method, errorMessage = "No SAF directory selected. Tap Pick Directory to choose the game config folder.")
                         addLog("ERROR: SAF directory not selected")
-                        return@launch
+                        return@launchBackendOp
                     }
                 }
                 else -> {}
@@ -288,7 +330,11 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 )
             return
         }
-        viewModelScope.launch {
+        if (_backendStatus.value.connected) {
+            addLog("Already connected")
+            return
+        }
+        launchBackendOp(managesBusyFlag = false) {
             _backendStatus.value = BackendStatus(method = AccessMethod.ADB)
             addLog("Connecting to $host:$port...")
             val backend = app.backend
@@ -344,15 +390,18 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     fun cancelOperation() {
         if (!_isApplying.value) return
+        _operationCancelled.value = true
         activeJob?.cancel()
-        activeJob = null
         app.backend.disconnect()
         _backendStatus.value = BackendStatus(method = _backendStatus.value.method)
-        _isApplying.value = false
-        addLog("Operation cancelled.")
+        addLog("Cancelling operation...")
     }
 
     fun disconnect() {
+        if (_isApplying.value || opMutex.isLocked) {
+            addLog("Cannot disconnect while an operation is running — use Cancel instead", LogLevel.WARNING)
+            return
+        }
         app.backend.disconnect()
         val method = _backendStatus.value.method
         if (method == AccessMethod.SAF) {
@@ -377,8 +426,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
-        viewModelScope.launch {
-            activeJob = coroutineContext[Job]
+        launchBackendOp(managesBusyFlag = true) {
             try {
                 addLog("Creating backup: $name...")
                 val result = configManager.createBackup(name, selectedFiles = selectedFiles)
@@ -395,6 +443,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             } catch (e: java.io.IOException) {
                 Log.e("WuWaConfig", "createBackup I/O error", e)
                 _backupFeedback.value = "I/O error: ${e.message}"
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("WuWaConfig", "createBackup crashed", e)
                 _backupFeedback.value = "Backup failed: ${e.message}"
@@ -410,8 +460,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
-        viewModelScope.launch {
-            activeJob = coroutineContext[Job]
+        launchBackendOp(managesBusyFlag = true) {
             try {
                 addLog("Restoring backup: ${backup.name}...")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
@@ -430,6 +479,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             } catch (e: java.io.IOException) {
                 Log.e("WuWaConfig", "restoreBackup I/O error", e)
                 _backupFeedback.value = "I/O error: ${e.message}"
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("WuWaConfig", "restoreBackup crashed", e)
                 _backupFeedback.value = "Restore failed: ${e.message}"
@@ -441,13 +492,14 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun deleteBackup(backup: ConfigBackup) {
-        viewModelScope.launch {
-            activeJob = coroutineContext[Job]
+        launchBackendOp(managesBusyFlag = false) {
             try {
                 addLog("Deleting backup: ${backup.name}...")
                 configManager.deleteLocalBackup(backup)
                 loadBackups()
                 addLog("Backup deleted")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "deleteBackup crashed", e)
@@ -458,8 +510,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     fun collectClientLog() {
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
-        viewModelScope.launch {
-            activeJob = coroutineContext[Job]
+        launchBackendOp(managesBusyFlag = true) {
             try {
                 addLog("Collecting Client.log...")
                 val result = configManager.collectClientLog { msg -> addLog(msg) }
@@ -474,6 +525,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             } catch (e: java.io.IOException) {
                 Log.e("WuWaConfig", "collectClientLog I/O error", e)
                 addLog("CRASH: I/O error: ${e.message}")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "collectClientLog crashed", e)
@@ -496,66 +549,81 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun compareDeployOutcome(id: String) {
-        viewModelScope.launch {
-            if (deployHistoryStore.getRecord(id) == null) return@launch
-            addLog("Pulling Client.log for deploy outcome comparison...")
-            val result = configManager.readClientLogContent()
-            if (result.isFailure) {
-                addLog("Failed to pull Client.log: ${result.exceptionOrNull()?.message}")
-                return@launch
-            }
-            val logText = result.getOrThrow()
-            val parsed = com.wuwaconfig.app.config.LogParser.parseLog(logText)
-            deployHistoryStore.updateOutcome(id, parsed, logText.take(2048))
-            _deployRecords.value = deployHistoryStore.getAllRecords()
-            val comparison = deployHistoryStore.compare(id)
-            if (comparison != null) {
-                val lines = mutableListOf<String>()
-                comparison.fpsDelta?.let { lines.add("FPS: ${if (it >= 0) "+" else ""}${"%.1f".format(it)}") }
-                comparison.thermalDelta?.let { lines.add("Thermal: ${if (it <= 0) "-" else "+"}$it") }
-                comparison.oomDelta?.let { lines.add("OOM: ${if (it <= 0) "-" else "+"}$it") }
-                comparison.dropFramesDelta?.let { lines.add("Drops: ${if (it <= 0) "-" else "+"}$it") }
-                addLog("Comparison: ${lines.joinToString(", ")}")
+        launchBackendOp(managesBusyFlag = false) {
+            try {
+                if (deployHistoryStore.getRecord(id) == null) return@launchBackendOp
+                addLog("Pulling Client.log for deploy outcome comparison...")
+                val result = configManager.readClientLogContent()
+                if (result.isFailure) {
+                    addLog("Failed to pull Client.log: ${result.exceptionOrNull()?.message}")
+                    return@launchBackendOp
+                }
+                val logText = result.getOrThrow()
+                val parsed = com.wuwaconfig.app.config.LogParser.parseLog(logText)
+                deployHistoryStore.updateOutcome(id, parsed, logText.take(2048))
+                _deployRecords.value = deployHistoryStore.getAllRecords()
+                val comparison = deployHistoryStore.compare(id)
+                if (comparison != null) {
+                    val lines = mutableListOf<String>()
+                    comparison.fpsDelta?.let { lines.add("FPS: ${if (it >= 0) "+" else ""}${"%.1f".format(it)}") }
+                    comparison.thermalDelta?.let { lines.add("Thermal: ${if (it <= 0) "-" else "+"}$it") }
+                    comparison.oomDelta?.let { lines.add("OOM: ${if (it <= 0) "-" else "+"}$it") }
+                    comparison.dropFramesDelta?.let { lines.add("Drops: ${if (it <= 0) "-" else "+"}$it") }
+                    addLog("Comparison: ${lines.joinToString(", ")}")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                addLog("CRASH: ${e.message}")
+                Log.e("WuWaConfig", "compareDeployOutcome crashed", e)
             }
         }
     }
 
     fun retuneAndDeploy(recordId: String) {
-        viewModelScope.launch {
-            val record = deployHistoryStore.getRecord(recordId) ?: return@launch
-            val profile =
-                record.optimizedProfile ?: run {
-                    addLog("No tuning profile found in record — can't retune")
-                    return@launch
-                }
-            val comparison =
-                deployHistoryStore.compare(recordId) ?: run {
-                    addLog("No comparison data — run Compare Now first")
-                    return@launch
-                }
+        launchBackendOp(managesBusyFlag = false) {
+            try {
+                val record = deployHistoryStore.getRecord(recordId) ?: return@launchBackendOp
+                val profile =
+                    record.optimizedProfile ?: run {
+                        addLog("No tuning profile found in record — can't retune")
+                        return@launchBackendOp
+                    }
+                val comparison =
+                    deployHistoryStore.compare(recordId) ?: run {
+                        addLog("No comparison data — run Compare Now first")
+                        return@launchBackendOp
+                    }
 
-            addLog(
-                "Retuning based on comparison Δ: FPS ${comparison.fpsDelta?.let { "%.1f".format(it) } ?: "?"}, " +
-                    "Thermal ${comparison.thermalDelta ?: "?"}, OOM ${comparison.oomDelta ?: "?"}, " +
-                    "Drops ${comparison.dropFramesDelta ?: "?"}",
-            )
-
-            val adjustedProfile = com.wuwaconfig.app.config.CvarOptimizer.adjustProfile(profile, comparison)
-
-            val opts =
-                com.wuwaconfig.app.model.GeneratorOptions(
-                    fps = 60,
-                    generateEngine = record.filesDeployed.contains("Engine.ini"),
-                    generateDeviceProfiles = record.filesDeployed.contains("DeviceProfiles.ini"),
-                    generateGameUserSettings = record.filesDeployed.contains("GameUserSettings.ini"),
-                    generateScalability = record.filesDeployed.contains("Scalability.ini"),
-                    generateHardware = record.filesDeployed.contains("Hardware.ini"),
-                    useAdvancedGen = false,
-                    optimizeWithCvarDb = true,
+                addLog(
+                    "Retuning based on comparison Δ: FPS ${comparison.fpsDelta?.let { "%.1f".format(it) } ?: "?"}, " +
+                        "Thermal ${comparison.thermalDelta ?: "?"}, OOM ${comparison.oomDelta ?: "?"}, " +
+                        "Drops ${comparison.dropFramesDelta ?: "?"}",
                 )
-            val profileOverride = com.wuwaconfig.app.config.CvarOptimizer.toPresetProfile(adjustedProfile)
-            val generated = configGenerator.generate(record.presetName, opts, profileOverride = profileOverride)
-            deployGeneratedConfigs(generated, opts, adjustedProfile)
+
+                val adjustedProfile = com.wuwaconfig.app.config.CvarOptimizer.adjustProfile(profile, comparison)
+
+                val opts =
+                    com.wuwaconfig.app.model.GeneratorOptions(
+                        fps = 60,
+                        generateEngine = record.filesDeployed.contains("Engine.ini"),
+                        generateDeviceProfiles = record.filesDeployed.contains("DeviceProfiles.ini"),
+                        generateGameUserSettings = record.filesDeployed.contains("GameUserSettings.ini"),
+                        generateScalability = record.filesDeployed.contains("Scalability.ini"),
+                        generateHardware = record.filesDeployed.contains("Hardware.ini"),
+                        useAdvancedGen = false,
+                        optimizeWithCvarDb = true,
+                    )
+                val profileOverride = com.wuwaconfig.app.config.CvarOptimizer.toPresetProfile(adjustedProfile)
+                val generated = configGenerator.generate(record.presetName, opts, profileOverride = profileOverride)
+                _isApplying.value = true
+                performDeploy(generated, opts, adjustedProfile)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                addLog("CRASH: ${e.message}")
+                Log.e("WuWaConfig", "retuneAndDeploy crashed", e)
+            }
         }
     }
 
@@ -563,173 +631,191 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         ini: com.wuwaconfig.app.model.GeneratedIni,
         opts: com.wuwaconfig.app.model.GeneratorOptions = com.wuwaconfig.app.model.GeneratorOptions(),
         retuneProfile: com.wuwaconfig.app.config.CvarOptimizer.OptimizedProfile? = null,
-    ) {
-        if (_isApplying.value || !_backendStatus.value.connected) return
+    ): Boolean {
+        if (_isApplying.value || !_backendStatus.value.connected) {
+            val why = if (!_backendStatus.value.connected) "not connected" else "another operation is running"
+            addLog("Deploy skipped: $why", LogLevel.WARNING)
+            return false
+        }
         _isApplying.value = true
-        viewModelScope.launch {
-            activeJob = coroutineContext[Job]
-            try {
-                _verificationReport.value = null
-                addLog("Deploying generated configs...")
-                val preSnapshot = configManager.snapshotHashFile().getOrNull()
+        launchBackendOp(managesBusyFlag = true) {
+            performDeploy(ini, opts, retuneProfile)
+        }
+        return true
+    }
 
-                val existingResult = configManager.readCurrentConfig("Engine.ini")
-                val corePaths =
-                    if (existingResult.isSuccess) {
-                        val extracted = configGenerator.extractCoreSystemPaths(existingResult.getOrThrow())
-                        addLog("Found ${extracted.size - 1} [Core.System] paths on device")
-                        extracted
-                    } else {
-                        val fromBackup =
-                            configManager.getLocalBackups().firstOrNull { backup ->
-                                backup.files.any { it.name == "Engine.ini" }
-                            }?.files?.firstOrNull { it.name == "Engine.ini" }?.content
-                        if (fromBackup != null) {
-                            addLog("Device Engine.ini missing, using paths from backup")
-                            configGenerator.extractCoreSystemPaths(fromBackup)
-                        } else {
-                            addLog("Using default [Core.System] paths")
-                            configGenerator.DEFAULT_CORE_SYSTEM
-                        }
-                    }
+    /**
+     * Deploy pipeline shared by [deployGeneratedConfigs] and [retuneAndDeploy].
+     * Callers must already hold [opMutex] (directly or via launchBackendOp).
+     */
+    private suspend fun performDeploy(
+        ini: com.wuwaconfig.app.model.GeneratedIni,
+        opts: com.wuwaconfig.app.model.GeneratorOptions,
+        retuneProfile: com.wuwaconfig.app.config.CvarOptimizer.OptimizedProfile?,
+    ) {
+        try {
+            _verificationReport.value = null
+            addLog("Deploying generated configs...")
+            val preSnapshot = configManager.snapshotHashFile().getOrNull()
 
-                var lastGeneratedCvars: Set<String> = emptySet()
-                var lastActivePreset: String = "balanced"
-
-                val engineWithPaths =
-                    if (opts.generateEngine) {
-                        val sourceEngine =
-                            ini.engine.ifBlank {
-                                val result =
-                                    configGenerator.generateWithCorePaths(
-                                        lastActivePreset,
-                                        opts,
-                                        corePaths,
-                                    )
-                                lastGeneratedCvars = result.cvarNames
-                                lastActivePreset = result.activePreset
-                                result.ini.engine
-                            }
-                        val replaced = configGenerator.replaceCoreSystemPaths(sourceEngine, corePaths)
-                        if (sourceEngine == ini.engine) {
-                            lastGeneratedCvars = configGenerator.extractCvarNames(replaced)
-                        }
-                        replaced
-                    } else {
-                        ""
-                    }
-
-                val result =
-                    configManager.applyCustomConfigs(
-                        engineIni = if (opts.generateEngine) engineWithPaths else null,
-                        deviceProfilesIni = if (opts.generateDeviceProfiles) ini.deviceProfiles else null,
-                        gameUserSettingsIni = if (opts.generateGameUserSettings) ini.gameUserSettings else null,
-                        scalabilityIni = if (opts.generateScalability && ini.scalability.isNotBlank()) ini.scalability else null,
-                        hardwareIni = if (opts.generateHardware && ini.hardware.isNotBlank()) ini.hardware else null,
-                    ) { msg -> addLog(msg) }
-                if (result.isSuccess) {
-                    addLog("SUCCESS: ${result.getOrThrow()}")
-                    _deployResult.value = result.getOrThrow()
-                    configManager.reconcileAfterModify(preSnapshot)
-                        .onSuccess {
-                            addLog(it)
-                            _deployHashSync.value = it
-                        }
-                        .onFailure { e ->
-                            addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR)
-                            _deployHashSync.value = "Hash refresh failed: ${e.message}"
-                        }
-                    if (opts.generateEngine) {
-                        addLog("Verifying deployed CVars against ConfigMonitor...")
-                        _readingProgress.value = 50
-                        configManager.verifyDeployedCvars(lastGeneratedCvars).onSuccess { report ->
-                            val cvarValues = cvarDatabase.extractCvarValues(engineWithPaths)
-                            val details =
-                                cvarDatabase.buildCvarDetails(
-                                    lastGeneratedCvars,
-                                    cvarValues,
-                                )
-                            _verificationReport.value = report.copy(cvarDetails = details)
-                            _readingProgress.value = 100
-                            addLog("VERIFY: ${report.recognizedCount}/${report.totalCount} CVars accepted by engine")
-                            if (details.values.count { it.matchesDefault } > 0) {
-                                addLog("CVar DB: ${details.values.count { it.matchesDefault }} redundant CVars (match game defaults)")
-                            }
-                            if (report.rejected.isNotEmpty()) {
-                                val sample = report.rejected.take(5).joinToString(", ")
-                                addLog("Unrecognized (sample): $sample${if (report.rejected.size > 5) "..." else ""}")
-                            }
-                        }.onFailure { e ->
-                            addLog("Verify skipped: ${e.message}")
-                        }
-                    }
-                    if (prefs.getBoolean("deploy_history", true)) {
-                        val cachedLogInfo = _logAnalysis.value ?: LogAnalysisStore.load(getApplication())?.logInfo
-                        val baselinePair: Pair<LogInfo, String> =
-                            if (cachedLogInfo != null) {
-                                cachedLogInfo to ""
-                            } else {
-                                addLog("Reading device log for deploy history baseline...")
-                                val baselineResult = configManager.readClientLogContent()
-                                if (baselineResult.isSuccess) {
-                                    val text = baselineResult.getOrThrow()
-                                    com.wuwaconfig.app.config.LogParser.parseLog(text) to text.take(2048)
-                                } else {
-                                    LogInfo() to ""
-                                }
-                            }
-                        val baselineLog = baselinePair.first
-                        val baselineSnippet = baselinePair.second
-                        val report = _verificationReport.value
-                        val fileList = mutableListOf<String>()
-                        if (opts.generateEngine) fileList.add("Engine.ini")
-                        if (opts.generateDeviceProfiles) fileList.add("DeviceProfiles.ini")
-                        if (opts.generateGameUserSettings) fileList.add("GameUserSettings.ini")
-                        if (opts.generateScalability) fileList.add("Scalability.ini")
-                        if (opts.generateHardware) fileList.add("Hardware.ini")
-                        val recordId = java.util.UUID.randomUUID().toString()
-                        val record =
-                            DeployRecord(
-                                id = recordId,
-                                timestamp = System.currentTimeMillis(),
-                                presetName = lastActivePreset,
-                                generationMethod = if (opts.useAdvancedGen) "advanced" else "classic",
-                                filesDeployed = fileList,
-                                acceptedCount = report?.recognizedCount ?: 0,
-                                totalCount = report?.totalCount ?: 0,
-                                redundantCount = report?.redundantCount ?: 0,
-                                unknownCount = report?.unknownCount ?: 0,
-                                monitoredCount = report?.monitoredCount ?: 0,
-                                baselineFps = baselineLog.fpsActual,
-                                baselineThermal = baselineLog.thermalEvents,
-                                baselineOom = baselineLog.gpuOom,
-                                baselineDrops = baselineLog.dropFrames,
-                                baselineClientLogSnippet = baselineSnippet,
-                                optimizedProfile = retuneProfile ?: if (opts.useAdvancedGen) com.wuwaconfig.app.config.CvarOptimizer.optimizeProfile(baselineLog) else null,
-                                options = opts,
-                            )
-                        deployHistoryStore.addRecord(record)
-                        _deployRecords.value = deployHistoryStore.getAllRecords()
-                        addLog("Deploy record saved (id: ${recordId.take(8)}...)")
-                    }
-                    _readingProgress.value = 0
+            val existingResult = configManager.readCurrentConfig("Engine.ini")
+            val corePaths =
+                if (existingResult.isSuccess) {
+                    val extracted = configGenerator.extractCoreSystemPaths(existingResult.getOrThrow())
+                    addLog("Found ${extracted.size - 1} [Core.System] paths on device")
+                    extracted
                 } else {
-                    val err = result.exceptionOrNull()?.message ?: "Unknown error"
-                    addLog("FAILED: $err")
-                    _deployResult.value = "Failed: $err"
+                    val fromBackup =
+                        configManager.getLocalBackups().firstOrNull { backup ->
+                            backup.files.any { it.name == "Engine.ini" }
+                        }?.files?.firstOrNull { it.name == "Engine.ini" }?.content
+                    if (fromBackup != null) {
+                        addLog("Device Engine.ini missing, using paths from backup")
+                        configGenerator.extractCoreSystemPaths(fromBackup)
+                    } else {
+                        addLog("Using default [Core.System] paths")
+                        configGenerator.DEFAULT_CORE_SYSTEM
+                    }
                 }
-            } catch (e: SecurityException) {
-                Log.e("WuWaConfig", "deployGeneratedConfigs permission denied", e)
-                addLog("CRASH: permission denied: ${e.message}")
-            } catch (e: java.io.IOException) {
-                Log.e("WuWaConfig", "deployGeneratedConfigs I/O error", e)
-                addLog("CRASH: I/O error: ${e.message}")
-            } catch (e: Exception) {
-                addLog("CRASH: ${e.message}")
-                Log.e("WuWaConfig", "deployGeneratedConfigs crashed", e)
-            } finally {
-                _isApplying.value = false
+
+            var lastGeneratedCvars: Set<String> = emptySet()
+            var lastActivePreset: String = "balanced"
+
+            val engineWithPaths =
+                if (opts.generateEngine) {
+                    val sourceEngine =
+                        ini.engine.ifBlank {
+                            val result =
+                                configGenerator.generateWithCorePaths(
+                                    lastActivePreset,
+                                    opts,
+                                    corePaths,
+                                )
+                            lastGeneratedCvars = result.cvarNames
+                            lastActivePreset = result.activePreset
+                            result.ini.engine
+                        }
+                    val replaced = configGenerator.replaceCoreSystemPaths(sourceEngine, corePaths)
+                    if (sourceEngine == ini.engine) {
+                        lastGeneratedCvars = configGenerator.extractCvarNames(replaced)
+                    }
+                    replaced
+                } else {
+                    ""
+                }
+
+            val result =
+                configManager.applyCustomConfigs(
+                    engineIni = if (opts.generateEngine) engineWithPaths else null,
+                    deviceProfilesIni = if (opts.generateDeviceProfiles) ini.deviceProfiles else null,
+                    gameUserSettingsIni = if (opts.generateGameUserSettings) ini.gameUserSettings else null,
+                    scalabilityIni = if (opts.generateScalability && ini.scalability.isNotBlank()) ini.scalability else null,
+                    hardwareIni = if (opts.generateHardware && ini.hardware.isNotBlank()) ini.hardware else null,
+                ) { msg -> addLog(msg) }
+            if (result.isSuccess) {
+                addLog("SUCCESS: ${result.getOrThrow()}")
+                _deployResult.value = result.getOrThrow()
+                configManager.reconcileAfterModify(preSnapshot)
+                    .onSuccess {
+                        addLog(it)
+                        _deployHashSync.value = it
+                    }
+                    .onFailure { e ->
+                        addLog("Hash refresh failed: ${e.message}", LogLevel.ERROR)
+                        _deployHashSync.value = "Hash refresh failed: ${e.message}"
+                    }
+                if (opts.generateEngine) {
+                    addLog("Verifying deployed CVars against ConfigMonitor...")
+                    _readingProgress.value = 50
+                    configManager.verifyDeployedCvars(lastGeneratedCvars).onSuccess { report ->
+                        val cvarValues = cvarDatabase.extractCvarValues(engineWithPaths)
+                        val details =
+                            cvarDatabase.buildCvarDetails(
+                                lastGeneratedCvars,
+                                cvarValues,
+                            )
+                        _verificationReport.value = report.copy(cvarDetails = details)
+                        _readingProgress.value = 100
+                        addLog("VERIFY: ${report.recognizedCount}/${report.totalCount} CVars accepted by engine")
+                        if (details.values.count { it.matchesDefault } > 0) {
+                            addLog("CVar DB: ${details.values.count { it.matchesDefault }} redundant CVars (match game defaults)")
+                        }
+                        if (report.rejected.isNotEmpty()) {
+                            val sample = report.rejected.take(5).joinToString(", ")
+                            addLog("Unrecognized (sample): $sample${if (report.rejected.size > 5) "..." else ""}")
+                        }
+                    }.onFailure { e ->
+                        addLog("Verify skipped: ${e.message}")
+                    }
+                }
+                if (prefs.getBoolean("deploy_history", true)) {
+                    val cachedLogInfo = _logAnalysis.value ?: LogAnalysisStore.load(getApplication())?.logInfo
+                    val baselinePair: Pair<LogInfo, String> =
+                        if (cachedLogInfo != null) {
+                            cachedLogInfo to ""
+                        } else {
+                            addLog("Reading device log for deploy history baseline...")
+                            val baselineResult = configManager.readClientLogContent()
+                            if (baselineResult.isSuccess) {
+                                val text = baselineResult.getOrThrow()
+                                com.wuwaconfig.app.config.LogParser.parseLog(text) to text.take(2048)
+                            } else {
+                                LogInfo() to ""
+                            }
+                        }
+                    val baselineLog = baselinePair.first
+                    val baselineSnippet = baselinePair.second
+                    val report = _verificationReport.value
+                    val fileList = mutableListOf<String>()
+                    if (opts.generateEngine) fileList.add("Engine.ini")
+                    if (opts.generateDeviceProfiles) fileList.add("DeviceProfiles.ini")
+                    if (opts.generateGameUserSettings) fileList.add("GameUserSettings.ini")
+                    if (opts.generateScalability) fileList.add("Scalability.ini")
+                    if (opts.generateHardware) fileList.add("Hardware.ini")
+                    val recordId = java.util.UUID.randomUUID().toString()
+                    val record =
+                        DeployRecord(
+                            id = recordId,
+                            timestamp = System.currentTimeMillis(),
+                            presetName = lastActivePreset,
+                            generationMethod = if (opts.useAdvancedGen) "advanced" else "classic",
+                            filesDeployed = fileList,
+                            acceptedCount = report?.recognizedCount ?: 0,
+                            totalCount = report?.totalCount ?: 0,
+                            redundantCount = report?.redundantCount ?: 0,
+                            unknownCount = report?.unknownCount ?: 0,
+                            monitoredCount = report?.monitoredCount ?: 0,
+                            baselineFps = baselineLog.fpsActual,
+                            baselineThermal = baselineLog.thermalEvents,
+                            baselineOom = baselineLog.gpuOom,
+                            baselineDrops = baselineLog.dropFrames,
+                            baselineClientLogSnippet = baselineSnippet,
+                            optimizedProfile = retuneProfile ?: if (opts.useAdvancedGen) com.wuwaconfig.app.config.CvarOptimizer.optimizeProfile(baselineLog) else null,
+                            options = opts,
+                        )
+                    deployHistoryStore.addRecord(record)
+                    _deployRecords.value = deployHistoryStore.getAllRecords()
+                    addLog("Deploy record saved (id: ${recordId.take(8)}...)")
+                }
+                _readingProgress.value = 0
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Unknown error"
+                addLog("FAILED: $err")
+                _deployResult.value = "Failed: $err"
             }
+        } catch (e: SecurityException) {
+            Log.e("WuWaConfig", "deployGeneratedConfigs permission denied", e)
+            addLog("CRASH: permission denied: ${e.message}")
+        } catch (e: java.io.IOException) {
+            Log.e("WuWaConfig", "deployGeneratedConfigs I/O error", e)
+            addLog("CRASH: I/O error: ${e.message}")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            addLog("CRASH: ${e.message}")
+            Log.e("WuWaConfig", "deployGeneratedConfigs crashed", e)
+        } finally {
+            _isApplying.value = false
         }
     }
 
@@ -743,8 +829,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     ) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
-        viewModelScope.launch {
-            activeJob = coroutineContext[Job]
+        launchBackendOp(managesBusyFlag = true) {
             try {
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
                 val fileNames =
@@ -797,6 +882,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             } catch (e: java.io.IOException) {
                 Log.e("WuWaConfig", "applyCustomFiles I/O error", e)
                 addLog("CRASH: I/O error: ${e.message}")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "applyCustomFiles crashed", e)
@@ -806,15 +893,14 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    fun cleanConfigFiles() {
+    fun cleanConfigFiles(selectedFiles: Set<String>? = null) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
-        viewModelScope.launch {
-            activeJob = coroutineContext[Job]
+        launchBackendOp(managesBusyFlag = true) {
             try {
                 addLog("Cleaning config files...")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
-                val result = configManager.cleanConfigFiles { msg -> addLog(msg) }
+                val result = configManager.cleanConfigFiles(selectedFiles = selectedFiles) { msg -> addLog(msg) }
                 if (result.isSuccess) {
                     addLog("SUCCESS: ${result.getOrThrow()}")
                     _backupFeedback.value = "Config files cleaned"
@@ -831,6 +917,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             } catch (e: java.io.IOException) {
                 Log.e("WuWaConfig", "cleanConfigFiles I/O error", e)
                 addLog("CRASH: I/O error: ${e.message}")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "cleanConfigFiles crashed", e)
@@ -843,8 +931,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     fun deleteSelectedConfigFiles(selectedFiles: Set<String>) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
-        viewModelScope.launch {
-            activeJob = coroutineContext[Job]
+        launchBackendOp(managesBusyFlag = true) {
             try {
                 addLog("Deleting ${selectedFiles.size} config file(s): ${selectedFiles.joinToString(", ")}")
                 val preSnapshot = configManager.snapshotHashFile().getOrNull()
@@ -865,6 +952,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             } catch (e: java.io.IOException) {
                 Log.e("WuWaConfig", "deleteSelectedConfigFiles I/O error", e)
                 addLog("CRASH: I/O error: ${e.message}")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "deleteSelectedConfigFiles crashed", e)
@@ -995,7 +1084,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     fun analyzeClientLog(allowRestrictedCvars: Boolean = true) {
         if (_isApplying.value || !_backendStatus.value.connected) return
         _isApplying.value = true
-        viewModelScope.launch {
+        launchBackendOp(managesBusyFlag = true) {
             _logAnalysis.value = null
             _brainRecommendation.value = null
             try {
@@ -1039,6 +1128,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             } catch (e: java.io.IOException) {
                 Log.e("WuWaConfig", "analyzeClientLog I/O error", e)
                 addLog("CRASH: I/O error: ${e.message}")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "analyzeClientLog crashed", e)
@@ -1055,8 +1146,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     ) {
         if (_isApplying.value) return
         _isApplying.value = true
-        viewModelScope.launch {
-            activeJob = coroutineContext[Job]
+        launchBackendOp(managesBusyFlag = true) {
             try {
                 _readingProgress.value = 0
                 addLog("Decoding imported log...")
@@ -1067,6 +1157,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             } catch (e: java.io.IOException) {
                 Log.e("WuWaConfig", "analyzeClientLogBytes I/O error", e)
                 addLog("CRASH: I/O error: ${e.message}")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "analyzeClientLogBytes crashed", e)
@@ -1145,7 +1237,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     fun loadBattleStats() {
         if (_battleStatsLoading.value || !_backendStatus.value.connected) return
-        viewModelScope.launch {
+        launchBackendOp(managesBusyFlag = false) {
             _battleStats.value = null
             _battleStatsLoading.value = true
             addLog("Reading Client.log for battle stats...")
@@ -1163,6 +1255,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             } catch (e: java.io.IOException) {
                 Log.e("WuWaConfig", "loadBattleStats I/O error", e)
                 addLog("CRASH: I/O error: ${e.message}")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "loadBattleStats crashed", e)

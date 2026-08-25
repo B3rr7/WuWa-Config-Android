@@ -790,7 +790,7 @@ fun HomeScreen(
                         onClick = {
                             showCleanDialog = false
                             val selected = cleanSelection.filterValues { it }.keys
-                            if (selected.isNotEmpty()) deployHistoryViewModel.cleanConfigFiles()
+                            if (selected.isNotEmpty()) deployHistoryViewModel.cleanConfigFiles(selected)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = NeonRed.copy(alpha = 0.15f), contentColor = NeonRed),
                         shape = RoundedCornerShape(10.dp),

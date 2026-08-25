@@ -135,11 +135,23 @@ fun ConfigGenScreen(
             BenchmarkTuner.saveState(tunerState)
 
             val generated = viewModel.configGenerator.generate(preset, opts, logInfo = logInfo ?: com.wuwaconfig.app.model.LogInfo())
-            deployHistoryViewModel.deployGeneratedConfigs(generated, opts)
+            val accepted = deployHistoryViewModel.deployGeneratedConfigs(generated, opts)
+            if (!accepted) {
+                tunerState = tunerState.copy(stage = TunerStage.COMPLETE, error = "Deploy could not start (busy or disconnected)")
+                BenchmarkTuner.saveState(tunerState)
+                showResultDialog = true
+                return@launch
+            }
             var waitMs = 0
             while (deployHistoryViewModel.isApplying.value && waitMs < 30000) {
                 delay(200)
                 waitMs += 200
+            }
+            if (deployHistoryViewModel.operationCancelled.value) {
+                tunerState = tunerState.copy(stage = TunerStage.COMPLETE, error = "Deploy cancelled")
+                BenchmarkTuner.saveState(tunerState)
+                showResultDialog = true
+                return@launch
             }
             if (deployHistoryViewModel.isApplying.value) {
                 tunerState = tunerState.copy(stage = TunerStage.COMPLETE, error = "Deploy timed out")
