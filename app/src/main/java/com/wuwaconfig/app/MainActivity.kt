@@ -268,8 +268,8 @@ fun AppNavigation(
                 generatorOptions = opts,
                 onBack = { navController.popBackStack() },
                 onDeploy = { ini, deployOpts ->
-                    navController.popBackStack()
-                    deployHistoryViewModel.deployGeneratedConfigs(ini, deployOpts)
+                    val accepted = deployHistoryViewModel.deployGeneratedConfigs(ini, deployOpts)
+                    if (accepted) navController.popBackStack()
                 },
             )
         }

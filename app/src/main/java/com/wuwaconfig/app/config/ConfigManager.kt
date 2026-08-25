@@ -266,12 +266,16 @@ class ConfigManager(
         return result.toString().trimEnd() + "\n"
     }
 
-    suspend fun cleanConfigFiles(onProgress: (String) -> Unit): Result<String> =
+    suspend fun cleanConfigFiles(
+        selectedFiles: Set<String>? = null,
+        onProgress: (String) -> Unit,
+    ): Result<String> =
         withContext(Dispatchers.IO) {
             try {
                 LogRepository.add("ConfigManager: cleaning config files")
                 var cleaned = 0
-                for (name in GamePaths.MONITORED_FILES) {
+                val targets = GamePaths.MONITORED_FILES.filter { selectedFiles == null || it in selectedFiles }
+                for (name in targets) {
                     val path = "${GamePaths.TARGET_DIR}/$name"
                     if (!backend.fileExists(path).getOrElse { false }) continue
                     onProgress("Reading $name...")
