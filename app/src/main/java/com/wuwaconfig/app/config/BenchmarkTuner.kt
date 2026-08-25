@@ -4,6 +4,7 @@ import android.util.Log
 import com.google.gson.Gson
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.model.GeneratorOptions
+import com.wuwaconfig.app.util.writeAtomic
 import java.io.File
 
 enum class TunerStage { IDLE, DEPLOYING, WAITING_FOR_PLAY, CAPTURING, COMPLETE }
@@ -55,7 +56,7 @@ object BenchmarkTuner {
 
     fun saveState(state: TunerState) {
         try {
-            File(WuWaConfigApp.instance.filesDir, STATE_FILE).writeText(gson.toJson(state))
+            File(WuWaConfigApp.instance.filesDir, STATE_FILE).writeAtomic(gson.toJson(state))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save tuner state", e)
         }

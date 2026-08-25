@@ -8,6 +8,7 @@ import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.shQuote
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.GamePaths
+import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.model.VerificationReport
@@ -106,10 +107,19 @@ class ProfileExtractor(
                 backupDir.mkdirs()
                 val savedFile = File(backupDir, "Client.log")
                 savedFile.writeText(content)
-                val publicFile = File(publicDir, "Client.log")
-                publicFile.writeText(content)
+                // Public copy is best-effort: private persistence is what matters.
+                if (LogRepository.publicBaseDir() != null) {
+                    try {
+                        val publicFile = File(publicDir, "Client.log")
+                        publicFile.writeText(content)
+                        onProgress("Also saved to ${publicFile.absolutePath} (public)")
+                    } catch (e: Exception) {
+                        LogRepository.add("Public Client.log copy skipped: ${e.message}", LogLevel.WARNING)
+                    }
+                } else {
+                    LogRepository.add("Public Client.log copy skipped: missing All-Files-Access", LogLevel.WARNING)
+                }
                 onProgress("Saved to ${savedFile.absolutePath}")
-                onProgress("Also saved to ${publicFile.absolutePath} (public)")
                 Result.success(savedFile.absolutePath)
             } catch (e: Exception) {
                 Result.failure(e)

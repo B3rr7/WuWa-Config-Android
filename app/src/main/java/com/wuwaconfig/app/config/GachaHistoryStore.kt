@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
+import com.wuwaconfig.app.util.writeAtomic
 import java.io.File
 import java.util.UUID
 
@@ -55,7 +56,7 @@ object GachaHistoryStore {
                 predictions = data.predictions,
                 fullDataJson = gson.toJson(data),
             )
-        synchronized(lock) { getFile(ctx).writeText(gson.toJson(entry)) }
+        synchronized(lock) { getFile(ctx).writeAtomic(gson.toJson(entry)) }
     }
 
     fun delete(ctx: Context) {
