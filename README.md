@@ -120,9 +120,9 @@ If you have multiple devices (USB + wireless): `adb -s 192.168.x.x:5555 usb`
 
 > ⚠️ **Chinese ROMs (Xiaomi / Redmi / HyperOS, MIUI, etc.)** — Shizuku runs as the `shell` user and these ROMs block `shell` from writing into the game's `Android/data` unless a hidden Developer toggle is on. If you get **`Permission denied`** when deploying, enable **both** of these in *Developer Options* (not just USB debugging):
 > - **USB debugging**
-> - **USB debugging (Security settings)**  *(label varies by ROM — also seen as "Allow USB debugging in charge-only mode" or similar)*
+> - **USB debugging (Security settings)**  *(label varies by ROM — also seen as " Disable Permission Monitoring" or similar)*
 >
-> Then re-authorize Shizuku and retry. Without that toggle, switch to **SAF** mode and grant the game's `Android/data` folder instead.
+> Then re-authorize Shizuku and retry.
 
 ### 🦸 Root
 **Best for:** Rooted devices (Magisk, KernelSU, APatch).
