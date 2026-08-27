@@ -13,6 +13,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
@@ -163,9 +164,12 @@ fun WuWaConfigTheme(
     }
 
     val family = fontFamilyForName(fontFamilyName)
+    // MaterialTheme is the root: rebuilding 18 Typography styles on every
+    // recomposition (e.g. font-scale slider drags) is wasteful. Memoize it.
+    val typography = remember(fontFamilyName) { typographyWithFont(family) }
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = typographyWithFont(family),
+        typography = typography,
     ) {
         val density = LocalDensity.current
         val scale = fontScale.coerceIn(0.75f, 1.5f)

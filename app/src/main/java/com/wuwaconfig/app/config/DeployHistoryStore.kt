@@ -25,8 +25,6 @@ class DeployHistoryStore(private val storeFile: File) {
         }
     }
 
-    fun getLatestDeploy(): DeployRecord? = synchronized(lock) { records.firstOrNull() }
-
     fun getRecord(id: String): DeployRecord? = synchronized(lock) { records.find { it.id == id } }
 
     fun getAllRecords(): List<DeployRecord> = synchronized(lock) { records.toList() }

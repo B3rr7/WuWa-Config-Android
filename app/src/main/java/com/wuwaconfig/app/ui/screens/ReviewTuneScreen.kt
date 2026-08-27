@@ -540,7 +540,7 @@ private fun DiffPane(
                 .border(width = 1.dp, color = accent.copy(alpha = 0.4f), shape = RoundedCornerShape(8.dp))
                 .padding(8.dp),
     ) {
-        items(diff.lines) { line ->
+        items(diff.lines, key = { it.oldLineNumber ?: it.newLineNumber ?: it.text }) { line ->
             DiffRow(line)
         }
     }

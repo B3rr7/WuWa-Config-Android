@@ -21,6 +21,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -92,7 +93,7 @@ class MainActivity : ComponentActivity() {
             val fontFamilyName by settingsViewModel.fontFamilyName.collectAsStateWithLifecycle()
             val fontScale by settingsViewModel.fontScale.collectAsStateWithLifecycle()
             val colorSaturation by settingsViewModel.colorSaturation.collectAsStateWithLifecycle()
-            var showTerms by remember { mutableStateOf(mainViewModel.needsTermsAccept()) }
+            var showTerms by rememberSaveable { mutableStateOf(mainViewModel.needsTermsAccept()) }
 
             setNeonSaturation(colorSaturation)
             WuWaConfigTheme(
@@ -294,11 +295,12 @@ fun AppNavigation(
         ) {
             // detect() reads Build.* — remember so it runs once, not per recomposition.
             val chipsetInfo = remember { com.wuwaconfig.app.config.ChipsetDetector.detect() }
+            val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
             SettingsScreen(
                 viewModel = settingsViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToUserGuide = { navController.navigate("userguide") },
-                backendStatus = deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle().value,
+                backendStatus = backendStatus,
                 chipsetInfo = chipsetInfo,
                 gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR,
                 backupStorageDir = backupViewModel.backupStorageDir,
@@ -323,11 +325,13 @@ fun AppNavigation(
             popEnterTransition = popEnter,
             popExitTransition = popExit,
         ) {
+            val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
+            val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
             PityScreen(
                 viewModel = gachaViewModel,
                 onBack = { navController.popBackStack() },
-                backendStatus = deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle().value,
-                isApplying = deployHistoryViewModel.isApplying.collectAsStateWithLifecycle().value,
+                backendStatus = backendStatus,
+                isApplying = isApplying,
             )
         }
         composable(
@@ -337,10 +341,11 @@ fun AppNavigation(
             popEnterTransition = popEnter,
             popExitTransition = popExit,
         ) {
+            val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
             ProfileScreen(
                 viewModel = profileViewModel,
                 onBack = { navController.popBackStack() },
-                backendStatus = deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle().value,
+                backendStatus = backendStatus,
             )
         }
         composable(

@@ -28,7 +28,7 @@ class CvarDatabaseOptimizeTest {
 
     @Test
     fun `comments out unknown cvar`() {
-        val ini = "Some.Unknown.CVar=5\n"
+        val ini = "r.TotallyUnknownCvar=5\n"
         val out = optimizeIniTextImpl(ini, allCvars, monitored, defaults)
         assertTrue(out.contains("[CvarDB]") && out.contains("unknown"))
     }
@@ -56,7 +56,7 @@ class CvarDatabaseOptimizeTest {
 
     @Test
     fun `disables unknown cvar with leading semicolon so the value is no longer applied`() {
-        val ini = "Some.Unknown.CVar=5\n"
+        val ini = "r.TotallyUnknownCvar=5\n"
         val out = optimizeIniTextImpl(ini, allCvars, monitored, defaults)
         val line = out.lines().first()
         assertTrue(line.startsWith(";"))
@@ -87,5 +87,51 @@ class CvarDatabaseOptimizeTest {
         val out = optimizeIniTextImpl(ini, allCvars, monitored, defaults)
         assertFalse("value differs from default, must stay active", out.contains("[CvarDB]"))
         assertTrue(out.contains("r.Kuro.AutoExposure=0"))
+    }
+
+    @Test
+    fun `preserves non-cvar keys like Paths under Core System`() {
+        val ini =
+            "[Core.System]\n" +
+                "Paths=../../../Engine/Content\n" +
+                "Paths=%GAMEDIR%Content\n" +
+                "Paths=../../../Engine/Plugins/FX/Niagara/Content\n"
+        val out = optimizeIniTextImpl(ini, allCvars, monitored, defaults)
+        assertTrue("Paths= mount lines must survive optimization", out.contains("Paths=../../../Engine/Content"))
+        assertTrue("Paths= mount lines must survive optimization", out.contains("Paths=%GAMEDIR%Content"))
+        assertTrue(
+            "Paths= mount lines must survive optimization",
+            out.contains("Paths=../../../Engine/Plugins/FX/Niagara/Content"),
+        )
+        assertFalse("non-CVar keys must not be flagged as unknown", out.contains("[CvarDB]"))
+    }
+
+    @Test
+    fun `keeps known kuro and mobile cvars that are in the database`() {
+        // These mirror the entries that back the 120FPS / Ultra / mobile-HBAO toggles
+        // and were missing from libUE4_cvars.txt. Once present in the known set they
+        // must NOT be commented out.
+        val known =
+            setOf(
+                "r.kuro.maxfps.thirdparty60",
+                "r.kuro.maxfps.thirdparty120",
+                "r.kuro.graphicsquality.thirdpartyultraenable",
+                "r.mobile.hbao",
+                "r.screenpercentage",
+                "foliage.densityscale",
+                "r.kuro.autoexposure",
+            )
+        val ini =
+            "+CVars=r.Kuro.MaxFPS.ThirdParty120=1\n" +
+                "+CVars=r.Kuro.GraphicsQuality.ThirdPartyUltraEnable=1\n" +
+                "r.Mobile.HBAO=1\n"
+        val out = optimizeIniTextImpl(ini, known, monitored, defaults)
+        assertTrue("ThirdParty120 must be kept (known CVar)", out.contains("r.Kuro.MaxFPS.ThirdParty120=1"))
+        assertTrue(
+            "ThirdPartyUltraEnable must be kept (known CVar)",
+            out.contains("r.Kuro.GraphicsQuality.ThirdPartyUltraEnable=1"),
+        )
+        assertTrue("r.Mobile.HBAO must be kept (known CVar)", out.contains("r.Mobile.HBAO=1"))
+        assertFalse("known CVars must not be flagged", out.contains("[CvarDB]"))
     }
 }

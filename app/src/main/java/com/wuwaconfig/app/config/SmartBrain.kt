@@ -203,12 +203,12 @@ object SmartBrain {
         info.screenPct?.let { sp ->
             when {
                 sp >= 125f -> {
-                    score += 3
-                    signals.add("High render scale: +3")
-                }
-                sp >= 110f -> {
                     score += 5
                     signals.add("Very high render scale: +5")
+                }
+                sp >= 110f -> {
+                    score += 3
+                    signals.add("High render scale: +3")
                 }
                 sp < 70f -> {
                     score -= 10

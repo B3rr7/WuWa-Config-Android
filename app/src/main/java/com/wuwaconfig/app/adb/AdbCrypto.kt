@@ -16,9 +16,23 @@ import java.security.spec.X509EncodedKeySpec
 class AdbCrypto(private val context: Context) {
     companion object {
         private const val TAG = "AdbCrypto"
+
+        // ASN.1 DigestInfo for SHA-1, prepended to the 20-byte token so that a
+        // "NONEwithRSA" signature (PKCS#1 padding only, no extra hashing)
+        // matches what adbd expects: RSA_sign(NID_sha1, token, ...).
+        private val SHA1_DIGEST_INFO =
+            byteArrayOf(
+                0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e,
+                0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14,
+            )
     }
 
+    @Volatile
     private var keyPair: KeyPair? = null
+
+    private val keysLoadedLock = Any()
+    private var keysLoaded = false
+
     private val publicKeyFile: File
         get() = File(context.filesDir, "adbkey.pub")
     private val privateKeyFile: File
@@ -30,9 +44,25 @@ class AdbCrypto(private val context: Context) {
             .build()
     }
 
-    init {
-        loadOrGenerateKeys()
+    /** True once keys are loaded. Safe to read from any thread. */
+    val isReady: Boolean get() = keyPair != null
+
+    /**
+     * Loads or generates the RSA key pair. Lazily invoked on first use (which
+     * happens on an IO dispatcher during ADB auth) so construction stays cheap
+     * and never blocks Application.onCreate.
+     */
+    private fun ensureKeys() {
+        if (keysLoaded) return
+        synchronized(keysLoadedLock) {
+            if (keysLoaded) return
+            loadOrGenerateKeys()
+            keysLoaded = true
+        }
     }
+
+    /** Pre-load keys off the main thread to avoid first-connection jank. */
+    fun warmUp() = ensureKeys()
 
     private fun buildEncryptedFile(file: File): EncryptedFile {
         return EncryptedFile.Builder(
@@ -61,6 +91,13 @@ class AdbCrypto(private val context: Context) {
         bytes: ByteArray,
     ) {
         file.parentFile?.mkdirs()
+        // EncryptedFile.openFileOutput() throws if the target already exists
+        // (security-crypto 1.1.0), so replace it explicitly. Without this, key
+        // regeneration and the plaintext->encrypted migration always throw,
+        // which previously crashed Application.onCreate.
+        if (file.exists() && !file.delete()) {
+            throw java.io.IOException("Cannot replace existing key file ${file.name}")
+        }
         buildEncryptedFile(file).openFileOutput().use { it.write(bytes) }
     }
 
@@ -122,6 +159,7 @@ class AdbCrypto(private val context: Context) {
     }
 
     fun getAdbFormattedPublicKey(): ByteArray {
+        ensureKeys()
         val rsaPubKey = keyPair!!.public as java.security.interfaces.RSAPublicKey
         val bos = java.io.ByteArrayOutputStream()
         val algo = "ssh-rsa".toByteArray(Charsets.UTF_8)
@@ -154,17 +192,24 @@ class AdbCrypto(private val context: Context) {
     }
 
     fun signToken(token: ByteArray): ByteArray {
-        Log.d(TAG, "Signing ${token.size}B token with SHA1withRSA")
-        val signature = Signature.getInstance("SHA1withRSA")
+        ensureKeys()
+        Log.d(TAG, "Signing ${token.size}B token with NONEwithRSA (pre-hashed SHA1)")
+        val signature = Signature.getInstance("NONEwithRSA")
         signature.initSign(keyPair!!.private)
+        signature.update(SHA1_DIGEST_INFO)
         signature.update(token)
         val sig = signature.sign()
         Log.d(TAG, "Signature: ${sig.size}B")
         return sig
     }
 
-    fun regenerateKeys() {
+    fun regenerateKeys(): Result<Unit> {
         Log.d(TAG, "Regenerating RSA keys")
-        generateNewKeys()
+        return runCatching {
+            synchronized(keysLoadedLock) {
+                generateNewKeys()
+                keysLoaded = true
+            }
+        }
     }
 }

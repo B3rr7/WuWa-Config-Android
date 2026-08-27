@@ -41,8 +41,4 @@ object LogAnalysisStore {
         }
         return cached
     }
-
-    fun clear(context: Context) {
-        File(context.filesDir, FILE_NAME).delete()
-    }
 }

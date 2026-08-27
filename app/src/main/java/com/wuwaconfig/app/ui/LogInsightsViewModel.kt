@@ -60,6 +60,9 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
     private val _battleStatsLoading = MutableStateFlow(false)
     val battleStatsLoading: StateFlow<Boolean> = _battleStatsLoading.asStateFlow()
 
+    private val _battleStatsProgress = MutableStateFlow(0)
+    val battleStatsProgress: StateFlow<Int> = _battleStatsProgress.asStateFlow()
+
     /** Progress for the log-pull pipeline; deploy verification uses its own. */
     private val _readingProgress = MutableStateFlow(0)
     val readingProgress: StateFlow<Int> = _readingProgress.asStateFlow()
@@ -243,9 +246,10 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
         ops.launchBackendOp(managesBusyFlag = false) {
             _battleStats.value = null
             _battleStatsLoading.value = true
+            _battleStatsProgress.value = 0
             addLog("Reading Client.log for battle stats...")
             try {
-                val result = configManager.readBattleStats()
+                val result = configManager.readBattleStats(onProgress = { _battleStatsProgress.value = it })
                 if (result.isSuccess) {
                     _battleStats.value = result.getOrThrow()
                     addLog("Battle stats loaded")
@@ -264,6 +268,7 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
                 addLog("CRASH: ${e.message}")
                 Log.e("LogInsights", "loadBattleStats crashed", e)
             } finally {
+                _battleStatsProgress.value = 0
                 _battleStatsLoading.value = false
             }
         }

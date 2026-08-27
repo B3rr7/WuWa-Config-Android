@@ -207,6 +207,7 @@ class AdbClient(private val crypto: AdbCrypto) {
         withContext(Dispatchers.IO) {
             Log.d("AdbClient", "connectWithRegeneratedKeys[$instanceId]: regenerating RSA keys")
             crypto.regenerateKeys()
+                .onFailure { return@withContext Result.failure(it) }
             connect(port, host, readTimeoutMs)
         }
 
@@ -222,7 +223,10 @@ class AdbClient(private val crypto: AdbCrypto) {
                     val localId = localIdCounter.getAndIncrement()
                     AdbProtocol.writeMessage(out, AdbProtocol.createOpenMessage(localId, "shell:$command"))
 
-                    val response = StringBuilder()
+                    // Accumulate raw bytes and decode once at the end. adbd fragments
+                    // the stream on arbitrary byte boundaries, so decoding each WRTE
+                    // payload independently corrupts multi-byte (e.g. UTF-8) sequences.
+                    val responseBytes = java.io.ByteArrayOutputStream()
                     var remoteId = 0
 
                     loop@ while (true) {
@@ -233,29 +237,37 @@ class AdbClient(private val crypto: AdbCrypto) {
                         }
                         when {
                             message.command.contentEquals(AdbProtocol.OKAY) -> {
-                                if (remoteId == 0) remoteId = message.arg0
+                                // OKAY carries the daemon's id for our stream.
+                                if (message.arg1 == localId) remoteId = message.arg0
                             }
                             message.command.contentEquals(AdbProtocol.WRTE) -> {
-                                // Only process messages for our stream
-                                if (remoteId > 0 && message.arg1 != localId) continue@loop
-                                // WRTE arg0 is the daemon's id for our stream (our remoteId);
-                                // arg1 is our own localId.
-                                if (remoteId == 0) remoteId = message.arg0
-                                response.append(String(message.payload, Charsets.UTF_8))
+                                // Only process frames addressed to our stream. Frames for a
+                                // different (leftover) stream must be ignored, not adopted.
+                                if (message.arg1 != localId) continue@loop
+                                remoteId = message.arg0
+                                responseBytes.write(message.payload)
                                 AdbProtocol.writeMessage(out, AdbProtocol.createOkMessage(message.arg1, message.arg0))
                             }
                             message.command.contentEquals(AdbProtocol.CLSE) -> {
-                                // ADB daemon may send WRTE after CLSE (pipe buffer drain race).
-                                // Only break for our stream, then drain trailing messages.
-                                if (remoteId == 0 || message.arg1 == localId) {
-                                    drainTrailingWrite(localId, response)
+                                // Only end on a CLSE for our own stream. A foreign CLSE
+                                // (e.g. from a previous, not-yet-drained stream) must be
+                                // ignored or it would silently truncate our output.
+                                if (message.arg1 == localId) {
+                                    drainTrailingWrite(localId, responseBytes)
                                     break@loop
                                 }
                             }
                         }
                     }
 
-                    val result = response.toString()
+                    // Close our side of the stream so the daemon can free it.
+                    if (remoteId != 0) {
+                        runCatching {
+                            AdbProtocol.writeMessage(out, AdbProtocol.createCloseMessage(localId, remoteId))
+                        }
+                    }
+
+                    val result = String(responseBytes.toByteArray(), Charsets.UTF_8)
                     Log.d("AdbClient", "shell[$instanceId]: result='${result.take(200)}'")
                     Result.success(result)
                 } catch (e: Exception) {
@@ -280,7 +292,7 @@ class AdbClient(private val crypto: AdbCrypto) {
 
     private fun drainTrailingWrite(
         localId: Int,
-        response: StringBuilder,
+        response: java.io.ByteArrayOutputStream,
     ) {
         val sock = socket ?: return
         val out = output ?: return
@@ -294,7 +306,7 @@ class AdbClient(private val crypto: AdbCrypto) {
                 val msg = AdbProtocol.readMessage(inp) ?: break
                 when {
                     msg.command.contentEquals(AdbProtocol.WRTE) && msg.arg1 == localId -> {
-                        response.append(String(msg.payload, Charsets.UTF_8))
+                        response.write(msg.payload)
                         AdbProtocol.writeMessage(out, AdbProtocol.createOkMessage(msg.arg1, msg.arg0))
                     }
                     msg.command.contentEquals(AdbProtocol.CLSE) && msg.arg1 == localId -> {

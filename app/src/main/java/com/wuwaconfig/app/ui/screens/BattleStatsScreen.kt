@@ -40,6 +40,7 @@ fun BattleStatsScreen(
 ) {
     val stats by viewModel.battleStats.collectAsStateWithLifecycle()
     val loading by viewModel.battleStatsLoading.collectAsStateWithLifecycle()
+    val progress by viewModel.battleStatsProgress.collectAsStateWithLifecycle()
     val fromCache by viewModel.battleStatsFromCache.collectAsStateWithLifecycle()
     val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
 
@@ -78,7 +79,7 @@ fun BattleStatsScreen(
 
                 if (stats == null) {
                     if (loading) {
-                        BattleStatsLoadingAnimation("Reading Client.log for battle stats...")
+                        BattleStatsLoadingAnimation("Reading Client.log for battle stats...", progress)
                     } else {
                         GlassButton(
                             onClick = { viewModel.loadBattleStats() },
@@ -296,7 +297,10 @@ private fun formatBytes(bytes: Long): String {
 }
 
 @Composable
-private fun BattleStatsLoadingAnimation(text: String) {
+private fun BattleStatsLoadingAnimation(
+    text: String,
+    progress: Int = 0,
+) {
     GlassCard(accentColor = NeonGreen) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -317,6 +321,15 @@ private fun BattleStatsLoadingAnimation(text: String) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (progress > 0) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "$progress%",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonGreen,
+                )
+            }
         }
     }
 }

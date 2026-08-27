@@ -29,7 +29,14 @@ class HashMonitor(
     private val context: Context,
     private val backend: AccessBackend,
 ) {
-    private val hashMutex = Mutex()
+    // A single app-wide mutex serializes all hash-file writes. ConfigManager
+    // instances are created per-ViewModel, but every instance stages to the
+    // same device path, so the lock must be shared or concurrent deploys
+    // (deploy + INI-edit save) can push the wrong content.
+    companion object {
+        private val hashMutex = Mutex()
+        private val HASH_SECTION_REGEX = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
+    }
 
     data class HashFileSnapshot(
         val content: String,
@@ -79,14 +86,13 @@ class HashMonitor(
                         var prevCount: Int? = null
                         var prevTime = ""
                         var inSection = false
-                        val iniSectionRegex = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
                         for (line in existingLines) {
                             val t = line.trim()
                             if (t.equals("[$name]", ignoreCase = true)) {
                                 inSection = true
                                 continue
                             }
-                            if (inSection && t.matches(iniSectionRegex)) break
+                            if (inSection && t.matches(HASH_SECTION_REGEX)) break
                             if (inSection && t.startsWith("ModifyCount=")) {
                                 prevCount = t.removePrefix("ModifyCount=").toIntOrNull()
                             }
@@ -190,47 +196,53 @@ class HashMonitor(
                     }
 
                     val newContent = patchedLines.joinToString("\n").trimEnd() + "\n"
-                    val tempFile = File(context.cacheDir, "KuroConfigMonitor.hash")
-                    tempFile.writeText(newContent)
-                    val hashTempPath = GamePaths.HASH_MONITOR_PATH + ".new"
-                    var hashPushOk = false
-                    var hashPushError: Throwable? = null
-                    for (attempt in 0..PUSH_RETRY_COUNT) {
-                        val r = backend.pushFile(tempFile.absolutePath, hashTempPath)
-                        if (r.isSuccess) {
-                            hashPushOk = true
-                            break
+                    // Unique temp name so a retry or a concurrent (mutex-serialized)
+                    // refresh can never clobber another's staging file.
+                    val tempFile = File(context.cacheDir, "KuroConfigMonitor.hash.${System.nanoTime()}")
+                    var hashTempPath = ""
+                    try {
+                        tempFile.writeText(newContent)
+                        hashTempPath = GamePaths.HASH_MONITOR_PATH + ".new"
+                        var hashPushOk = false
+                        var hashPushError: Throwable? = null
+                        for (attempt in 0..PUSH_RETRY_COUNT) {
+                            val r = backend.pushFile(tempFile.absolutePath, hashTempPath)
+                            if (r.isSuccess) {
+                                hashPushOk = true
+                                break
+                            }
+                            hashPushError = r.exceptionOrNull()
                         }
-                        hashPushError = r.exceptionOrNull()
-                    }
-                    if (!hashPushOk) {
-                        backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
-                        throw hashPushError ?: Exception("Failed to push hash file")
-                    }
-                    val mvResult = backend.executeShellCommand("mv ${shQuote(hashTempPath)} ${shQuote(GamePaths.HASH_MONITOR_PATH)}")
-                    if (mvResult.isFailure) {
-                        backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
-                        LogRepository.add("ConfigManager: atomic rename failed, .new temp cleaned up", LogLevel.ERROR)
-                        throw mvResult.exceptionOrNull() ?: Exception("Failed to atomically rename hash file")
-                    }
-                    tempFile.delete()
+                        if (!hashPushOk) {
+                            backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
+                            throw hashPushError ?: Exception("Failed to push hash file")
+                        }
+                        val mvResult = backend.executeShellCommand("mv ${shQuote(hashTempPath)} ${shQuote(GamePaths.HASH_MONITOR_PATH)}")
+                        if (mvResult.isFailure) {
+                            backend.executeShellCommand("rm -f ${shQuote(hashTempPath)}")
+                            LogRepository.add("ConfigManager: atomic rename failed, .new temp cleaned up", LogLevel.ERROR)
+                            throw mvResult.exceptionOrNull() ?: Exception("Failed to atomically rename hash file")
+                        }
 
-                    val verifyResult = backend.readFile(GamePaths.HASH_MONITOR_PATH)
-                    if (verifyResult.isSuccess) {
-                        val stored = verifyResult.getOrThrow().trim()
-                        if (stored == newContent.trim()) {
-                            Log.d("HashMonitor", "Config hashes refreshed and verified successfully")
-                            LogRepository.add("ConfigManager: hashes refreshed and verified", LogLevel.SUCCESS)
-                            Result.success("Config hashes synced & verified")
+                        val verifyResult = backend.readFile(GamePaths.HASH_MONITOR_PATH)
+                        if (verifyResult.isSuccess) {
+                            val stored = verifyResult.getOrThrow().trim()
+                            if (stored == newContent.trim()) {
+                                Log.d("HashMonitor", "Config hashes refreshed and verified successfully")
+                                LogRepository.add("ConfigManager: hashes refreshed and verified", LogLevel.SUCCESS)
+                                Result.success("Config hashes synced & verified")
+                            } else {
+                                Log.e("HashMonitor", "Hash file read-back MISMATCH — hash may be corrupt")
+                                LogRepository.add("ConfigManager: hash verify MISMATCH", LogLevel.ERROR)
+                                Result.failure(Exception("Hash verify MISMATCH — config hashes may be corrupt"))
+                            }
                         } else {
-                            Log.e("HashMonitor", "Hash file read-back MISMATCH — hash may be corrupt")
-                            LogRepository.add("ConfigManager: hash verify MISMATCH", LogLevel.ERROR)
-                            Result.success("Config hashes synced (verify mismatch)")
+                            Log.w("HashMonitor", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
+                            LogRepository.add("ConfigManager: hash verify skipped", LogLevel.WARNING)
+                            Result.success("Config hashes synced (verify skipped)")
                         }
-                    } else {
-                        Log.w("HashMonitor", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
-                        LogRepository.add("ConfigManager: hash verify skipped", LogLevel.WARNING)
-                        Result.success("Config hashes synced (verify skipped)")
+                    } finally {
+                        tempFile.delete()
                     }
                 } catch (e: Exception) {
                     Log.w("HashMonitor", "Failed to refresh hashes: ${e.message}")

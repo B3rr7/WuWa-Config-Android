@@ -215,8 +215,8 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                     // commands instead of slicing the joined command string.
                     execOrThrow(plan.setup)
                     for (w in plan.writes) execOrThrow(w)
-                    execOrThrow(plan.decode)
-                    result = execOrThrow(plan.verify)
+                    execOrThrowWithRunAs(plan.decode)
+                    result = execOrThrowWithRunAs(plan.verify)
                 }
 
                 val remoteMd5 = result.trim()
@@ -388,6 +388,43 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
         val svc = shellService ?: throw Exception("Shizuku service not connected")
         val output = withTimeout(SHIZUKU_CALL_TIMEOUT_MS) { svc.execCommand(command) }
         return parseServiceResult(output)
+    }
+
+    private val gamePkg = "com.kurogame.wutheringwaves.global"
+
+    /**
+     * Mirrors AdbBackend: a command that fails with "Permission denied" (typically a write into
+     * the game's `Android/data`, which some ROMs block for `shell`/uid 2000) is retried via
+     * `run-as <game>`. This only helps debuggable builds; for the production game it still fails,
+     * but we log a clear "use SAF or Root" pointer instead of a bare `sh: can't create`.
+     */
+    private suspend fun execOrThrowWithRunAs(command: String): String {
+        return try {
+            execOrThrow(command)
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            if (msg.contains("Permission denied", ignoreCase = true)) {
+                LogRepository.add("Shizuku: Permission denied, retrying via run-as $gamePkg", LogLevel.WARNING)
+                try {
+                    val alt = execOrThrow("run-as ${shQuote(gamePkg)} $command 2>/dev/null")
+                    LogRepository.add("Shizuku: run-as fallback succeeded", LogLevel.SUCCESS)
+                    return alt
+                } catch (altErr: Exception) {
+                    val altMsg = altErr.message ?: ""
+                    if (altMsg.contains("not debuggable", ignoreCase = true) ||
+                        altMsg.contains("Package not debuggable", ignoreCase = true)
+                    ) {
+                        LogRepository.add(
+                            "Shizuku: run-as unavailable — $gamePkg is not debuggable. " +
+                                "Use the SAF or Root access method for this ROM.",
+                            LogLevel.ERROR,
+                        )
+                    }
+                    throw altErr
+                }
+            }
+            throw e
+        }
     }
 
     /**

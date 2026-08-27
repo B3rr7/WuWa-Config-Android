@@ -96,6 +96,9 @@ class WuWaConfigApp : Application() {
     override fun onCreate() {
         super.onCreate()
         adbCrypto = AdbCrypto(this)
+        // RSA key generation + EncryptedFile I/O is heavy; pre-load off the main
+        // thread so it never blocks cold start or the first ADB connection.
+        appScope.launch(Dispatchers.IO) { adbCrypto.warmUp() }
         instance = this
         _backend = null
         LogRepository.init()

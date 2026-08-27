@@ -13,9 +13,6 @@ import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.model.VerificationReport
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -50,18 +47,25 @@ class ProfileExtractor(
             }
         }
 
-    suspend fun readLatestBackupLogWithMetadata(onProgress: (Int) -> Unit = {}): Result<Pair<String, LogParser.DecodeResult>> =
+    /**
+     * Resolves the most recent backup log path via `ls -t` and validates the
+     * filename before it is ever used as shell input. Shared by both backup-log
+     * readers so the trust boundary can't drift between them.
+     */
+    private suspend fun latestBackupLogPath(): Result<String> =
         withContext(Dispatchers.IO) {
-            try {
-                val listCmd = "ls -t ${shQuote(GamePaths.LOG_DIR)}/Client-backup-*.log 2>/dev/null | head -1"
-                val result = backend.executeShellCommand(listCmd)
-                val path = result.getOrNull()?.trim()
-                if (path.isNullOrBlank()) return@withContext Result.failure(Exception("No backup log found"))
-                LogRepository.add("ConfigManager: reading latest backup log: ${path.substringAfterLast("/")}")
-                readRemoteLogText(path, onProgress)
-            } catch (e: Exception) {
-                Result.failure(e)
+            val listCmd = "ls -t ${shQuote(GamePaths.LOG_DIR)}/Client-backup-*.log 2>/dev/null | head -1"
+            val result = backend.executeShellCommand(listCmd)
+            val logPath =
+                result.getOrNull()?.trim()?.takeIf { it.isNotBlank() }
+                    ?: return@withContext Result.failure(Exception("No backup log found"))
+            // The filename comes from remote ls output — never trust it as shell input.
+            if (!Regex("""Client-backup-[A-Za-z0-9._-]+\.log$""").containsMatchIn(logPath)) {
+                return@withContext Result.failure(
+                    Exception("Unexpected backup log name: ${logPath.substringAfterLast("/").take(80)}"),
+                )
             }
+            Result.success(logPath)
         }
 
     suspend fun verifyDeployedCvars(generatedCvars: Set<String>): Result<VerificationReport> =
@@ -180,22 +184,17 @@ class ProfileExtractor(
     suspend fun readFullClientLogWithMetadata(): Result<Pair<String, LogParser.DecodeResult>> = readRemoteLogToText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
 
     suspend fun readFullLatestBackupLog(): Result<Pair<String, LogParser.DecodeResult>> =
-        runCatching {
-            val listCmd = "ls -t ${shQuote(GamePaths.LOG_DIR)}/Client-backup-*.log 2>/dev/null | head -1"
-            val result = backend.executeShellCommand(listCmd)
-            val logPath =
-                result.getOrNull()?.trim()
-                    ?: throw Exception("No backup log found")
-            // The filename comes from remote ls output — never trust it as shell input.
-            if (!Regex("""Client-backup-[A-Za-z0-9._-]+\.log$""").containsMatchIn(logPath)) {
-                throw Exception("Unexpected backup log name: ${logPath.substringAfterLast("/").take(80)}")
-            }
-            LogRepository.add("ConfigManager: reading full backup log: ${logPath.substringAfterLast("/")}")
-            readRemoteLogToText(logPath).getOrThrow()
-        }
+        latestBackupLogPath().fold(
+            onSuccess = { path ->
+                LogRepository.add("ConfigManager: reading full backup log: ${path.substringAfterLast("/")}")
+                readRemoteLogToText(path)
+            },
+            onFailure = { Result.failure(it) },
+        )
 
-    suspend fun readProfile(): Result<PlayerProfile> =
+    suspend fun readProfile(onProgress: (Int) -> Unit = {}): Result<PlayerProfile> =
         withContext(Dispatchers.IO) {
+            onProgress(5)
             val localDb = pullDb("LocalStorage.db")
             val devDb = pullDb("DeviceStorage.db")
             try {
@@ -238,7 +237,8 @@ class ProfileExtractor(
 
                 val deviceInfo =
                     runCatching {
-                        val decoded = readRemoteLogToText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}").getOrThrow()
+                        onProgress(10)
+                        val decoded = readRemoteLogToText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}", onProgress).getOrThrow()
                         LogParser.parseLog(decoded.first)
                     }.getOrNull()
 
@@ -278,17 +278,18 @@ class ProfileExtractor(
             }
         }
 
-    suspend fun readBattleStats(): Result<BattleStats> =
+    suspend fun readBattleStats(onProgress: (Int) -> Unit = {}): Result<BattleStats> =
         withContext(Dispatchers.IO) {
             val path = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
             try {
-                val sizeRaw = backend.executeShellCommand("wc -c < \"$path\" 2>/dev/null").getOrDefault("0")
+                val sizeRaw = backend.executeShellCommand("wc -c < ${shQuote(path)} 2>/dev/null").getOrDefault("0")
                 val fileSize = sizeRaw.trim().toLongOrNull() ?: 0L
                 if (fileSize <= 0L) return@withContext Result.failure(Exception("Client.log is empty"))
 
                 val cacheDir = context.cacheDir.absolutePath
                 val localCopy = "$cacheDir/wuwa_battlestats_${System.currentTimeMillis()}"
 
+                onProgress(10)
                 backend.copyFile(path, localCopy).getOrThrow()
 
                 val localFile = File(localCopy)
@@ -302,26 +303,16 @@ class ProfileExtractor(
                 } catch (_: Exception) {
                 }
 
+                onProgress(50)
                 val (text, _) = LogParser.decodeLogBytes(rawBytes)
+                onProgress(80)
                 val lines = text.lines()
 
-                val numCores = Runtime.getRuntime().availableProcessors().coerceIn(1, 8)
-
-                val stats =
-                    if (numCores <= 1 || lines.size < 5000) {
-                        LogParser.parseBattleStatsLines(lines)
-                    } else {
-                        val chunkSize = (lines.size + numCores - 1) / numCores
-                        val partials =
-                            coroutineScope {
-                                lines.chunked(chunkSize)
-                                    .map { chunk ->
-                                        async(Dispatchers.Default) { LogParser.parseBattleStatsLines(chunk) }
-                                    }
-                                    .awaitAll()
-                            }
-                        partials.reduce { a, b -> a + b }
-                    }
+                // parseBattleStatsLines is stateful (the running stamina counter
+                // depends on the order of lines), so it must run single-threaded.
+                // Parallel chunking restarted the counter per chunk and produced a
+                // result that varied by core count.
+                val stats = LogParser.parseBattleStatsLines(lines)
                 return@withContext Result.success(stats.copy(logSizeBytes = fileSize))
             } catch (e: Exception) {
                 Log.w("ProfileExtractor", "readBattleStats failed: ${e.message}")
@@ -370,10 +361,9 @@ class ProfileExtractor(
     ): String? {
         if (db == null) return null
         return try {
-            val cursor = db.rawQuery("SELECT value FROM LocalStorage WHERE key=?", arrayOf(key))
-            val result = if (cursor.moveToFirst()) cursor.getString(0) else null
-            cursor.close()
-            result
+            db.rawQuery("SELECT value FROM LocalStorage WHERE key=?", arrayOf(key)).use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
         } catch (_: Exception) {
             null
         }

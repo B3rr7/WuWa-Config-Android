@@ -7,8 +7,8 @@ import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.LogInfo
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 data class PresetProfile(
@@ -23,6 +23,10 @@ data class PresetProfile(
     val detail: Int,
     val lod_bias: Int,
     val grasscull: Int,
+    val characterDetail: Int = 2,
+    val postProcess: Int = 2,
+    val staticLighting: Boolean = true,
+    val cutsceneQuality: Int = 2,
 ) {
     /**
      * Maps the preset's fine-grained [detail] rank onto the three boolean gates the
@@ -42,42 +46,42 @@ val PRESETS =
         "potato" to
             PresetProfile(
                 screen = 60, shadow = 0, shadowRes = 128, ssr = 0, mipbias = 3,
-                streaming = 0.3, vd = 0.3, flod = 0.4, detail = 1, lod_bias = 5, grasscull = 1500,
+                streaming = 0.3, vd = 0.3, flod = 0.4, detail = 0, lod_bias = 5, grasscull = 1500, characterDetail = 0, postProcess = 0, staticLighting = false, cutsceneQuality = 0,
             ),
         "endurance" to
             PresetProfile(
                 screen = 70, shadow = 0, shadowRes = 128, ssr = 0, mipbias = 3,
-                streaming = 0.4, vd = 0.4, flod = 0.5, detail = 1, lod_bias = 4, grasscull = 2500,
+                streaming = 0.4, vd = 0.4, flod = 0.5, detail = 1, lod_bias = 4, grasscull = 2500, characterDetail = 0, postProcess = 0, staticLighting = false, cutsceneQuality = 0,
             ),
         "performance" to
             PresetProfile(
                 screen = 60, shadow = 0, shadowRes = 256, ssr = 0, mipbias = 3,
-                streaming = 0.5, vd = 0.5, flod = 0.6, detail = 0, lod_bias = 3, grasscull = 4500,
+                streaming = 0.5, vd = 0.5, flod = 0.6, detail = 2, lod_bias = 3, grasscull = 4500, characterDetail = 1, postProcess = 1, staticLighting = false, cutsceneQuality = 1,
             ),
         "competitive" to
             PresetProfile(
                 screen = 100, shadow = 2, shadowRes = 256, ssr = 0, mipbias = 1,
-                streaming = 1.0, vd = 2.0, flod = 1.0, detail = 1, lod_bias = 1, grasscull = 2000,
+                streaming = 1.0, vd = 2.0, flod = 1.0, detail = 3, lod_bias = 1, grasscull = 2000, characterDetail = 1, postProcess = 1, staticLighting = false, cutsceneQuality = 1,
             ),
         "balanced" to
             PresetProfile(
                 screen = 80, shadow = 2, shadowRes = 1024, ssr = 1, mipbias = 0,
-                streaming = 2.0, vd = 1.5, flod = 2.0, detail = 1, lod_bias = 0, grasscull = 15000,
+                streaming = 2.0, vd = 1.5, flod = 2.0, detail = 4, lod_bias = 0, grasscull = 15000, characterDetail = 2, postProcess = 2, staticLighting = true, cutsceneQuality = 2,
             ),
         "high" to
             PresetProfile(
                 screen = 100, shadow = 4, shadowRes = 2048, ssr = 2, mipbias = 0,
-                streaming = 3.0, vd = 2.0, flod = 2.5, detail = 2, lod_bias = 0, grasscull = 20000,
+                streaming = 3.0, vd = 2.0, flod = 2.5, detail = 5, lod_bias = 0, grasscull = 20000, characterDetail = 2, postProcess = 2, staticLighting = true, cutsceneQuality = 2,
             ),
         "ultra" to
             PresetProfile(
                 screen = 100, shadow = 5, shadowRes = 2048, ssr = 4, mipbias = -1,
-                streaming = 4.0, vd = 3.0, flod = 3.0, detail = 3, lod_bias = -1, grasscull = 30000,
+                streaming = 4.0, vd = 3.0, flod = 3.0, detail = 6, lod_bias = -1, grasscull = 30000, characterDetail = 3, postProcess = 3, staticLighting = true, cutsceneQuality = 3,
             ),
         "cinematic" to
             PresetProfile(
                 screen = 100, shadow = 5, shadowRes = 4096, ssr = 4, mipbias = -2,
-                streaming = 6.0, vd = 4.0, flod = 4.0, detail = 4, lod_bias = -2, grasscull = 40000,
+                streaming = 6.0, vd = 4.0, flod = 4.0, detail = 7, lod_bias = -2, grasscull = 40000, characterDetail = 3, postProcess = 3, staticLighting = true, cutsceneQuality = 3,
             ),
     )
 
@@ -171,7 +175,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             "Paths=../../../Engine/Plugins/Runtime/Nvidia/NRD/Content",
         )
 
-    private val HEADER_TIME_FMT = SimpleDateFormat("yyyy.MM.dd @ HH:mm", Locale.US)
+    // Immutable (thread-safe) formatter — SimpleDateFormat is not safe for
+    // concurrent use and configHeader is called from IO/Default dispatchers.
+    private val HEADER_TIME_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd @ HH:mm", Locale.US)
 
     fun configHeader(
         platform: String,
@@ -180,7 +186,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
     ): String {
         // Pad/truncate to a fixed width so the ASCII box never misaligns when a
         // device model / GPU string is longer than the field reserves.
-        val timestamp = HEADER_TIME_FMT.format(Date())
+        val timestamp = HEADER_TIME_FMT.format(LocalDateTime.now())
         val device = (logInfo.deviceModel ?: "Generic").take(30).padEnd(30)
         val gpu = (logInfo.gpu ?: "Generic GPU").take(30).padEnd(30)
         val presetName = preset.uppercase().take(30).padEnd(30)
@@ -506,6 +512,8 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val landscapeCaptureSize = if (c.p.q0) 2 else 1
         return listOf(
             "; ── CHARACTER QUALITY ─────────────────────────────────",
+            "r.KuroMaterialQualityLevel=${c.p.characterDetail.coerceIn(0, 3)}",
+            "r.Kuro.KuroToonFFTHighQuality=${if (c.p.characterDetail >= 2) 1 else 0}",
             "r.Shadow.SkeletalMeshLODBias=${c.shadowSkLOD}",
             "r.Kuro.SkeletalMesh.LODScreenSizeScale=${c.charLODScale}",
             "r.Mobile.KuroPostprocess=1",
@@ -579,6 +587,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val shadowRes = minOf(p.shadowRes, tierCap)
         return listOf(
             "; ── SHADOW ───────────────────────────────────────────",
+            "r.AllowStaticLighting=${if (p.staticLighting) 1 else 0}",
             "r.Shadow.KuroEnablePointLightShadow=${if (p.shadow >= 3) 1 else 0}",
             "r.Shadow.CSM.MaxMobileCascades=$sc",
             "r.Shadow.RadiusThresholdFar=${if (p.shadow >= 3) "0.06" else "0.12"}",
@@ -821,6 +830,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val dt = ctx.dt
         return listOf(
             "; ── FRAME & DISPLAY ──────────────────────────────────",
+            "r.Kuro.Movie.EnableCGMovieRendering=${if (p.cutsceneQuality >= 1) 1 else 0}",
             "r.MobileHDR=1",
             "r.VSync=${if (ctx.opts.vsync) 1 else 0}",
             "r.SkinCache.SceneMemoryLimitInMB=${dt.skinCacheMem}",
@@ -1303,14 +1313,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             } else {
                 1
             }
-        val postQ =
-            if (p.q1) {
-                3
-            } else if (p.q0) {
-                2
-            } else {
-                1
-            }
+        val postQ = p.postProcess.coerceIn(0, 3)
         val texQ =
             if (p.q1) {
                 3
@@ -1411,14 +1414,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             } else {
                 1
             }
-        val postQ =
-            if (p.q1) {
-                3
-            } else if (p.q0) {
-                2
-            } else {
-                1
-            }
+        val postQ = p.postProcess.coerceIn(0, 3)
         val texQ =
             if (p.q1) {
                 3

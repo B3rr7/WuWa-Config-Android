@@ -5883,3 +5883,7 @@ r.streaming.groupboost.landscaperenderbias0texturemindistancesqr
 r.streaming.kurokeepmipsdisable
 r.vulkan.rayquery
 s.continuouslyincrementalgcwhilelevelspendingpurge
+r.kuro.maxfps.thirdparty60
+r.kuro.maxfps.thirdparty120
+r.kuro.graphicsquality.thirdpartyultraenable
+r.mobile.hbao

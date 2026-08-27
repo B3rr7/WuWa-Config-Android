@@ -37,34 +37,36 @@ class ConfigGeneratorTest {
 
     @Test
     fun `preset detail values match expected mapping`() {
-        assertEquals(1, PRESETS["potato"]!!.detail)
+        // detail ranks must increase monotonically with quality so the q0/q1/q2
+        // gates never invert (e.g. potato must be lighter than performance).
+        assertEquals(0, PRESETS["potato"]!!.detail)
         assertEquals(1, PRESETS["endurance"]!!.detail)
-        assertEquals(0, PRESETS["performance"]!!.detail)
-        assertEquals(1, PRESETS["competitive"]!!.detail)
-        assertEquals(1, PRESETS["balanced"]!!.detail)
-        assertEquals(2, PRESETS["high"]!!.detail)
-        assertEquals(3, PRESETS["ultra"]!!.detail)
-        assertEquals(4, PRESETS["cinematic"]!!.detail)
+        assertEquals(2, PRESETS["performance"]!!.detail)
+        assertEquals(3, PRESETS["competitive"]!!.detail)
+        assertEquals(4, PRESETS["balanced"]!!.detail)
+        assertEquals(5, PRESETS["high"]!!.detail)
+        assertEquals(6, PRESETS["ultra"]!!.detail)
+        assertEquals(7, PRESETS["cinematic"]!!.detail)
     }
 
     @Test
     fun `PresetProfile detail gates map correctly`() {
-        val p0 = PresetProfile(100, 5, 2048, 4, 0, 4.0, 3.0, 3.0, 0, -1, 30000)
+        val p0 = PresetProfile(100, 5, 2048, 4, 0, 4.0, 3.0, 3.0, 0, -1, 30000, 0, 0, false, 0)
         assertFalse(p0.q0)
         assertFalse(p0.q1)
         assertFalse(p0.q2)
 
-        val p1 = PresetProfile(100, 5, 2048, 4, 0, 4.0, 3.0, 3.0, 1, -1, 30000)
+        val p1 = PresetProfile(100, 5, 2048, 4, 0, 4.0, 3.0, 3.0, 1, -1, 30000, 0, 0, false, 0)
         assertTrue(p1.q0)
         assertFalse(p1.q1)
         assertFalse(p1.q2)
 
-        val p2 = PresetProfile(100, 5, 2048, 4, 0, 4.0, 3.0, 3.0, 2, -1, 30000)
+        val p2 = PresetProfile(100, 5, 2048, 4, 0, 4.0, 3.0, 3.0, 2, -1, 30000, 1, 1, false, 1)
         assertTrue(p2.q0)
         assertTrue(p2.q1)
         assertFalse(p2.q2)
 
-        val p3 = PresetProfile(100, 5, 2048, 4, 0, 4.0, 3.0, 3.0, 3, -1, 30000)
+        val p3 = PresetProfile(100, 5, 2048, 4, 0, 4.0, 3.0, 3.0, 3, -1, 30000, 1, 1, false, 1)
         assertTrue(p3.q0)
         assertTrue(p3.q1)
         assertTrue(p3.q2)
@@ -146,7 +148,7 @@ class ConfigGeneratorTest {
 
     @Test
     fun `generateWithCorePaths with profileOverride uses override`() {
-        val override = PresetProfile(100, 5, 2048, 4, 0, 4.0, 3.0, 3.0, 3, -1, 30000)
+        val override = PresetProfile(100, 5, 2048, 4, 0, 4.0, 3.0, 3.0, 3, -1, 30000, 1, 1, false, 1)
         val result =
             generator.generateWithCorePaths(
                 preset = "potato",
@@ -248,5 +250,32 @@ class ConfigGeneratorTest {
             )
         assertTrue(result.ini.engine.isNotBlank())
         assertEquals("nonexistent", result.activePreset)
+    }
+
+    @Test
+    fun `new preset fields are wired into generated INIs`() {
+        val cinematic =
+            generator.generateWithCorePaths(
+                preset = "cinematic",
+                opts = defaultOpts,
+                corePaths = emptyList(),
+                logInfo = LogInfo(),
+            )
+        assertTrue(cinematic.ini.engine.contains("r.AllowStaticLighting=1"))
+        assertTrue(cinematic.ini.engine.contains("r.KuroMaterialQualityLevel=3"))
+        assertTrue(cinematic.ini.engine.contains("r.Kuro.Movie.EnableCGMovieRendering=1"))
+        assertTrue(cinematic.ini.gameUserSettings.contains("sg.PostProcessQuality=3"))
+
+        val potato =
+            generator.generateWithCorePaths(
+                preset = "potato",
+                opts = defaultOpts,
+                corePaths = emptyList(),
+                logInfo = LogInfo(),
+            )
+        assertTrue(potato.ini.engine.contains("r.AllowStaticLighting=0"))
+        assertTrue(potato.ini.engine.contains("r.KuroMaterialQualityLevel=0"))
+        assertTrue(potato.ini.engine.contains("r.Kuro.Movie.EnableCGMovieRendering=0"))
+        assertTrue(potato.ini.gameUserSettings.contains("sg.PostProcessQuality=0"))
     }
 }

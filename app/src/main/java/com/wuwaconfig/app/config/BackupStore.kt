@@ -55,11 +55,17 @@ class BackupStore(
                 val allIniNames = setOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
                 val targetNames = selectedFiles ?: allIniNames
                 val configFiles =
-                    files.filter { it in targetNames && it in allIniNames }.map { fileName ->
+                    files.filter { it in targetNames && it in allIniNames }.mapNotNull { fileName ->
                         Log.d("BackupStore", "createBackup: reading $fileName")
-                        val content = backend.readFile("${GamePaths.TARGET_DIR}/$fileName").getOrThrow()
-                        Log.d("BackupStore", "createBackup: read $fileName (${content.length} chars)")
-                        ConfigFile(name = fileName, content = content)
+                        val content = backend.readFile("${GamePaths.TARGET_DIR}/$fileName").getOrNull()
+                        if (content == null) {
+                            // A single unreadable file must not abort the whole backup.
+                            LogRepository.add("ConfigManager: skipped unreadable $fileName", LogLevel.WARNING)
+                            null
+                        } else {
+                            Log.d("BackupStore", "createBackup: read $fileName (${content.length} chars)")
+                            ConfigFile(name = fileName, content = content)
+                        }
                     }
                 LogRepository.add("ConfigManager: backup read ${configFiles.size} config files")
                 Log.d("BackupStore", "createBackup: saving backup to $backupDir")

@@ -8,7 +8,6 @@ enum class GameMode(val label: String) {
 data class CvarEntry(
     val key: String,
     val value: String,
-    val category: String = "",
     val isOverridden: Boolean = false,
 )
 
@@ -22,15 +21,11 @@ data class GeneratorOptions(
     val hzb: Boolean = false,
     val fog: Boolean = false,
     val ca: Boolean = true,
-    val net: Boolean = true,
-    val profile: String = "auto",
     val disableOutline: Boolean = false,
     val disableRadialBlur: Boolean = false,
     val disableBloom: Boolean = false,
     val disableAutoExposure: Boolean = false,
     val disableSSR: Boolean = false,
-    val texOverride: Int = -1,
-    val shadowOverride: Int = -1,
     val mode: GameMode = GameMode.Overworld,
     val cvarOverrides: Map<String, String> = emptyMap(),
     val generateEngine: Boolean = true,

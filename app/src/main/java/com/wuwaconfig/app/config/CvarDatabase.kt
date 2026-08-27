@@ -7,6 +7,7 @@ import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -23,6 +24,11 @@ class CvarDatabase(private val assets: AssetManager) {
     private var _defaultValues: Map<String, String>? = null
 
     private val loadMutex = Mutex()
+
+    // A single long-lived scope for the async load triggered by ensureLoaded.
+    // Previously every cache-miss spawned a fresh CoroutineScope(Dispatchers.IO)
+    // that was never cancelled, leaking scopes on a hot path.
+    private val loadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     suspend fun load() =
         loadMutex.withLock {
@@ -63,7 +69,7 @@ class CvarDatabase(private val assets: AssetManager) {
         // single-flight so assets are never read twice. Until it lands, optimizers skip
         // safely instead of doing a synchronous asset read here.
         LogRepository.add("CvarDatabase: not loaded yet; triggering async load", LogLevel.WARNING)
-        CoroutineScope(Dispatchers.IO).launch { load() }
+        loadScope.launch { load() }
     }
 
     val allCvars: Set<String> get() {
@@ -92,21 +98,6 @@ class CvarDatabase(private val assets: AssetManager) {
 
     fun categorize(key: String): CvarCategory = CvarCategorizer.categorize(key)
 
-    fun detailFor(
-        key: String,
-        value: String,
-    ): CvarDetail {
-        val k = key.lowercase()
-        val gd = defaultValues[k]
-        return CvarDetail(
-            isKnown = k in allCvars,
-            isMonitored = k in monitoredCvars,
-            gameDefault = gd,
-            matchesDefault = gd != null && gd == value,
-            category = categorize(key),
-        )
-    }
-
     fun optimizeIniText(text: String): String {
         val all = _allCvars ?: return text
         val monitored = _monitoredCvars ?: emptySet()
@@ -119,6 +110,9 @@ class CvarDatabase(private val assets: AssetManager) {
         cvarValues: Map<String, String>,
     ): Map<String, CvarDetail> {
         ensureLoaded()
+        // extractCvarValues keys preserve original case; normalize once so the
+        // case-sensitive lookup against defaultValues (lowercased) succeeds.
+        val normalizedValues = cvarValues.mapKeys { it.key.lowercase() }
         return cvars.associateWith { key ->
             val k = key.lowercase()
             val gd = defaultValues[k]
@@ -126,7 +120,7 @@ class CvarDatabase(private val assets: AssetManager) {
                 isKnown = k in allCvars,
                 isMonitored = k in monitoredCvars,
                 gameDefault = gd,
-                matchesDefault = gd != null && cvarValues[k]?.let { gd == it } == true,
+                matchesDefault = gd != null && normalizedValues[k]?.let { gd == it } == true,
                 category = categorize(key),
             )
         }
@@ -193,6 +187,16 @@ internal fun optimizeIniTextImpl(
         val rawValue = cvarLine.substring(eq + 1).trim()
         val value = rawValue.substringBefore(';').trim()
         val k = key.lowercase()
+        // Only treat the line as a candidate CVar if the key actually looks like a
+        // console variable. Section-specific INI keys (e.g. `Paths=` in [Core.System])
+        // match `key=value` but are never in the CVar database, so without this guard
+        // they were silently commented out as "unknown CVar" and lost. This guard keeps
+        // the two optimizers (extractCvarNames / deduplicateIniText) in lockstep — all
+        // three share CVAR_PREFIXES as the single source of truth.
+        if (!CVAR_PREFIXES.any { k.startsWith(it) }) {
+            out.add(line)
+            continue
+        }
         val reason =
             when {
                 k !in allCvars -> "unknown CVar"

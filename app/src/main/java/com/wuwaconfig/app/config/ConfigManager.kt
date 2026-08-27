@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 import kotlin.random.Random
 
 /**
@@ -31,9 +32,16 @@ class ConfigManager(
     private val backendProvider: () -> AccessBackend,
     private val backupDirPath: String? = null,
 ) {
+    @Volatile
     private var _backend: AccessBackend = backendProvider()
+
+    @Volatile
     private lateinit var _backupStore: BackupStore
+
+    @Volatile
     private lateinit var _profileExtractor: ProfileExtractor
+
+    @Volatile
     private lateinit var _hashMonitor: HashMonitor
 
     init {
@@ -49,8 +57,14 @@ class ConfigManager(
     private fun rebuildIfNeeded() {
         val b = backendProvider()
         if (b !== _backend) {
-            _backend = b
-            rebuild()
+            synchronized(this) {
+                // Re-check inside the lock: two coroutines racing through the
+                // getters could otherwise observe a half-rebuilt manager.
+                if (b !== _backend) {
+                    _backend = b
+                    rebuild()
+                }
+            }
         }
     }
 
@@ -74,6 +88,14 @@ class ConfigManager(
             rebuildIfNeeded()
             return _hashMonitor
         }
+
+    /**
+     * A unique staging directory per invocation. Previously every operation
+     * shared [Context.getCacheDir]/staging and deleted it on completion, so two
+     * overlapping operations (e.g. a deploy and an INI-edit save) could delete
+     * the other's in-flight file.
+     */
+    private fun newStagingDir(): File = File(context.cacheDir, "staging-${UUID.randomUUID()}").also { it.mkdirs() }
 
     // ===== Deploy / restore (core config-apply responsibility) =====
 
@@ -113,8 +135,7 @@ class ConfigManager(
                     }
                 }
 
-                val tempDir = File(context.cacheDir, "staging")
-                tempDir.mkdirs()
+                val tempDir = newStagingDir()
                 try {
                     for ((name, content) in iniFiles) {
                         onProgress("Applying $name...")
@@ -144,12 +165,16 @@ class ConfigManager(
     ): Result<String> =
         withContext(Dispatchers.IO) {
             try {
+                // Guard the privileged file-write API: only allow known monitored
+                // INI names so a ".." component can never escape TARGET_DIR.
+                if (fileName !in GamePaths.MONITORED_FILES && !Regex("""^[A-Za-z0-9_.\-]+$""").matches(fileName)) {
+                    return@withContext Result.failure(IllegalArgumentException("Invalid file name: $fileName"))
+                }
                 LogRepository.add("ConfigManager: pushing single file $fileName")
                 onProgress("Ensuring target directory exists...")
                 backend.ensureDirectoryExists(GamePaths.TARGET_DIR).getOrThrow()
 
-                val tempDir = File(context.cacheDir, "staging")
-                tempDir.mkdirs()
+                val tempDir = newStagingDir()
                 try {
                     val tempFile = File(tempDir, fileName)
                     tempFile.writeText(content)
@@ -187,8 +212,7 @@ class ConfigManager(
                 onProgress("Ensuring target directory exists...")
                 backend.ensureDirectoryExists(GamePaths.TARGET_DIR).getOrThrow()
 
-                val tempDir = File(context.cacheDir, "staging")
-                tempDir.mkdirs()
+                val tempDir = newStagingDir()
                 try {
                     for (file in files) {
                         onProgress("Restoring ${file.name}...")
@@ -214,10 +238,39 @@ class ConfigManager(
         targetPath: String,
         onProgress: (String) -> Unit,
     ): Result<String> =
-        retryIO(times = PUSH_RETRY_COUNT + 1, backoffMs = 0) {
-            onProgress("Retrying $displayName...")
-            backend.pushFile(sourcePath, targetPath).getOrThrow()
+        retryIO(times = PUSH_RETRY_COUNT + 1, backoffMs = 300L) {
+            onProgress("Pushing $displayName...")
+            try {
+                backend.pushFile(sourcePath, targetPath).getOrThrow()
+            } catch (e: Throwable) {
+                throw enrichScopedStorageError(e, targetPath)
+            }
         }
+
+    /**
+     * Turns a raw shell "Permission denied" on a push into an actionable message. On some
+     * ROMs (notably heavily-customized Chinese builds) `shell` (uid 2000) can traverse but
+     * cannot write another app's `Android/data`, so deploy fails there. The only remedies are
+     * the SAF backend (user-granted tree URI) or Root — surface that instead of a bare
+     * "sh: can't create ... Permission denied".
+     */
+    private fun enrichScopedStorageError(
+        e: Throwable,
+        targetPath: String,
+    ): Throwable {
+        val msg = e.message ?: ""
+        return if (msg.contains("Permission denied", ignoreCase = true) &&
+            targetPath.contains("Android/data/", ignoreCase = true)
+        ) {
+            Exception(
+                "Cannot write to the game's Android/data on this device — the ROM blocks " +
+                    "shell writes (scoped storage). Switch to the SAF or Root access method. " +
+                    "(original: $msg)",
+            )
+        } else {
+            e
+        }
+    }
 
     suspend fun readCurrentConfig(fileName: String): Result<String> {
         return backend.readFile("${GamePaths.TARGET_DIR}/$fileName")
@@ -288,7 +341,7 @@ class ConfigManager(
                         continue
                     }
                     onProgress("Cleaning $name...")
-                    val tempFile = File(context.cacheDir, "staging_$name")
+                    val tempFile = File(context.cacheDir, "staging_${name}_${UUID.randomUUID()}")
                     tempFile.parentFile?.mkdirs()
                     try {
                         tempFile.writeText(cleanedContent)
@@ -374,13 +427,11 @@ class ConfigManager(
 
     suspend fun readClientLogTextWithMetadata(onProgress: (Int) -> Unit = {}): Result<Pair<String, LogParser.DecodeResult>> = profileExtractor.readClientLogTextWithMetadata(onProgress)
 
-    suspend fun readLatestBackupLogWithMetadata(onProgress: (Int) -> Unit = {}): Result<Pair<String, LogParser.DecodeResult>> = profileExtractor.readLatestBackupLogWithMetadata(onProgress)
-
     suspend fun verifyDeployedCvars(generatedCvars: Set<String>): Result<VerificationReport> = profileExtractor.verifyDeployedCvars(generatedCvars)
 
-    suspend fun readProfile(): Result<PlayerProfile> = profileExtractor.readProfile()
+    suspend fun readProfile(onProgress: (Int) -> Unit = {}): Result<PlayerProfile> = profileExtractor.readProfile(onProgress)
 
-    suspend fun readBattleStats(): Result<BattleStats> = profileExtractor.readBattleStats()
+    suspend fun readBattleStats(onProgress: (Int) -> Unit = {}): Result<BattleStats> = profileExtractor.readBattleStats(onProgress)
 
     suspend fun readFullClientLogWithMetadata(): Result<Pair<String, LogParser.DecodeResult>> = profileExtractor.readFullClientLogWithMetadata()
 

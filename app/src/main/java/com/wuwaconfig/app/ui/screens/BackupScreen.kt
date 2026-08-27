@@ -319,9 +319,10 @@ private fun BackupManageCard(
                     Spacer(Modifier.width(8.dp))
                     SuggestionChip(
                         onClick = {},
+                        enabled = false,
                         label = { Text(label, style = MaterialTheme.typography.labelSmall, color = accent) },
                         colors = SuggestionChipDefaults.suggestionChipColors(containerColor = accent.copy(alpha = 0.1f)),
-                        border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accent.copy(alpha = 0.2f)),
+                        border = SuggestionChipDefaults.suggestionChipBorder(enabled = false, borderColor = accent.copy(alpha = 0.2f)),
                     )
                 }
                 Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -335,6 +336,7 @@ private fun BackupManageCard(
             backup.files.forEach { file ->
                 SuggestionChip(
                     onClick = {},
+                    enabled = false,
                     label = { Text(file.name, style = MaterialTheme.typography.labelSmall) },
                     colors = SuggestionChipDefaults.suggestionChipColors(containerColor = accent.copy(alpha = 0.08f)),
                     border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = accent.copy(alpha = 0.15f)),

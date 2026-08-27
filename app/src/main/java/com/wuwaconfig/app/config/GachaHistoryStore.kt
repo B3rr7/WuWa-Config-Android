@@ -46,14 +46,9 @@ object GachaHistoryStore {
         val entry =
             GachaHistoryEntry(
                 id = UUID.randomUUID().toString().take(8),
-                createdAt = now,
                 expiresAt = now + TTL_HOURS * 60 * 60 * 1000,
                 totalPulls = data.totalPulls,
                 fiveStars = data.fiveStars,
-                fourStars = data.fourStars,
-                avgPity5 = data.avgPity5,
-                avgPity4 = data.avgPity4,
-                predictions = data.predictions,
                 fullDataJson = gson.toJson(data),
             )
         synchronized(lock) { getFile(ctx).writeAtomic(gson.toJson(entry)) }
@@ -61,11 +56,5 @@ object GachaHistoryStore {
 
     fun delete(ctx: Context) {
         synchronized(lock) { getFile(ctx).delete() }
-    }
-
-    fun getRemainingHours(ctx: Context): Long {
-        val entry = load(ctx) ?: return 0L
-        val remaining = entry.expiresAt - System.currentTimeMillis()
-        return maxOf(remaining / (60 * 60 * 1000), 0L)
     }
 }

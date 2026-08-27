@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,7 +71,7 @@ fun IniEditorScreen(
     val errorMessage by viewModel.iniEditorError.collectAsStateWithLifecycle()
     val successMessage by viewModel.iniEditorSuccess.collectAsStateWithLifecycle()
 
-    var editorText by remember { mutableStateOf("") }
+    var editorText by rememberSaveable { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var currentMatch by remember { mutableIntStateOf(0) }
@@ -314,7 +315,10 @@ fun IniEditorScreen(
                     contentAlignment = Alignment.BottomCenter,
                 ) {
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        modifier =
+                            Modifier.fillMaxWidth().padding(12.dp).clickable {
+                                viewModel.clearIniEditorError()
+                            },
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF4A1E8A).copy(alpha = 0.95f)),
                     ) {
                         Text(

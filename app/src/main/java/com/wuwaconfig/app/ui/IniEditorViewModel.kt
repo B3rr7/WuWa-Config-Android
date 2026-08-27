@@ -2,7 +2,6 @@ package com.wuwaconfig.app.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.config.HashSync
@@ -11,7 +10,6 @@ import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 class IniEditorViewModel(application: Application) : AndroidViewModel(application) {
     private val app: WuWaConfigApp =
@@ -21,6 +19,8 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
     private val configManager: ConfigManager by lazy { ConfigManager(app, { app.backend }) }
 
     private val hashSync: HashSync by lazy { HashSync({ app.backend }, configManager) }
+
+    private val ops get() = app.deviceOps
 
     private val _editingFileName = MutableStateFlow<String?>(null)
     val editingFileName: StateFlow<String?> = _editingFileName.asStateFlow()
@@ -53,7 +53,8 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun readIniFile(fileName: String) {
-        viewModelScope.launch {
+        ops.setApplying(true)
+        ops.launchBackendOp(managesBusyFlag = true) {
             _iniEditorLoading.value = true
             _iniEditorError.value = null
             addLog("INI Editor: reading $fileName from device")
@@ -67,6 +68,7 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
                 addLog("INI Editor: failed to read $fileName: ${e.message}", LogLevel.ERROR)
             }
             _iniEditorLoading.value = false
+            ops.setApplying(false)
         }
     }
 
@@ -78,7 +80,8 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun saveIniFile(content: String) {
         val fileName = _editingFileName.value ?: return
-        viewModelScope.launch {
+        ops.setApplying(true)
+        ops.launchBackendOp(managesBusyFlag = true) {
             _iniEditorLoading.value = true
             _iniEditorError.value = null
             addLog("INI Editor: saving $fileName to device")
@@ -98,6 +101,7 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
                     addLog("INI Editor: failed to save $fileName: ${e.message}", LogLevel.ERROR)
                 }
             _iniEditorLoading.value = false
+            ops.setApplying(false)
         }
     }
 
@@ -106,7 +110,7 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
      * [onResult] receives `true` when hashes were out of sync and a refresh ran.
      */
     fun syncConfigHashes(onResult: (Boolean) -> Unit = {}) {
-        viewModelScope.launch {
+        ops.launchBackendOp(managesBusyFlag = false) {
             try {
                 onResult(hashSync.syncIfNeeded())
             } catch (e: Exception) {
