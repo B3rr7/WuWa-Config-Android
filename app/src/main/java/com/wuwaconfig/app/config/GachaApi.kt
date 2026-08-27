@@ -12,9 +12,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object GachaApi {
-    // Standard pool characters/weapons are derived from the standard pool (type "1")
-    // records in the gacha history. Any 5★ that appears in the standard pool is
-    // considered standard. This avoids hardcoded lists that go stale each patch.
+    // Standard pools are the permanent "Standard" banners; any 5★ pulled there is
+    // a standard 5★ (used to decide character-banner soft-pity status).
+    private val STANDARD_POOLS = setOf("3", "8", "11")
     private val CHARACTER_POOLS = setOf("1", "7", "10")
 
     private val gson = Gson()
@@ -109,7 +109,7 @@ object GachaApi {
             val predictions = mutableListOf<PityPrediction>()
             val standardFiveStars =
                 records
-                    .filter { it.cardPoolType == "1" && it.qualityLevel == 5 }
+                    .filter { it.cardPoolType in STANDARD_POOLS && it.qualityLevel == 5 }
                     .map { it.name }
                     .toSet()
             for (pool in GachaPool.ALL) {
@@ -181,7 +181,6 @@ object GachaApi {
                         GachaRecord(
                             cardPoolType = (item["cardPoolType"] as? String) ?: return@mapNotNull null,
                             qualityLevel = (item["qualityLevel"] as? Number)?.toInt() ?: 0,
-                            resourceType = item["resourceType"] as? String ?: "",
                             name = item["name"] as? String ?: "",
                             count = (item["count"] as? Number)?.toInt() ?: 1,
                             time = item["time"] as? String ?: "",
@@ -284,7 +283,7 @@ object GachaApi {
         val nearbyFives =
             fiveStarRecords.filter {
                 it.name !in standardFiveStars
-            }
+            }.toSet()
         val avgCharPity =
             if (nearbyFives.size >= 2) {
                 val pityGroups = mutableListOf<Int>()

@@ -30,6 +30,9 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val _profileLoading = MutableStateFlow(false)
     val profileLoading: StateFlow<Boolean> = _profileLoading.asStateFlow()
 
+    private val _profileProgress = MutableStateFlow(0)
+    val profileProgress: StateFlow<Int> = _profileProgress.asStateFlow()
+
     private val _configModifyCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val configModifyCounts: StateFlow<Map<String, Int>> = _configModifyCounts.asStateFlow()
 
@@ -68,9 +71,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             if (forceRefresh) _playerProfile.value = null
             _profileLoading.value = true
+            _profileProgress.value = 0
             addLog(if (forceRefresh) "Refreshing player profile..." else "Reading player profile (read-only)...")
             try {
-                val result = configManager.readProfile()
+                val result = configManager.readProfile(onProgress = { _profileProgress.value = it })
                 if (result.isSuccess) {
                     val profile = result.getOrThrow()
                     _playerProfile.value = profile
@@ -86,6 +90,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 addLog("CRASH: ${e.message}")
                 Log.e("WuWaConfig", "loadProfile crashed", e)
             } finally {
+                _profileProgress.value = 0
                 _profileLoading.value = false
             }
         }

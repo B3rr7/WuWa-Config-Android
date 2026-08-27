@@ -89,11 +89,6 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    val deployHistoryEnabled: StateFlow<Boolean> = app.deployHistoryEnabled
-    val colorfulUi: StateFlow<Boolean> = app.colorfulUi
-    val chipsetInfo = app.chipsetInfo
-    val gameConfigDir: String = app.gameConfigDir
-
     private val deployHistoryStore: DeployHistoryStore = app.deployHistoryStore
     private val _deployRecords = MutableStateFlow<List<DeployRecord>>(deployHistoryStore.getAllRecords())
     val deployRecords: StateFlow<List<DeployRecord>> = _deployRecords.asStateFlow()
@@ -107,15 +102,6 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     val backupStorageDir: String
         get() = prefs.getString("backup_dir", defaultBackupDir) ?: defaultBackupDir
-
-    val isSetupDone: Boolean
-        get() = prefs.getBoolean("setup_done", false)
-
-    val termsAccepted: Boolean
-        get() = prefs.getBoolean("terms_accepted", false)
-
-    val termsVersionAccepted: Int
-        get() = prefs.getInt("terms_version", 0)
 
     fun switchTo(method: AccessMethod) {
         if (ops.isApplying.value || ops.mutex.isLocked) {

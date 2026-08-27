@@ -5937,4 +5937,11 @@ Widget.UseParallelAnimation
 wo.ParallelOffset
 wo.paralleloffsetactormaxnum
 yTags.Ugsage.Wav
+;============================================================
+; Added — keep in sync with libUE4_cvars.txt
+;============================================================
+r.kuro.graphicsquality.thirdpartyultraenable
+r.kuro.maxfps.thirdparty120
+r.kuro.maxfps.thirdparty60
+r.mobile.hbao
 

@@ -1,6 +1,7 @@
 package com.wuwaconfig.app.ui.screens
 
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.adb.PortScanner
 import com.wuwaconfig.app.backend.AccessMethod
+import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.ui.BackupViewModel
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
@@ -122,6 +124,13 @@ fun HomeScreen(
             }
         }
 
+    val safTreeLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocumentTree(),
+        ) { uri: Uri? ->
+            if (uri != null) deployHistoryViewModel.saveSafTreeUri(uri)
+        }
+
     GradientBackground {
         Scaffold(
             topBar = {
@@ -202,13 +211,6 @@ fun HomeScreen(
                     )
                 }
                 item {
-                    val safTreeLauncher =
-                        rememberLauncherForActivityResult(
-                            contract = ActivityResultContracts.OpenDocumentTree(),
-                        ) { uri: Uri? ->
-                            if (uri != null) deployHistoryViewModel.saveSafTreeUri(uri)
-                        }
-
                     if (!backendStatus.connected) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             GlassButton(
@@ -243,7 +245,14 @@ fun HomeScreen(
                                     }
                                 AccessMethod.SAF ->
                                     GlassOutlinedButton(
-                                        onClick = { safTreeLauncher.launch(null) },
+                                        onClick = {
+                                            val initialUri =
+                                                DocumentsContract.buildTreeDocumentUri(
+                                                    "com.android.externalstorage.documents",
+                                                    "primary:Android/data/${GamePaths.TARGET_PACKAGE}",
+                                                )
+                                            safTreeLauncher.launch(initialUri)
+                                        },
                                         modifier = Modifier.weight(1f),
                                         enabled = true,
                                         accentColor = NeonAmber,

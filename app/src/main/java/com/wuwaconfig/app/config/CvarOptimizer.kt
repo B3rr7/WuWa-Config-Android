@@ -16,7 +16,7 @@ object CvarOptimizer {
             (Regex("""dimensity\s*(9[0-2]\d|8[5-9]\d)""") to "high"),
             (Regex("""exynos\s*2200""") to "high"),
             (Regex("""kirin\s*9000""") to "high"),
-            (Regex("""mali-g[78]\d\d|mali-g9""") to "high"),
+            (Regex("""mali-g(7[6-9]|8\d|9\d)\d?""") to "high"),
             (Regex("""apple\s*(m[12]|a1[67])""") to "high"),
             (Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""") to "mid_high"),
             (Regex("""dimensity\s*(8[0-4]\d|7[3-9]\d)""") to "mid_high"),
@@ -25,12 +25,12 @@ object CvarOptimizer {
             (Regex("""kirin\s*9[1-9]\d\d?""") to "mid_high"),
             (Regex("""xclipse""") to "mid_high"),
             (Regex("""apple\s*a1[45]""") to "mid_high"),
-            (Regex("""adreno.*6[0-4]\d|mali-g[6-7]\d\d|mali-g615""") to "mid"),
+            (Regex("""adreno.*6[0-4]\d|mali-g(6\d|7[0-5])\d?|mali-g615""") to "mid"),
             (Regex("""dimensity\s*[0-9]{3}""") to "mid"),
             (Regex("""exynos\s*[0-9]{4}""") to "mid"),
             (Regex("""kirin\s*[0-9]{4}""") to "mid"),
             (Regex("""apple\s*a1[23]""") to "mid"),
-            (Regex("""adreno.*5\d\d|mali-g5[0-9]\d|mali-g57""") to "mid_low"),
+            (Regex("""adreno.*5\d\d|mali-g5\d?""") to "mid_low"),
             (Regex("""adreno.*[34]\d\d|mali-g[34]""") to "low"),
         )
 

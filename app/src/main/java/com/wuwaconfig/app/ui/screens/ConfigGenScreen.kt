@@ -64,7 +64,11 @@ fun ConfigGenScreen(
 ) {
     val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
     val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
-    val readingProgress by deployHistoryViewModel.readingProgress.collectAsStateWithLifecycle()
+    // Analysis progress lives on the insights VM; deploy verification progress lives on the
+    // deploy VM. Only one is ever >0 at a time (DeviceOps serializes them), so pick the active one.
+    val analysisProgress by insightsViewModel.readingProgress.collectAsStateWithLifecycle()
+    val deployReadingProgress by deployHistoryViewModel.readingProgress.collectAsStateWithLifecycle()
+    val readingProgress = if (analysisProgress > 0) analysisProgress else deployReadingProgress
     val logInfo by insightsViewModel.logAnalysis.collectAsStateWithLifecycle()
     val brain by insightsViewModel.brainRecommendation.collectAsStateWithLifecycle()
     val deployResult by deployHistoryViewModel.deployResult.collectAsStateWithLifecycle()

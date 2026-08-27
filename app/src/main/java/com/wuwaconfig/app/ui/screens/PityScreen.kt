@@ -199,7 +199,7 @@ fun PityScreen(
                         val poolRecords = gachaData!!.records.filter { it.cardPoolType == pool.type }
                         if (poolRecords.isEmpty()) continue
                         item { PoolHistoryHeader(pool, poolRecords) }
-                        items(poolRecords.size) { idx -> RecordRow(poolRecords[idx]) }
+                        items(poolRecords.size, key = { idx -> "${pool.type}-$idx" }) { idx -> RecordRow(poolRecords[idx]) }
                         item { Spacer(Modifier.height(8.dp)) }
                     }
                 } else if (conveneUrl != null) {

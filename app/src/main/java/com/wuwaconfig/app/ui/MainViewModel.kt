@@ -23,7 +23,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ?: throw IllegalStateException("MainViewModel requires WuWaConfigApp application")
 
     val configGenerator get() = app.configGenerator
-    val cvarDatabase get() = app.cvarDatabase
 
     private val configManager: ConfigManager by lazy { ConfigManager(app, { app.backend }) }
 
@@ -31,7 +30,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val deployHistoryEnabled: StateFlow<Boolean> = app.deployHistoryEnabled
     val colorfulUi: StateFlow<Boolean> = app.colorfulUi
-    val chipsetInfo = app.chipsetInfo
     val gameConfigDir: String = app.gameConfigDir
 
     val backupStorageDir: String

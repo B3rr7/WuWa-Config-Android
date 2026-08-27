@@ -35,11 +35,6 @@ object LogParser {
         return result
     }
 
-    fun decodeXorBytes(data: ByteArray): Pair<String, DecodeResult> {
-        val decoded = applyXorLut(data)
-        return decodeLogBytes(decoded).let { it.first to DecodeResult.DECRYPTED }
-    }
-
     fun decodeLogBytes(data: ByteArray): Pair<String, DecodeResult> {
         val decrypted = decryptWuwaLog(data)
         val backupDecrypted = if (decrypted == null) decryptBackupLog(data) else null
@@ -140,7 +135,7 @@ object LogParser {
             LOW_MEM_RE.find(line)?.let { m ->
                 isLowMem = m.groupValues[1].lowercase() == "true"
             }
-            FLAG_RE.find(line)?.let { m ->
+            FLAG_RE.findAll(line).forEach { m ->
                 val g = m.groupValues
                 if (g[1].isNotEmpty()) hasVulkanRhi = true
                 if (g[2].isNotEmpty() || g[3].isNotEmpty()) hasOpenGl = true
@@ -368,7 +363,8 @@ object LogParser {
 
     fun parseBattleStats(text: String): BattleStats {
         val stats = parseBattleStatsLines(text.lines())
-        return stats.copy(logSizeBytes = text.length.toLong())
+        // Byte length, not char count (UTF-16 source logs inflate char counts).
+        return stats.copy(logSizeBytes = text.toByteArray(Charsets.UTF_8).size.toLong())
     }
 
     /** Maps an RHI CVar value (e.g. from `r.RHI`) to a normalized API name. */

@@ -2,6 +2,7 @@ package com.wuwaconfig.app.backend
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
 import com.wuwaconfig.app.PREFS_NAME
 import com.wuwaconfig.app.model.GamePaths
@@ -271,9 +272,11 @@ class SafBackend(private val context: Context) : AccessBackend {
         val tree = _treeUri ?: return null
         val root = DocumentFile.fromTreeUri(context, tree) ?: return null
         val nameOnly = path.substringAfterLast('/')
+        val treeRoot = treeDeviceRoot() ?: knownRoot
 
         val strategies =
             listOf(
+                { stripAndNavigate(path, root, treeRoot) },
                 { stripAndNavigate(path, root, knownRoot) },
                 { stripAndNavigate(path, root, path.substringBeforeLast("/")) },
                 { root.findFile(nameOnly) },
@@ -283,6 +286,31 @@ class SafBackend(private val context: Context) : AccessBackend {
             if (result != null && result.exists()) return result
         }
         return null
+    }
+
+    /**
+     * Maps the granted SAF tree URI back to its on-disk path so we can navigate the *full*
+     * relative path regardless of how deep the user granted access. On Android 11+ the picker
+     * hides `Android/data`, so the only grantable folder is the game's `Android/data/<pkg>` tree —
+     * whose document id is `primary:Android/data/<pkg>`. Deriving the real root from that id lets
+     * us write into `.../<pkg>/files/UE4Game/...` even though the tree isn't rooted at the config dir.
+     */
+    private fun treeDeviceRoot(): String? {
+        val uri = _treeUri ?: return null
+        val docId =
+            try {
+                DocumentsContract.getTreeDocumentId(uri)
+            } catch (_: Exception) {
+                return null
+            }
+        val split = docId.split(":", limit = 2)
+        if (split.size != 2) return null
+        val base =
+            when (split[0]) {
+                "primary" -> "/storage/emulated/0"
+                else -> "/storage/${split[0]}"
+            }
+        return "$base/${split[1]}".replace(Regex("/{2,}"), "/")
     }
 
     private fun stripAndNavigate(
@@ -307,9 +335,11 @@ class SafBackend(private val context: Context) : AccessBackend {
         val tree = _treeUri ?: throw Exception("No SAF directory selected")
         val root = DocumentFile.fromTreeUri(context, tree) ?: throw Exception("Cannot access tree")
         val nameOnly = path.substringAfterLast('/')
+        val treeRoot = treeDeviceRoot() ?: knownRoot
 
         val strategies =
             listOf(
+                { stripAndNavigate(path, root, treeRoot) },
                 { stripAndNavigate(path, root, knownRoot) },
                 { stripAndNavigate(path, root, path.substringBeforeLast("/")) },
                 { root.findFile(nameOnly) },
@@ -320,7 +350,7 @@ class SafBackend(private val context: Context) : AccessBackend {
         }
 
         // Path doesn't exist yet — create intermediate directories, then the final segment.
-        val parts = path.removePrefix(knownRoot).trimStart('/').split("/").filter { it.isNotBlank() }
+        val parts = path.removePrefix(treeRoot).trimStart('/').split("/").filter { it.isNotBlank() }
         var current = root
         for (i in parts.indices) {
             val part = parts[i]

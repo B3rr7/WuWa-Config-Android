@@ -63,10 +63,12 @@ object ForbiddenCvars {
                 sb.appendLine(line)
                 continue
             }
-            val eqIdx = trimmed.indexOf('=')
-            val keyPart = if (eqIdx >= 0) trimmed.substring(0, eqIdx).trim() else trimmed.trim()
-            val strippedKey = keyPart.removePrefix("+CVars=").removePrefix("-CVars=").trim()
-            if (!isForbidden(strippedKey)) {
+            // Strip the leading +CVars= / -CVars= directive BEFORE splitting on '=',
+            // otherwise the delimiter inside the directive is parsed as the key.
+            val body = trimmed.removePrefix("+CVars=").removePrefix("-CVars=").trim()
+            val eqIdx = body.indexOf('=')
+            val keyPart = if (eqIdx >= 0) body.substring(0, eqIdx).trim() else body.trim()
+            if (!isForbidden(keyPart)) {
                 sb.appendLine(line)
             }
         }

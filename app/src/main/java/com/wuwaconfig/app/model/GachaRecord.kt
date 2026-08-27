@@ -3,7 +3,6 @@ package com.wuwaconfig.app.model
 data class GachaRecord(
     val cardPoolType: String,
     val qualityLevel: Int,
-    val resourceType: String,
     val name: String,
     val count: Int,
     val time: String,
@@ -67,13 +66,8 @@ data class GachaApiResponse(
 
 data class GachaHistoryEntry(
     val id: String,
-    val createdAt: Long,
     val expiresAt: Long,
     val totalPulls: Int,
     val fiveStars: Int,
-    val fourStars: Int,
-    val avgPity5: Double,
-    val avgPity4: Double,
-    val predictions: List<PityPrediction>,
     val fullDataJson: String,
 )

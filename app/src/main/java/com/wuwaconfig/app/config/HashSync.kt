@@ -38,6 +38,12 @@ class HashSync(
         }
         var needsRefresh = false
         for (name in GamePaths.MONITORED_FILES) {
+            val path = "${GamePaths.TARGET_DIR}/$name"
+            // Files the user intentionally never deployed can't have a matching
+            // hash; counting them as a mismatch forces a permanent refresh loop.
+            if (!backend.fileExists(path).getOrDefault(false)) {
+                continue
+            }
             val actualHashResult = computeIniHash(name)
             if (actualHashResult.isFailure) {
                 log("Hash sync: SKIPPING $name — cannot compute hash", LogLevel.ERROR)

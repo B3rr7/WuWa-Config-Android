@@ -133,4 +133,11 @@ object AdbProtocol {
     ): AdbMessage {
         return AdbMessage(OKAY, localId, remoteId, ByteArray(0))
     }
+
+    fun createCloseMessage(
+        localId: Int,
+        remoteId: Int,
+    ): AdbMessage {
+        return AdbMessage(CLSE, localId, remoteId, ByteArray(0))
+    }
 }

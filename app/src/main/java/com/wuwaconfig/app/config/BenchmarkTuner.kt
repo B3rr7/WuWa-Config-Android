@@ -100,6 +100,9 @@ object BenchmarkTuner {
     ): String {
         if (targetFps <= 0) return currentPreset
         val idx = PRESET_ORDER.indexOf(currentPreset)
+        // A preset outside PRESET_ORDER (custom/advanced label) must not be
+        // "stepped down" into cinematic — bail out and keep the current one.
+        if (idx < 0) return currentPreset
         if (avgFps >= targetFps && idx > 0) {
             val stepUp = (avgFps - targetFps) / targetFps
             return if (stepUp > 0.15f && idx > 0) PRESET_ORDER[idx - 1] else currentPreset
@@ -124,8 +127,11 @@ object BenchmarkTuner {
             adjusted = adjusted.copy(disableBloom = true)
         } else if (gap > 8 && !adjusted.disableRadialBlur) {
             adjusted = adjusted.copy(disableRadialBlur = true)
-        } else if (gap > 5) {
-            adjusted = adjusted.copy(shadowOverride = 1)
+        } else if (gap > 5 && !adjusted.disableAutoExposure) {
+            // shadowOverride/texOverride were dead fields; apply a real, consumed
+            // cost reduction (auto-exposure is a meaningful GPU cost) so the tuner
+            // doesn't re-measure an identical config and waste a deploy round.
+            adjusted = adjusted.copy(disableAutoExposure = true)
         }
         return adjusted
     }

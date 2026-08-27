@@ -41,6 +41,7 @@ fun ProfileScreen(
 ) {
     val profile by viewModel.playerProfile.collectAsStateWithLifecycle()
     val profileLoading by viewModel.profileLoading.collectAsStateWithLifecycle()
+    val profileProgress by viewModel.profileProgress.collectAsStateWithLifecycle()
     val configModifyCounts by viewModel.configModifyCounts.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
@@ -79,7 +80,7 @@ fun ProfileScreen(
                 }
 
                 if (profileLoading && profile == null) {
-                    ProfileLoadingAnimation("Reading game data from device...")
+                    ProfileLoadingAnimation("Reading game data from device...", profileProgress)
                 }
 
                 if (profile != null) {
@@ -569,7 +570,10 @@ private fun SectionHeader(
 }
 
 @Composable
-private fun ProfileLoadingAnimation(text: String) {
+private fun ProfileLoadingAnimation(
+    text: String,
+    progress: Int = 0,
+) {
     GlassCard(accentColor = NeonGreen) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -590,6 +594,15 @@ private fun ProfileLoadingAnimation(text: String) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (progress > 0) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "$progress%",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonGreen,
+                )
+            }
         }
     }
 }

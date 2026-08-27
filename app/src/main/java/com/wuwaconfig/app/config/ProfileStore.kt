@@ -24,8 +24,4 @@ class ProfileStore(private val storeFile: File) {
         } catch (_: Exception) {
         }
     }
-
-    fun delete() {
-        storeFile.delete()
-    }
 }

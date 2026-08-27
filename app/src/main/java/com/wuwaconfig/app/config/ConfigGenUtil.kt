@@ -3,7 +3,7 @@ package com.wuwaconfig.app.config
 import com.wuwaconfig.app.model.CvarEntry
 import com.wuwaconfig.app.model.LogInfo
 
-private val CVAR_PREFIXES =
+internal val CVAR_PREFIXES =
     listOf(
         "a.", "bbm.", "compat.", "cook.", "fx.", "foliage.", "gc.", "grass.",
         "kuro.", "lod.", "n.", "niagara.", "r.", "s.", "sg.", "slate.",
@@ -157,7 +157,7 @@ fun parseCvarEntries(
             val key = trimmed.substring(0, eq).trim()
             val value = trimmed.substring(eq + 1).trim()
             if (key.isNotEmpty() && !key.startsWith("+")) {
-                entries.add(CvarEntry(key = key, value = value, category = currentCategory))
+                entries.add(CvarEntry(key = key, value = value))
             }
         }
     }
