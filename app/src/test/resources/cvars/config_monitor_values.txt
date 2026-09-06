@@ -1,0 +1,5 @@
+r.Kuro.AutoExposure=1
+foliage.DensityScale=1.0
+r.Mobile.HBAO=0
+sg.ShadowQuality=2
+sg.TextureQuality=2
