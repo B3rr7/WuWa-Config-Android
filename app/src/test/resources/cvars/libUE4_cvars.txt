@@ -1,0 +1,11 @@
+r.ScreenPercentage
+r.Kuro.AutoExposure
+foliage.DensityScale
+r.Shadow.MaxResolution
+
+r.Mobile.HBAO
+r.Mobile.Shadow.CSM
+sg.ShadowQuality
+sg.TextureQuality
+r.FidelityFX.FSR.RCAS
+r.Mobile.SSAO
