@@ -48,6 +48,7 @@ data class PityPrediction(
     val lastFiveStarName: String,
     val lastFiveStarTime: String,
     val currentCharacterName: String = "",
+    val currentFeaturedKnown: Boolean = true,
     val pullsSinceLastFive: Int,
     val estimatedNextFive: Int,
     val hardPity: Int = 80,

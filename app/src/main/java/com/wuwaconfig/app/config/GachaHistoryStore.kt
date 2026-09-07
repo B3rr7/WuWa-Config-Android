@@ -41,7 +41,7 @@ object GachaHistoryStore {
     fun save(
         ctx: Context,
         data: GachaData,
-    ) {
+    ): GachaHistoryEntry {
         val now = System.currentTimeMillis()
         val entry =
             GachaHistoryEntry(
@@ -52,6 +52,7 @@ object GachaHistoryStore {
                 fullDataJson = gson.toJson(data),
             )
         synchronized(lock) { getFile(ctx).writeAtomic(gson.toJson(entry)) }
+        return entry
     }
 
     fun delete(ctx: Context) {

@@ -407,7 +407,14 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
                 }
                 Spacer(Modifier.height(4.dp))
 
-                val subject = pred.currentCharacterName.ifEmpty { pred.poolLabel }
+                val subject =
+                    if (pred.currentCharacterName.isNotEmpty()) {
+                        pred.currentCharacterName
+                    } else if (pred.currentFeaturedKnown) {
+                        pred.poolLabel
+                    } else {
+                        "Unknown featured"
+                    }
                 if (pred.status == "Guaranteed") {
                     Text(
                         "$subject is guaranteed.",
@@ -539,7 +546,12 @@ private fun RecordRow(record: GachaRecord) {
             Text("×${record.count}", style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.7f))
             Spacer(Modifier.width(6.dp))
         }
-        val t = record.time.substringAfter(" ").take(5)
+        val t =
+            if (record.time.length >= 16 && record.time[10] == ' ') {
+                record.time.substring(11, 16)
+            } else {
+                ""
+            }
         Text(t, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
     }
 }

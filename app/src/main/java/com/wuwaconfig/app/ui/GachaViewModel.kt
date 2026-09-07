@@ -1,14 +1,9 @@
 package com.wuwaconfig.app.ui
 
 import android.app.Application
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.WuWaConfigApp
@@ -62,49 +57,11 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         LogRepository.add(message, level)
     }
 
-    private val gachaReceiver =
-        object : BroadcastReceiver() {
-            override fun onReceive(
-                context: Context,
-                intent: Intent,
-            ) {
-                val json = intent.getStringExtra("json") ?: return
-                try {
-                    val type = object : TypeToken<GachaData>() {}.type
-                    val data = Gson().fromJson<GachaData>(json, type)
-                    _gachaData.value = data
-                    _conveneUrl.value = "found"
-                    viewModelScope.launch(Dispatchers.IO) {
-                        GachaHistoryStore.save(getApplication(), data)
-                        _gachaHistory.value = GachaHistoryStore.load(getApplication())
-                        addLog("Background poll: loaded ${data.totalPulls} pulls (${data.fiveStars}★5)")
-                    }
-                } catch (e: Exception) {
-                    Log.e("WuWaConfig", "Gacha broadcast handling failed", e)
-                }
-            }
-        }
-
     init {
-        try {
-            LocalBroadcastManager.getInstance(getApplication()).registerReceiver(
-                gachaReceiver,
-                IntentFilter("com.wuwaconfig.app.GACHA_DATA_READY"),
-            )
-        } catch (_: Exception) {
-        }
         // JSON file read + Gson parse — keep off the main thread.
         viewModelScope.launch(Dispatchers.IO) {
             val loaded = GachaHistoryStore.load(getApplication())
             _gachaHistory.value = loaded
-        }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        try {
-            LocalBroadcastManager.getInstance(getApplication()).unregisterReceiver(gachaReceiver)
-        } catch (_: Exception) {
         }
     }
 
@@ -148,42 +105,43 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
                     var attempt = 1
                     while (attempt <= retryCount) {
                         addLog("Reading Client.log for Convene URL (attempt $attempt/$retryCount)...")
-                        try {
-                            val result =
-                                configManager.readClientLogTextWithMetadata { pct ->
-                                    if (pct % 25 == 0 && attempt == 1) addLog("Reading... $pct%")
-                                }
-                            if (result.isSuccess) {
-                                val (text, _) = result.getOrThrow()
-                                val url =
-                                    withContext(Dispatchers.Default) {
-                                        LogParser.extractConveneUrl(text)
-                                    }
-                                if (url != null) {
-                                    addLog("Found Convene URL")
-                                    _conveneUrl.value = url
-                                    _conveneUrlLoading.value = false
-                                    fetchGachaData(url)
-                                    return@launch
-                                }
+                        val result =
+                            configManager.readClientLogTextWithMetadata { pct ->
+                                if (pct % 25 == 0 && attempt == 1) addLog("Reading... $pct%")
                             }
-                            if (attempt < retryCount) {
-                                addLog("URL not found yet — retrying in 10s...")
-                                kotlinx.coroutines.delay(10_000)
-                            } else {
-                                addLog("No Convene URL found after $retryCount attempts.")
-                                addLog("Open Convene History in-game, wait a moment, then tap again.")
-                                _gachaError.value =
-                                    "No Convene URL found after $retryCount attempts. Open Convene History in-game, wait a moment, then tap again."
+                        if (result.isFailure) {
+                            val msg = result.exceptionOrNull()?.message ?: "unknown"
+                            addLog("Failed to read Client.log: $msg")
+                            _gachaError.value = "Failed to read Client.log: $msg"
+                            return@launch
+                        }
+                        val (text, _) = result.getOrThrow()
+                        val url =
+                            withContext(Dispatchers.Default) {
+                                LogParser.extractConveneUrl(text)
                             }
-                        } catch (e: Exception) {
-                            addLog("CRASH: ${e.message}")
-                            Log.e("WuWaConfig", "extractConveneUrl crashed", e)
-                            _gachaError.value = "Failed to read Client.log: ${e.message}"
-                            break
+                        if (url != null) {
+                            addLog("Found Convene URL")
+                            _conveneUrl.value = url
+                            _conveneUrlLoading.value = false
+                            fetchGachaData(url)
+                            return@launch
+                        }
+                        if (attempt < retryCount) {
+                            addLog("URL not found yet — retrying in 10s...")
+                            kotlinx.coroutines.delay(10_000)
+                        } else {
+                            addLog("No Convene URL found after $retryCount attempts.")
+                            addLog("Open Convene History in-game, wait a moment, then tap again.")
+                            _gachaError.value =
+                                "No Convene URL found after $retryCount attempts. Open Convene History in-game, wait a moment, then tap again."
                         }
                         attempt++
                     }
+                } catch (e: Exception) {
+                    addLog("CRASH: ${e.message}")
+                    Log.e("WuWaConfig", "extractConveneUrl crashed", e)
+                    _gachaError.value = "Failed to read Client.log: ${e.message}"
                 } finally {
                     _conveneUrlLoading.value = false
                     readJob = null
@@ -225,8 +183,7 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
                 val data = result.getOrThrow()
                 _gachaData.value = data
                 withContext(Dispatchers.IO) {
-                    GachaHistoryStore.save(getApplication(), data)
-                    _gachaHistory.value = GachaHistoryStore.load(getApplication())
+                    _gachaHistory.value = GachaHistoryStore.save(getApplication(), data)
                 }
                 addLog("Loaded ${data.totalPulls} pulls (${data.fiveStars}★5, ${data.fourStars}★4)")
                 if (data.poolsWithData.isNotEmpty()) {
