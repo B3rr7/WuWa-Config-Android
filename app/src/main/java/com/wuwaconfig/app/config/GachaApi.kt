@@ -16,6 +16,10 @@ object GachaApi {
     // a standard 5★ (used to decide character-banner soft-pity status).
     private val STANDARD_POOLS = setOf("3", "8", "11")
     private val CHARACTER_POOLS = setOf("1", "7", "10")
+    private val WEAPON_POOLS = setOf("2", "6", "9")
+
+    // WuWa's base 5★ rate (constant rate before soft pity kicks in).
+    private const val BASE_RATE = 0.067
 
     private val gson = Gson()
 
@@ -99,9 +103,9 @@ object GachaApi {
                 )
             }
 
-            val totalPulls = records.size
-            val fiveStars = records.count { it.qualityLevel == 5 }
-            val fourStars = records.count { it.qualityLevel == 4 }
+            val totalPulls = records.sumOf { it.count.coerceAtLeast(1) }
+            val fiveStars = records.filter { it.qualityLevel == 5 }.sumOf { it.count.coerceAtLeast(1) }
+            val fourStars = records.filter { it.qualityLevel == 4 }.sumOf { it.count.coerceAtLeast(1) }
 
             val pity5 = calculateAvgPity(records, 5)
             val pity4 = calculateAvgPity(records, 4)
@@ -117,10 +121,11 @@ object GachaApi {
                 if (poolRecords.isEmpty()) continue
 
                 val isCharacterBanner = pool.type in CHARACTER_POOLS
+                val isWeaponBanner = pool.type in WEAPON_POOLS
                 val pred =
                     if (isCharacterBanner) {
                         calcCharacterPrediction(poolRecords, pool, standardFiveStars)
-                    } else if (pool.type == "2") {
+                    } else if (isWeaponBanner) {
                         calcWeaponPrediction(poolRecords, pool)
                     } else {
                         null
@@ -198,18 +203,18 @@ object GachaApi {
         }
     }
 
-    private fun calculateAvgPity(
+    internal fun calculateAvgPity(
         records: List<GachaRecord>,
         rarity: Int,
     ): Double {
-        val rarities = records.filter { it.qualityLevel == rarity }
-        if (rarities.isEmpty()) return 0.0
-
+        if (records.isEmpty()) return 0.0
+        // Walk records in chronological order, treating each record as `count` pulls
+        // (Kuro's API collapses 10-pulls into a single entry with count=10).
         val sorted = records.sortedBy { it.time }
         val groups = mutableListOf<Int>()
         var count = 0
         for (rec in sorted) {
-            count++
+            count += rec.count.coerceAtLeast(1)
             if (rec.qualityLevel == rarity) {
                 groups.add(count)
                 count = 0
@@ -219,21 +224,42 @@ object GachaApi {
         return groups.average()
     }
 
-    private fun isStandardFive(
+    internal fun isStandardFive(
         name: String,
         standardFiveStars: Set<String>,
     ): Boolean {
         return name in standardFiveStars
     }
 
-    private fun calcPullsSinceLastFourStar(records: List<GachaRecord>): Int {
+    internal fun calcPullsSinceLastFourStar(records: List<GachaRecord>): Int {
         val sorted = records.sortedBy { it.time }
         val lastFourIndex = sorted.indexOfLast { it.qualityLevel == 4 || it.qualityLevel == 5 }
-        if (lastFourIndex < 0) return sorted.size.coerceAtMost(10)
-        return sorted.size - lastFourIndex - 1
+        if (lastFourIndex < 0) return sorted.sumOf { it.count.coerceAtLeast(1) }.coerceAtMost(10)
+        return sorted.drop(lastFourIndex + 1).sumOf { it.count.coerceAtLeast(1) }
     }
 
-    private fun calcCharacterPrediction(
+    internal fun estimatedSoftPityPulls(
+        pullsSinceLastFive: Int,
+        softPityStart: Int,
+        hardPity: Int,
+    ): Int {
+        // WuWa's soft pity rate ramps from ~0.067 (6.7%) at pull `softPityStart`
+        // up to ~1.0 (100%) at `hardPity`. Linear approximation:
+        //   p_effective(p) = 0.067 + (p - softPityStart) * 0.933 / (hardPity - softPityStart)
+        // Expected additional pulls = 1 / p_effective, rounded up (ceil) so users
+        // see a real number even in late soft-pity, clamped to [1, hardPity].
+        if (pullsSinceLastFive >= hardPity) return 1
+        val rate =
+            BASE_RATE +
+                (pullsSinceLastFive - softPityStart) *
+                (1.0 - BASE_RATE) /
+                (hardPity - softPityStart)
+        val safeRate = rate.coerceAtLeast(BASE_RATE)
+        val expected = (1.0 / safeRate).let { kotlin.math.ceil(it).toInt() }
+        return expected.coerceIn(1, hardPity)
+    }
+
+    internal fun calcCharacterPrediction(
         records: List<GachaRecord>,
         pool: GachaPool,
         standardFiveStars: Set<String>,
@@ -254,12 +280,13 @@ object GachaApi {
             lastFiveTime = lastFive.time
             isLastFiveStandard = isStandardFive(lastFiveName, standardFiveStars)
             val lastFiveIndex = sorted.indexOfLast { it.qualityLevel == 5 }
-            pullsSinceLastFive = sorted.size - lastFiveIndex - 1
+            // Account for count (Kuro API may collapse multi-pulls into one record).
+            pullsSinceLastFive = sorted.drop(lastFiveIndex + 1).sumOf { it.count.coerceAtLeast(1) }
         } else {
             lastFiveName = ""
             lastFiveTime = ""
             isLastFiveStandard = false
-            pullsSinceLastFive = sorted.size
+            pullsSinceLastFive = sorted.sumOf { it.count.coerceAtLeast(1) }
         }
 
         val status =
@@ -283,14 +310,15 @@ object GachaApi {
         val nearbyFives =
             fiveStarRecords.filter {
                 it.name !in standardFiveStars
-            }.toSet()
+            }
         val avgCharPity =
             if (nearbyFives.size >= 2) {
+                val nearbySet = nearbyFives.toSet()
                 val pityGroups = mutableListOf<Int>()
                 var cnt = 0
                 for (rec in sorted) {
-                    cnt++
-                    if (rec.qualityLevel == 5 && rec in nearbyFives) {
+                    cnt += rec.count.coerceAtLeast(1)
+                    if (rec.qualityLevel == 5 && rec in nearbySet) {
                         pityGroups.add(cnt)
                         cnt = 0
                     }
@@ -305,7 +333,7 @@ object GachaApi {
 
         val estimated =
             if (isInSoftPity) {
-                maxOf(SOFT_PITY_START - pullsSinceLastFive + 4, 1) + 6
+                estimatedSoftPityPulls(pullsSinceLastFive, SOFT_PITY_START, HARD_PITY)
             } else {
                 maxOf(avgCharPity - pullsSinceLastFive, 1)
             }
@@ -319,6 +347,9 @@ object GachaApi {
             lastFiveStarName = lastFiveName,
             lastFiveStarTime = lastFiveTime,
             currentCharacterName = currentCharacterName,
+            // When Guaranteed but we have no recent featured ★5 to name, the
+            // current banner's featured character is *unknown* from the API.
+            currentFeaturedKnown = currentCharacterName.isNotEmpty(),
             pullsSinceLastFive = pullsSinceLastFive,
             estimatedNextFive = estimated,
             hardPity = HARD_PITY,
@@ -330,7 +361,7 @@ object GachaApi {
         )
     }
 
-    private fun calcWeaponPrediction(
+    internal fun calcWeaponPrediction(
         records: List<GachaRecord>,
         pool: GachaPool,
     ): PityPrediction {
@@ -348,18 +379,18 @@ object GachaApi {
             lastFiveName = lastFive.name
             lastFiveTime = lastFive.time
             val lastFiveIndex = sorted.indexOfLast { it.qualityLevel == 5 }
-            pullsSinceLastFive = sorted.size - lastFiveIndex - 1
+            pullsSinceLastFive = sorted.drop(lastFiveIndex + 1).sumOf { it.count.coerceAtLeast(1) }
         } else {
             lastFiveName = ""
             lastFiveTime = ""
-            pullsSinceLastFive = sorted.size
+            pullsSinceLastFive = sorted.sumOf { it.count.coerceAtLeast(1) }
         }
 
         val isInSoftPity = pullsSinceLastFive >= SOFT_PITY_START
         val pullsUntilHardPity = maxOf(HARD_PITY - pullsSinceLastFive, 0)
         val estimated =
             if (isInSoftPity) {
-                maxOf(SOFT_PITY_START - pullsSinceLastFive + 4, 1) + 4
+                estimatedSoftPityPulls(pullsSinceLastFive, SOFT_PITY_START, HARD_PITY)
             } else {
                 maxOf(65 - pullsSinceLastFive, 1)
             }
