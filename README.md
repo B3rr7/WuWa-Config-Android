@@ -121,11 +121,9 @@ If you have multiple devices (USB + wireless): `adb -s 192.168.x.x:5555 usb`
 > ⚠️ **Chinese ROMs (Xiaomi / Redmi / HyperOS, MIUI, etc.)** — Shizuku runs as the `shell` user and these ROMs block `shell` from writing into the game's `Android/data` unless a hidden Developer toggle is on. If you get **`Permission denied`** when deploying, enable **both** of these in *Developer Options* (not just USB debugging):
 
 > - **USB debugging**
-<<<<<<< HEAD
 > - **USB debugging (Security settings)**  *(label varies by ROM — also seen as " Disable Permission Monitoring" or similar)*
 >
 > Then re-authorize Shizuku and retry.
->>>>>>> db7f87a (docs: refine Chinese-ROM toggle label in README)
 
 ### 🦸 Root
 **Best for:** Rooted devices (Magisk, KernelSU, APatch).
@@ -200,7 +198,18 @@ Algorithm evaluates device from 0–100:
 | Active CVars differ from game defaults | +5 if well-optimized, -8 if room to improve |
 | Combined signals | -5 to -6 |
 
-**Recommendations:** Ultra (80+), High (75+ / 70+), Balanced (55+ / 40+), Performance (<40), Potato (≤20 or OOM ≥2)
+**Recommendations (SmartBrain `recommendPreset`):** First match wins, evaluated top-to-bottom.
+
+| Preset | Condition |
+|---|---|
+| **potato** | `gpuOom ≥ 2`, OR `isLowMem == true`, OR `score ≤ 20` |
+| **cinematic** | `score ≥ 85` AND Vulkan AND flagship GPU AND `!isHighRes` AND `thermalEvents == 0` |
+| **ultra** | `score ≥ 80` AND Vulkan AND flagship GPU AND `!isHighRes` |
+| **high** | `score ≥ 75` AND (flagship or high-tier) AND Vulkan · OR `score ≥ 70` AND (flagship or high-tier) |
+| **competitive** | `score ≥ 45` AND `fpsCap − fpsActual > 15` |
+| **balanced** | `score ≥ 40` (and not competitive) |
+| **endurance** | `autoAdjustTriggers > 10` AND `score ≥ 25` · OR `thermalEvents ≥ 3` AND `score ≥ 30` |
+| **performance** | `autoAdjustTriggers > 10` (any score) · OR `score ≥ 20` |
 
 #### 3. Presets
 | Preset | Screen % | Shadow | ShadowRes | SSR | MipBias | Streaming | View Dist | Foliage LOD | Detail | LOD Bias | Grass Cull |
@@ -226,7 +235,7 @@ Overworld / Domain & Tower
 Toggle each: Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini, Hardware.ini
 
 #### 7. Generate
-Single button — generates configs with automatic CVar optimization: redundant lines matching game defaults are commented out (`; REDUNDANT`), and unknown CVars not in the UE4 binary dump are flagged (`; UNKNOWN CVar`). Opens the ReviewTune screen — a generated-config reviewer/editor/deploy view with a monospace text editor. Edit CVars inline, then deploy from the screen or close without deploying. All generated configs use `FullscreenMode=0` (fullscreen) — the 3D viewport fills the screen while `sg.ResolutionQuality` controls render resolution for performance.
+Single button — generates configs with automatic CVar optimization: redundant lines matching game defaults and unknown CVars not in the UE4 binary dump are flagged with a single inline marker (`; [CvarDB] <reason>`). Opens the ReviewTune screen — a generated-config reviewer/editor/deploy view with a monospace text editor. Edit CVars inline, then deploy from the screen or close without deploying. All generated configs use `FullscreenMode=0` (fullscreen) — the 3D viewport fills the screen while `sg.ResolutionQuality` controls render resolution for performance.
 
 #### 8. Deploy
 Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Uses **hash snapshot + reconcile** pattern: saves hash file before deploy, compares afterward to detect concurrent game access, always recomputes from actual files. `ModifyCount` is capped at 8 to avoid suspicion. When "Allow restricted CVars" is OFF, forbidden CVars are stripped from all 5 INIs before push. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge with color-coded tag chips: **N redundant** (matches game defaults), **N unknown** (not in UE4 binary dump), **N monitored** (ConfigMonitor-tracked).
@@ -255,7 +264,7 @@ Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via l
 - **Global version patterns** — battle counters, deaths, role changes, teleports, stamina, dodges, echoes, and ultimates matched from real global Client.log
 - Cards: **Combat**, **Exploration**, **Economy**, **Social**, **System**
 - Each shows stat chips with current values
-- No cache — always re-reads from device for fresh data
+- Cached 24h — first read fills `cached_battle_stats.json`; auto-loaded on revisit. Refresh button re-reads from device and replaces the cache.
 
 ### Backup & Restore
 - **Per-file selection** — both create and restore allow picking which .ini files to include via checkboxes
@@ -298,7 +307,7 @@ app/
     │   └── ShellUtils.kt         # shQuote, computeMd5, maxPushChunkSize, PUSH_RETRY_COUNT=2, MAX_ARG_STRLEN=4096
     ├── config/
     │   ├── ConfigGenerator.kt    # INI generation, 8 presets, Core.System paths, DeviceProfiles chipset mapping, EngineIniContext + 25 section builders
-    │   ├── CvarDatabase.kt       # Loads 3 CVar files from assets, optimizeIniText (REDUNDANT/UNKNOWN comments)
+    │   ├── CvarDatabase.kt       # Loads 3 CVar files from assets, optimizeIniText (single [CvarDB] reason tag)
     │   ├── CvarCategorizer.kt    # Pure CVar categorization (standalone object, 3-level matching, 18 categories, testable without Android)
     │   ├── CvarOptimizer.kt      # GPU tier detection, per-device profile optimizer, adjustProfile for retune
     │   ├── ConfigManager.kt      # Thin facade — keeps deploy/restore/clean API + delegates to BackupStore / ProfileExtractor / HashMonitor
