@@ -244,12 +244,41 @@ Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushe
 Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via logcat → adjusts preset/options → redeploys until target FPS reached.
 
 ### Pity Tracker
-- **Fetch Gacha History** — reads Client.log for Convene URL, auto-retries up to 6 times (10s apart). Parses URL and fetches full pull history from Kuro's gacha API.
-- **Summary**: total pulls, ★5/★4 counts, avg pity per rarity
-- **Per-pool breakdown**: pulls per banner type, ★5/★4 counts per pool
-- **Pity Prediction**: per-banner 50/50 or Guaranteed status, last ★5 details, estimated next ★5 pity, soft pity detection (≥66 ★5 / ≥57 ★4), hard pity countdown, 4★ tracking
-- **Result History**: last fetch result saved locally with 12-hour auto-expiry. Load or clear from the history banner.
-- **Stop Reading**: while *Fetch Gacha History* is reading `Client.log` or fetching, a red **Stop Reading** button cancels the in-progress read.
+
+Fetches your **complete pull history** from Kuro's gacha API (no truncation — no 50-pull cap). 11 pool types: Character Event, Weapon Event, Standard, Beginner 1, Beginner 2, plus the 3 event-rotations of each. The screen is split into 4 panels.
+
+#### 1. Fetch
+- **Fetch Gacha History** — reads `Client.log` for the Convene URL (auto-retries up to 6 attempts, 10s apart — the URL only appears in the log after you open Convene History in-game), parses it, and fetches all pull records from Kuro's API.
+- **Stop Reading** — while reading the log or fetching, a red button cancels the in-progress operation.
+- **Connect to a device first** banner if no backend is connected.
+
+#### 2. Pity Overview
+Three hero stats + two averages in a single card:
+- **Total Pulls** · **★5** · **★4** (hero numbers, color-coded)
+- **Avg ★5 Pity** · **Avg ★4 Pity** (calculated across all your ★5/★4 hits)
+
+#### 3. Next ★5 Prediction
+One card per character/weapon pool that has pulls. Each card shows:
+- **Pool label** (e.g. "Character Event") and a **status pill** — `Guaranteed` (gold), `50 / 50` (amber), or `75 / 25` (cyan)
+- **Pity progress bar** — visual fill of pulls-since-last-★5 against hard pity, with the soft-pity zone highlighted in amber from the right
+- **Count** `pullsSinceLastFive / hardPity` and label `Soft {threshold} · Hard {80/70}`
+- **Soft-pity warning banner** when active: *"Soft pity active — your ★5 rate is boosted!"*
+- **Last ★5** name + timestamp
+- **"$subject is guaranteed"** or **"$subject is 50 / 50"** — *named after the current banner's featured character/weapon, not a generic label*
+- **Disclaimer**: *"Simple estimate from your pull history — not a guarantee it will happen."*
+- Three stat columns: **Since ★5** · **To Hard** · **Est. ★5** (estimated pulls until next ★5)
+- Two more stats: **Since ★4** · **Est. ★4**
+
+If no character/weapon pulls exist, an amber note reads: *"No pity predictions available — need character or weapon banner pulls."*
+
+#### 4. Pull History
+Grouped by pool. Each pool is a colored card with a pool dot, the **pool label** (e.g. "Weapon Event"), total pull count, and badges `★5×N` and `★4×N`. Records below are listed in reverse order with a per-record row: rarity dot, **item name**, `×count` (only if the API returned grouped duplicates), and **time** (HH:MM, from the time field).
+
+#### 5. Result History (12h cache)
+After a successful fetch, the full result is stored locally and shown as a cyan banner when the screen reopens without fresh data:
+- **${totalPulls} pulls · ${fiveStars}★5 · expires in ${hrs}h** with **Load** (re-display) and **Clear** (drop the cache) buttons.
+- Cache is in `gacha_history.json` (`GachaHistoryStore`, `TTL_HOURS = 12`).
+- After expiry the banner is hidden until the next fetch.
 
 ### Player Profile
 - **Read-only** — zero footprint, game cannot detect
