@@ -374,7 +374,7 @@
 <li>Tap <strong>Fetch Gacha History</strong> — the app finds the Convene URL in Client.log and pulls from Kuro's API.</li>
 <li>Results show total pulls, ★5/★4 counts, average pity, per-pool breakdown, and predictions.</li>
 </ol>
-<p>If the URL isn't found, use <strong>Poll in Background</strong> — it polls every 10s (up to 30 tries) and notifies you when found. Results are cached locally for 12 hours.</p>
+<p>If the URL isn't found, the app auto-retries 6 times (10s apart) — make sure you opened Convene History in-game first. You can also tap <strong>Stop Reading</strong> to cancel. Results are cached locally for 12 hours.</p>
 </section>
 
 <section id="profile">
@@ -457,7 +457,7 @@
 <h2>FAQ &amp; Troubleshooting</h2>
 <p><strong>"Cannot connect via ADB"</strong> — enable Wireless Debugging, same network, restart it, or enter the IP:port manually.</p>
 <p><strong>"Client.log too large"</strong> — the app copies it locally and parses there; all backends supported.</p>
-<p><strong>"No Convene URL found"</strong> — open Convene History in-game first, or use Poll in Background.</p>
+<p><strong>"No Convene URL found"</strong> — open Convene History in-game first, then tap Fetch again. The app retries 6 times automatically (10s apart).</p>
 <p><strong>"Config deploy failed"</strong> — check the game directory exists, ensure write access, try another method.</p>
 <p><strong>"Update refused — signature mismatch"</strong> — debug build vs release build; reinstall the official release APK.</p>
 <p><strong>File locations</strong></p>
