@@ -348,7 +348,7 @@ app/
     │   ├── SmartBrain.kt         # Scoring engine, 0-100, ~20 signals, preset recommendation
     │   ├── ForbiddenCvars.kt     # 31 restricted CVars, stripForbiddenCvars (called when restricted OFF)
     │   ├── BenchmarkTuner.kt     # Auto-tune state machine, FPS logcat parsing, preset stepping
-    │   ├── GachaApi.kt           # Gacha API client (HTTP POST, 11 pool types, dynamic standard pool derivation, character/weapon pity calc)
+    │   ├── GachaApi.kt           # Gacha API client (HTTP POST, 11 pool types, hardcoded standard/character/weapon pool ids, character/weapon pity calc, count-aware totals for 10-pull collapsing)
     │   ├── GachaHistoryStore.kt  # Local gacha history persistence (12hr TTL)
     │   ├── ProfileStore.kt       # Profile cache persistence (player_profile.json, no TTL)
     │   └── ChipsetDetector.kt    # Local SoC detection (Snapdragon/MediaTek/Exynos/Tensor)
