@@ -4,7 +4,6 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.config.ConfigManager
@@ -81,12 +80,14 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val type = object : TypeToken<GachaData>() {}.type
             val data =
-                Gson().fromJson<GachaData>(entry.fullDataJson, type)
+                GachaHistoryStore.gson.fromJson<GachaData>(entry.fullDataJson, type)
                     ?: run {
                         addLog("Failed to restore history: stored data is empty or corrupt")
                         return
                     }
-            _gachaData.value = data
+            // Guard against legacy caches where predictions list was null/absent.
+            val safeData = data.copy(predictions = data.predictions ?: emptyList())
+            _gachaData.value = safeData
             addLog("Restored history: ${data.totalPulls} pulls")
         } catch (e: Exception) {
             addLog("Failed to restore history: ${e.message}")

@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.ui.components
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.BlurMaskFilter
 import android.graphics.RenderEffect
@@ -789,6 +790,8 @@ fun GradientBackground(content: @Composable () -> Unit) {
 }
 
 @Composable
+@OptIn(androidx.media3.common.util.UnstableApi::class)
+@SuppressLint("UnsafeOptInUsageError")
 private fun VideoBackground(
     videoUri: String,
     alpha: Float,

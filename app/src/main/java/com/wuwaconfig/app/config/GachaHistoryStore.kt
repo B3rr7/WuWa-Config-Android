@@ -2,9 +2,14 @@ package com.wuwaconfig.app.config
 
 import android.content.Context
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.InstanceCreator
 import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
+import com.wuwaconfig.app.model.GachaRecord
+import com.wuwaconfig.app.model.PityPrediction
+import com.wuwaconfig.app.model.SsrInterval
 import com.wuwaconfig.app.util.writeAtomic
 import java.io.File
 import java.util.UUID
@@ -12,7 +17,40 @@ import java.util.UUID
 object GachaHistoryStore {
     private const val FILE_NAME = "gacha_history.json"
     private const val TTL_HOURS = 12L
-    private val gson = Gson()
+
+    /** Shared Gson configured with [InstanceCreator]s so that legacy cache JSON written
+     *  by prior app versions (missing fields added later) is hydrated with Kotlin default
+     *  values instead of `null`. Plain Gson ignores Kotlin defaults and would NPE the UI. */
+    val gson: Gson =
+        GsonBuilder()
+            .registerTypeAdapter(GachaData::class.java, InstanceCreator { GachaData() })
+            .registerTypeAdapter(
+                PityPrediction::class.java,
+                InstanceCreator {
+                    PityPrediction(
+                        poolType = "",
+                        poolLabel = "",
+                        status = "",
+                        lastFiveStarName = "",
+                        lastFiveStarTime = "",
+                        pullsSinceLastFive = 0,
+                        estimatedNextFive = 0,
+                    )
+                },
+            )
+            .registerTypeAdapter(
+                GachaRecord::class.java,
+                InstanceCreator {
+                    GachaRecord(cardPoolType = "", qualityLevel = 0, name = "", count = 0, time = "")
+                },
+            )
+            .registerTypeAdapter(
+                SsrInterval::class.java,
+                InstanceCreator {
+                    SsrInterval(name = "", count = 0, time = "", pity = 0)
+                },
+            )
+            .create()
     private val lock = Any()
 
     private fun getFile(ctx: Context): File = File(ctx.filesDir, FILE_NAME)
