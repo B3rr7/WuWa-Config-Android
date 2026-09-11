@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="spectro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="WuWaConfig — Boost Wuthering Waves FPS. SmartBrain device scoring, Engine.ini generator with 350+ CVars, 120 FPS unlock, pity tracker. Open source, zero telemetry.">
+<meta name="theme-color" content="#faf8f2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="color-scheme" content="light">
+<link rel="canonical" href="https://b3rr7.github.io/WuWa-Config-Android/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="WuWaConfig">
+<meta property="og:title" content="WuWaConfig — I faced it. I built it. Still fixing it.">
+<meta property="og:description" content="A player-built config editor + auto generator for Wuthering Waves. Config without the pain, for every device. No root, no telemetry.">
+<meta property="og:url" content="https://b3rr7.github.io/WuWa-Config-Android/">
+<meta property="og:image" content="https://b3rr7.github.io/WuWa-Config-Android/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="WuWaConfig — I faced it. I built it. Still fixing it.">
+<meta name="twitter:description" content="A player-built config editor + auto generator for Wuthering Waves. No root, no telemetry.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"MobileApplication",
+"name":"WuWaConfig","operatingSystem":"Android 8+","softwareVersion":"1.1.4",
+"applicationCategory":"UtilitiesApplication",
+"description":"Player-built Android app that optimizes Wuthering Waves performance via a config editor and hardware-aware INI generator. Deploys via ADB, Shizuku, Root or SAF.",
+"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
+"author":{"@type":"Person","name":"Player42"},
+"license":"https://opensource.org/licenses/MIT",
+"url":"https://b3rr7.github.io/WuWa-Config-Android/"}
+</script>
+<title>WuWaConfig — Wuthering Waves Performance Optimizer</title>
+<link rel="icon" type="image/webp" href="app_icon.webp">
+<!-- No external fonts are loaded; typographic fallbacks are system-ui / ui-monospace
+     so there is no third-party request (Zero Telemetry). -->
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+
+
+<noscript><style>.reveal{opacity:1!important;transform:none!important}.js-only{display:none!important}</style></noscript>
+<script>document.documentElement.classList.add('js')</script>
+
+<a class="skip" href="#main">Skip to content</a>
+<div id="progress"></div>
+
+<!-- ══════════ SVG SPRITE ══════════ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M6 20v-4M12 20V10M18 20V4"/></symbol>
+<symbol id="i-cycle" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M5 4v16M12 4v16M19 4v16"/><circle cx="5" cy="9" r="2.2"/><circle cx="12" cy="15" r="2.2"/><circle cx="19" cy="7" r="2.2"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+<symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+<symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3z"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+<symbol id="i-unlock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></symbol>
+<symbol id="i-film" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20"/></symbol>
+<symbol id="i-trophy" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z"/></symbol>
+<symbol id="i-warn" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></symbol>
+<symbol id="i-ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><path d="M10 14 21 3"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></symbol>
+</defs></svg>
+
+<!-- ══════════ THEME DOCK ══════════ -->
+<div class="dock js-only" role="group" aria-label="Element themes">
+  <span class="dock-label">Element</span>
+  <button class="t-dot on" data-theme="spectro" style="--tc:#f2b437" data-tip="SPECTRO" aria-label="Spectro theme" aria-pressed="true"></button>
+  <button class="t-dot" data-theme="glacio" style="--tc:#4cc9f0" data-tip="GLACIO" aria-label="Glacio theme" aria-pressed="false"></button>
+  <button class="t-dot" data-theme="fusion" style="--tc:#ff6b52" data-tip="FUSION" aria-label="Fusion theme" aria-pressed="false"></button>
+  <button class="t-dot" data-theme="electro" style="--tc:#a78bfa" data-tip="ELECTRO" aria-label="Electro theme" aria-pressed="false"></button>
+  <button class="t-dot" data-theme="aero" style="--tc:#45d98c" data-tip="AERO" aria-label="Aero theme" aria-pressed="false"></button>
+  <button class="t-dot" data-theme="havoc" style="--tc:#f4567e" data-tip="HAVOC" aria-label="Havoc theme" aria-pressed="false"></button>
+</div>
+
+<!-- ══════════ NAV ══════════ -->
+<header class="navbar" id="navbar">
+  <div class="container nav-in">
+    <a class="logo" href="#top"><span class="logo-mark"><svg class="ic"></svg></span>WuWa<em>Config</em></a>
+    <button class="burger" id="burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
+    <nav aria-label="Main">
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="#presets">Presets</a></li>
+        <li><a href="#simulator">FPS Lab</a></li>
+        <li><a href="#screens">Screens</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a class="nav-cta" href="https://github.com/b3rr7/WuWa-Config-Android/releases/latest" target="_blank" rel="noopener"><svg class="ic"><use href="#i-down"/></svg>Download</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+
+<!-- ══════════ HERO — PLAYER STORY ══════════ -->
+<section class="hero" id="top">
+  <div class="hero-deco" aria-hidden="true">
+    <span class="big-outline">120</span>
+    <span class="deco-circle"></span>
+    <span class="deco-cross"></span>
+    <span class="deco-rule"></span>
+  </div>
+  <div class="container hero-grid">
+    <div>
+      <div class="hero-rail" aria-hidden="true">
+        <div class="hr-track" id="hrTrack">
+          <span>Built by a Player</span><span>For Players</span><span>Config Editor</span><span>Auto Generator</span><span>No Root</span><span>Open Source</span><span>Zero Telemetry</span>
+        </div>
+      </div>
+
+      <!-- single bold shimmering brand -->
+      <span class="hero-kicker"><span class="brand">WuWaConfig</span>&nbsp;— v1.1.4 / Open Source / MIT</span>
+
+      <h1>I faced it. I planned it.<br><span class="row2">I built it — and I'm still fixing it.</span></h1>
+
+      <p class="lead">
+        <strong>I'm not a professional developer. I'm a gamer — same as you.</strong>
+        I faced the same problem: hand-editing INI files, copying configs that were never
+        made for my phone. So I planned a tool and built it. The config editor works today.
+        The generator reads your device because no one person can hand-tune files for every
+        chipset. And when something breaks on your phone — tell me. That report becomes the
+        next fix. <em>Built by a player, for players.</em>
+      </p>
+
+      <div class="trust">
+        <span class="tchip green">Built by a player like you</span>
+        <span class="tchip">Not a company — no ads, no data games</span>
+        <span class="tchip">Still fixing it — openly</span>
+      </div>
+
+      <div class="hero-actions">
+        <a class="btn btn-p" href="https://github.com/b3rr7/WuWa-Config-Android/releases/latest" target="_blank" rel="noopener"><svg class="ic"><use href="#i-down"/></svg>Download APK — Free</a>
+        <a class="btn btn-g" href="https://github.com/b3rr7/WuWa-Config-Android" target="_blank" rel="noopener"><svg class="ic"><use href="#i-ext"/></svg>Join the Journey</a>
+      </div>
+
+      <div class="chips">
+        <span class="chip"><svg class="ic"><use href="#i-phone"/></svg>Android 8+</span>
+        <span class="chip"><svg class="ic"><use href="#i-sliders"/></svg>Config Editor</span>
+        <span class="chip"><svg class="ic"><use href="#i-db"/></svg>5,885 CVars</span>
+        <span class="chip"><svg class="ic"><use href="#i-trophy"/></svg>8 Presets</span>
+        <span class="chip"><svg class="ic"><use href="#i-shield"/></svg>No Analytics</span>
+      </div>
+
+      <div class="beats" aria-label="Project journey">
+        <span>Faced<small>the pain was real</small></span>
+        <span>Planned<small>a tool, not a hack</small></span>
+        <span>Built<small>editor + generator</small></span>
+        <span class="hot">Still Fixing<small>your issues = the roadmap</small></span>
+      </div>
+    </div>
+
+    <aside class="phone-stage" aria-hidden="true">
+      <span class="callout c1">120 FPS UNLOCKED</span>
+      <span class="callout c2">0 TELEMETRY</span>
+
+      <div class="android">
+        <span class="a-btn a-vol"></span>
+        <span class="a-btn a-pwr"></span>
+
+        <div class="a-screen">
+          <span class="a-cam"></span>
+
+          <div class="a-status">
+            <span id="aTime">12:45</span>
+            <span>
+              <svg class="sic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+              <svg class="sic" viewBox="0 0 24 24" fill="currentColor"><path d="M2 22h4v-8H2zM8 22h4V9H8zM14 22h4V4h-4z"/></svg>
+              <svg class="sic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="16" height="10" rx="1"/><path d="M22 11v2"/></svg>
+            </span>
+          </div>
+
+          <div class="a-appbar">
+            <span class="a-app-ic"><svg class="ic"></svg></span>
+            WuWaConfig
+            <span class="a-live">LIVE</span>
+          </div>
+
+          <div class="a-fps">
+            <b id="phoneFps">118</b>
+            <small>FRAMES / SECOND</small>
+          </div>
+
+          <div class="a-bars" id="pBars"></div>
+
+          <div class="a-rows">
+            <div><span>GPU</span><b>Adreno 750</b></div>
+            <div><span>PROFILE</span><b>ULTRA</b></div>
+            <div><span>SMARTBRAIN</span><b style="color:#7ee2a8">85 / 100</b></div>
+            <div><span>THERMAL</span><b style="color:#7ee2a8">NOMINAL</b></div>
+          </div>
+
+          <span class="a-pill"></span>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ══════════ TICKER ══════════ -->
+<div class="ticker" aria-hidden="true">
+  <div class="tick-track" id="tickTrack">
+    <span>SNAPDRAGON 8 ELITE</span><span>DIMENSITY 9400</span><span>SNAPDRAGON 8 GEN 3</span><span>EXYNOS 2400</span><span>SNAPDRAGON 8 GEN 2</span><span>DIMENSITY 9300</span><span>TENSOR G5</span><span>SNAPDRAGON 8+ GEN 1</span><span>KIRIN 9010</span><span>DIMENSITY 9200</span><span>TENSOR G4</span><span>SNAPDRAGON 888</span><span>EXYNOS 2200</span><span>DIMENSITY 9000</span><span>TENSOR G3</span><span>SNAPDRAGON 865</span><span>SNAPDRAGON 7+ GEN 3</span><span>DIMENSITY 8300</span><span>EXYNOS 2100</span><span>KIRIN 9000</span><span>SNAPDRAGON 7 GEN 3</span><span>DIMENSITY 8100</span><span>TENSOR G2</span><span>SNAPDRAGON 778G</span><span>SNAPDRAGON 695</span><span>DIMENSITY 7300</span><span>EXYNOS 1380</span><span>HELIO G99</span><span>DIMENSITY 6100+</span><span>HELIO G96</span>
+  </div>
+</div>
+
+<!-- ══════════ STATS ══════════ -->
+<div class="stats" role="list">
+  <div class="stat" role="listitem"><b data-count="5885">0</b><small>CVars in Database</small></div>
+  <div class="stat" role="listitem"><b data-count="735">0</b><small>Monitored CVars</small></div>
+  <div class="stat" role="listitem"><b data-count="350">0</b><small>CVars per Config</small></div>
+  <div class="stat" role="listitem"><b data-count="37">0</b><small>Restricted CVars</small></div>
+  <div class="stat" role="listitem"><b data-count="18">0</b><small>CVar Categories</small></div>
+  <div class="stat" role="listitem"><b data-count="8">0</b><small>Config Presets</small></div>
+  <div class="stat" role="listitem"><b data-count="13">0</b><small>Navigable Screens</small></div>
+</div>
+
+<!-- ══════════ 01 FEATURES ══════════ -->
+<section id="features">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">01 / Features</span>
+      <h2>A Complete Tuning <em>Arsenal</em></h2>
+      <p>From automatic hardware analysis to manual INI surgery, gacha math and battle telemetry — all on-device.</p>
+    </div>
+    <div class="f-grid">
+      <article class="f-card reveal"><span class="f-num">F.01</span><div class="f-icon"><svg class="ic"><use href="#i-sliders"/></svg></div><h3>Config Generator</h3><p>8 presets from Potato to Cinematic. SmartBrain scores your hardware and writes 5 optimized INI files — ~350 CVars across 12+ engine sections — with 19 toggleable options and 23 experimental CVars.</p><span class="tag">120 FPS</span><span class="tag">5 INI Files</span><span class="tag">Ultra Quality</span></article>
+      <article class="f-card reveal"><span class="f-num">F.02</span><div class="f-icon"><svg class="ic"><use href="#i-cpu"/></svg></div><h3>SmartBrain Scoring</h3><p>Scores your device 0–100 from a baseline of 50 with 20+ weighted signals — GPU tier, RAM, Vulkan, thermals, OOM history — then recommends the optimal preset.</p><span class="tag">20+ Signals</span><span class="tag">Auto-Preset</span></article>
+      <article class="f-card reveal"><span class="f-num">F.03</span><div class="f-icon"><svg class="ic"><use href="#i-target"/></svg></div><h3>Pity Tracker</h3><p>Reads Kuro's official gacha API across 11 pool types. Character: 80 hard / 66 soft, 50/50 to guaranteed. Weapon: 80 hard / 66 soft, 50/50 to guaranteed. Background polling with alerts.</p><span class="tag">11 Pools</span><span class="tag">12h Cache</span><span class="tag">50-50 Math</span></article>
+      <article class="f-card reveal"><span class="f-num">F.04</span><div class="f-icon"><svg class="ic"><use href="#i-chart"/></svg></div><h3>Battle Stats</h3><p>All 14 counters from Client.log — battles fought, echoes collected, dodges (forward/back/counter), deaths, role changes, teleports, staggers, stamina, echo skills, transforms, month cards. 100% coverage via parallel partition reads.</p><span class="tag">14 Counters</span><span class="tag">CN Log Terms</span><span class="tag">Parallel</span></article>
+      <article class="f-card reveal"><span class="f-num">F.05</span><div class="f-icon"><svg class="ic"><use href="#i-cycle"/></svg></div><h3>Auto-Tune Wizard</h3><p>Iterative benchmark loop up to 5 rounds — deploys, captures real FPS via logcat parsing, and steps through 8 preset levels until you hit the sweet spot. State persisted to JSON.</p><span class="tag">5 Rounds</span><span class="tag">8 Levels</span></article>
+      <article class="f-card reveal"><span class="f-num">F.06</span><div class="f-icon"><svg class="ic"><use href="#i-box"/></svg></div><h3>Backup &amp; Restore</h3><p>Per-file UUID backups, auto-snapshot before every write, restorable individually — saved to both private storage and Downloads/WuWaConfig/Backups for file-manager access.</p><span class="tag">Auto-Backup</span><span class="tag">1-Tap Restore</span></article>
+      <article class="f-card reveal"><span class="f-num">F.07</span><div class="f-icon"><svg class="ic"><use href="#i-db"/></svg></div><h3>INI Editor</h3><p>Full-screen monospace editor for all 5 config files with hash refresh on save — redundant lines flagged "matches game default", unknowns flagged "not in libUE4.so dump".</p><span class="tag">Inline Edit</span><span class="tag">Smart Flags</span></article>
+      <article class="f-card reveal"><span class="f-num">F.08</span><div class="f-icon"><svg class="ic"><use href="#i-search"/></svg></div><h3>Deploy Verification</h3><p>Pulls a fresh Client.log post-deploy and cross-references every CVar against the ConfigMonitor database — accept/reject badge with color-coded redundant, unknown and monitored counts.</p><span class="tag">Hash Snapshot</span><span class="tag">Reconcile</span></article>
+      <article class="f-card reveal"><span class="f-num">F.09</span><div class="f-icon"><svg class="ic"><use href="#i-shield"/></svg></div><h3>Privacy First</h3><p>No Firebase, Crashlytics or Sentry. Only connects to localhost ADB and Kuro's official gacha API — always user-initiated. android:allowBackup disabled system-wide.</p><span class="tag">No Telemetry</span><span class="tag">Local-Only</span></article>
+      <article class="f-card reveal"><span class="f-num">F.10</span><div class="f-icon"><svg class="ic"><use href="#i-phone"/></svg></div><h3>Player Profile</h3><p>Read-only snapshot of UID, server, level, game version, tower floor, weekly rogue score and battle-pass status. Zero footprint — the game cannot detect it. Cached with manual refresh.</p><span class="tag">Read-Only</span><span class="tag">Zero Footprint</span></article>
+      <article class="f-card reveal"><span class="f-num">F.11</span><div class="f-icon"><svg class="ic"><use href="#i-wrench"/></svg></div><h3>ADB Wire Protocol</h3><p>Native in-app ADB — no external binary. Full auth handshake (RSA 2048-bit, SHA1withRSA, SSH-RSA pubkey), auto port scan 37,000–44,000 + 5555, 15s keepalive, base64 chunked push with MD5 verify.</p><span class="tag">No Binary</span><span class="tag">MD5 Verify</span></article>
+      <article class="f-card reveal"><span class="f-num">F.12</span><div class="f-icon"><svg class="ic"><use href="#i-key"/></svg></div><h3>Encrypted ADB Keys</h3><p>RSA keys encrypted at rest via AndroidKeyStore — AES-256-GCM with HKDF (4KB scheme). Plaintext keys auto-migrate on first load; stored as EncryptedFile in app data.</p><span class="tag">AES-256-GCM</span><span class="tag">Auto-Migrate</span></article>
+    </div>
+
+    <div class="subhead reveal" style="margin-top:34px">Gacha &amp; Pity Engine</div>
+    <div class="sb-cols reveal">
+      <div class="sb-box"><div class="sb-head"><span>API Integration</span><i></i></div><div class="sig"><span>Kuro official endpoint (gmserver-api), 11 pool types — Character (1), Weapon (2), Standard (3), Beginner (4–5), mirror pools (6–11)</span><b class="pos">user-initiated</b></div></div>
+      <div class="sb-box"><div class="sb-head"><span>URL Extraction</span><i></i></div><div class="sig"><span>Convene URL regex-pulled from Client.log — auto-retry 6&times; at 10s intervals, foreground-service polling with notification, broadcast via LocalBroadcastManager</span><b class="pos">6&times;10s</b></div></div>
+      <div class="sb-box"><div class="sb-head"><span>Pity Math &amp; Cache</span><i></i></div><div class="sig"><span>Char: 80 hard / 66 soft, 50/50 &rarr; guaranteed · Weapon: 80 hard / 66 soft, 50/50 &rarr; guaranteed · per-pool breakdown with last 5-star details · 12h TTL cache</span><b class="pos">12h TTL</b></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 02 HOW IT WORKS ══════════ -->
+<section id="how" class="alt">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">02 / How It Works</span>
+      <h2>Zero to Boosted in <em>Five Steps</em></h2>
+      <p>No forums, no waiting for uploads, no configs tuned for someone else's phone. The pipeline runs on your device — because one developer can't write a file for every phone, but every phone can write its own.</p>
+    </div>
+    <div class="how-grid">
+      <div class="steps">
+        <div class="step reveal"><h3>Connect to Device</h3><p>Choose one of four access methods — the app reads game config files from the game's data directory directly.</p>
+          <div class="step-tags"><span class="step-tag">ADB 37k–44k auto-scan</span><span class="step-tag">Shizuku Binder</span><span class="step-tag">Root su -c 10s</span><span class="step-tag">SAF tree URI</span></div></div>
+        <div class="step reveal"><h3>Analyze Client.log</h3><p>Decodes the encrypted log (auto-detects UTF-16BE/LE/UTF-8) and extracts 30+ signals — GPU family, SoC, RAM, resolution, FPS, thermals, texture errors, active CVars.</p>
+          <div class="step-tags"><span class="step-tag">UTF-16 decode</span><span class="step-tag">30+ regex signals</span><span class="step-tag">Chunked dd reads</span></div></div>
+        <div class="step reveal"><h3>SmartBrain Scores</h3><p>Every device starts at 50. Twenty-plus weighted signals move the score — GPU tier, RAM tiers, Vulkan, thermal history, OOM events, drop patterns — and the result maps to a preset.</p>
+          <div class="step-tags"><span class="step-tag">80+ Ultra</span><span class="step-tag">40+ Balanced</span><span class="step-tag">&le;20 Potato</span></div></div>
+        <div class="step reveal"><h3>Generate &amp; Customize</h3><p>Pick a preset or go advanced — toggle 19 options (120 FPS unlock, VSync, force Vulkan, HZB occlusion…), edit CVars inline in the review dialog, choose which INI files to write.</p>
+          <div class="step-tags"><span class="step-tag">8 presets</span><span class="step-tag">19 toggles</span><span class="step-tag">23 experimental</span><span class="step-tag">5 INI files</span></div></div>
+        <div class="step reveal"><h3>Deploy &amp; Verify</h3><p>Preserves 70+ game plugin paths from [Core.System], pushes via staging dir with retry, refreshes KuroConfigMonitor hashes (ModifyCount capped at 8), then reconciles a fresh log.</p>
+          <div class="step-tags"><span class="step-tag">Hash snapshot + reconcile</span><span class="step-tag">70+ Core.System paths</span><span class="step-tag">Retry 2&times;</span></div></div>
+      </div>
+      <div class="terminal reveal" aria-label="Demo of config generation output">
+        <div class="t-bar"><i></i><i></i><i></i><span>wuwaconfig — adb</span></div>
+        <div class="t-body" id="term" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <div class="subhead reveal" style="margin-top:40px">Log Parsing Engine</div>
+    <div class="f-grid reveal">
+      <article class="f-card"><span class="f-num">L.01</span><h3>Log Decoding</h3><p>Auto-detects UTF-16BE / UTF-16LE / UTF-8 and normalizes the encrypted Client.log so every regex runs reliably across devices.</p></article>
+      <article class="f-card"><span class="f-num">L.02</span><h3>Regex Extraction</h3><p>GPU (K#GPUFamily), device model, SoC, CPU, PhysicalMemoryMB, Android version, resolution, DeviceProfile, r.FramePace cap, AverageFPS, r.ScreenPercentage, sg.KuroRenderQuality, RHI/API.</p></article>
+      <article class="f-card"><span class="f-num">L.03</span><h3>Error Detection</h3><p>Texture: "error pixel format", "failed to load texture" · GPU OOM: "out of memory", "vulkanoom" · frame hitches, thermal throttle events, auto-adjust triggers (CN), network timeouts / DNS / socket errors.</p></article>
+      <article class="f-card"><span class="f-num">L.04</span><h3>Battle Stats (CN)</h3><p>Parses Chinese log terms — 角色死亡 (deaths), 极限闪避 (dodges), 角色下场 (role change), 召唤系幻象 (echo skills), 变身幻象 (transforms), 月卡 (month card) — in parallel across all cores.</p></article>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 03 SMARTBRAIN ══════════ -->
+<section id="smartbrain">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">03 / SmartBrain</span>
+      <h2>Every Device Starts at <em>50</em></h2>
+      <p>A transparent scoring engine: 20+ weighted signals, extracted from your actual Client.log, push the score up or down before it maps to a preset.</p>
+    </div>
+
+    <div class="sb-cols reveal">
+      <div class="sb-box">
+        <div class="sb-head"><span>Positive Signals</span><i></i></div>
+        <div class="sig"><span>GPU tier (flagship &rarr; low)</span><b class="pos">+30 to &minus;20</b></div>
+        <div class="sig"><span>RAM &ge;8GB / &ge;6GB / &lt;4GB</span><b class="pos">+8 to &minus;15</b></div>
+        <div class="sig"><span>Vulkan API available</span><b class="pos">+8</b></div>
+        <div class="sig"><span>Render scale at 110%+</span><b class="pos">+5</b></div>
+        <div class="sig"><span>Well-optimized CVars (&gt;20 diff)</span><b class="pos">+5</b></div>
+      </div>
+      <div class="sb-box">
+        <div class="sb-head"><span>Negative Signals</span><i></i></div>
+        <div class="sig"><span>GPU OOM events (1 / 2 / 3+)</span><b class="neg">&minus;12 to &minus;30</b></div>
+        <div class="sig"><span>Thermal events (1 / 3+ / 5+)</span><b class="neg">&minus;5 to &minus;20</b></div>
+        <div class="sig"><span>FPS drop vs cap (&gt;10/20/30%)</span><b class="neg">&minus;6 to &minus;18</b></div>
+        <div class="sig"><span>FPS &lt; 30, or 30–45</span><b class="neg">&minus;15 / &minus;8</b></div>
+        <div class="sig"><span>4K / QHD+ resolution</span><b class="neg">&minus;10 / &minus;4</b></div>
+        <div class="sig"><span>Texture errors</span><b class="neg">up to &minus;20</b></div>
+        <div class="sig"><span>Low-memory device</span><b class="neg">&minus;15</b></div>
+        <div class="sig"><span>Network errors (5+ / 10+)</span><b class="neg">&minus;5 to &minus;10</b></div>
+        <div class="sig"><span>Forbidden CVars active</span><b class="neg">&minus;5 each</b></div>
+        <div class="sig"><span>Unknown CVars (&gt;5)</span><b class="neg">&minus;5</b></div>
+        <div class="sig"><span>High shadows + low GPU</span><b class="neg">&minus;6</b></div>
+        <div class="sig"><span>High shadows + &lt;6GB RAM</span><b class="neg">&minus;4</b></div>
+        <div class="sig"><span>SSAO on low GPU</span><b class="neg">&minus;5</b></div>
+        <div class="sig"><span>FSR RCAS enabled</span><b class="neg">&minus;8</b></div>
+        <div class="sig"><span>Thermal + low GPU combo</span><b class="neg">&minus;3 to &minus;6</b></div>
+        <div class="sig"><span>Room to improve (&lt;5 diff)</span><b class="neg">&minus;8</b></div>
+      </div>
+    </div>
+
+    <div class="ladder reveal" role="list" aria-label="Score to preset mapping">
+      <div role="listitem"><b>POTATO</b><small>&le;20 / OOM&ge;2</small></div>
+      <div role="listitem"><b>ENDURANCE</b><small>20+</small></div>
+      <div role="listitem"><b>BALANCED</b><small>40+</small></div>
+      <div role="listitem" class="hot"><b>COMPETITIVE</b><small>45+ + drops</small></div>
+      <div role="listitem"><b>HIGH</b><small>70+</small></div>
+      <div role="listitem"><b>ULTRA</b><small>80+</small></div>
+      <div role="listitem"><b>CINEMATIC</b><small>85+</small></div>
+    </div>
+    <p class="sb-foot reveal">COMPETITIVE triggers when frame-drop signals are detected even at a moderate score — stability first.</p>
+  </div>
+</section>
+
+<!-- ══════════ 04 PRESETS ══════════ -->
+<section id="presets" class="alt">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">04 / Presets</span>
+      <h2>Explore All <em>8 Presets</em></h2>
+      <p>Tap a preset to see exactly what it does. Every one tuned across 11 key parameters.</p>
+    </div>
+    <div class="px-wrap reveal">
+      <div class="px-chips" id="pxChips" role="tablist" aria-label="Preset selector"></div>
+      <div class="px-panel" id="pxPanel" role="tabpanel" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 05 ENGINE.INI OUTPUT ══════════ -->
+<section id="engine">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">05 / Engine.ini Output</span>
+      <h2>~350 CVars Across <em>16 Sections</em></h2>
+      <p>Each generation writes Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini and Hardware.ini — tailored to your device and preset.</p>
+    </div>
+    <div class="f-grid reveal">
+      <article class="f-card"><span class="f-num">E.01</span><h3>Character Quality</h3><p>SkeletalMesh LOD scale, outlines, face shadows, eye distance, rim light, auto-exposure, radial blur, landscape capture.</p></article>
+      <article class="f-card"><span class="f-num">E.02</span><h3>Scalability</h3><p>sg. quality levels — shadow, texture, post-process, effects, AA, view distance, foliage.</p></article>
+      <article class="f-card"><span class="f-num">E.03</span><h3>Anti-Aliasing</h3><p>PostProcessAA=6, TAA upsampling, Catmull-Rom filtering, mobile frame weights.</p></article>
+      <article class="f-card"><span class="f-num">E.04</span><h3>Post Processing</h3><p>Bloom 0–4, eye adaptation, MotionBlur=0, depth of field, light shaft, LensFlare=0, CA, tonemapper, upscale.</p></article>
+      <article class="f-card"><span class="f-num">E.05</span><h3>Shadow</h3><p>Point light shadows, CSM cascades, radius thresholds, per-object resolution, mobile dynamic point lights (2), single-pass.</p></article>
+      <article class="f-card"><span class="f-num">E.06</span><h3>Texture Streaming</h3><p>MipBias, LODBias, MaxAnisotropy 4–16, PoolSizeMode, KuroMinFOVFactor.</p></article>
+      <article class="f-card"><span class="f-num">E.07</span><h3>Mobile Rendering</h3><p>ShadingPath=1, FSR upscale, MSAA=0, HBAO, pixel-projected reflections, static + CSM shadow receivers.</p></article>
+      <article class="f-card"><span class="f-num">E.08</span><h3>VRS</h3><p>Variable Rate Shading — Material + Mesh VRS enabled where the GPU benefits.</p></article>
+      <article class="f-card"><span class="f-num">E.09</span><h3>Effects / Particles</h3><p>GPU particle caps, Niagara quality tiers, spawn-rate scaling, max CPU/GPU particles.</p></article>
+      <article class="f-card"><span class="f-num">E.10</span><h3>Water / Reflection</h3><p>WaterSSR, SSR, SceneObjSSR, planar reflection, half-res SSR, roughness response.</p></article>
+      <article class="f-card"><span class="f-num">E.11</span><h3>Environment</h3><p>Fog, volume clouds, light functions, ISM draw distances, grass culling, foliage/grass density, LOD distance.</p></article>
+      <article class="f-card"><span class="f-num">E.12</span><h3>LOD / Culling</h3><p>Clustered deferred, HZB occlusion queries, min/max screen radius, StaticMeshLODDistanceScale, parallel frustum cull.</p></article>
+      <article class="f-card"><span class="f-num">E.13</span><h3>Animation</h3><p>URO (Update Rate Optimization) enabled, forced animation rate on budget devices.</p></article>
+      <article class="f-card"><span class="f-num">E.14</span><h3>Frame &amp; Display</h3><p>MobileHDR, VSync, FramePace cap, SkinCache memory, ShaderPipelineCache, PSOCache.</p></article>
+      <article class="f-card"><span class="f-num">E.15</span><h3>Pipeline / RHI</h3><p>PSO cache eviction, RHICmd bypass + parallel + threading, async RHI dispatch.</p></article>
+      <article class="f-card"><span class="f-num">E.16</span><h3>Thermal &amp; Stability</h3><p>AutoCool, thermal control mode, Vulkan robust buffer access for crash-prone drivers.</p></article>
+    </div>
+
+    <div class="subhead reveal">DeviceProfiles — preset tiers</div>
+    <div class="ladder reveal" role="list">
+      <div role="listitem"><b>Android_Low</b><small>Potato · Endurance · Performance · Competitive</small></div>
+      <div role="listitem"><b>Android_Mid</b><small>Balanced</small></div>
+      <div role="listitem"><b>Android_VeryHigh</b><small>High</small></div>
+      <div role="listitem"><b>Android_Ultra</b><small>Ultra · Cinematic</small></div>
+    </div>
+
+    <div class="subhead reveal">Per-chipset profile mapping</div>
+    <div class="tbl-wrap reveal">
+      <table>
+        <thead><tr><th>Chipset / GPU Pattern</th><th>DeviceProfile</th></tr></thead>
+        <tbody>
+          <tr><td data-l="Pattern" class="wrapable">Snapdragon 8 Elite / SM8750 / Adreno 830</td><td data-l="Profile" class="pname">Android_Adreno830</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Snapdragon 8 Gen 3 / SM8650 / Adreno 750</td><td data-l="Profile" class="pname">Android_Adreno750</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Snapdragon 8 Gen 2 / SM8550 / Adreno 740</td><td data-l="Profile" class="pname">Android_Adreno740</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Snapdragon 8+ Gen 1 / SM8475/8450 / Adreno 730</td><td data-l="Profile" class="pname">Android_Adreno7xx</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Snapdragon 7xx / SM7xxx / Adreno 7xx</td><td data-l="Profile" class="pname">Android_Adreno7xx</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Snapdragon 6xx / SM6xxx / Adreno 6xx</td><td data-l="Profile" class="pname">Android_Adreno6xx</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Adreno 5xx</td><td data-l="Profile" class="pname">Android_Adreno5xx</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Adreno 4xx</td><td data-l="Profile" class="pname">Android_Adreno4xx</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Dimensity 9400 / Mali-G925</td><td data-l="Profile" class="pname">Android_Mali_G925</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Dimensity 9300 / Mali-G720</td><td data-l="Profile" class="pname">Android_Mali_G720</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Dimensity 9200 / Mali-G715</td><td data-l="Profile" class="pname">Android_Mali_G715</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Dimensity 9000 / Mali-G710</td><td data-l="Profile" class="pname">Android_Mali_G710</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Dimensity 8xxx / Mali-G615</td><td data-l="Profile" class="pname">Android_Mali_G615</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Dimensity 7xxx / Mali-G6xx</td><td data-l="Profile" class="pname">Android_Mali_G61x</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Dimensity 6xxx / Mali-G57</td><td data-l="Profile" class="pname">Android_Mali_G57</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Exynos 2400 / Xclipse 9xx</td><td data-l="Profile" class="pname">Android_Xclipse9xx</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Exynos 1380 / Xclipse 5xx</td><td data-l="Profile" class="pname">Android_Xclipse5xx</td></tr>
+          <tr><td data-l="Pattern" class="wrapable">Kirin / Maleoon</td><td data-l="Profile" class="pname">Android_Maleoon</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 06 CVAR DATABASE ══════════ -->
+<section id="cvars" class="alt">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">06 / CVar Database</span>
+      <h2>5,885 CVars, <em>Fully Classified</em></h2>
+      <p>Three-level matching classifies every CVar the game can expose: 52 exact overrides, then 200+ <span class="mono">r.</span> sub-rules, then 18 top-level prefixes.</p>
+    </div>
+
+    <div class="cat-cloud reveal" aria-label="CVar categories">
+      <span>CHARACTER</span><span>ENVIRONMENT</span><span>LIGHTING_SHADOW</span><span>POST_PROCESS</span><span>REFLECTION</span><span>EFFECTS</span><span>TEXTURE_STREAMING</span><span>LOD_CULLING</span><span>ANIMATION</span><span>MOBILE</span><span>PIPELINE_RHI</span><span>PERFORMANCE</span><span>THERMAL</span><span>MEMORY</span><span>WORLD</span><span>SCALABILITY</span><span>SYSTEM</span><span>UNKNOWN</span>
+    </div>
+
+    <div class="tbl-wrap reveal" style="margin-top:20px">
+      <table>
+        <thead><tr><th>Category</th><th>Covers</th></tr></thead>
+        <tbody>
+          <tr><td data-l="Cat" class="pname">CHARACTER</td><td data-l="Covers" class="wrapable">Toon outlines, eyes, face shadows, skeletal mesh, NPC disappear, rim light, subsurface scattering, skin cache, morph target</td></tr>
+          <tr><td data-l="Cat" class="pname">ENVIRONMENT</td><td data-l="Covers" class="wrapable">Fog, volumetric fog, landscape, foliage, clouds, density, LOD optimization</td></tr>
+          <tr><td data-l="Cat" class="pname">LIGHTING_SHADOW</td><td data-l="Covers" class="wrapable">Shadows, light functions, light shafts, ambient occlusion, CSM, distance field, capsule/contact shadows, SSGI, sky light</td></tr>
+          <tr><td data-l="Cat" class="pname">POST_PROCESS</td><td data-l="Covers" class="wrapable">Bloom, tonemapper, TAA / PostProcessAA, upscale, eye adaptation, motion blur, depth of field, lens flare, CA, distortion, auto-exposure, radial blur</td></tr>
+          <tr><td data-l="Cat" class="pname">REFLECTION</td><td data-l="Covers" class="wrapable">SSR, water SSR, scene-object SSR, pixel-projected reflection, planar reflection</td></tr>
+          <tr><td data-l="Cat" class="pname">EFFECTS</td><td data-l="Covers" class="wrapable">FX, Niagara, GPU particles, spawn rate</td></tr>
+          <tr><td data-l="Cat" class="pname">TEXTURE_STREAMING</td><td data-l="Covers" class="wrapable">Streaming MipBias, pool size, max anisotropy, render-target pool, virtual textures</td></tr>
+          <tr><td data-l="Cat" class="pname">LOD_CULLING</td><td data-l="Covers" class="wrapable">HZB occlusion, cull distance, screen radius, static-mesh LOD, screen-size cull, max FOV, visibility, ISM, imposters</td></tr>
+          <tr><td data-l="Cat" class="pname">ANIMATION</td><td data-l="Covers" class="wrapable">a. prefix — URO (Update Rate Optimization), animation rates</td></tr>
+          <tr><td data-l="Cat" class="pname">MOBILE</td><td data-l="Covers" class="wrapable">Mobile rendering, HDR, MSAA, Android-specific, OpenHarmony</td></tr>
+          <tr><td data-l="Cat" class="pname">PIPELINE_RHI</td><td data-l="Covers" class="wrapable">Vulkan, RHICmd, PSO, shader pipeline cache, ray tracing, metal, gbuffer</td></tr>
+          <tr><td data-l="Cat" class="pname">PERFORMANCE</td><td data-l="Covers" class="wrapable">FramePace, VSync, FinishCurrentFrame, clustered deferred, parallel frustum, mesh pass cache, VRS, MAGT, early z pass</td></tr>
+          <tr><td data-l="Cat" class="pname">THERMAL</td><td data-l="Covers" class="wrapable">AutoCool, thermal control mode, don't-limit-on-battery</td></tr>
+          <tr><td data-l="Cat" class="pname">MEMORY</td><td data-l="Covers" class="wrapable">GC, low-memory management</td></tr>
+          <tr><td data-l="Cat" class="pname">WORLD</td><td data-l="Covers" class="wrapable">WP, navigation, enable nav partition</td></tr>
+          <tr><td data-l="Cat" class="pname">SCALABILITY</td><td data-l="Covers" class="wrapable">sg. prefix quality levels</td></tr>
+          <tr><td data-l="Cat" class="pname">SYSTEM</td><td data-l="Covers" class="wrapable">Engine system, kuro., compat., t., slate., VR, general</td></tr>
+          <tr><td data-l="Cat" class="pname">UNKNOWN</td><td data-l="Covers" class="wrapable">Default fallback for uncategorized CVars</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="subhead reveal">Restricted CVars — 37 flagged, auto-stripped</div>
+    <div class="tbl-wrap reveal">
+      <table>
+        <thead><tr><th>Category</th><th>CVars</th></tr></thead>
+        <tbody>
+          <tr><td data-l="Cat" class="pname">Streaming</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.Streaming.Boost · r.Streaming.PoolSize · r.Streaming.LimitPoolSizeToVRAM · r.Streaming.MinBoost · r.Streaming.CPUReadback · r.Streaming.UseAsyncCPUReadback · r.Streaming.MaxNumTexturesToStreamPerFrame · r.Streaming.MinMipForSplitRequest · r.Streaming.UseFixedPoolsize · r.Streaming.UseAllMips · r.Streaming.MaxTempMemoryAllowed</td></tr>
+          <tr><td data-l="Cat" class="pname">Shadow</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.Shadow.MaxCSMResolution</td></tr>
+          <tr><td data-l="Cat" class="pname">Texture</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.MipMapLODBias · r.TextureGroup.Landscape.TextureLODBias · r.Kuro.TexturePool.ExtraBudgetMB</td></tr>
+          <tr><td data-l="Cat" class="pname">Quality</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.DetailMode · r.MaterialQualityLevel · r.KuroMaterialQualityLevel</td></tr>
+          <tr><td data-l="Cat" class="pname">Screen / Scale</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.ScreenPercentage · r.MobileContentScaleFactor · r.SecondaryScreenPercentage.GameViewport · r.ViewDistanceScale</td></tr>
+          <tr><td data-l="Cat" class="pname">LOD</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.Kuro.SkeletalMesh.LODDistanceScale</td></tr>
+          <tr><td data-l="Cat" class="pname">Ray Tracing</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.RayTracing.LimitDevice · r.Streamline.DLSSG.RetainResourcesWhenOff</td></tr>
+          <tr><td data-l="Cat" class="pname">Compute / Features</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.AsyncComputePSO · r.AFME.Enable · r.MFRC.Enable · r.FEstimation.Option</td></tr>
+          <tr><td data-l="Cat" class="pname">Memory</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">Kuro.CppEffectsSystem.UseLowMemoryPlayerEffectLruCapacity · Kuro.CppEffectSystem.UseLowMemoryPlayerEffectLruCapacity</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="code-note reveal">With "Allow restricted CVars" OFF these are stripped from every generated INI before deploy — including <strong>+CVars=</strong> / <strong>-CVars=</strong> variants.</p>
+
+    <div class="subhead reveal">GPU tier detection — 7 classes</div>
+    <div class="sb-cols reveal">
+      <div class="sb-box">
+        <div class="sb-head"><span>Flagship &rarr; Mid</span><i></i></div>
+        <div class="sig"><span>FLAGSHIP — Adreno 830–890 · Dimensity 9300+ · Apple M3/M4/A18 · Tensor G3–G5</span><b class="pos">T1</b></div>
+        <div class="sig"><span>HIGH — Adreno 750–800 · Mali-G7xx/G9xx · Exynos 2200 · Kirin 9000 · Apple M1/M2/A16–A17 · Tensor G1–G2</span><b class="pos">T2</b></div>
+        <div class="sig"><span>MID_HIGH — Adreno 700–740 / 650–690 · Dimensity 7300–8400 · Exynos 2100–2300 · Xclipse · Apple A14–A15</span><b>T3</b></div>
+        <div class="sig"><span>MID — Adreno 600–640 · Mali-G6xx/G615 · remaining Dimensity / Exynos / Kirin · Apple A12–A13</span><b>T4</b></div>
+      </div>
+      <div class="sb-box">
+        <div class="sb-head"><span>Mid-Low &rarr; Unknown</span><i></i></div>
+        <div class="sig"><span>MID_LOW — Adreno 5xx · Mali-G5xx / G57</span><b>T5</b></div>
+        <div class="sig"><span>LOW — Adreno 3xx/4xx · Mali-G3xx/G4xx</span><b class="neg">T6</b></div>
+        <div class="sig"><span>UNKNOWN — unrecognized hardware, conservative tuning</span><b class="neg">T?</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 07 FPS LAB ══════════ -->
+<section id="simulator">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">07 / FPS Lab</span>
+      <h2>Build Your <em>Virtual Rig</em></h2>
+      <p>Pick one of <strong class="mono" style="font-size:.85em">36 real SoCs</strong> and dial the settings. The model simulates <strong>GPU pixel cost vs CPU draw-call limits</strong>, per-tier thermals and throttling — so raising render scale raises load and <em>drops</em> FPS, exactly like real hardware. Your rig is remembered between visits.</p>
+    </div>
+
+    <div class="sim reveal">
+      <div class="sim-controls">
+        <div class="sim-field">
+          <label for="selChip">Chipset (SoC)</label>
+          <select id="selChip">
+            <optgroup label="Snapdragon — Flagship">
+              <option value="sd8e">Snapdragon 8 Elite · Adreno 830</option>
+              <option value="sd8g3" selected>Snapdragon 8 Gen 3 · Adreno 750</option>
+              <option value="sd8g2">Snapdragon 8 Gen 2 · Adreno 740</option>
+              <option value="sd8pg1">Snapdragon 8+ Gen 1 · Adreno 730</option>
+              <option value="sd8g1">Snapdragon 8 Gen 1 · Adreno 730</option>
+              <option value="sd888">Snapdragon 888 · Adreno 660</option>
+              <option value="sd865">Snapdragon 865 · Adreno 650</option>
+              <option value="sd855">Snapdragon 855 · Adreno 640</option>
+            </optgroup>
+            <optgroup label="Snapdragon — Mid &amp; Budget">
+              <option value="sd7pg3">Snapdragon 7+ Gen 3 · Adreno 732</option>
+              <option value="sd7g3">Snapdragon 7 Gen 3 · Adreno 720</option>
+              <option value="sd778g">Snapdragon 778G · Adreno 642L</option>
+              <option value="sd6g1">Snapdragon 6 Gen 1 · Adreno 710</option>
+              <option value="sd695">Snapdragon 695 · Adreno 619</option>
+            </optgroup>
+            <optgroup label="MediaTek Dimensity">
+              <option value="d9400">Dimensity 9400 · Mali-G925</option>
+              <option value="d9300">Dimensity 9300 · Mali-G720</option>
+              <option value="d9200">Dimensity 9200 · Mali-G715</option>
+              <option value="d9000">Dimensity 9000 · Mali-G710</option>
+              <option value="d8300">Dimensity 8300 · Mali-G615</option>
+              <option value="d8100">Dimensity 8100 · Mali-G610</option>
+              <option value="d7300">Dimensity 7300 · Mali-G615</option>
+              <option value="d7200">Dimensity 7200 · Mali-G610</option>
+              <option value="d6100">Dimensity 6100+ · Mali-G57</option>
+            </optgroup>
+            <optgroup label="Samsung Exynos">
+              <option value="ex2400">Exynos 2400 · Xclipse 940</option>
+              <option value="ex2200">Exynos 2200 · Xclipse 920</option>
+              <option value="ex2100">Exynos 2100 · Mali-G78</option>
+              <option value="ex1380">Exynos 1380 · Mali-G68</option>
+            </optgroup>
+            <optgroup label="Google Tensor">
+              <option value="tg5">Tensor G5 · Immortalis G925</option>
+              <option value="tg4">Tensor G4 · Mali-G715</option>
+              <option value="tg3">Tensor G3 · Mali-G715</option>
+              <option value="tg2">Tensor G2 · Mali-G710</option>
+              <option value="tg1">Tensor G1 · Mali-G78</option>
+            </optgroup>
+            <optgroup label="Kirin &amp; Helio">
+              <option value="kr9010">Kirin 9010 · Maleoon 910</option>
+              <option value="kr9000">Kirin 9000 · Mali-G78</option>
+              <option value="hg99">Helio G99 · Mali-G57</option>
+              <option value="hg96">Helio G96 · Mali-G57</option>
+              <option value="hg88">Helio G88 · Mali-G52</option>
+            </optgroup>
+          </select>
+          <p class="chip-info">GPU: <span class="gpu-badge" id="chipGpu">Adreno 750</span> <span class="tier-badge" id="chipTier">Flagship</span></p>
+        </div>
+
+        <div class="sim-sec-title">Graphics</div>
+        <div class="sim-field">
+          <label>Render Scale (Screen %) <output id="oScreen">80%</output></label>
+          <input type="range" id="rScreen" min="50" max="100" value="80" step="5">
+        </div>
+        <div class="sim-field">
+          <label>Shadow Quality <output id="oShadow">2 / 5</output></label>
+          <input type="range" id="rShadow" min="0" max="5" value="2" step="1">
+        </div>
+        <div class="sim-field">
+          <label>Texture Streaming <output id="oStream">2 / 6</output></label>
+          <input type="range" id="rStream" min="0" max="6" value="2" step="1">
+        </div>
+
+        <div class="sim-sec-title">Engine Options</div>
+        <div class="sim-toggles">
+          <button class="tg on" id="tg120" aria-pressed="true"><svg class="ic"><use href="#i-unlock"/></svg>120 FPS Unlock</button>
+          <button class="tg on" id="tgVulkan" aria-pressed="true"><svg class="ic"></svg>Vulkan API</button>
+          <button class="tg" id="tgVsync" aria-pressed="false"><svg class="ic"><use href="#i-film"/></svg>VSync</button>
+        </div>
+
+        <p class="sim-note">* Educational estimates from a <strong>GPU + CPU boundary model</strong> with per-tier thermal throttling. Real SmartBrain reads <strong>your actual Client.log</strong> — GPU tier, RAM, thermal &amp; OOM history — for numbers that match <em>your</em> device.</p>
+      </div>
+
+      <div class="sim-result">
+        <div class="sim-live"><i></i> Live Estimator</div>
+        <div class="sim-gauge" id="simGauge" role="img" aria-label="Estimated sustained FPS gauge">
+          <div class="sim-val"><b id="simFps">—</b><small>est. sustained FPS</small></div>
+        </div>
+        <div class="sim-bound" id="boundBadge">GPU-BOUND</div>
+        <div class="sim-tiles">
+          <div class="sim-tile"><b id="ftMs">—</b><small>Frame Time · ms</small></div>
+          <div class="sim-tile"><b id="ftLows">—</b><small>1% Lows</small></div>
+        </div>
+        <div class="sim-compare">
+          <div class="sc-row"><span>Stock</span><div class="sc-bar"><i id="barStock"></i></div><b id="numStock">—</b></div>
+          <div class="sc-row"><span>Tuned</span><div class="sc-bar tuned"><i id="barTuned"></i></div><b id="numTuned">—</b></div>
+        </div>
+        <div class="sim-boost">vs stock settings<b id="boostPct">—</b></div>
+        <div class="sim-rec">
+          <span class="sim-rec-label">Auto-Tune would pick</span>
+          <span class="sim-rec-badge" id="recPreset" title="Jump to presets">—</span>
+          <small id="recFps"></small>
+        </div>
+        <div class="sim-thermal">
+          <span>Thermal Load</span>
+          <div class="th-bar"><i id="thFill"></i></div>
+          <b id="thLabel">—</b>
+        </div>
+        <p class="sr-only" role="status" id="simStatus"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 08 ACCESS ══════════ -->
+<section id="access" class="alt">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">08 / Access Methods</span>
+      <h2>Rooted or Stock — <em>You're Covered</em></h2>
+    </div>
+    <div class="tab-bar reveal" role="tablist" aria-label="Access methods">
+      <button class="tab on" data-tab="t-adb" role="tab"><svg class="ic"><use href="#i-wrench"/></svg>ADB</button>
+      <button class="tab" data-tab="t-shi" role="tab"><svg class="ic"><use href="#i-phone"/></svg>Shizuku</button>
+      <button class="tab" data-tab="t-root" role="tab"><svg class="ic"><use href="#i-key"/></svg>Root</button>
+      <button class="tab" data-tab="t-saf" role="tab"><svg class="ic"><use href="#i-folder"/></svg>SAF</button>
+    </div>
+    <div class="tab-pane on reveal" id="t-adb" role="tabpanel">
+      <div class="tp-icon"><svg class="ic"><use href="#i-wrench"/></svg></div>
+      <div class="tp-body">
+        <h3>ADB Wireless <span class="rec">Recommended</span> <span class="lvl lv-full">Full Access</span></h3>
+        <p>Native in-app ADB wire protocol — no external binary. Full RSA 2048-bit auth handshake (SHA1withRSA, SSH-RSA pubkey), auto port scanning and MD5-verified chunked pushes.</p>
+        <div class="tp-feats"><span class="tp-feat">Ports 37,000–44,000 + 5555</span><span class="tp-feat">RSA 2048</span><span class="tp-feat">15s keepalive</span><span class="tp-feat">Base64 chunked push</span><span class="tp-feat">Keys AES-256-GCM @ AndroidKeyStore</span></div>
+      </div>
+    </div>
+    <div class="tab-pane" id="t-shi" role="tabpanel">
+      <div class="tp-icon"><svg class="ic"><use href="#i-phone"/></svg></div>
+      <div class="tp-body">
+        <h3>Shizuku <span class="rec">Best Non-Root</span> <span class="lvl lv-mid">No Root Needed</span></h3>
+        <p>Binder-based UserService with graceful fallbacks and automatic temp-file cleanup. No compile-time dependency on the Shizuku API.</p>
+        <div class="tp-feats"><span class="tp-feat">60s timeout</span><span class="tp-feat">3&times; retry</span><span class="tp-feat">Script fallback &gt;4096 chars</span><span class="tp-feat">Auto-cleanup</span></div>
+      </div>
+    </div>
+    <div class="tab-pane" id="t-root" role="tabpanel">
+      <div class="tp-icon"><svg class="ic"><use href="#i-key"/></svg></div>
+      <div class="tp-body">
+        <h3>Root <span class="lvl lv-full">Full Access</span></h3>
+        <p>Direct <code class="mono">su -c</code> shell via Magisk, KernelSU or APatch. No chunking needed — straight file operations with exit-code verification.</p>
+        <div class="tp-feats"><span class="tp-feat">10s timeout</span><span class="tp-feat">Direct cp</span><span class="tp-feat">Exit code verify</span></div>
+      </div>
+    </div>
+    <div class="tab-pane" id="t-saf" role="tabpanel">
+      <div class="tp-icon"><svg class="ic"><use href="#i-folder"/></svg></div>
+      <div class="tp-body">
+        <h3>SAF <span class="lvl lv-lim">Read / Write Only</span></h3>
+        <p>Storage Access Framework via DocumentFile with a persistable tree URI and 3-strategy path resolution. No shell — safest option.</p>
+        <div class="tp-feats"><span class="tp-feat">No shell access</span><span class="tp-feat">Persistable URI</span><span class="tp-feat">3-strategy resolution</span></div>
+      </div>
+    </div>
+    <p class="disc reveal"><svg class="ic"><use href="#i-warn"/></svg> <strong>Disclaimer:</strong> Fan-made tool, not affiliated with Kuro Games or Wuthering Waves. Modifying game files may be subject to the game's Terms of Service. <strong>Use at your own risk.</strong> Android-only (8.0+) — not available on iOS or desktop.</p>
+  </div>
+</section>
+
+<!-- ══════════ 09 PARAMETER MATRIX ══════════ -->
+<section id="table">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">09 / Reference</span>
+      <h2>Full Parameter <em>Matrix</em></h2>
+      <p>The exact numbers behind every preset — scroll the table or tap rows on mobile.</p>
+    </div>
+    <div class="tbl-wrap reveal">
+      <table>
+        <thead><tr><th>Preset</th><th>Screen %</th><th>Shadow</th><th>Shadow Res</th><th>SSR</th><th>Mip Bias</th><th>Streaming</th><th>View Dist</th><th>Foliage LOD</th><th>Detail</th><th>LOD Bias</th><th>Grass Cull</th></tr></thead>
+        <tbody>
+          <tr><td class="pname h-lo" data-l>POTATO</td><td data-l="Screen %">50%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">128</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">3</td><td data-l="Streaming" class="h-lo">0.3</td><td data-l="View Dist" class="h-lo">0.3</td><td data-l="Foliage LOD">0.4</td><td data-l="Detail">0</td><td data-l="LOD Bias">5</td><td data-l="Grass Cull">1,500</td></tr>
+          <tr><td class="pname h-md" data-l>ENDURANCE</td><td data-l="Screen %">55%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">128</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">3</td><td data-l="Streaming" class="h-lo">0.4</td><td data-l="View Dist" class="h-lo">0.4</td><td data-l="Foliage LOD">0.5</td><td data-l="Detail">0</td><td data-l="LOD Bias">4</td><td data-l="Grass Cull">2,500</td></tr>
+          <tr><td class="pname h-md" data-l>PERFORMANCE</td><td data-l="Screen %">60%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">256</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">3</td><td data-l="Streaming" class="h-lo">0.5</td><td data-l="View Dist" class="h-lo">0.5</td><td data-l="Foliage LOD">0.6</td><td data-l="Detail">0</td><td data-l="LOD Bias">3</td><td data-l="Grass Cull">4,500</td></tr>
+          <tr><td class="pname h-hi" data-l>COMPETITIVE</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">256</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">1</td><td data-l="Streaming">1.0</td><td data-l="View Dist">2.0</td><td data-l="Foliage LOD">1.0</td><td data-l="Detail">0</td><td data-l="LOD Bias">1</td><td data-l="Grass Cull">2,000</td></tr>
+          <tr><td class="pname h-hi" data-l>BALANCED</td><td data-l="Screen %">80%</td><td data-l="Shadow" class="h-md">2</td><td data-l="Shadow Res">1,024</td><td data-l="SSR" class="h-md">1</td><td data-l="Mip Bias">0</td><td data-l="Streaming" class="h-md">2.0</td><td data-l="View Dist">1.5</td><td data-l="Foliage LOD">2.0</td><td data-l="Detail">1</td><td data-l="LOD Bias">0</td><td data-l="Grass Cull">15,000</td></tr>
+          <tr><td class="pname h-hi" data-l>HIGH</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-hi">4</td><td data-l="Shadow Res">2,048</td><td data-l="SSR" class="h-md">2</td><td data-l="Mip Bias">0</td><td data-l="Streaming" class="h-hi">3.0</td><td data-l="View Dist">2.0</td><td data-l="Foliage LOD">2.5</td><td data-l="Detail">2</td><td data-l="LOD Bias">0</td><td data-l="Grass Cull">20,000</td></tr>
+          <tr><td class="pname h-max" data-l>ULTRA</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-max">5</td><td data-l="Shadow Res">2,048</td><td data-l="SSR" class="h-hi">4</td><td data-l="Mip Bias">&minus;1</td><td data-l="Streaming" class="h-max">4.0</td><td data-l="View Dist">3.0</td><td data-l="Foliage LOD">3.0</td><td data-l="Detail">2</td><td data-l="LOD Bias">&minus;1</td><td data-l="Grass Cull">30,000</td></tr>
+          <tr><td class="pname h-max" data-l>CINEMATIC</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-max">5</td><td data-l="Shadow Res">4,096</td><td data-l="SSR" class="h-hi">4</td><td data-l="Mip Bias">&minus;2</td><td data-l="Streaming" class="h-max">6.0</td><td data-l="View Dist">4.0</td><td data-l="Foliage LOD">4.0</td><td data-l="Detail">3</td><td data-l="LOD Bias">&minus;2</td><td data-l="Grass Cull">40,000</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="subhead reveal">Extra-Aggressive Tweaks — Potato &amp; Performance only</div>
+    <div class="f-grid reveal">
+      <article class="f-card"><span class="f-num">T.01</span><h3>Lighting</h3><p>All dynamic lights = 0, spotlights disabled, ReflectionEnvironment = 0, LightFunctionQuality = 0, SSGI = 0, SSR half-res, SubsurfaceScattering = 0.</p></article>
+      <article class="f-card"><span class="f-num">T.02</span><h3>Shadows</h3><p>Quality = 1, CSM = 1, MaxRes = 512, PerObject = 256, MinRes = 32, TexelsPerPixel = 0.5, distance-field + capsule + contact shadows all off.</p></article>
+      <article class="f-card"><span class="f-num">T.03</span><h3>Aggressive LOD</h3><p>MinScreenRadius = 0.015, foliage = 0.008, StaticMeshLODDist = 0.6, ScreenSizeCull = 5.0, foliage density = 0.5, grass = 0.4, foliageLODDistance = 0.6.</p></article>
+      <article class="f-card"><span class="f-num">T.04</span><h3>Effects</h3><p>VolumetricFog = 0, GPU particles disabled (thermal / perf tuning), Niagara quality reduced, spawn rate scaled down.</p></article>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 10 SCREENS AUTO-SLIDER ══════════ -->
+<section id="screens" class="alt">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">10 / Screens</span>
+      <h2>See It <em>Before You Install</em></h2>
+      <p>Five screens from the actual app, auto-advancing every 10 seconds — or jump with the dots, arrows, or a swipe.</p>
+    </div>
+
+    <div class="shot-stage reveal">
+      <div class="shot-device" aria-roledescription="carousel" aria-label="App screenshots">
+        <div class="shot-screen">
+          <span class="shot-cam"></span>
+          <span class="shot-count" id="shotCount">01 / 05</span>
+
+          <div class="shot-track" id="shotTrack">
+            <!-- Replace src="" with real screenshot URLs (e.g. screens/1.png) -->
+            <div class="shot-slide" data-cap="Dashboard — SmartBrain score &amp; device summary">
+              <img src="" alt="" loading="lazy" decoding="async" data-shot>
+              <div class="shot-fallback"><svg class="ic"><use href="#i-gauge"/></svg><b>01</b><span>Dashboard</span></div>
+            </div>
+            <div class="shot-slide" data-cap="Config Generator — presets &amp; toggles">
+              <img src="" alt="" loading="lazy" decoding="async" data-shot>
+              <div class="shot-fallback"><svg class="ic"><use href="#i-sliders"/></svg><b>02</b><span>Generator</span></div>
+            </div>
+            <div class="shot-slide" data-cap="FPS Lab — live performance estimator">
+              <img src="" alt="" loading="lazy" decoding="async" data-shot>
+              <div class="shot-fallback"><svg class="ic"><use href="#i-gauge"/></svg><b>03</b><span>FPS Lab</span></div>
+            </div>
+            <div class="shot-slide" data-cap="Pity Tracker — gacha history &amp; predictions">
+              <img src="" alt="" loading="lazy" decoding="async" data-shot>
+              <div class="shot-fallback"><svg class="ic"><use href="#i-target"/></svg><b>04</b><span>Pity Tracker</span></div>
+            </div>
+            <div class="shot-slide" data-cap="Deploy — verification report">
+              <img src="" alt="" loading="lazy" decoding="async" data-shot>
+              <div class="shot-fallback"><svg class="ic"><use href="#i-search"/></svg><b>05</b><span>Deploy</span></div>
+            </div>
+          </div>
+
+          <div class="shot-cap" id="shotCap">Dashboard — SmartBrain score &amp; device summary</div>
+        </div>
+      </div>
+
+      <div class="shot-ctrl">
+        <div class="shot-dots" id="shotDots" role="tablist" aria-label="Screenshot selector"></div>
+        <div class="shot-btns">
+          <button class="sbtn" id="shotPrev"><svg class="ic" style="transform:scaleX(-1)"><use href="#i-play"/></svg>Prev</button>
+          <button class="sbtn sbtn-p" id="shotNext">Next<svg class="ic"><use href="#i-play"/></svg></button>
+          <button class="sbtn" id="shotPlay" aria-pressed="false"><svg class="ic"><use href="#i-film"/></svg><span>Pause</span></button>
+        </div>
+        <p class="shot-note">* Screens shown are from <strong>v1.1.4</strong>. UI may differ slightly on your device — presets, toggles and layouts adapt per Android version. Auto-advance <strong>pauses on hover</strong> and on focus.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 11 TECH & DEPLOY ══════════ -->
+<section id="tech">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="kicker">11 / Tech &amp; Deploy</span>
+      <h2>Under the <em>Hood</em></h2>
+      <p>How deployment stays safe, and what the app is built with.</p>
+    </div>
+
+    <div class="subhead reveal">Auto-Tune state machine</div>
+    <div class="flow reveal" aria-label="Auto-Tune state machine">
+      <span>IDLE</span><i>&rarr;</i><span>DEPLOYING</span><i>&rarr;</i><span>WAITING_FOR_PLAY</span><i>&rarr;</i><span class="hot">CAPTURING</span><i>&rarr;</i><span>COMPLETE</span>
+    </div>
+    <p class="sb-foot reveal" style="margin-top:0">FPS &lt; target &times;0.85 &rarr; step DOWN a preset · &ge;15% headroom &rarr; step UP · progressive cuts by gap: SSR (&gt;15) &rarr; bloom (&gt;10) &rarr; radial blur (&gt;8) &rarr; shadows (&gt;5). Order: Cinematic &rarr; Ultra &rarr; High &rarr; Balanced &rarr; Competitive &rarr; Endurance &rarr; Performance &rarr; Potato.</p>
+
+    <div class="subhead reveal">Deploy safety system</div>
+    <div class="f-grid reveal">
+      <article class="f-card"><span class="f-num">D.01</span><div class="f-icon"><svg class="ic"><use href="#i-shield"/></svg></div><h3>Hash Sync</h3><p>KuroConfigMonitor snapshots hashes before deploy and reconciles after — concurrent game access is detected. ModifyCount capped at 8; atomic .new &rarr; rename push with read-back verification.</p></article>
+      <article class="f-card"><span class="f-num">D.02</span><div class="f-icon"><svg class="ic"><use href="#i-box"/></svg></div><h3>Deploy History</h3><p>deploy_history.json stores up to 20 records: preset, method, files, accepted / redundant / unknown counts, plus baseline &amp; outcome metrics (FPS, thermal, OOM, drops) for delta comparison.</p></article>
+      <article class="f-card"><span class="f-num">D.03</span><div class="f-icon"><svg class="ic"><use href="#i-cycle"/></svg></div><h3>Optimizer Retune</h3><p>Stable (FPS &plusmn;5, no OOM): keep. Degraded: screen &rarr;75%, shadow &minus;2, detail &minus;1. OOM event: jump to Potato baseline. Improved: screen &times;1.15, shadow +1.</p></article>
+    </div>
+
+    <div class="subhead reveal">Built with</div>
+    <div class="chips reveal" style="max-width:100%">
+      <span class="chip">Kotlin 1.9.24</span>
+      <span class="chip">Jetpack Compose BOM 2024.10</span>
+      <span class="chip">MVVM + StateFlow</span>
+      <span class="chip">Material 3</span>
+      <span class="chip">Navigation Compose</span>
+      <span class="chip">AGP 8.4.2</span>
+      <span class="chip">Gradle 8.6</span>
+      <span class="chip">SDK 26+ / Target 34</span>
+      <span class="chip">Gson</span>
+      <span class="chip">Coil</span>
+      <span class="chip">ExoPlayer</span>
+      <span class="chip">JUnit 4</span>
+      <span class="chip">ktlint</span>
+      <span class="chip">ProGuard</span>
+    </div>
+    <p class="sb-foot reveal">Security notes: ADB keys encrypted at rest (AES-256-GCM + HKDF via AndroidKeyStore, plaintext auto-migrated) · cleartext permitted only to 127.0.0.1 / localhost · gacha polling via in-process LocalBroadcastManager · allowBackup=false.</p>
+  </div>
+</section>
+
+<!-- ══════════ 12 FAQ ══════════ -->
+<section id="faq" class="alt">
+  <div class="container">
+    <div class="sec-head center reveal">
+      <span class="kicker">12 / FAQ</span>
+      <h2>Before You <em>Ask</em></h2>
+    </div>
+    <div class="faq reveal">
+      <details><summary>Who made this? Are you a developer?</summary><div class="faq-b">A player, like you — not a professional dev. I faced the same config pain, planned a tool, and built it. It's open source, so you can check every line, and every issue you report becomes the next fix.</div></details>
+      <details><summary>What is WuWaConfig?</summary><div class="faq-b">A free Android app that optimizes Wuthering Waves. It reads your <code>Client.log</code>, scores your phone with SmartBrain (0–100), generates optimized <code>Engine.ini</code>, <code>Scalability.ini</code> and <code>GameUserSettings.ini</code>, then deploys via ADB, Shizuku, Root or SAF.</div></details>
+      <details><summary>Is it stable? What if something breaks?</summary><div class="faq-b">It's actively evolving — most devices work great, and edge cases get fixed fast because it's open source. Safety nets are built in either way: <strong>auto-backup before every deploy</strong>, one-tap restore, and hash verification. Worst case, you're one tap from your original config.</div></details>
+      <details><summary>How do I boost FPS without root?</summary><div class="faq-b">Use <strong>ADB Wireless Debugging</strong> or <strong>Shizuku</strong> — both work on stock, non-rooted phones. SmartBrain reads your real hardware (GPU tier, RAM, Vulkan, thermal history) and picks the right preset. Flagships can unlock 120 FPS; mid-rangers gain stability and fewer drops rather than a huge raw-FPS jump.</div></details>
+      <details><summary>Is it safe and private?</summary><div class="faq-b">Yes. No analytics, no telemetry, no crash reporting — nothing leaves your device except user-initiated gacha API calls. <code>android:allowBackup</code> is disabled and ADB keys are encrypted with AndroidKeyStore (AES-256-GCM).</div></details>
+      <details><summary>Which phones are supported?</summary><div class="faq-b">Any Android 8+ phone — Snapdragon (Adreno), Dimensity (Mali), Exynos, Tensor, Kirin, Helio — including low-end. Per-chipset DeviceProfiles cover Poco, Redmi, Xiaomi, Samsung, OnePlus, Realme, Vivo, Oppo, Nothing, Motorola, Asus ROG and more.</div></details>
+      <details><summary>Does it work on Samsung Galaxy S23 / S24?</summary><div class="faq-b">Yes — both Snapdragon and Exynos variants, on Android 8+. Connect via Shizuku or ADB Wireless Debugging, pick a preset, deploy. Exynos models should start <strong>one tier lower</strong> than the Snapdragon equivalent for thermal headroom.</div></details>
+      <details><summary>Does it optimize MediaTek Dimensity phones with a Mali GPU?</summary><div class="faq-b">Yes — per-chipset tuning for Dimensity (Mali/PowerVR) is built in. Mali GPUs benefit most from <strong>lower shadow quality and reduced texture streaming</strong>, so Competitive or Balanced is usually the sweet spot; SmartBrain scores your exact GPU tier automatically.</div></details>
+      <details><summary>Best preset for Poco X6 Pro / Snapdragon?</summary><div class="faq-b">Start with <strong>Balanced</strong> or <strong>High</strong> and let SmartBrain tune. Snapdragon 8 Gen 2/3 flagships can run Ultra or Cinematic with the 120 FPS unlock; mid-range chips are smoothest on Competitive or Performance.</div></details>
+      <details><summary>Best settings for Redmi Note 12/13 &amp; budget phones?</summary><div class="faq-b">Start with <strong>Performance</strong> or <strong>Endurance</strong> — conservative render scale and shadows avoid thermal throttling and GPU OOM while still beating stock FPS.</div></details>
+      <details><summary>How do I get 120 FPS?</summary><div class="faq-b">Enable the <strong>120 FPS unlock</strong> toggle — it raises the frame-pace cap in <code>GameUserSettings.ini</code>. Works on capable flagships. If you overheat or drop frames, step down a preset until stable.</div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 13 CTA ══════════ -->
+<section id="download">
+  <div class="container">
+    <div class="sec-head center reveal">
+      <span class="kicker">13 / Deploy</span>
+      <h2>Ready to <em>Try It?</em></h2>
+      <p>Free, open source, built by a player. Join the players running Wuthering Waves at their device's true potential — and help shape what it fixes next.</p>
+    </div>
+    <div class="cta reveal">
+      <div class="cta-actions">
+        <a class="btn btn-p" href="https://github.com/b3rr7/WuWa-Config-Android/releases/latest" target="_blank" rel="noopener"><svg class="ic"><use href="#i-down"/></svg>Download Latest APK</a>
+        <a class="btn btn-g" href="https://github.com/b3rr7/WuWa-Config-Android" target="_blank" rel="noopener"><svg class="ic"><use href="#i-ext"/></svg>GitHub Repository</a>
+      </div>
+      <p class="cta-note">v1.1.4 · Early &amp; evolving — report issues on GitHub · MIT License · Not affiliated with Kuro Games</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container f-inner">
+    <nav class="f-links" aria-label="Footer">
+      <a href="https://github.com/b3rr7/WuWa-Config-Android" target="_blank" rel="noopener"><svg class="ic"><use href="#i-ext"/></svg>GitHub</a>
+      <a href="https://github.com/b3rr7/WuWa-Config-Android/releases/latest" target="_blank" rel="noopener"><svg class="ic"><use href="#i-down"/></svg>Releases</a>
+      <!-- TODO: replace GitHub fallbacks with real community URLs when live -->
+      <a href="https://github.com/b3rr7/WuWa-Config-Android" target="_blank" rel="noopener"><svg class="ic"><use href="#i-send"/></svg>Telegram</a>
+      <a href="https://github.com/b3rr7/WuWa-Config-Android" target="_blank" rel="noopener"><svg class="ic"><use href="#i-chat"/></svg>Discord</a>
+      <a href="https://github.com/b3rr7/WuWa-Config-Android" target="_blank" rel="noopener"><svg class="ic"><use href="#i-play"/></svg>YouTube</a>
+    </nav>
+    <p class="f-meta"><span class="brand">WuWaConfig</span> · Open Source · MIT · Not affiliated with Kuro Games<br>
+    <em>wuthering-waves · wuwa · fps-boost · engine-ini · config-optimizer · gacha-tracker · pity-calculator · kuro-games · mobile-gaming · android-optimization · unreal-engine-4 · adb · shizuku · gaming-tool · fps-unlock · graphics-tuning · cvars-editor · client-log-analyzer · smart-brain-scoring · config-monitor · vulkan-optimization · thermal-fix · auto-tune-wizard · deviceprofiles-ini · gameusersettings · scalability-ini · hardware-ini · benchmark-tuner · ue4-mobile · adreno-tuning · mali-gpu-config · snapdragon-gaming · low-end-booster</em></p>
+  </div>
+</footer>
+
+<button class="to-top" id="toTop" aria-label="Back to top">↑</button>
+
+<!-- ══════════ MAIN SCRIPT ══════════ -->
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const slowNet=(navigator.connection&&
+  (navigator.connection.saveData||/2g/.test(navigator.connection.effectiveType||'')));
+
+/* ── Theme switcher ── */
+const dots=$$('.t-dot');
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem('wuwa-theme',t)}catch(e){}
+  dots.forEach(b=>{const on=b.dataset.theme===t;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});
+}
+let saved='spectro';
+try{saved=localStorage.getItem('wuwa-theme')||'spectro'}catch(e){}
+setTheme(saved);
+dots.forEach(b=>b.addEventListener('click',()=>setTheme(b.dataset.theme)));
+
+/* ── Scroll progress + navbar + to-top ── */
+const nav=$('#navbar'), prog=$('#progress'), toTop=$('#toTop');
+function onScroll(){
+  const y=scrollY, h=document.documentElement.scrollHeight-innerHeight;
+  prog.style.width=(h>0?(y/h)*100:0)+'%';
+  nav.classList.toggle('scrolled',y>10);
+  toTop.classList.toggle('show',y>560);
+}
+addEventListener('scroll',onScroll,{passive:true}); onScroll();
+toTop.onclick=()=>scrollTo({top:0,behavior:'smooth'});
+
+/* ── Mobile menu ── */
+const burger=$('#burger'), links=$('#navLinks');
+function closeMenu(){links.classList.remove('open');burger.classList.remove('on');burger.setAttribute('aria-expanded','false');document.body.style.overflow=''}
+burger.onclick=e=>{e.stopPropagation();const o=links.classList.toggle('open');burger.classList.toggle('on',o);burger.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''};
+links.querySelectorAll('a').forEach(a=>a.onclick=closeMenu);
+document.addEventListener('click',e=>{if(links.classList.contains('open')&&!links.contains(e.target)&&!burger.contains(e.target))closeMenu()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
+
+/* ── Scroll-spy nav ── */
+(function(){
+  if(!('IntersectionObserver'in window))return;
+  const spy={};
+  links.querySelectorAll('a[href^="#"]').forEach(a=>{
+    const id=a.getAttribute('href').slice(1);
+    if(id&&document.getElementById(id))spy[id]=a;
+  });
+  const io=new IntersectionObserver(es=>{
+    es.forEach(e=>{
+      if(e.isIntersecting){
+        Object.values(spy).forEach(a=>a.removeAttribute('aria-current'));
+        if(spy[e.target.id])spy[e.target.id].setAttribute('aria-current','true');
+      }
+    });
+  },{rootMargin:'-40% 0px -55% 0px'});
+  Object.keys(spy).forEach(id=>io.observe(document.getElementById(id)));
+})();
+
+/* ── Reveal on scroll ── */
+if('IntersectionObserver'in window&&!reduced){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.1,rootMargin:'0px 0px -40px 0px'});
+  $$('.reveal').forEach(el=>io.observe(el));
+}else $$('.reveal').forEach(el=>el.classList.add('in'));
+
+/* ── Stat counters ── */
+function animCount(el){
+  const target=+el.dataset.count, dur=1400, t0=performance.now();
+  (function tick(t){
+    const p=Math.min((t-t0)/dur,1), e=1-Math.pow(1-p,3);
+    el.textContent=Math.round(e*target).toLocaleString();
+    if(p<1)requestAnimationFrame(tick);
+  })(t0);
+}
+const cIO=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){reduced?e.target.textContent=(+e.target.dataset.count).toLocaleString():animCount(e.target);cIO.unobserve(e.target)}}),{threshold:.5});
+ $$('[data-count]').forEach(el=>cIO.observe(el));
+
+/* ── Android monitor ── */
+const pFps=$('#phoneFps'), pBars=$('#pBars');
+if(pBars){
+  for(let i=0;i<16;i++)pBars.appendChild(document.createElement('i'));
+  const bars=[...pBars.children];
+  function rnd(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+  if(!reduced&&!slowNet){
+    (function tickPhone(){
+      pFps.textContent=rnd(108,120);
+      bars.forEach(b=>b.style.height=rnd(30,100)+'%');
+      setTimeout(tickPhone,900);
+    })();
+  }else{
+    bars.forEach(b=>b.style.height=rnd(40,90)+'%');
+    if(pFps)pFps.textContent='118';
+  }
+}
+
+/* ── Clock ── */
+const aTime=document.getElementById('aTime');
+function tickClock(){
+  if(!aTime)return;
+  const d=new Date();
+  aTime.textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+tickClock(); setInterval(tickClock,10000);
+
+/* ── Tickers ── */
+if(!slowNet){
+  const track=$('#tickTrack'); if(track)track.innerHTML+=track.innerHTML;
+  const hrTrack=$('#hrTrack'); if(hrTrack)hrTrack.innerHTML+=hrTrack.innerHTML;
+}else{
+  const t1=$('#tickTrack'); if(t1)t1.style.animation='none';
+  const t2=$('#hrTrack');   if(t2)t2.style.animation='none';
+}
+
+/* ── Terminal ── */
+const LINES=[
+  {t:'$ wuwaconfig analyze',c:'t-cmd'},
+  {t:'OK  Client.log decoded (UTF-16BE)',c:'t-ok'},
+  {t:'OK  GPU: Adreno 750 · RAM: 12GB · Vulkan: yes',c:'t-ok'},
+  {t:'OK  SmartBrain: 85/100 -> HIGH preset',c:'t-ok'},
+  {t:'$ wuwaconfig generate --preset high',c:'t-cmd'},
+  {t:'OK  Engine.ini · 127 CVars written',c:'t-ok'},
+  {t:'OK  DeviceProfiles -> Android_Adreno750',c:'t-ok'},
+  {t:'$ wuwaconfig deploy',c:'t-cmd'},
+  {t:'OK  118/118 CVars verified accepted',c:'t-ok'},
+  {t:'>> avg FPS: 45 -> 112',c:'t-boost'}
+];
+const term=$('#term'); let tSeen=false;
+function runTerm(){
+  if(reduced||slowNet){LINES.forEach(l=>{const d=document.createElement('div');d.className=l.c;d.textContent=l.t;term.appendChild(d)});return}
+  let li=0;
+  function nextLine(){
+    if(li>=LINES.length){setTimeout(()=>{term.innerHTML='';li=0;nextLine()},4200);return}
+    const line=LINES[li++], div=document.createElement('div');
+    div.className=line.c+' t-line'; term.appendChild(div);
+    const cur=document.createElement('span');cur.className='t-cursor';div.after(cur);
+    let ci=0;
+    (function type(){
+      if(ci<line.t.length){div.textContent=line.t.slice(0,++ci);setTimeout(type,line.c==='t-cmd'?34:12)}
+      else{cur.remove();setTimeout(nextLine,line.c==='t-cmd'?420:180)}
+    })();
+  }
+  nextLine();
+}
+if(term){
+  new IntersectionObserver((es,o)=>{if(es[0].isIntersecting&&!tSeen){tSeen=true;runTerm();o.disconnect()}},{threshold:.3}).observe(term);
+}
+
+/* ── Preset Explorer ── */
+const PRESETS={
+  potato:{n:'POTATO',c:'#ff7a7a',s:'50%',sh:'0',res:'128',g:'1,500',best:'Low-end · thermal relief',d:'Maximum battery and thermal relief. Strips shadows, reflections and foliage density for stable FPS on entry-level chipsets. Extras: dynamic lights off, SSGI=0, volumetric fog off.'},
+  endurance:{n:'ENDURANCE',c:'#ffa94d',s:'55%',sh:'0',res:'128',g:'2,500',best:'Marathon sessions · battery',d:'Potato-plus tuning for long play sessions — keeps frame times flat even as your device heats up.'},
+  performance:{n:'PERFORMANCE',c:'#ffd166',s:'60%',sh:'0',res:'256',g:'4,500',best:'Budget phones',d:'Smooth and safe. Higher streaming than Potato plus a light resolution bump for Redmi / Realme class devices.'},
+  competitive:{n:'COMPETITIVE',c:'#a3e635',s:'100%',sh:'0',res:'256',g:'2,000',best:'Esports · max FPS',d:'Native resolution, zero shadows. Built for reaction time — every frame counts in the Tower.'},
+  balanced:{n:'BALANCED',c:'#3fd68f',s:'80%',sh:'2',res:'1,024',g:'15,000',best:'Most mid-range devices',d:'The sweet spot. Real shadows, solid draw distance and 80% render scale — looks great, runs great.'},
+  high:{n:'HIGH',c:'#2dd4bf',s:'100%',sh:'4',res:'2,048',g:'20,000',best:'Flagship killers',d:'Native res with rich shadows and full effects. Ideal for Snapdragon 8-series and Dimensity 9000+.'},
+  ultra:{n:'ULTRA',c:'#6c8cff',s:'100%',sh:'5',res:'2,048',g:'30,000',best:'Snapdragon 8 Gen 2/3',d:'Everything maxed minus the last 10%. 120 FPS capable on cooled flagships.'},
+  cinematic:{n:'CINEMATIC',c:'#b78bff',s:'100%',sh:'5',res:'4,096',g:'40,000',best:'Showcase · screenshots',d:'4K shadows, volumetric glory. The mode you screenshot — not the one you climb the Tower in.'}
+};
+const pxChips=$('#pxChips'), pxPanel=$('#pxPanel');
+Object.entries(PRESETS).forEach(([k,p],i)=>{
+  const b=document.createElement('button');
+  b.className='px-chip'+(i===4?' on':''); b.style.setProperty('--c',p.c);
+  b.setAttribute('role','tab'); b.innerHTML=`<i></i>${p.n}`;
+  b.onclick=()=>{pxChips.querySelectorAll('.px-chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');showPreset(k)};
+  pxChips.appendChild(b);
+});
+function showPreset(k){
+  const p=PRESETS[k];
+  pxPanel.style.setProperty('--c',p.c);
+  pxPanel.innerHTML=`
+    <div class="px-edge"></div>
+    <div class="px-in px-anim">
+      <div class="px-top"><span class="px-name">${p.n}</span><span class="px-best">${p.best}</span></div>
+      <p class="px-desc">${p.d}</p>
+      <div class="px-stats">
+        <div class="px-stat"><b>${p.s}</b><small>Screen %</small></div>
+        <div class="px-stat"><b>${p.sh}</b><small>Shadow</small></div>
+        <div class="px-stat"><b>${p.res}</b><small>Shadow Res</small></div>
+        <div class="px-stat"><b>${p.g}</b><small>Grass Cull</small></div>
+      </div>
+    </div>`;
+}
+showPreset('balanced');
+
+/* ════════════════════════════════════════════════════════════
+   ⚗️ FPS LAB 3.0 — DUAL-BOUNDARY MODEL + PERSISTED STATE
+   ════════════════════════════════════════════════════════════ */
+const CHIPS={
+  sd8e:['Adreno 830',150,130,'Flagship'],  sd8g3:['Adreno 750',140,120,'Flagship'],
+  sd8g2:['Adreno 740',130,112,'Flagship'], sd8pg1:['Adreno 730',118,100,'Flagship'],
+  sd8g1:['Adreno 730',100,88,'Flagship'],  sd888:['Adreno 660',88,78,'Flagship'],
+  sd865:['Adreno 650',80,72,'High'],       sd855:['Adreno 640',66,62,'Upper-Mid'],
+  sd7pg3:['Adreno 732',96,84,'Upper-Mid'], sd7g3:['Adreno 720',74,66,'Mid'],
+  sd778g:['Adreno 642L',60,55,'Mid'],      sd6g1:['Adreno 710',48,45,'Mid'],
+  sd695:['Adreno 619',40,38,'Mid'],
+  d9400:['Mali-G925',148,128,'Flagship'],  d9300:['Mali-G720',138,118,'Flagship'],
+  d9200:['Mali-G715',112,96,'Flagship'],   d9000:['Mali-G710',100,88,'High'],
+  d8300:['Mali-G615',86,76,'Upper-Mid'],   d8100:['Mali-G610',74,66,'Upper-Mid'],
+  d7300:['Mali-G615',50,46,'Mid'],         d7200:['Mali-G610',47,44,'Mid'],
+  d6100:['Mali-G57',30,30,'Low'],
+  ex2400:['Xclipse 940',120,105,'Flagship'],ex2200:['Xclipse 920',88,76,'High'],
+  ex2100:['Mali-G78',76,68,'High'],        ex1380:['Mali-G68',48,45,'Mid'],
+  tg5:['Immortalis G925',118,100,'Flagship'],tg4:['Mali-G715',100,86,'High'],
+  tg3:['Mali-G715',88,78,'High'],          tg2:['Mali-G710',72,64,'Upper-Mid'],
+  tg1:['Mali-G78',66,60,'Upper-Mid'],
+  kr9010:['Maleoon 910',92,80,'High'],     kr9000:['Mali-G78',76,68,'High'],
+  hg99:['Mali-G57',29,34,'Low'],           hg96:['Mali-G57',27,32,'Low'],
+  hg88:['Mali-G52',21,27,'Low']
+};
+const THR={Flagship:1.05,High:0.9,'Upper-Mid':0.78,Mid:0.65,Low:0.55};
+const TIER_COL={Flagship:'var(--good)',High:'#0e8a7a','Upper-Mid':'var(--warn)','Mid':'var(--ink-2)',Low:'var(--bad)'};
+
+const ORDER=['CINEMATIC','ULTRA','HIGH','BALANCED','COMPETITIVE','PERFORMANCE','ENDURANCE','POTATO'];
+const PP={
+  CINEMATIC:{s:100,sh:5,st:6,c:'#b78bff'},
+  ULTRA:{s:100,sh:5,st:4,c:'#6c8cff'},
+  HIGH:{s:100,sh:4,st:3,c:'#2dd4bf'},
+  BALANCED:{s:80,sh:2,st:2,c:'#3fd68f'},
+  COMPETITIVE:{s:100,sh:0,st:1,c:'#a3e635'},
+  PERFORMANCE:{s:60,sh:0,st:0.5,c:'#ffd166'},
+  ENDURANCE:{s:55,sh:0,st:0.4,c:'#ffa94d'},
+  POTATO:{s:50,sh:0,st:0.3,c:'#ff7a7a'}
+};
+
+const pix=s=>Math.pow(s/100,1.6);
+
+function model(g,c,tier,s,sh,st,vulkan,vsync,cap){
+  const q =(1-sh*0.055)*(1-st*0.028)*(vulkan?1:0.93)*(vsync?0.97:1);
+  const cq=(1-sh*0.012)*(vulkan?1:0.97);
+  const fpsGPU=g*q/pix(s);
+  const fpsCPU=c*cq;
+  const fpsRaw=Math.min(fpsGPU,fpsCPU,cap);
+  const bound=(fpsGPU<=fpsCPU&&fpsGPU<=cap)?'GPU':(fpsCPU<=cap?'CPU':'CAP');
+  let load=pix(s)*(0.45+sh*0.11)*(0.6+st*0.0667)
+           *(vulkan?0.95:1)*(vsync?0.97:1)/THR[tier];
+  if(bound!=='GPU')load*=0.9;
+  load=Math.min(1,load);
+  const thrF=load>0.8?1-(load-0.8)*0.6:1;
+  const sustained=Math.max(6,Math.round(fpsRaw*thrF));
+  const lows=Math.max(4,Math.round(sustained*(0.9-load*0.25)));
+  return{sustained,lows,load,bound};
+}
+
+const selChip=$('#selChip'), chipGpu=$('#chipGpu'), chipTier=$('#chipTier'),
+      rS=$('#rScreen'), rSh=$('#rShadow'), rSt=$('#rStream'),
+      oS=$('#oScreen'), oSh=$('#oShadow'), oSt=$('#oStream'),
+      tg120=$('#tg120'), tgVk=$('#tgVulkan'), tgVs=$('#tgVsync'),
+      simG=$('#simGauge'), simF=$('#simFps'),
+      boundBadge=$('#boundBadge'),
+      ftMs=$('#ftMs'), ftLows=$('#ftLows'),
+      bSt=$('#barStock'), bTu=$('#barTuned'), nSt=$('#numStock'), nTu=$('#numTuned'),
+      boostEl=$('#boostPct'), recEl=$('#recPreset'), recFpsEl=$('#recFps'),
+      thF=$('#thFill'), thL=$('#thLabel'),
+      simStatus=$('#simStatus');
+
+const pixHint=document.createElement('p');
+pixHint.className='pix-hint';
+if(rS&&rS.closest('.sim-field'))rS.closest('.sim-field').appendChild(pixHint);
+
+const SIM_KEY='wuwa-sim';
+function saveSim(){
+  try{localStorage.setItem(SIM_KEY,JSON.stringify({
+    c:selChip.value,s:rS.value,sh:rSh.value,st:rSt.value,
+    u:tg120.classList.contains('on'),v:tgVk.classList.contains('on'),y:tgVs.classList.contains('on')
+  }))}catch(e){}
+}
+(function loadSim(){
+  try{
+    const d=JSON.parse(localStorage.getItem(SIM_KEY)||'null');
+    if(!d)return;
+    if(CHIPS[d.c])selChip.value=d.c;
+    if(d.s>=50&&d.s<=100)rS.value=d.s;
+    if(d.sh>=0&&d.sh<=5)rSh.value=d.sh;
+    if(d.st>=0&&d.st<=6)rSt.value=d.st;
+    tg120.classList.toggle('on',!!d.u); tg120.setAttribute('aria-pressed',String(!!d.u));
+    tgVk.classList.toggle('on',!!d.v);  tgVk.setAttribute('aria-pressed',String(!!d.v));
+    tgVs.classList.toggle('on',!!d.y);  tgVs.setAttribute('aria-pressed',String(!!d.y));
+  }catch(e){}
+})();
+
+function fillSliders(){
+  rS.style.setProperty('--fill',((rS.value-50)/50*100)+'%');
+  rSh.style.setProperty('--fill',(rSh.value/5*100)+'%');
+  rSt.style.setProperty('--fill',(rSt.value/6*100)+'%');
+}
+
+let lastRec='';
+
+function calc(){
+  const [gpuName,g,c,tier]=CHIPS[selChip.value];
+  chipGpu.textContent=gpuName;
+  chipTier.textContent=tier; chipTier.style.color=TIER_COL[tier]||'var(--ink-2)';
+
+  const screen=+rS.value, sh=+rSh.value, st=+rSt.value;
+  oS.textContent=screen+'%'; oSh.textContent=sh+' / 5'; oSt.textContent=st+' / 6';
+  fillSliders();
+
+  const unlock=tg120.classList.contains('on'),
+        vulkan=tgVk.classList.contains('on'),
+        vsync=tgVs.classList.contains('on'),
+        cap=unlock?120:60;
+
+  const m =model(g,c,tier,screen,sh,st,vulkan,vsync,cap);
+  const ms=model(g,c,tier,100,2,2,false,true,60);
+
+  simF.textContent=m.sustained;
+  ftMs.textContent=(1000/m.sustained).toFixed(1);
+  ftLows.textContent=m.lows;
+  const pct=Math.min(100,m.sustained/120*100);
+  simG.style.setProperty('--p',pct);
+  const col=m.sustained>=100?'var(--good)':m.sustained>=60?'#0e8a7a':m.sustained>=35?'var(--warn)':'var(--bad)';
+  simG.style.setProperty('--gc',col); simF.style.color=col;
+
+  boundBadge.classList.remove('cpu','cap');
+  if(m.bound==='GPU'){
+    boundBadge.textContent='GPU-BOUND — resolution & quality are the limiter';
+  }else if(m.bound==='CPU'){
+    boundBadge.classList.add('cpu');
+    boundBadge.textContent='CPU-BOUND — lowering render scale won\u2019t add FPS';
+  }else{
+    boundBadge.classList.add('cap');
+    boundBadge.textContent='FRAME-CAP — the FPS ceiling is the limit, not hardware';
+  }
+
+  pixHint.textContent=screen>=100
+    ?'[■] 100% pixels — native resolution, heaviest GPU load'
+    :`[■] renders ${Math.round(pix(screen)*100)}% of native pixels`;
+
+  nSt.textContent=ms.sustained; nTu.textContent=m.sustained;
+  bSt.style.setProperty('--w',Math.min(100,ms.sustained/120*100)+'%');
+  bTu.style.setProperty('--w',pct+'%');
+  const boost=Math.round((m.sustained-ms.sustained)/ms.sustained*100);
+  boostEl.textContent=(boost>=0?'\u25B2 +':'\u25BC \u2212')+Math.abs(boost)+'%';
+  boostEl.style.color=boost>=0?'var(--good)':'var(--bad)';
+
+  const target=Math.max(45,Math.round(cap*0.8));
+  let recKey='POTATO', recF=0;
+  for(const k of ORDER){
+    const p=PP[k];
+    const r=model(g,c,tier,p.s,p.sh,p.st,true,false,cap);
+    recF=r.sustained;
+    if(r.sustained>=target){recKey=k;break}
+  }
+  recEl.textContent=recKey;
+  recEl.style.setProperty('--rc',PP[recKey].c);
+  recFpsEl.textContent='this chip sustains ~'+recF+' FPS at '+recKey;
+
+  thF.style.setProperty('--w',(m.load*100).toFixed(0)+'%');
+  const th=m.load<0.35?['Cool','var(--good)']:m.load<0.55?['Moderate','#0e8a7a']:m.load<0.75?['Warm','var(--warn)']:m.load<0.9?['Hot','#c2620e']:['Throttling','var(--bad)'];
+  thL.textContent=th[0]; thL.style.color=th[1];
+
+  lastRec=m.sustained+' FPS sustained, '+recKey+' recommended, thermal '+th[0].toLowerCase();
+  saveSim();
+}
+
+selChip.addEventListener('change',()=>{calc(); simStatus.textContent=lastRec});
+[rS,rSh,rSt].forEach(el=>{
+  el.addEventListener('input',calc);
+  el.addEventListener('change',()=>{simStatus.textContent=lastRec});
+});
+[tg120,tgVk,tgVs].forEach(b=>b.addEventListener('click',()=>{
+  b.classList.toggle('on');
+  b.setAttribute('aria-pressed',b.classList.contains('on'));
+  calc(); simStatus.textContent=lastRec;
+}));
+recEl.addEventListener('click',()=>document.getElementById('presets').scrollIntoView({behavior:reduced?'auto':'smooth'}));
+calc();
+
+/* ── Access tabs ── */
+ $$('.tab').forEach(t=>t.onclick=()=>{
+  $$('.tab').forEach(x=>x.classList.remove('on'));
+  $$('.tab-pane').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');
+  document.getElementById(t.dataset.tab).classList.add('on');
+});
+
+/* ════════════════════════════════════════════════════════════
+   📸 SCREENS AUTO-SLIDER — 10s
+   ════════════════════════════════════════════════════════════ */
+(function(){
+  const strack=$('#shotTrack'); if(!strack)return;
+  const slides=[...strack.children];
+  const dotsWrap=$('#shotDots'), capEl=$('#shotCap'), countEl=$('#shotCount');
+  const N=slides.length, INTERVAL=10000;
+  let cur=0, timer=null, playing=!reduced;
+
+  slides.forEach(s=>{
+    const img=s.querySelector('[data-shot]');
+    if(img&&img.getAttribute('src')) img.style.display='block';
+    else if(img) img.remove();
+  });
+
+  slides.forEach((_,i)=>{
+    const d=document.createElement('button');
+    d.className='sdot'+(i===0?' on':''); d.setAttribute('role','tab');
+    d.setAttribute('aria-label','Screenshot '+(i+1));
+    d.innerHTML='<span class="fill"></span><b>'+String(i+1).padStart(2,'0')+'</b>';
+    d.onclick=()=>go(i,true);
+    dotsWrap.appendChild(d);
+  });
+  const sdots=[...dotsWrap.children];
+
+  function render(){
+    strack.style.transform=`translateX(-${cur*100}%)`;
+    capEl.textContent=slides[cur].dataset.cap||'';
+    countEl.textContent=String(cur+1).padStart(2,'0')+' / '+String(N).padStart(2,'0');
+    sdots.forEach((d,i)=>d.classList.toggle('on',i===cur));
+  }
+
+  function restartFill(){
+    sdots.forEach(d=>{
+      const f=d.querySelector('.fill');
+      f.style.animation='none'; void f.offsetHeight; f.style.animation='';
+    });
+    if(!playing){
+      sdots.forEach(d=>{d.querySelector('.fill').style.animationPlayState='paused'});
+    }
+  }
+
+  function arm(){
+    clearInterval(timer);
+    if(!playing)return;
+    timer=setInterval(()=>go(cur+1),INTERVAL);
+  }
+
+  function go(i,user){
+    cur=(i+N)%N;
+    render();
+    restartFill();
+    if(user)arm();
+  }
+
+  const stage=document.querySelector('.shot-stage');
+  stage.addEventListener('mouseenter',()=>clearInterval(timer));
+  stage.addEventListener('mouseleave',()=>{if(playing)arm()});
+
+  const playBtn=$('#shotPlay');
+  playBtn.onclick=()=>{
+    playing=!playing;
+    playBtn.setAttribute('aria-pressed',String(!playing));
+    playBtn.querySelector('span').textContent=playing?'Pause':'Play';
+    sdots.forEach(d=>{d.querySelector('.fill').style.animationPlayState=playing?'running':'paused'});
+    if(playing){arm()}else{clearInterval(timer)}
+  };
+
+  $('#shotPrev').onclick=()=>go(cur-1,true);
+  $('#shotNext').onclick=()=>go(cur+1,true);
+
+  strack.tabIndex=0;
+  strack.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight')go(cur+1,true);
+    if(e.key==='ArrowLeft')go(cur-1,true);
+  });
+
+  let tx=0;
+  strack.addEventListener('touchstart',e=>{tx=e.touches[0].clientX},{passive:true});
+  strack.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-tx;
+    if(Math.abs(dx)>40)go(cur+(dx<0?1:-1),true);
+  },{passive:true});
+
+  if(playing){arm()}else{
+    playBtn.querySelector('span').textContent='Play';
+    playBtn.setAttribute('aria-pressed','true');
+    sdots.forEach(d=>{d.querySelector('.fill').style.animationPlayState='paused'});
+  }
+})();
+})();
+</script>
+
+<!-- ══════════ CROSSHAIR CURSOR (fine pointers only) ══════════ -->
+<script>
+(function(){
+'use strict';
+if(!window.matchMedia) return;
+if(!matchMedia('(pointer: fine)').matches ||
+   (matchMedia('(any-pointer: coarse)').matches &&
+    matchMedia('(hover: none)').matches)) return;
+if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+if(document.documentElement.classList.contains('cur-on')) return;
+
+const rx=document.createElement('div'); rx.className='wcur-x';
+const ry=document.createElement('div'); ry.className='wcur-y';
+const ring=document.createElement('div'); ring.className='wcur-ring';
+document.body.appendChild(rx);
+document.body.appendChild(ry);
+document.body.appendChild(ring);
+document.documentElement.classList.add('cur-on');
+
+let x=-100,y=-100, mx=-100,my=-100, s=1;
+let hover=false,shown=false;
+
+addEventListener('pointermove',e=>{
+  x=e.clientX; y=e.clientY;
+  if(!shown){shown=true; mx=x; my=y; document.documentElement.classList.add('cur-vis')}
+},{passive:true});
+
+document.addEventListener('mouseleave',()=>{shown=false; document.documentElement.classList.remove('cur-vis')});
+document.addEventListener('mouseenter',()=>{shown=true;  document.documentElement.classList.add('cur-vis')});
+
+const HOV='a,button,summary,.t-dot,.tab,.tg,.px-chip,.chip,.sdot,.sbtn,input[type=range],label,.sim-rec-badge,[role=tab]';
+const TXT='input:not([type=range]):not([type=checkbox]):not([type=radio]),textarea,select,[contenteditable="true"]';
+
+document.addEventListener('pointerover',e=>{
+  const t=e.target;
+  if(!(t instanceof Element)) return;
+  if(t.closest(TXT)){
+    document.documentElement.classList.add('cur-hide');
+    document.documentElement.classList.remove('cur-hov');
+    hover=false; return;
+  }
+  document.documentElement.classList.remove('cur-hide');
+  hover=!!t.closest(HOV);
+  document.documentElement.classList.toggle('cur-hov',hover);
+});
+
+addEventListener('pointerdown',e=>{
+  const p=document.createElement('div');
+  p.className='wcur-pulse';
+  p.style.left=e.clientX+'px';
+  p.style.top =e.clientY+'px';
+  document.body.appendChild(p);
+  p.addEventListener('animationend',()=>p.remove());
+},{passive:true});
+
+(function loop(){
+  mx+=(x-mx)*.2;  my+=(y-my)*.2;
+  const tS=hover?1.5:1;
+  s+=(tS-s)*.2;
+  rx.style.transform=`translate(${x-7.5}px,${y}px)`;
+  ry.style.transform=`translate(${x}px,${y-7.5}px)`;
+  ring.style.transform=`translate(${mx}px,${my}px) translate(-50%,-50%) scale(${s})`;
+  requestAnimationFrame(loop);
+})();
+})();
+</script>
+
+</body>
+</html>

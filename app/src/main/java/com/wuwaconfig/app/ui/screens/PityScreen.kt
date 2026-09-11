@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,8 +25,10 @@ import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.GachaPool
+import com.wuwaconfig.app.model.GachaPoolType
 import com.wuwaconfig.app.model.GachaRecord
 import com.wuwaconfig.app.model.PityPrediction
+import com.wuwaconfig.app.model.SsrInterval
 import com.wuwaconfig.app.ui.GachaViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
@@ -195,11 +198,12 @@ fun PityScreen(
                             modifier = Modifier.padding(start = 4.dp, top = 4.dp),
                         )
                     }
-                    for (pool in GachaPool.ALL) {
-                        val poolRecords = gachaData!!.records.filter { it.cardPoolType == pool.type }
+                    for (poolType in GachaPoolType.ALL) {
+                        val poolRecords = gachaData!!.records.filter { it.cardPoolType == poolType.type }
                         if (poolRecords.isEmpty()) continue
+                        val pool = GachaPool(poolType.type, poolType.label)
                         item { PoolHistoryHeader(pool, poolRecords) }
-                        items(poolRecords.size, key = { idx -> "${pool.type}-$idx" }) { idx -> RecordRow(poolRecords[idx]) }
+                        items(poolRecords.size, key = { idx -> "${poolType.type}-$idx" }) { idx -> RecordRow(poolRecords[idx]) }
                         item { Spacer(Modifier.height(8.dp)) }
                     }
                 } else if (conveneUrl != null) {
@@ -226,6 +230,30 @@ fun PityScreen(
 
 @Composable
 private fun GachaSummary(data: GachaData) {
+    // Compute overall UP rate and non-banner rate across character banners
+    val totalSsrFromPredictions = data.predictions.sumOf { it.ssrIntervals.size }
+    val overallUpRate =
+        if (totalSsrFromPredictions > 0) {
+            data.predictions.sumOf { it.upRate * it.ssrIntervals.size }.toDouble() / totalSsrFromPredictions
+        } else {
+            0.0
+        }
+    val overallNonBannerRate =
+        if (totalSsrFromPredictions > 0) {
+            data.predictions.sumOf { it.nonBannerRate * it.ssrIntervals.size }.toDouble() / totalSsrFromPredictions
+        } else {
+            0.0
+        }
+    val overallAvgPity =
+        if (data.predictions.isNotEmpty()) {
+            data.predictions.map { it.avgPityThisPool }.filter { it > 0 }.average()
+        } else {
+            0.0
+        }
+    val totalPullsOverall = data.totalPulls
+    val totalCostFromRecords = data.records.sumOf { (it.count.coerceAtLeast(1) * 160).toLong() }
+    val totalPullsFromCost = if (totalPullsOverall > 0) totalPullsOverall else 0
+
     GlassCard(accentColor = NeonGold) {
         Text(
             "PITY OVERVIEW",
@@ -252,6 +280,31 @@ private fun GachaSummary(data: GachaData) {
             StatItem(if (data.avgPity5 > 0) "%.1f".format(data.avgPity5) else "—", "Avg ★5 Pity", NeonGold)
             StatItem(if (data.avgPity4 > 0) "%.1f".format(data.avgPity4) else "—", "Avg ★4 Pity", NeonPurple)
         }
+        Spacer(Modifier.height(10.dp))
+        // Overall character banner stats
+        if (overallAvgPity > 0 || overallUpRate > 0 || overallNonBannerRate > 0) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                if (overallAvgPity > 0) {
+                    StatItem("${"%.1f".format(overallAvgPity)}", "Avg ★5 Pity (Char)", NeonCyan)
+                }
+                if (overallUpRate > 0) {
+                    StatItem("${"%.0f".format(overallUpRate * 100)}%", "UP Rate", NeonGold)
+                }
+                if (overallNonBannerRate > 0) {
+                    StatItem("${"%.0f".format(overallNonBannerRate * 100)}%", "50/50 Loss", NeonAmber)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+        // Total Cost (calculated from all records, not just predictions)
+        val totalCostOverall = totalCostFromRecords
+        if (totalCostOverall > 0) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                StatItem("${formatNumber(totalCostOverall)}", "Total Astrites", NeonPurple)
+                StatItem("$totalPullsFromCost", "Total Pulls", NeonCyan)
+            }
+            Spacer(Modifier.height(10.dp))
+        }
     }
 }
 
@@ -260,8 +313,9 @@ private fun PoolHistoryHeader(
     pool: GachaPool,
     records: List<GachaRecord>,
 ) {
-    val pool5 = records.count { it.qualityLevel == 5 }
-    val pool4 = records.count { it.qualityLevel == 4 }
+    val totalPulls = records.sumOf { it.count.coerceAtLeast(1) }
+    val pool5 = records.filter { it.qualityLevel == 5 }.sumOf { it.count.coerceAtLeast(1) }
+    val pool4 = records.filter { it.qualityLevel == 4 }.sumOf { it.count.coerceAtLeast(1) }
     val accent =
         when {
             pool5 > 0 -> NeonGold
@@ -285,7 +339,7 @@ private fun PoolHistoryHeader(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                "${records.size} pulls",
+                "$totalPulls pulls",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -335,7 +389,6 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
                     when (pred.status) {
                         "Guaranteed" -> "Guaranteed"
                         "50/50" -> "50 / 50"
-                        "75/25" -> "75 / 25"
                         else -> pred.status
                     }
                 StatusPill(statusLabel, accent)
@@ -389,7 +442,7 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
 
             Spacer(Modifier.height(12.dp))
 
-            if (pred.status != "75/25") {
+            if (pred.lastFiveStarName.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Last ★5: ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
@@ -408,8 +461,8 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
                 Spacer(Modifier.height(4.dp))
 
                 val subject =
-                    if (pred.currentCharacterName.isNotEmpty()) {
-                        pred.currentCharacterName
+                    if (pred.currentFeaturedName.isNotEmpty()) {
+                        pred.currentFeaturedName
                     } else if (pred.currentFeaturedKnown) {
                         pred.poolLabel
                     } else {
@@ -443,6 +496,45 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
                 Spacer(Modifier.height(10.dp))
             }
 
+            // Additional stats row: UP rate, Non-banner rate, Avg pity, Date range
+            if (pred.lastFiveStarName.isNotEmpty()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // UP Rate / Non-banner rate
+                    if (pred.status == "50/50" || pred.status == "Guaranteed") {
+                        val upRate = pred.upRate
+                        val nonBannerRate = pred.nonBannerRate
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            if (upRate > 0) {
+                                StatItem("${"%.0f".format(upRate * 100)}%", "UP Rate", NeonGold)
+                            }
+                            if (pred.status == "50/50" && nonBannerRate > 0) {
+                                StatItem("${"%.0f".format(nonBannerRate * 100)}%", "50/50 Loss", NeonAmber)
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
+
+                    // Average pity for this pool
+                    if (pred.avgPityThisPool > 0) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            StatItem("${"%.1f".format(pred.avgPityThisPool)}", "Avg ★5 Pity", NeonCyan)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
+
+                    // Date range
+                    if (pred.firstPullDate.isNotEmpty() && pred.lastPullDate.isNotEmpty()) {
+                        val start = if (pred.firstPullDate.length >= 10) pred.firstPullDate.substring(0, 10) else pred.firstPullDate
+                        val end = if (pred.lastPullDate.length >= 10) pred.lastPullDate.substring(0, 10) else pred.lastPullDate
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            StatItem("$start – $end", "Date Range", MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 StatItem("${pred.pullsSinceLastFive}", "Since ★5", accent)
                 StatItem("${pred.pullsUntilHardPity}", "To Hard", if (pred.isInSoftPity) NeonAmber else NeonCyan)
@@ -454,8 +546,156 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
                 StatItem("${pred.pullsSinceLastFourStar}", "Since ★4", MaterialTheme.colorScheme.onSurfaceVariant)
                 StatItem("~${pred.estimatedNextFourStar}", "Est. ★4", MaterialTheme.colorScheme.onSurfaceVariant)
             }
+
+            // Total Cost
+            if (pred.totalCost > 0) {
+                Spacer(Modifier.height(10.dp))
+                GlassCard(accentColor = NeonPurple) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Total Spent",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            formatCost(pred.totalCost),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = NeonPurple,
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "${pred.totalCost / 160} pulls × 160 Astrites = ${formatNumber(pred.totalCost)} Astrites",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    )
+                }
+            }
+
+            // SSR Intervals Table
+            if (pred.ssrIntervals.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                SsrIntervalsTable(pred.ssrIntervals)
+            }
+
+            // Min/Max Pity Range
+            if (pred.minPity5 > 0 || pred.maxPity5 > 0 || pred.minPity4 > 0 || pred.maxPity4 > 0) {
+                Spacer(Modifier.height(10.dp))
+                GlassCard(accentColor = NeonCyan) {
+                    Text(
+                        "PITY RANGE",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = NeonCyan.copy(alpha = 0.8f),
+                        letterSpacing = 2.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        if (pred.minPity5 > 0 && pred.maxPity5 > 0) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("${pred.minPity5} – ${pred.maxPity5}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = NeonGold)
+                                Text("★5 Range", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        if (pred.minPity4 > 0 && pred.maxPity4 > 0) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("${pred.minPity4} – ${pred.maxPity4}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = NeonPurple)
+                                Text("★4 Range", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun formatCost(cost: Long): String {
+    return formatNumber(cost) + " Astrites"
+}
+
+@Composable
+private fun formatNumber(number: Long): String {
+    return if (number >= 10000) {
+        "%.1fK".format(number / 1000.0).replace(".0", "")
+    } else if (number >= 1000) {
+        "%.1fK".format(number / 1000.0)
+    } else {
+        number.toString()
+    }
+}
+
+@Composable
+private fun SsrIntervalsTable(intervals: List<SsrInterval>) {
+    GlassCard(accentColor = NeonGold) {
+        Text(
+            "★5 PULL INTERVALS",
+            style = MaterialTheme.typography.labelMedium,
+            color = NeonGold.copy(alpha = 0.8f),
+            letterSpacing = 2.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(12.dp))
+
+        // Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("#", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(32.dp))
+            Text("5★ Name", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text("Pity", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(50.dp))
+            Text("Date", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(90.dp))
+        }
+        Spacer(Modifier.height(6.dp))
+
+        // Rows
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            intervals.forEachIndexed { index, interval ->
+                val pityColor = if (interval.pity >= 75) NeonRed else if (interval.pity >= 66) NeonAmber else NeonGold
+                val nameColor = if (interval.pity >= 75) NeonRed else if (interval.pity >= 66) NeonAmber else NeonGold
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("${index + 1}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(32.dp))
+                    Text(
+                        interval.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = nameColor,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        "${interval.pity}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = pityColor,
+                        modifier = Modifier.width(50.dp),
+                    )
+                    Text(
+                        if (interval.time.length >= 10) interval.time.substring(0, 10) else interval.time,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(90.dp),
+                    )
+                }
+            }
+        }
     }
 }
 

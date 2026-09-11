@@ -3,6 +3,7 @@ package com.wuwaconfig.app.config
 import android.content.Context
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaRecord
+import com.wuwaconfig.app.model.PityPrediction
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -142,5 +143,57 @@ class GachaHistoryStoreTest {
         File(tempDir, "gacha_history.json").writeText("not valid json {{{")
         assertNull(GachaHistoryStore.load(context))
         assertTrue("corrupted file should be deleted", !File(tempDir, "gacha_history.json").exists())
+    }
+
+    // ─────────── legacy cache backward compatibility ───────────
+
+    @Test
+    fun `gson restores legacy cache missing new fields using kotlin defaults`() {
+        // Simulates JSON written by an older app version: only the pre-existing
+        // required fields, no later-added optional fields (currentFeaturedName,
+        // ssrIntervals, totalCost, firstPullDate, minPity5, etc.).
+        val legacyJson =
+            """
+            {
+              "predictions": [
+                {
+                  "poolType": "1",
+                  "poolLabel": "Character Event",
+                  "status": "soft",
+                  "lastFiveStarName": "Verina",
+                  "lastFiveStarTime": "2024-03-01 10:00:00",
+                  "pullsSinceLastFive": 20,
+                  "estimatedNextFive": 46
+                }
+              ],
+              "totalPulls": 160
+            }
+            """.trimIndent()
+        val data: GachaData = GachaHistoryStore.gson.fromJson(legacyJson, GachaData::class.java)
+        assertNotNull(data.predictions)
+        assertEquals(1, data.predictions.size)
+        val pred: PityPrediction = data.predictions[0]
+        // Defaults applied instead of null → no NPE risk in UI.
+        assertEquals(80, pred.hardPity)
+        assertEquals("", pred.currentFeaturedName)
+        assertEquals(false, pred.currentFeaturedKnown)
+        assertNotNull(pred.ssrIntervals)
+        assertEquals(0, pred.ssrIntervals.size)
+        assertEquals(0L, pred.totalCost)
+        assertEquals("", pred.firstPullDate)
+        assertEquals(0, pred.minPity5)
+        assertEquals(0, pred.maxPity5)
+        assertEquals(true, pred.isPoolActive)
+    }
+
+    @Test
+    fun `restore handles cache where predictions list is null`() {
+        // Old schema had no predictions array at all.
+        val legacyJson = """{"totalPulls": 90, "fiveStars": 3}"""
+        val data: GachaData = GachaHistoryStore.gson.fromJson(legacyJson, GachaData::class.java)
+        assertNotNull(data)
+        assertNotNull(data.predictions)
+        assertEquals(0, data.predictions.size)
+        assertEquals(90, data.totalPulls)
     }
 }

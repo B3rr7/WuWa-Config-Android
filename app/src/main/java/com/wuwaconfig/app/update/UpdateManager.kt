@@ -196,9 +196,15 @@ object UpdateManager {
     }
 
     /** Active signing certificates (X.509 DER) of [pi]. Robust across API levels and v1/v2/v3 schemes. */
-    @Suppress("DEPRECATION")
+    @android.annotation.SuppressLint("NewApi")
     private fun signingCerts(pi: PackageInfo): List<ByteArray> {
-        val info = pi.signingInfo
+        val info =
+            try {
+                pi.signingInfo
+            } catch (e: NoSuchMethodError) {
+                // signingInfo is API 28+; on 26/27 fall back to deprecated signatures below.
+                null
+            }
         val signers = info?.apkContentsSigners
         // getPackageArchiveInfo sometimes leaves signingInfo null/empty while
         // still populating the deprecated `signatures` field — fall back to it.
@@ -211,9 +217,14 @@ object UpdateManager {
     }
 
     /** Prior signing certificates (key-rotation history) of [pi], for subset matching. */
-    @Suppress("DEPRECATION")
+    @android.annotation.SuppressLint("NewApi")
     private fun signingHistory(pi: PackageInfo): List<ByteArray> {
-        val info = pi.signingInfo ?: return emptyList()
+        val info =
+            try {
+                pi.signingInfo
+            } catch (e: NoSuchMethodError) {
+                return emptyList()
+            }
         val history = info.signingCertificateHistory ?: return emptyList()
         return history.map { it.toByteArray() }
     }

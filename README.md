@@ -259,9 +259,10 @@ Three hero stats + two averages in a single card:
 
 #### 3. Next ★5 Prediction
 One card per character/weapon pool that has pulls. Each card shows:
-- **Pool label** (e.g. "Character Event") and a **status pill** — `Guaranteed` (gold), `50 / 50` (amber), or `75 / 25` (cyan)
+- **Pool label** (e.g. "Character Event") and a **status pill** — `Guaranteed` (gold) or `50 / 50` (amber)
 - **Pity progress bar** — visual fill of pulls-since-last-★5 against hard pity, with the soft-pity zone highlighted in amber from the right
-- **Count** `pullsSinceLastFive / hardPity` and label `Soft {threshold} · Hard {80/70}`
+- **Count** `pullsSinceLastFive / hardPity` and label `Soft {threshold} · Hard {80}`
+- Soft-pity zone highlighted on the progress bar (amber) from pull 66 onward — empirically derived from the wuwatracker.com dataset (~394 K samples)
 - **Soft-pity warning banner** when active: *"Soft pity active — your ★5 rate is boosted!"*
 - **Last ★5** name + timestamp
 - **"$subject is guaranteed"** or **"$subject is 50 / 50"** — *named after the current banner's featured character/weapon, not a generic label*

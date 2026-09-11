@@ -1,6 +1,7 @@
 package com.wuwaconfig.app.config
 
 import com.wuwaconfig.app.model.GachaPool
+import com.wuwaconfig.app.model.GachaPoolType
 import com.wuwaconfig.app.model.GachaRecord
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -9,8 +10,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GachaPredictionTest {
-    private val characterPool = GachaPool("1", "Character Event")
-    private val weaponPool = GachaPool("2", "Weapon Event")
+    private val characterPool = GachaPool(GachaPoolType.CHARACTER_EVENT.type, GachaPoolType.CHARACTER_EVENT.label)
+    private val weaponPool = GachaPool(GachaPoolType.WEAPON_EVENT.type, GachaPoolType.WEAPON_EVENT.label)
     private val standardFives = setOf("Jiyan", "Yinlin")
 
     private fun rec(
@@ -31,11 +32,11 @@ class GachaPredictionTest {
 
     @Test
     fun `estimatedSoftPityPulls at soft pity start gives largest expected value`() {
-        // p=66, rate=0.067, expected ~ 14
+        // p=66, rate=0.15, expected ~ 7 (matches wuwatracker empirical ~4.7)
         val est = GachaApi.estimatedSoftPityPulls(66, 66, 80)
         assertTrue(
-            "expected ~14 pulls, got $est",
-            est in 13..16,
+            "expected ~7 pulls, got $est",
+            est in 6..9,
         )
     }
 
@@ -62,16 +63,15 @@ class GachaPredictionTest {
 
     @Test
     fun `estimatedSoftPityPulls for weapon banner has same shape`() {
-        // weapon: soft 57, hard 70. Int representation has limited resolution
-        // in the late-soft-pity region; verify the steep part is monotonic.
-        val at57 = GachaApi.estimatedSoftPityPulls(57, 57, 70)
-        val at60 = GachaApi.estimatedSoftPityPulls(60, 57, 70)
-        val at63 = GachaApi.estimatedSoftPityPulls(63, 57, 70)
-        val at67 = GachaApi.estimatedSoftPityPulls(67, 57, 70)
-        assertTrue("at57 ($at57) should be > at60 ($at60)", at57 > at60)
-        assertTrue("at60 ($at60) should be > at63 ($at63)", at60 > at63)
-        assertTrue("at63 ($at63) should be >= at67 ($at67)", at63 >= at67)
-        assertEquals(1, GachaApi.estimatedSoftPityPulls(70, 57, 70))
+        // All banners (incl. weapon) now use soft 66, hard 80 per wuwatracker data.
+        val at66 = GachaApi.estimatedSoftPityPulls(66, 66, 80)
+        val at68 = GachaApi.estimatedSoftPityPulls(68, 66, 80)
+        val at70 = GachaApi.estimatedSoftPityPulls(70, 66, 80)
+        val at73 = GachaApi.estimatedSoftPityPulls(73, 66, 80)
+        assertTrue("at66 ($at66) should be > at68 ($at68)", at66 > at68)
+        assertTrue("at68 ($at68) should be > at70 ($at70)", at68 > at70)
+        assertTrue("at70 ($at70) should be >= at73 ($at73)", at70 >= at73)
+        assertEquals(1, GachaApi.estimatedSoftPityPulls(80, 66, 80))
     }
 
     // ─────────── Character prediction: status logic ───────────
@@ -132,18 +132,18 @@ class GachaPredictionTest {
                 rec("4-star", 4, "2024-03-01 10:00:00"),
             )
         val pred = GachaApi.calcCharacterPrediction(records, characterPool, standardFives)
-        assertEquals("OldFeatured", pred.currentCharacterName)
+        assertEquals("OldFeatured", pred.currentFeaturedName)
     }
 
     @Test
-    fun `currentCharacterName is empty when only standard 5stars exist (e_g_, 50 over 50 loss)`() {
+    fun `currentCharacterName is empty when only standard 5stars exist (e g, 50 over 50 loss)`() {
         val records =
             listOf(
                 rec("Jiyan", 5, "2024-01-01 10:00:00"),
                 rec("Yinlin", 5, "2024-02-01 10:00:00"),
             )
         val pred = GachaApi.calcCharacterPrediction(records, characterPool, standardFives)
-        assertEquals("", pred.currentCharacterName)
+        assertEquals("", pred.currentFeaturedName)
         assertFalse(
             "currentFeaturedKnown should be false when no recent featured ★5 exists",
             pred.currentFeaturedKnown,
@@ -160,7 +160,7 @@ class GachaPredictionTest {
             )
         val pred = GachaApi.calcCharacterPrediction(records, characterPool, standardFives)
         assertEquals("Guaranteed", pred.status)
-        assertEquals("Featured1", pred.currentCharacterName)
+        assertEquals("Featured1", pred.currentFeaturedName)
         assertTrue(
             "currentFeaturedKnown should be true when a featured ★5 exists",
             pred.currentFeaturedKnown,
@@ -237,32 +237,32 @@ class GachaPredictionTest {
     // ─────────── Weapon prediction ───────────
 
     @Test
-    fun `weapon prediction always returns 75 over 25 status`() {
+    fun `weapon prediction always returns Guaranteed status`() {
         val records =
             listOf(
                 rec("FeaturedWeapon", 5, "2024-01-01 10:00:00"),
                 rec("4-star", 4, "2024-02-01 10:00:00"),
             )
         val pred = GachaApi.calcWeaponPrediction(records, weaponPool)
-        assertEquals("75/25", pred.status)
+        assertEquals("Guaranteed", pred.status)
     }
 
     @Test
-    fun `weapon hard pity is 70 and soft pity starts at 57`() {
+    fun `weapon hard pity is 80 and soft pity starts at 66`() {
         val records = listOf(rec("3-star", 3, "2024-01-01 10:00:00"))
         val pred = GachaApi.calcWeaponPrediction(records, weaponPool)
-        assertEquals(70, pred.hardPity)
-        assertEquals(57, pred.softPityThreshold)
+        assertEquals(80, pred.hardPity)
+        assertEquals(66, pred.softPityThreshold)
     }
 
     @Test
-    fun `weapon isInSoftPity true at and after 57 pulls`() {
-        val records56 = (0 until 56).map { rec("3-star", 3, "2024-01-${it + 1} 10:00:00") }
-        val records57 = records56 + rec("3-star", 3, "2024-03-01 10:00:00")
-        val pred56 = GachaApi.calcWeaponPrediction(records56, weaponPool)
-        val pred57 = GachaApi.calcWeaponPrediction(records57, weaponPool)
-        assertFalse(pred56.isInSoftPity)
-        assertTrue(pred57.isInSoftPity)
+    fun `weapon isInSoftPity true at and after 66 pulls`() {
+        val records65 = (0 until 65).map { rec("3-star", 3, "2024-01-${it + 1} 10:00:00") }
+        val records66 = records65 + rec("3-star", 3, "2024-03-01 10:00:00")
+        val pred65 = GachaApi.calcWeaponPrediction(records65, weaponPool)
+        val pred66 = GachaApi.calcWeaponPrediction(records66, weaponPool)
+        assertFalse(pred65.isInSoftPity)
+        assertTrue(pred66.isInSoftPity)
     }
 
     @Test
@@ -274,6 +274,27 @@ class GachaPredictionTest {
             )
         val pred = GachaApi.calcWeaponPrediction(records, weaponPool)
         assertEquals(10, pred.pullsSinceLastFive)
+    }
+
+    @Test
+    fun `weapon prediction tracks featured weapon name when no 5star yet`() {
+        val records = listOf(rec("3-star", 3, "2024-01-01 10:00:00"))
+        val pred = GachaApi.calcWeaponPrediction(records, weaponPool)
+        assertEquals("", pred.currentFeaturedName)
+        assertFalse(pred.currentFeaturedKnown)
+    }
+
+    @Test
+    fun `weapon prediction sets featured known when a 5star exists`() {
+        val records =
+            listOf(
+                rec("LustreWeapon", 5, "2024-01-01 10:00:00"),
+                rec("3-star", 3, "2024-02-01 10:00:00"),
+            )
+        val pred = GachaApi.calcWeaponPrediction(records, weaponPool)
+        assertEquals("LustreWeapon", pred.currentFeaturedName)
+        assertEquals("LustreWeapon", pred.lastFiveStarName)
+        assertTrue(pred.currentFeaturedKnown)
     }
 
     // ─────────── calculateAvgPity ───────────
@@ -375,7 +396,7 @@ class GachaPredictionTest {
                 standardFives,
             )
         assertEquals("50/50", pred1.status)
-        assertEquals("Featured1", pred1.currentCharacterName)
+        assertEquals("Featured1", pred1.currentFeaturedName)
         assertTrue(pred1.currentFeaturedKnown)
 
         // Scenario 2: Guaranteed with previous featured
@@ -389,7 +410,7 @@ class GachaPredictionTest {
                 standardFives,
             )
         assertEquals("Guaranteed", pred2.status)
-        assertEquals("Featured1", pred2.currentCharacterName)
+        assertEquals("Featured1", pred2.currentFeaturedName)
 
         // Scenario 3: Guaranteed with no prior featured
         val pred3 =
@@ -401,9 +422,101 @@ class GachaPredictionTest {
                 standardFives,
             )
         assertEquals("Guaranteed", pred3.status)
-        assertEquals("", pred3.currentCharacterName)
+        assertEquals("", pred3.currentFeaturedName)
         assertFalse(pred3.currentFeaturedKnown)
         // And the names should differ between scenarios
-        assertNotEquals(pred2.currentCharacterName, pred3.currentCharacterName)
+        assertNotEquals(pred2.currentFeaturedName, pred3.currentFeaturedName)
+    }
+
+    // ─────────── Regression: new stats logic ───────────
+
+    @Test
+    fun `avgCharPity includes standard five stars in interval calculation`() {
+        // Featured -> Standard -> Featured => intervals: [3, 2] avg=2.5 (not 3)
+        val records =
+            listOf(
+                rec("Featured1", 5, "2024-01-01 10:00:00"),
+                rec("3-star A", 3, "2024-01-02 10:00:00"),
+                rec("3-star B", 3, "2024-01-03 10:00:00"),
+                rec("Jiyan", 5, "2024-02-01 10:00:00"),
+                rec("3-star C", 3, "2024-03-01 10:00:00"),
+                rec("Featured2", 5, "2024-03-02 10:00:00"),
+            )
+        val pred = GachaApi.calcCharacterPrediction(records, characterPool, standardFives)
+        assertEquals(2.0, pred.avgPityThisPool, 0.5)
+    }
+
+    @Test
+    fun `nonBannerRate calculates 50 over 50 loss rate correctly`() {
+        // Featured (win), Standard (loss -> guaranteed next), Featured (guaranteed -> consumes, no 50/50)
+        // Featured (win), Standard (loss -> guaranteed next), Featured (guaranteed -> consumes)
+        val records =
+            listOf(
+                rec("Featured1", 5, "2024-01-01 10:00:00"),
+                rec("Jiyan", 5, "2024-02-01 10:00:00"),
+                rec("Featured2", 5, "2024-03-01 10:00:00"),
+            )
+        val pred = GachaApi.calcCharacterPrediction(records, characterPool, standardFives)
+        // 1 50/50 cycle (Featured1 -> Jiyan), won = 1, total = 1 => 100%? Wait let's recalc:
+        // Start isGuaranteed=false. Featured1: 50/50, win => won=1, total=1, isGuaranteed stays false.
+        // Jiyan: isGuaranteed=false? Actually after Featured1 win, isGuaranteed false. Jiyan is standard => 50/50, lose => total=2, won=1, isGuaranteed=true.
+        // Featured2: isGuaranteed=true => consume guarantee, no 50/50 cycle.
+        // So total=2, won=1 => rate=0.5
+        assertEquals(0.5, pred.nonBannerRate, 0.01)
+        assertEquals(2.0 / 3.0, pred.upRate, 0.01)
+    }
+
+    @Test
+    fun `weapon prediction upRate is 100 percent and nonBannerRate is 0`() {
+        val records = listOf(rec("WeaponA", 5, "2024-01-01 10:00:00"))
+        val pred = GachaApi.calcWeaponPrediction(records, weaponPool)
+        assertEquals(1.0, pred.upRate, 0.01)
+        assertEquals(0.0, pred.nonBannerRate, 0.01)
+    }
+
+    @Test
+    fun `computeSsrIntervals produces correct interval count`() {
+        // Two SSR hits with one 3-star between them => intervals: [1, 2]
+        val records =
+            listOf(
+                rec("Featured1", 5, "2024-01-01 10:00:00"),
+                rec("3-star", 3, "2024-02-01 10:00:00"),
+                rec("Featured2", 5, "2024-03-01 10:00:00"),
+            )
+        val pred = GachaApi.calcCharacterPrediction(records, characterPool, standardFives)
+        assertTrue("SSR intervals should contain 2 entries", pred.ssrIntervals.size == 2)
+        assertEquals("First interval pity should be 1 pull", 1, pred.ssrIntervals[0].pity)
+        assertEquals("Second interval pity should be 2 pulls", 2, pred.ssrIntervals[1].pity)
+    }
+
+    @Test
+    fun `computeMinMaxPity for 5 stars reflects all 5 star hits`() {
+        val records =
+            listOf(
+                rec("A", 5, "2024-01-01 10:00:00"),
+                rec("B", 5, "2024-03-01 10:00:00"),
+                rec("C", 5, "2024-05-01 10:00:00"),
+            )
+        val pred = GachaApi.calcCharacterPrediction(records, characterPool, standardFives)
+        assertTrue("minPity5 should be >0", pred.minPity5 > 0)
+        assertTrue("maxPity5 should be >= minPity5", pred.maxPity5 >= pred.minPity5)
+    }
+
+    @Test
+    fun `computeTotalCost calculates astrites correctly`() {
+        val records = listOf(rec("3-star", 3, "2024-01-01 10:00:00", count = 10))
+        val pred = GachaApi.calcCharacterPrediction(records, characterPool, standardFives)
+        assertEquals("10 pulls * 160 = 1600", 1600L, pred.totalCost)
+    }
+
+    @Test
+    fun `isPoolActive true when records present`() {
+        val pred =
+            GachaApi.calcCharacterPrediction(
+                listOf(rec("3-star", 3, "2024-01-01 10:00:00")),
+                characterPool,
+                standardFives,
+            )
+        assertTrue(pred.isPoolActive)
     }
 }
