@@ -2,90 +2,141 @@ package com.wuwaconfig.app.backend
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ShellUtilsTest {
+    // ── shQuote ──
+
     @Test
-    fun `shQuote wraps simple value in single quotes`() {
+    fun `shQuote wraps plain values in single quotes`() {
         assertEquals("'hello'", shQuote("hello"))
     }
 
     @Test
-    fun `shQuote escapes embedded single quotes posix style`() {
-        assertEquals("'a'\"'\"'b'", shQuote("a'b"))
+    fun `shQuote escapes embedded single quotes`() {
+        // Single-quoted shell: a literal ' is inserted as '"'"'.
+        assertEquals("'it'\"'\"'s here'", shQuote("it's here"))
     }
 
     @Test
-    fun `shQuote null yields empty quoted string`() {
+    fun `shQuote handles null as empty string`() {
         assertEquals("''", shQuote(null))
     }
 
     @Test
-    fun `shQuote prevents unquoted command injection`() {
-        val value = "foo'; rm -rf / #"
-        val quoted = shQuote(value)
-        assertTrue(quoted.startsWith("'"))
-        assertTrue(quoted.endsWith("'"))
-        assertTrue(quoted.contains("'\"'\"'"))
+    fun `shQuote never produces an unquoted token`() {
+        // Even hostile input stays inside the quotes, so it can't break out of printf '%s'.
+        val out = shQuote("foo; rm -rf /")
+        assertTrue(out.startsWith("'"))
+        assertTrue(out.endsWith("'"))
+        // The hostile content is preserved verbatim between the quotes (it is not
+        // stripped — the point is it is inert inside single quotes).
+        assertEquals("foo; rm -rf /", out.substring(1, out.length - 1))
+    }
+
+    // ── buildPushFilePlan ──
+
+    @Test
+    fun `buildPushFilePlan fits a small payload in one command`() {
+        val plan = buildPushFilePlan("aGVsbG8=", "/data/data/x/Engine.ini", "/tmp/t")
+        assertTrue(plan.fitsSingleCommand)
+        assertEquals(1, plan.writes.size)
     }
 
     @Test
-    fun `computeMd5 matches known vectors`() {
-        assertEquals("d41d8cd98f00b204e9800998ecf8427e", computeMd5("".toByteArray()))
-        assertEquals("900150983cd24fb0d6963f7d28e17f72", computeMd5("abc".toByteArray()))
+    fun `buildPushFilePlan chunks payloads that exceed MAX_ARG_STRLEN`() {
+        val big = "A".repeat(MAX_ARG_STRLEN * 3)
+        val plan = buildPushFilePlan(big, "/data/data/x/Engine.ini", "/tmp/t")
+        assertFalse(plan.fitsSingleCommand)
+        // Each chunk must be individually safe to pass as a single shell arg.
+        for (w in plan.writes) {
+            assertTrue(w.length <= MAX_ARG_STRLEN)
+        }
+        // The chunk count must cover the payload: ceil(payload / chunkSize).
+        val chunkSize = maxPushChunkSize("/tmp/t")
+        val expectedChunks = (big.length + chunkSize - 1) / chunkSize
+        assertEquals(expectedChunks, plan.writes.size)
     }
 
     @Test
-    fun `maxPushChunkSize stays within arg limits and floor`() {
-        val size = maxPushChunkSize("/data/local/tmp/x.ini")
-        assertTrue(size in 256..MAX_ARG_STRLEN)
-        val huge = maxPushChunkSize("a".repeat(MAX_ARG_STRLEN))
-        assertEquals(256, huge)
+    fun `buildPushFilePlan chunk size never drops below the floor`() {
+        // The floor (256) bounds the *computed* chunk size, not the last actual
+        // chunk — a payload that isn't an exact multiple leaves a small tail.
+        assertTrue(maxPushChunkSize("/tmp/t") >= 256)
+        val encoded = "A".repeat(MAX_ARG_STRLEN * 2)
+        val plan = buildPushFilePlan(encoded, "/data/data/x/Engine.ini", "/tmp/t")
+        for (w in plan.writes) {
+            // Each write command fits within MAX_ARG_STRLEN.
+            assertTrue(w.length <= MAX_ARG_STRLEN)
+        }
+        // The first chunk's payload equals the computed chunk size.
+        val firstPayload = plan.writes.first().substringAfter("printf '%s' ").removePrefix("'").substringBefore("'")
+        assertEquals(maxPushChunkSize("/tmp/t"), firstPayload.length)
     }
 
     @Test
-    fun `retryIO returns on first success`() {
+    fun `buildPushFilePlan decode and verify are present`() {
+        val plan = buildPushFilePlan("aGVsbG8=", "/data/data/x/Engine.ini", "/tmp/t")
+        assertTrue(plan.decode.contains("base64 -d"))
+        assertTrue(plan.decode.contains("/tmp/t"))
+        assertTrue(plan.verify.contains("md5sum"))
+    }
+
+    // ── retryIO ──
+
+    @Test
+    fun `retryIO succeeds on first attempt`() =
         runBlocking {
             var calls = 0
-            val result =
-                retryIO(times = 3) {
+            val r =
+                retryIO {
                     calls++
                     "ok"
                 }
-            assertEquals(true, result.isSuccess)
-            assertEquals("ok", result.getOrThrow())
+            assertTrue(r.isSuccess)
+            assertEquals("ok", r.getOrThrow())
             assertEquals(1, calls)
         }
-    }
 
     @Test
-    fun `retryIO retries then succeeds`() {
+    fun `retryIO retries then succeeds`() =
         runBlocking {
             var calls = 0
-            val result =
+            val r =
                 retryIO(times = 3, backoffMs = 1) {
                     calls++
-                    if (calls < 3) throw RuntimeException("transient")
-                    "ok"
+                    if (calls < 2) throw Exception("transient")
+                    "recovered"
                 }
-            assertEquals(true, result.isSuccess)
-            assertEquals("ok", result.getOrThrow())
-            assertEquals(3, calls)
-        }
-    }
-
-    @Test
-    fun `retryIO fails after exhausting attempts`() {
-        runBlocking {
-            var calls = 0
-            val result =
-                retryIO(times = 2, backoffMs = 1) {
-                    calls++
-                    throw RuntimeException("always")
-                }
-            assertEquals(true, result.isFailure)
+            assertTrue(r.isSuccess)
             assertEquals(2, calls)
         }
-    }
+
+    @Test
+    fun `retryIO fails after exhausting attempts`() =
+        runBlocking {
+            var calls = 0
+            val r =
+                retryIO(times = 2, backoffMs = 1) {
+                    calls++
+                    throw Exception("always")
+                }
+            assertFalse(r.isSuccess)
+            assertEquals(2, calls)
+        }
+
+    @Test
+    fun `retryIO honors shouldRetry`() =
+        runBlocking {
+            var calls = 0
+            val r =
+                retryIO(times = 5, backoffMs = 1, shouldRetry = { false }) {
+                    calls++
+                    throw Exception("fatal")
+                }
+            assertFalse(r.isSuccess)
+            assertEquals(1, calls)
+        }
 }

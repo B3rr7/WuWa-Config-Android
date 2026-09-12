@@ -71,7 +71,9 @@ object GachaApi {
 
             var anyFailure: Throwable? = null
             var anySuccess = false
+            var anyRejected = false
             var lastErrorMsg: String? = null
+            val failedPools = mutableListOf<GachaPoolType>()
             for (pool in GachaPoolType.ALL) {
                 val body =
                     mapOf(
@@ -86,6 +88,7 @@ object GachaApi {
                 val result = postRequest(endpoint, body)
                 if (result.isFailure) {
                     anyFailure = result.exceptionOrNull()
+                    failedPools.add(pool)
                     continue
                 }
                 val response = result.getOrThrow()
@@ -95,6 +98,7 @@ object GachaApi {
                     poolsWithData.add(pool.type)
                     anySuccess = true
                 } else if (response.code != 0) {
+                    anyRejected = true
                     lastErrorMsg = response.message
                 }
             }
@@ -102,11 +106,28 @@ object GachaApi {
             if (!anySuccess && anyFailure != null) {
                 return Result.failure(anyFailure)
             }
-            // Every pool answered but rejected the query (bad/expired recordId,
-            // wrong playerId...) — that must not masquerade as an empty history.
-            if (!anySuccess) {
+            // Every pool answered but was rejected by the server (code != 0 — bad/expired
+            // recordId, wrong playerId...) — that must not masquerade as an empty
+            // history. A pool returning code 0 with empty data is a *valid* empty history
+            // (a player with zero pulls in that pool) and is allowed through.
+            if (!anySuccess && anyRejected) {
                 return Result.failure(
                     Exception(lastErrorMsg ?: "Server returned no gacha data for any pool"),
+                )
+            }
+
+            // P0-3: a pool whose HTTP call threw is still a failure. By this point every
+            // pool either returned code 0 (with data or a valid empty history) or was
+            // already rejected above, so failedPools holds only transport failures.
+            // The returned GachaData would otherwise be an incomplete history —
+            // PityScreen would render predictions for only some pools and the 12h
+            // cache would persist the partial result. Surface the failed pool types
+            // so the caller can retry instead of caching silently.
+            if (failedPools.isNotEmpty()) {
+                return Result.failure(
+                    Exception(
+                        "Gacha data incomplete — failed pools: ${failedPools.joinToString { it.type }}; retry required",
+                    ),
                 )
             }
 
@@ -158,7 +179,22 @@ object GachaApi {
         }
     }
 
-    private fun postRequest(
+    // Test seam: fetchAllRecords iterates GachaPoolType.ALL and calls postRequest per
+    // pool, so the only way to assert the partial-failure contract without hitting the
+    // network is to override the HTTP layer. The real implementation is
+    // postRequestReal; postRequest delegates to the override when one is set.
+    private var postRequestOverride: ((String, Map<String, String>) -> Result<GachaApiResponse>)? = null
+
+    internal fun setPostRequestForTest(override: ((String, Map<String, String>) -> Result<GachaApiResponse>)?) {
+        postRequestOverride = override
+    }
+
+    internal fun postRequest(
+        endpoint: String,
+        body: Map<String, String>,
+    ): Result<GachaApiResponse> = postRequestOverride?.invoke(endpoint, body) ?: postRequestReal(endpoint, body)
+
+    private fun postRequestReal(
         endpoint: String,
         body: Map<String, String>,
     ): Result<GachaApiResponse> {

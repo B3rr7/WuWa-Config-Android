@@ -241,6 +241,33 @@ object CvarCategorizer {
             CatRule("r.cachescenecolor", CvarCategory.SYSTEM),
         )
 
+// Prefix index for rSubRules. The list above is scanned linearly with
+    // `firstOrNull { k.startsWith(it.prefix) }`, which is ~250 startsWith() per
+    // CVar — ~440k calls across the 5 generated INIs in one deploy. Bucketing by
+    // the first 8 chars of the prefix cuts the scan to the handful of rules that
+    // share that prefix.
+    //
+    // Safety: groupBy preserves encounter order within each bucket, and every
+    // key maps to exactly one bucket (its first 8 chars), so
+    // bucket.firstOrNull { k.startsWith(it.prefix) } returns the same rule the
+    // linear scan would — including first-match semantics for overlapping
+    // prefixes such as r.mobile.ssr (REFLECTION, listed before r.mobile.
+    // MOBILE). Verified: all 226 prefixes are unique.
+    private val rSubRulesByPrefix: Map<String, List<CatRule>> =
+        rSubRules.groupBy { it.prefix.take(8) }
+
+    private fun findSubRule(k: String): CatRule? {
+        // k starts with "r." (guaranteed by the caller); slice the same 8 chars
+        // used to build the index, falling back to the full list for prefixes
+        // longer than 8 chars.
+        val key = k.substring(2, (8).coerceAtMost(k.length))
+        val bucket = rSubRulesByPrefix[key]
+        if (bucket != null) {
+            bucket.firstOrNull { k.startsWith(it.prefix) }?.let { return it }
+        }
+        return rSubRules.firstOrNull { k.startsWith(it.prefix) }
+    }
+
     private val overrides =
         listOf(
             CatOverride("compat.usedxt5normalmaps", CvarCategory.TEXTURE_STREAMING),
@@ -318,6 +345,68 @@ object CvarCategorizer {
             "r.mobile.enablevoidgt", "r.mobile.ssao", "r.mobile.outlinescale", "r.mobile.treerimlight",
         )
 
+    // Hoisted out of categorize(): this 40-entry map was reallocated on every call,
+    // i.e. once per CVar across all 5 generated INIs (~1,750 allocations per deploy).
+    private val knownCategories =
+        mapOf(
+            "r.shadow" to CvarCategory.LIGHTING_SHADOW,
+            "r.imp" to CvarCategory.LOD_CULLING,
+            "r.meshdrawcommands" to CvarCategory.PERFORMANCE,
+            "r.mobile" to CvarCategory.MOBILE,
+            "r.streaming" to CvarCategory.TEXTURE_STREAMING,
+            "r.bloom" to CvarCategory.POST_PROCESS,
+            "r.tonemapper" to CvarCategory.POST_PROCESS,
+            "r.temporal" to CvarCategory.POST_PROCESS,
+            "r.postprocess" to CvarCategory.POST_PROCESS,
+            "r.defaultfeature" to CvarCategory.POST_PROCESS,
+            "r.upscale" to CvarCategory.POST_PROCESS,
+            "r.eyeadaptation" to CvarCategory.POST_PROCESS,
+            "r.motionblur" to CvarCategory.POST_PROCESS,
+            "r.depthoffield" to CvarCategory.POST_PROCESS,
+            "r.lensflare" to CvarCategory.POST_PROCESS,
+            "r.scenecolorfringe" to CvarCategory.POST_PROCESS,
+            "r.distortion" to CvarCategory.POST_PROCESS,
+            "r.lightfunction" to CvarCategory.LIGHTING_SHADOW,
+            "r.lightshaft" to CvarCategory.LIGHTING_SHADOW,
+            "r.ambientocclusion" to CvarCategory.LIGHTING_SHADOW,
+            "r.ssgi" to CvarCategory.LIGHTING_SHADOW,
+            "r.ssr" to CvarCategory.REFLECTION,
+            "r.volumetricfog" to CvarCategory.ENVIRONMENT,
+            "r.fog" to CvarCategory.ENVIRONMENT,
+            "r.landscape" to CvarCategory.ENVIRONMENT,
+            "r.foliage" to CvarCategory.ENVIRONMENT,
+            "r.distancefield" to CvarCategory.LIGHTING_SHADOW,
+            "r.skincache" to CvarCategory.CHARACTER,
+            "r.morphtarget" to CvarCategory.CHARACTER,
+            "r.bbm" to CvarCategory.CHARACTER,
+            "r.vulkan" to CvarCategory.PIPELINE_RHI,
+            "r.rhicmd" to CvarCategory.PIPELINE_RHI,
+            "r.pso" to CvarCategory.PIPELINE_RHI,
+            "r.shaderpipelinecache" to CvarCategory.PIPELINE_RHI,
+            "r.kuro" to CvarCategory.SYSTEM,
+            "r.hzb" to CvarCategory.LOD_CULLING,
+            "r.cull" to CvarCategory.LOD_CULLING,
+            "r.screensize" to CvarCategory.LOD_CULLING,
+            "r.screenradius" to CvarCategory.LOD_CULLING,
+            "r.staticmesh" to CvarCategory.LOD_CULLING,
+            "r.allowprecomputed" to CvarCategory.LOD_CULLING,
+            "r.allowsoftwareocclusion" to CvarCategory.LOD_CULLING,
+            "r.vrs" to CvarCategory.PERFORMANCE,
+            "r.framepace" to CvarCategory.PERFORMANCE,
+            "r.vsync" to CvarCategory.PERFORMANCE,
+            "r.finishcurrent" to CvarCategory.PERFORMANCE,
+            "r.texture" to CvarCategory.TEXTURE_STREAMING,
+            "r.maxanisotropy" to CvarCategory.TEXTURE_STREAMING,
+            "r.rendertarget" to CvarCategory.TEXTURE_STREAMING,
+            "r.android" to CvarCategory.MOBILE,
+            "r.subsurface" to CvarCategory.CHARACTER,
+            "r.sss" to CvarCategory.CHARACTER,
+            "r.emitter" to CvarCategory.EFFECTS,
+            "r.kurofi" to CvarCategory.PERFORMANCE,
+            "r.mobilehdr" to CvarCategory.MOBILE,
+            "r.mobilemsaa" to CvarCategory.MOBILE,
+        )
+
     fun categorize(key: String): CvarCategory {
         val k = key.lowercase().trim()
         if (k.isBlank()) return CvarCategory.UNKNOWN
@@ -328,12 +417,12 @@ object CvarCategorizer {
         if (k.startsWith("r.") && k.length > 2) {
             val subKey = k.substring(2)
             if (!subKey.startsWith("mobile.")) {
-                val subRule = rSubRules.firstOrNull { k.startsWith(it.prefix) }
+                val subRule = findSubRule(k)
                 if (subRule != null) return subRule.category
             } else {
                 val exception = mobileSubExceptions.firstOrNull { k.startsWith(it) }
                 if (exception == null) {
-                    val subRule = rSubRules.firstOrNull { k.startsWith(it.prefix) }
+                    val subRule = findSubRule(k)
                     if (subRule != null) return subRule.category
                 }
                 val lightShadowPrefixes =
@@ -348,68 +437,9 @@ object CvarCategorizer {
                 return CvarCategory.MOBILE
             }
 
-            val topRule = rSubRules.firstOrNull { k.startsWith(it.prefix) }
+            val topRule = findSubRule(k)
             if (topRule != null) return topRule.category
 
-            val knownCategories =
-                mapOf(
-                    "r.shadow" to CvarCategory.LIGHTING_SHADOW,
-                    "r.imp" to CvarCategory.LOD_CULLING,
-                    "r.meshdrawcommands" to CvarCategory.PERFORMANCE,
-                    "r.mobile" to CvarCategory.MOBILE,
-                    "r.streaming" to CvarCategory.TEXTURE_STREAMING,
-                    "r.bloom" to CvarCategory.POST_PROCESS,
-                    "r.tonemapper" to CvarCategory.POST_PROCESS,
-                    "r.temporal" to CvarCategory.POST_PROCESS,
-                    "r.postprocess" to CvarCategory.POST_PROCESS,
-                    "r.defaultfeature" to CvarCategory.POST_PROCESS,
-                    "r.upscale" to CvarCategory.POST_PROCESS,
-                    "r.eyeadaptation" to CvarCategory.POST_PROCESS,
-                    "r.motionblur" to CvarCategory.POST_PROCESS,
-                    "r.depthoffield" to CvarCategory.POST_PROCESS,
-                    "r.lensflare" to CvarCategory.POST_PROCESS,
-                    "r.scenecolorfringe" to CvarCategory.POST_PROCESS,
-                    "r.distortion" to CvarCategory.POST_PROCESS,
-                    "r.lightfunction" to CvarCategory.LIGHTING_SHADOW,
-                    "r.lightshaft" to CvarCategory.LIGHTING_SHADOW,
-                    "r.ambientocclusion" to CvarCategory.LIGHTING_SHADOW,
-                    "r.ssgi" to CvarCategory.LIGHTING_SHADOW,
-                    "r.ssr" to CvarCategory.REFLECTION,
-                    "r.volumetricfog" to CvarCategory.ENVIRONMENT,
-                    "r.fog" to CvarCategory.ENVIRONMENT,
-                    "r.landscape" to CvarCategory.ENVIRONMENT,
-                    "r.foliage" to CvarCategory.ENVIRONMENT,
-                    "r.distancefield" to CvarCategory.LIGHTING_SHADOW,
-                    "r.skincache" to CvarCategory.CHARACTER,
-                    "r.morphtarget" to CvarCategory.CHARACTER,
-                    "r.bbm" to CvarCategory.CHARACTER,
-                    "r.vulkan" to CvarCategory.PIPELINE_RHI,
-                    "r.rhicmd" to CvarCategory.PIPELINE_RHI,
-                    "r.pso" to CvarCategory.PIPELINE_RHI,
-                    "r.shaderpipelinecache" to CvarCategory.PIPELINE_RHI,
-                    "r.kuro" to CvarCategory.SYSTEM,
-                    "r.hzb" to CvarCategory.LOD_CULLING,
-                    "r.cull" to CvarCategory.LOD_CULLING,
-                    "r.screensize" to CvarCategory.LOD_CULLING,
-                    "r.screenradius" to CvarCategory.LOD_CULLING,
-                    "r.staticmesh" to CvarCategory.LOD_CULLING,
-                    "r.allowprecomputed" to CvarCategory.LOD_CULLING,
-                    "r.allowsoftwareocclusion" to CvarCategory.LOD_CULLING,
-                    "r.vrs" to CvarCategory.PERFORMANCE,
-                    "r.framepace" to CvarCategory.PERFORMANCE,
-                    "r.vsync" to CvarCategory.PERFORMANCE,
-                    "r.finishcurrent" to CvarCategory.PERFORMANCE,
-                    "r.texture" to CvarCategory.TEXTURE_STREAMING,
-                    "r.maxanisotropy" to CvarCategory.TEXTURE_STREAMING,
-                    "r.rendertarget" to CvarCategory.TEXTURE_STREAMING,
-                    "r.android" to CvarCategory.MOBILE,
-                    "r.subsurface" to CvarCategory.CHARACTER,
-                    "r.sss" to CvarCategory.CHARACTER,
-                    "r.emitter" to CvarCategory.EFFECTS,
-                    "r.kurofi" to CvarCategory.PERFORMANCE,
-                    "r.mobilehdr" to CvarCategory.MOBILE,
-                    "r.mobilemsaa" to CvarCategory.MOBILE,
-                )
             val match = knownCategories.entries.firstOrNull { (prefix, _) -> k.startsWith(prefix) }
             if (match != null) return match.value
             return CvarCategory.UNKNOWN

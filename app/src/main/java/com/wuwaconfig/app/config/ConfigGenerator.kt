@@ -41,6 +41,24 @@ data class PresetProfile(
     val q2: Boolean get() = detail > 2
 }
 
+/** The 5 generated INIs after the final forbidden-CVar strip pass. */
+data class PostProcessedIni(
+    val engine: String,
+    val deviceProfiles: String,
+    val gameUserSettings: String,
+    val scalability: String,
+    val hardware: String,
+) {
+    fun toGeneratedIni(): GeneratedIni =
+        GeneratedIni(
+            engine = engine,
+            deviceProfiles = deviceProfiles,
+            gameUserSettings = gameUserSettings,
+            scalability = scalability,
+            hardware = hardware,
+        )
+}
+
 val PRESETS =
     mapOf(
         "potato" to
@@ -266,34 +284,60 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val sc = if (opts.generateScalability) buildAndroidScalabilityIni(p, opts) else ""
         val hw = if (opts.generateHardware) buildAndroidHardwareIni(p, opts, logInfo, preset) else ""
         val deduplicatedEngine = deduplicateIniText(optimizedEngine)
-        var finalEngine = deduplicatedEngine
-        var finalDp = dp
-        var finalGus = gus
-        var finalSc = sc
-        var finalHw = hw
-        if (!opts.allowRestrictedCvars) {
-            finalEngine = ForbiddenCvars.stripForbiddenCvars(deduplicatedEngine)
-            finalDp = ForbiddenCvars.stripForbiddenCvars(dp)
-            finalGus = ForbiddenCvars.stripForbiddenCvars(gus)
-            finalSc = if (sc.isNotBlank()) ForbiddenCvars.stripForbiddenCvars(sc) else sc
-            finalHw = if (hw.isNotBlank()) ForbiddenCvars.stripForbiddenCvars(hw) else hw
+        val finalEngine =
+            applyForbiddenCvarStrip(
+                deduplicatedEngine,
+                dp,
+                gus,
+                sc,
+                hw,
+                allowRestrictedCvars = opts.allowRestrictedCvars,
+            )
+        val cvarNames = extractCvarNames(finalEngine.engine)
+        LogRepository.add("ConfigGenerator: generation complete", LogLevel.SUCCESS)
+        return GenerateResult(
+            ini = finalEngine.toGeneratedIni(),
+            cvarNames = cvarNames,
+            activePreset = preset,
+        )
+    }
+
+    /**
+     * Final pass over the 5 generated INIs: dedupe is already applied to the
+     * engine, but the other 4 files still need the forbidden-CVar strip when the
+     * user opted out of restricted CVars. Returns the 5 files as a single
+     * [PostProcessedIni] so the caller doesn't juggle 5 `var`s.
+     *
+     * (This is a small, self-contained extraction from generateWithCorePaths; the
+     * 5 buildAndroid* builders remain in this class — they reference each other,
+     * the companion object and DeviceTier, so extracting them is a larger refactor
+     * for no correctness gain and is deferred.)
+     */
+    private fun applyForbiddenCvarStrip(
+        engine: String,
+        deviceProfiles: String,
+        gameUserSettings: String,
+        scalability: String,
+        hardware: String,
+        allowRestrictedCvars: Boolean,
+    ): PostProcessedIni {
+        val finalEngine = if (allowRestrictedCvars) engine else ForbiddenCvars.stripForbiddenCvars(engine)
+        val finalDp = if (allowRestrictedCvars) deviceProfiles else ForbiddenCvars.stripForbiddenCvars(deviceProfiles)
+        val finalGus = if (allowRestrictedCvars) gameUserSettings else ForbiddenCvars.stripForbiddenCvars(gameUserSettings)
+        val finalSc = if (allowRestrictedCvars || scalability.isBlank()) scalability else ForbiddenCvars.stripForbiddenCvars(scalability)
+        val finalHw = if (allowRestrictedCvars || hardware.isBlank()) hardware else ForbiddenCvars.stripForbiddenCvars(hardware)
+        if (!allowRestrictedCvars) {
             val strippedCount =
-                deduplicatedEngine.lines().size - finalEngine.lines().size +
-                    dp.lines().size - finalDp.lines().size +
-                    gus.lines().size - finalGus.lines().size +
-                    sc.lines().size - finalSc.lines().size +
-                    hw.lines().size - finalHw.lines().size
+                engine.lines().size - finalEngine.lines().size +
+                    deviceProfiles.lines().size - finalDp.lines().size +
+                    gameUserSettings.lines().size - finalGus.lines().size +
+                    scalability.lines().size - finalSc.lines().size +
+                    hardware.lines().size - finalHw.lines().size
             if (strippedCount > 0) {
                 LogRepository.add("ConfigGenerator: stripped $strippedCount forbidden CVar(s) (restricted CVars OFF)", LogLevel.WARNING)
             }
         }
-        val cvarNames = extractCvarNames(finalEngine)
-        LogRepository.add("ConfigGenerator: generation complete", LogLevel.SUCCESS)
-        return GenerateResult(
-            ini = GeneratedIni(engine = finalEngine, deviceProfiles = finalDp, gameUserSettings = finalGus, scalability = finalSc, hardware = finalHw),
-            cvarNames = cvarNames,
-            activePreset = preset,
-        )
+        return PostProcessedIni(finalEngine, finalDp, finalGus, finalSc, finalHw)
     }
 
     private data class DeviceTier(

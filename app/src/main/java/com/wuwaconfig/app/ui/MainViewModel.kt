@@ -22,6 +22,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         application as? WuWaConfigApp
             ?: throw IllegalStateException("MainViewModel requires WuWaConfigApp application")
 
+    // Gson is expensive to construct (reflection metadata); reuse one instance
+    // instead of instantiating per save/load call.
+    private val gson = Gson()
+
     val configGenerator get() = app.configGenerator
 
     private val configManager: ConfigManager by lazy { ConfigManager(app, { app.backend }) }
@@ -85,7 +89,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun saveGeneratorOptions(opts: GeneratorOptions) {
         try {
-            prefs.edit().putString("last_generator_options", Gson().toJson(opts)).apply()
+            prefs.edit().putString("last_generator_options", gson.toJson(opts)).apply()
         } catch (e: Exception) {
             Log.e("WuWaConfig", "saveGeneratorOptions failed", e)
         }
@@ -94,7 +98,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun loadGeneratorOptions(): GeneratorOptions? {
         return try {
             val json = prefs.getString("last_generator_options", null) ?: return null
-            Gson().fromJson(json, GeneratorOptions::class.java)
+            return gson.fromJson(json, GeneratorOptions::class.java)
         } catch (e: Exception) {
             Log.e("WuWaConfig", "loadGeneratorOptions failed", e)
             null

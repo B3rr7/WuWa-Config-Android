@@ -1,6 +1,7 @@
 package com.wuwaconfig.app.config
 
 import android.content.Context
+import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.PUSH_RETRY_COUNT
 import com.wuwaconfig.app.backend.retryIO
@@ -31,7 +32,18 @@ class ConfigManager(
     private val context: Context,
     private val backendProvider: () -> AccessBackend,
     private val backupDirPath: String? = null,
+    // Injected so the toggle can be stubbed in unit tests without standing up
+    // WuWaConfigApp.instance (a lateinit that is null in a headless process).
+    private val hashMonitorEnabled: () -> Boolean = { WuWaConfigApp.instance.hashMonitorEnabled.value },
 ) {
+    companion object {
+        // Random jitter between consecutive file pushes so the device's adb/shell
+        // scheduler doesn't see a perfectly periodic burst. Named so the range is
+        // obvious to a reader and easy to tune.
+        private const val DEPLOY_INTER_FILE_JITTER_MS = 50L
+        private const val DEPLOY_INTER_FILE_JITTER_RANGE_MS = 100L
+    }
+
     @Volatile
     private var _backend: AccessBackend = backendProvider()
 
@@ -51,19 +63,20 @@ class ConfigManager(
     private fun rebuild() {
         _backupStore = BackupStore(context, _backend, backupDirPath)
         _profileExtractor = ProfileExtractor(context, _backend, _backupStore.backupDir, _backupStore.publicDir)
-        _hashMonitor = HashMonitor(context, _backend)
+        _hashMonitor = HashMonitor(context, _backend, hashMonitorEnabled)
     }
 
     private fun rebuildIfNeeded() {
-        val b = backendProvider()
-        if (b !== _backend) {
-            synchronized(this) {
-                // Re-check inside the lock: two coroutines racing through the
-                // getters could otherwise observe a half-rebuilt manager.
-                if (b !== _backend) {
-                    _backend = b
-                    rebuild()
-                }
+        // backendProvider() is cheap (a synchronized app-level getter), but it must
+        // run exactly once per check: previously it was called outside the lock, so two
+        // coroutines racing a backend switch both constructed a new AccessBackend and one
+        // rebuild was wasted. Compute it inside the lock so the check-and-rebuild is one
+        // atomic step, and sub-stores always observe the freshly published _backend.
+        synchronized(this) {
+            val b = backendProvider()
+            if (b !== _backend) {
+                _backend = b
+                rebuild()
             }
         }
     }
@@ -145,7 +158,7 @@ class ConfigManager(
                         val targetPath = "${GamePaths.TARGET_DIR}/$name"
                         pushWithRetry(name, tempFile.absolutePath, targetPath, onProgress)
                             .onFailure { throw it }
-                        delay(50 + Random.nextLong(100))
+                        delay(DEPLOY_INTER_FILE_JITTER_MS + Random.nextLong(DEPLOY_INTER_FILE_JITTER_RANGE_MS))
                     }
                     LogRepository.add("ConfigManager: custom configs applied successfully", LogLevel.SUCCESS)
                     Result.success("Custom configs applied successfully!")
@@ -174,10 +187,27 @@ class ConfigManager(
                 onProgress("Ensuring target directory exists...")
                 backend.ensureDirectoryExists(GamePaths.TARGET_DIR).getOrThrow()
 
+                // P0-2: enforce restricted CVars on every path to the device, not just
+                // the generator. User-supplied INIs (HomeScreen custom-file picker)
+                // used to bypass the strip here and could deploy r.ScreenPercentage,
+                // r.Streaming.Boost, etc. directly.
+                val safeContent =
+                    try {
+                        if (WuWaConfigApp.instance.allowRestrictedCvarsEnabled.value) {
+                            content
+                        } else {
+                            ForbiddenCvars.stripForbiddenCvars(content)
+                        }
+                    } catch (_: Throwable) {
+                        // WuWaConfigApp.instance is a lateinit; in a headless unit-test
+                        // process it is not initialized, so default to stripping.
+                        ForbiddenCvars.stripForbiddenCvars(content)
+                    }
+
                 val tempDir = newStagingDir()
                 try {
                     val tempFile = File(tempDir, fileName)
-                    tempFile.writeText(content)
+                    tempFile.writeText(safeContent)
                     val targetPath = "${GamePaths.TARGET_DIR}/$fileName"
                     pushWithRetry(fileName, tempFile.absolutePath, targetPath, onProgress)
                         .onFailure { throw it }
@@ -221,7 +251,7 @@ class ConfigManager(
                         val targetPath = "${GamePaths.TARGET_DIR}/${file.name}"
                         pushWithRetry(file.name, tempFile.absolutePath, targetPath, onProgress)
                             .onFailure { throw it }
-                        delay(50 + Random.nextLong(100))
+                        delay(DEPLOY_INTER_FILE_JITTER_MS + Random.nextLong(DEPLOY_INTER_FILE_JITTER_RANGE_MS))
                     }
                     Result.success("$label restored successfully!")
                 } finally {

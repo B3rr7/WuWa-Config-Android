@@ -15,9 +15,13 @@ object SmartBrain {
 
     private data class ResInfo(val width: Int, val height: Int?)
 
+    // Hoisted out of parseResolution: the old body recompiled this Regex on every
+    // call, i.e. twice per scoring pass (~2 allocations per device analysis).
+    private val RESOLUTION_REGEX = Regex("\\s*[xX*]\\s*")
+
     private fun parseResolution(res: String?): ResInfo? {
         if (res == null) return null
-        val parts = res.trim().split(Regex("\\s*[xX*]\\s*"))
+        val parts = res.trim().split(RESOLUTION_REGEX)
         val w = parts.firstOrNull()?.toIntOrNull() ?: return null
         val h = parts.getOrNull(1)?.toIntOrNull()
         return ResInfo(w, h)
@@ -26,12 +30,12 @@ object SmartBrain {
     private fun hasCvar(
         cvars: Map<String, String>,
         key: String,
-    ): Boolean = cvars.any { it.key.equals(key, ignoreCase = true) }
+    ): Boolean = cvars.containsKey(key.lowercase())
 
     private fun cvarValue(
         cvars: Map<String, String>,
         key: String,
-    ): String? = cvars.entries.firstOrNull { it.key.equals(key, ignoreCase = true) }?.value
+    ): String? = cvars[key.lowercase()]
 
     fun scoreRecommendation(
         info: LogInfo,
@@ -249,6 +253,10 @@ object SmartBrain {
         }
 
         val cvars = info.activeCvars
+        // activeCvars keys are mixed-case, but every lookup lowercases before
+        // matching. Normalize once instead of scanning the whole map 8x per
+        // scoring pass (the old hasCvar/cvarValue did cvars.any { equals(key, ignoreCase) }).
+        val lcCvars = cvars.mapKeys { it.key.lowercase() }
         if (cvars.isNotEmpty()) {
             val known = cvars.keys.count { cvarDatabase.isKnown(it) }
             val unknown = cvars.keys.size - known
@@ -276,13 +284,13 @@ object SmartBrain {
         }
 
         if (cvars.isNotEmpty()) {
-            val shadowQ = cvarValue(cvars, "sg.ShadowQuality")?.toIntOrNull()
-            val texQ = cvarValue(cvars, "sg.TextureQuality")?.toIntOrNull()
-            val resScale = cvarValue(cvars, "r.ScreenPercentage")?.toFloatOrNull()
-            val fpsLimit = cvarValue(cvars, "r.FramePace")?.toIntOrNull()
-            val ssao = hasCvar(cvars, "r.Mobile.SSAO")
-            val fsr = hasCvar(cvars, "r.FidelityFX.FSR.RCAS")
-            val bloom = cvarValue(cvars, "r.BloomQuality")?.toIntOrNull()
+            val shadowQ = cvarValue(lcCvars, "sg.ShadowQuality")?.toIntOrNull()
+            val texQ = cvarValue(lcCvars, "sg.TextureQuality")?.toIntOrNull()
+            val resScale = cvarValue(lcCvars, "r.ScreenPercentage")?.toFloatOrNull()
+            val fpsLimit = cvarValue(lcCvars, "r.FramePace")?.toIntOrNull()
+            val ssao = hasCvar(lcCvars, "r.Mobile.SSAO")
+            val fsr = hasCvar(lcCvars, "r.FidelityFX.FSR.RCAS")
+            val bloom = cvarValue(lcCvars, "r.BloomQuality")?.toIntOrNull()
 
             if (shadowQ != null) {
                 when {
