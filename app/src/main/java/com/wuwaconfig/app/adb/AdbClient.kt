@@ -22,7 +22,10 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
-class AdbClient(private val crypto: AdbCrypto) {
+class AdbClient(
+    private val crypto: CryptoAdapter,
+    private val socketFactory: (host: String, port: Int) -> Socket? = { _, _ -> Socket() },
+) {
     @Volatile
     private var socket: Socket? = null
 
@@ -103,12 +106,12 @@ class AdbClient(private val crypto: AdbCrypto) {
                 try {
                     Log.d("AdbClient", "connect[$instanceId]: opening socket to $host:$port")
                     socket =
-                        Socket().apply {
+                        socketFactory(host, port)?.apply {
                             connect(InetSocketAddress(host, port), 7000)
                             soTimeout = readTimeoutMs
                             keepAlive = true
                             tcpNoDelay = true
-                        }
+                        } ?: return@withContext Result.failure(Exception("Connection refused: $host:$port"))
                     input = socket!!.getInputStream()
                     output = socket!!.getOutputStream()
                     Log.d("AdbClient", "connect[$instanceId]: socket opened, authenticating")
