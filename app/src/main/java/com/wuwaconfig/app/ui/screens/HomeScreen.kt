@@ -967,7 +967,7 @@ fun HomeScreen(
 
 @Composable
 private fun RecentLogCard(onNavigateToLogs: () -> Unit) {
-    val logs = LogRepository.entries
+    val logs by LogRepository.entries.collectAsStateWithLifecycle()
     TerminalLogCard(
         title = "recent.log",
         accentColor = NeonCyan,

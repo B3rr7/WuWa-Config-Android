@@ -1,7 +1,6 @@
 package com.wuwaconfig.app.config
 
 import android.content.Context
-import android.util.Log
 import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.PUSH_RETRY_COUNT
@@ -28,6 +27,9 @@ import java.util.Locale
 class HashMonitor(
     private val context: Context,
     private val backend: AccessBackend,
+    // Injected so the toggle can be stubbed in unit tests without standing up
+    // WuWaConfigApp.instance (a lateinit that is null in a headless process).
+    private val hashMonitorEnabled: () -> Boolean = { WuWaConfigApp.instance.hashMonitorEnabled.value },
 ) {
     // A single app-wide mutex serializes all hash-file writes. ConfigManager
     // instances are created per-ViewModel, but every instance stages to the
@@ -57,12 +59,19 @@ class HashMonitor(
     }
 
     suspend fun refreshConfigHashes(incrementModifyCount: Boolean = false): Result<String> {
-        if (!WuWaConfigApp.instance.hashMonitorEnabled.value) {
+        if (!hashMonitorEnabled()) {
             LogRepository.add("ConfigManager: HashMonitor disabled — skipping hash sync", LogLevel.WARNING)
             return Result.success("HashMonitor disabled — skipped")
         }
         if (backend is SafBackend) {
-            LogRepository.add("ConfigManager: HashMonitor needs shell mv — skipped on SAF", LogLevel.WARNING)
+            // SAF cannot run `mv` (no shell), so the hash file is never written here.
+            // Surface it as a warning rather than a silent Result.success: an app that
+            // silently skips hash sync on SAF means the drift detector is off and the
+            // user gets no signal that config changes may go unnoticed.
+            LogRepository.add(
+                "ConfigManager: HashMonitor skipped — SAF backend cannot write the hash file via shell mv",
+                LogLevel.WARNING,
+            )
             return Result.success("HashMonitor skipped (SAF)")
         }
         return hashMutex.withLock {
@@ -228,24 +237,20 @@ class HashMonitor(
                         if (verifyResult.isSuccess) {
                             val stored = verifyResult.getOrThrow().trim()
                             if (stored == newContent.trim()) {
-                                Log.d("HashMonitor", "Config hashes refreshed and verified successfully")
                                 LogRepository.add("ConfigManager: hashes refreshed and verified", LogLevel.SUCCESS)
                                 Result.success("Config hashes synced & verified")
                             } else {
-                                Log.e("HashMonitor", "Hash file read-back MISMATCH — hash may be corrupt")
                                 LogRepository.add("ConfigManager: hash verify MISMATCH", LogLevel.ERROR)
                                 Result.failure(Exception("Hash verify MISMATCH — config hashes may be corrupt"))
                             }
                         } else {
-                            Log.w("HashMonitor", "Could not verify hash file: ${verifyResult.exceptionOrNull()?.message}")
-                            LogRepository.add("ConfigManager: hash verify skipped", LogLevel.WARNING)
+                            LogRepository.add("ConfigManager: hash verify skipped - ${verifyResult.exceptionOrNull()?.message}", LogLevel.WARNING)
                             Result.success("Config hashes synced (verify skipped)")
                         }
                     } finally {
                         tempFile.delete()
                     }
                 } catch (e: Exception) {
-                    Log.w("HashMonitor", "Failed to refresh hashes: ${e.message}")
                     LogRepository.add("ConfigManager: refreshConfigHashes failed: ${e.message}", LogLevel.ERROR)
                     Result.failure(e)
                 }
@@ -307,7 +312,7 @@ class HashMonitor(
                 if (results.isEmpty()) return@withContext Result.failure(Exception("No modify counts found"))
                 Result.success(results)
             } catch (e: Exception) {
-                Log.w("HashMonitor", "Failed to read modify counts: ${e.message}")
+                LogRepository.add("ConfigManager: failed to read modify counts: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
             }
         }

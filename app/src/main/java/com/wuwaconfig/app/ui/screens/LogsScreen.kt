@@ -39,7 +39,7 @@ fun LogsScreen(
     viewModel: DeployHistoryViewModel,
     onBack: () -> Unit,
 ) {
-    val logs = LogRepository.entries
+    val logs by LogRepository.entries.collectAsStateWithLifecycle()
     var filterLevel by remember { mutableStateOf<LogLevel?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var debouncedQuery by remember { mutableStateOf("") }

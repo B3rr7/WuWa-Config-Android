@@ -90,6 +90,7 @@ class WuWaConfigApp : Application() {
     val colorfulUi = MutableStateFlow(true)
     val deployHistoryEnabled = MutableStateFlow(true)
     val hashMonitorEnabled = MutableStateFlow(true)
+    val allowRestrictedCvarsEnabled = MutableStateFlow(true)
     val chipsetInfo = ChipsetDetector.detect()
     val gameConfigDir = GamePaths.TARGET_DIR
 
@@ -120,6 +121,7 @@ class WuWaConfigApp : Application() {
         colorfulUi.value = prefs.getBoolean("colorful_ui", true)
         deployHistoryEnabled.value = prefs.getBoolean("deploy_history", true)
         hashMonitorEnabled.value = prefs.getBoolean("hash_monitor_enabled", true)
+        allowRestrictedCvarsEnabled.value = prefs.getBoolean("allow_restricted_cvars", true)
     }
 
     fun setBackgroundState(
@@ -181,6 +183,11 @@ class WuWaConfigApp : Application() {
     fun setHashMonitorEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("hash_monitor_enabled", enabled).apply()
         hashMonitorEnabled.value = enabled
+    }
+
+    fun setAllowRestrictedCvarsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("allow_restricted_cvars", enabled).apply()
+        allowRestrictedCvarsEnabled.value = enabled
     }
 
     fun switchTo(method: AccessMethod): AccessBackend {

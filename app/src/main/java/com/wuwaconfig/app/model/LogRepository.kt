@@ -2,11 +2,13 @@ package com.wuwaconfig.app.model
 
 import android.os.Build
 import android.os.Environment
-import androidx.compose.runtime.mutableStateListOf
 import com.wuwaconfig.app.WuWaConfigApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -17,7 +19,12 @@ import java.util.Date
 import java.util.Locale
 
 object LogRepository {
-    val entries = mutableStateListOf<LogEntry>()
+    // Immutable snapshot held in a StateFlow. Writers publish a new list atomically;
+    // Compose reads it via collectAsStateWithLifecycle on the main thread. Unlike the
+    // previous mutableStateListOf, this has no read/write data race: the list itself is
+    // never mutated in place, and StateFlow's value assignment is thread-safe.
+    private val _entries = MutableStateFlow<List<LogEntry>>(emptyList())
+    val entries: StateFlow<List<LogEntry>> = _entries.asStateFlow()
 
     private var logFile: File? = null
     private val lock = Any()
@@ -56,9 +63,15 @@ object LogRepository {
         }
         scope.launch {
             val items = loadFromDiskAsync()
-            synchronized(lock) {
-                entries.addAll(items)
-            }
+            val snapshot =
+                synchronized(lock) {
+                    val next = (_entries.value + items).toMutableList()
+                    if (next.size > MAX_ENTRIES) {
+                        next.subList(0, next.size - MAX_ENTRIES).clear()
+                    }
+                    next.toList()
+                }
+            _entries.value = snapshot
             if (usedFallback) {
                 add("Public Downloads not writable (missing All-Files-Access); disk logs moved to app storage", LogLevel.WARNING)
             }
@@ -70,17 +83,20 @@ object LogRepository {
         level: LogLevel = LogLevel.INFO,
     ) {
         val entry = LogEntry(message, timestamp(), level)
-        synchronized(lock) {
-            entries.add(entry)
-            if (entries.size > MAX_ENTRIES) entries.removeAt(0)
-        }
+        // Publish a new immutable snapshot. StateFlow assignment is atomic and safe
+        // from any dispatcher, so callers on Dispatchers.IO can write without the
+        // Compose read-side ever observing a half-built list.
+        _entries.value =
+            synchronized(lock) {
+                val next = (_entries.value + entry).toMutableList()
+                if (next.size > MAX_ENTRIES) next.removeAt(0)
+                next.toList()
+            }
         appendToDisk(entry)
     }
 
     fun clear() {
-        synchronized(lock) {
-            entries.clear()
-        }
+        _entries.value = emptyList()
         scope.launch {
             diskMutex.withLock {
                 try {
@@ -97,7 +113,7 @@ object LogRepository {
         val base = publicBaseDir() ?: fallbackBaseDir().also { usedFallback = true }
         val dir = base.also { it.mkdirs() }
         val file = File(dir, fileName)
-        val content = synchronized(lock) { entries.joinToString("\n") { lineFormat(it) } }
+        val content = synchronized(lock) { _entries.value.joinToString("\n") { lineFormat(it) } }
         return try {
             withContext(Dispatchers.IO) { file.writeText(content) }
             if (usedFallback) add("Snapshot saved to app storage (Downloads unavailable): ${file.absolutePath}", LogLevel.WARNING)
@@ -169,15 +185,18 @@ object LogRepository {
                     // warning so broken disk logging is at least visible once.
                     if (!diskWriteWarned) {
                         diskWriteWarned = true
-                        synchronized(lock) {
-                            entries.add(
-                                LogEntry(
-                                    "Disk logging unavailable (${e.message}); keeping memory-only",
-                                    timestamp(),
-                                    LogLevel.WARNING,
-                                ),
+                        val warnEntry =
+                            LogEntry(
+                                "Disk logging unavailable (${e.message}); keeping memory-only",
+                                timestamp(),
+                                LogLevel.WARNING,
                             )
-                        }
+                        _entries.value =
+                            synchronized(lock) {
+                                val next = (_entries.value + warnEntry).toMutableList()
+                                if (next.size > MAX_ENTRIES) next.removeAt(0)
+                                next.toList()
+                            }
                     }
                 }
             }

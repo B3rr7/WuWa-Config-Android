@@ -818,16 +818,17 @@ private fun AnalysisPanel(
             }
             if (isApplying && readingProgress > 0) {
                 Spacer(Modifier.height(8.dp))
-                val glitchColors = listOf(NeonRed, NeonAmber, NeonGreen, NeonPurple, NeonCyan, NeonPink)
+                val glitchColors = remember { listOf(NeonRed, NeonAmber, NeonGreen, NeonPurple, NeonCyan, NeonPink) }
+                val random = remember { Random }
                 var colorIndex by remember { mutableStateOf(0) }
                 var glitchX by remember { mutableStateOf(0f) }
                 var glitchY by remember { mutableStateOf(0f) }
                 LaunchedEffect(readingProgress) {
                     while (isActive) {
                         colorIndex = (colorIndex + 1) % glitchColors.size
-                        glitchX = Random.nextFloat() * 6f - 3f
-                        glitchY = Random.nextFloat() * 3f - 1.5f
-                        delay(60 + Random.nextLong(100))
+                        glitchX = random.nextFloat() * 6f - 3f
+                        glitchY = random.nextFloat() * 3f - 1.5f
+                        delay(60 + random.nextLong(100))
                     }
                 }
                 Text(

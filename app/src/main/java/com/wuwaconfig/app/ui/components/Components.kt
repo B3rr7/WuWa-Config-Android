@@ -322,7 +322,7 @@ fun TerminalLogCard(
     onClick: (() -> Unit)? = null,
     trailing: @Composable (RowScope.() -> Unit)? = null,
 ) {
-    val logs = LogRepository.entries
+    val logs by LogRepository.entries.collectAsStateWithLifecycle()
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val shape = RoundedCornerShape(10.dp)
     Column(
@@ -712,7 +712,8 @@ fun BackendStatusCard(
 
 @Composable
 fun MiniLogViewer(modifier: Modifier = Modifier) {
-    if (LogRepository.entries.isEmpty()) return
+    val logs by LogRepository.entries.collectAsStateWithLifecycle()
+    if (logs.isEmpty()) return
     TerminalLogCard(modifier = modifier, title = "status.log", accentColor = NeonAmber)
 }
 
