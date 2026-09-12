@@ -13,7 +13,21 @@ import java.security.Signature
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 
-class AdbCrypto(private val context: Context) {
+/**
+ * Interface for ADB RSA operations. [AdbCrypto] is the production
+ * implementation; tests supply a fake that returns deterministic signatures.
+ */
+interface CryptoAdapter {
+    val isReady: Boolean
+
+    fun getAdbFormattedPublicKey(): ByteArray
+
+    fun signToken(token: ByteArray): ByteArray
+
+    fun regenerateKeys(): Result<Unit>
+}
+
+class AdbCrypto(private val context: Context) : CryptoAdapter {
     companion object {
         private const val TAG = "AdbCrypto"
 
@@ -45,7 +59,7 @@ class AdbCrypto(private val context: Context) {
     }
 
     /** True once keys are loaded. Safe to read from any thread. */
-    val isReady: Boolean get() = keyPair != null
+    override val isReady: Boolean get() = keyPair != null
 
     /**
      * Loads or generates the RSA key pair. Lazily invoked on first use (which
@@ -158,7 +172,7 @@ class AdbCrypto(private val context: Context) {
         Log.d(TAG, "Keys saved encrypted via EncryptedFile")
     }
 
-    fun getAdbFormattedPublicKey(): ByteArray {
+    override fun getAdbFormattedPublicKey(): ByteArray {
         ensureKeys()
         val rsaPubKey = keyPair!!.public as java.security.interfaces.RSAPublicKey
         val bos = java.io.ByteArrayOutputStream()
@@ -191,7 +205,7 @@ class AdbCrypto(private val context: Context) {
         stream.write(data)
     }
 
-    fun signToken(token: ByteArray): ByteArray {
+    override fun signToken(token: ByteArray): ByteArray {
         ensureKeys()
         Log.d(TAG, "Signing ${token.size}B token with NONEwithRSA (pre-hashed SHA1)")
         val signature = Signature.getInstance("NONEwithRSA")
@@ -203,7 +217,7 @@ class AdbCrypto(private val context: Context) {
         return sig
     }
 
-    fun regenerateKeys(): Result<Unit> {
+    override fun regenerateKeys(): Result<Unit> {
         Log.d(TAG, "Regenerating RSA keys")
         return runCatching {
             synchronized(keysLoadedLock) {
