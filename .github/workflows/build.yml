@@ -27,6 +27,17 @@ jobs:
       - name: Run ktlintCheck
         run: ./gradlew ktlintCheck
 
+      - name: Run Android Lint
+        run: ./gradlew lint
+
+      - name: Upload lint report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: |
+            app/build/reports/lint-results*.xml
+            app/build/reports/lint-results.html
+
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest
 
