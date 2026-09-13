@@ -597,6 +597,35 @@ fun SettingsScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
+                GlassCard(accentColor = NeonPurple) {
+                    GlassCardHeader("C# Optimization", NeonPurple)
+                    Spacer(Modifier.height(8.dp))
+                    val forceCSharpEnv by viewModel.forceCSharpEnv.collectAsStateWithLifecycle()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Force C# Environment", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(
+                                "Enable WuWa 3.6's C# optimization environment. " +
+                                    "Writes -ForceEnableCSharpEnvironment into the game's UE4CommandLine.txt. " +
+                                    "Restart the game after toggling; a '*' next to the version number on the " +
+                                    "login screen confirms it took effect.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = forceCSharpEnv,
+                            onCheckedChange = { viewModel.setForceCSharpEnv(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = NeonPurple, checkedTrackColor = NeonPurple.copy(alpha = 0.3f)),
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 GlassCard(accentColor = NeonGreen) {
                     GlassCardHeader("App Updates", NeonGreen)
                     Spacer(Modifier.height(8.dp))

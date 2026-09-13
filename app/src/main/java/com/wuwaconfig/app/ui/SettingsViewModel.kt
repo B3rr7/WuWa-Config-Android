@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.wuwaconfig.app.BuildConfig
 import com.wuwaconfig.app.WuWaConfigApp
+import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.update.UpdateManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +43,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val fontFamilyName: StateFlow<String> = app.fontFamilyName
     val fontScale: StateFlow<Float> = app.fontScale
     val colorSaturation: StateFlow<Float> = app.colorSaturation
+    val forceCSharpEnv: StateFlow<Boolean> = app.forceCSharpEnv
+
+    private val configManager: ConfigManager by lazy {
+        ConfigManager(getApplication(), { app.backend }, null)
+    }
 
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
@@ -53,6 +59,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setColorfulUi(enabled: Boolean) = app.setColorfulUi(enabled)
 
     fun setHashMonitorEnabled(enabled: Boolean) = app.setHashMonitorEnabled(enabled)
+
+    /**
+     * Toggles the game's runtime C# optimization environment. The preference is
+     * persisted immediately; the command-line file is rewritten in the background
+     * so the change takes effect on the next game launch.
+     */
+    fun setForceCSharpEnv(enabled: Boolean) {
+        app.setForceCSharpEnv(enabled)
+        viewModelScope.launch(Dispatchers.IO) { configManager.syncForceCSharpEnv(enabled) }
+    }
 
     fun setTextOpacity(value: Float) = app.setTextOpacity(value)
 
