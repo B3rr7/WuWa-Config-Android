@@ -19,7 +19,7 @@
 
 ---
 
-WuWaConfig is a free **Android app to boost Wuthering Waves FPS and tune graphics**. It analyzes your device `Client.log`, generates optimized **Engine.ini**, **Scalability.ini**, **GameUserSettings.ini**, **DeviceProfiles.ini**, and **Hardware.ini** configs, and deploys them via ADB (wireless debugging), Shizuku, Root, or SAF. Features include a **CVar editor**, **SmartBrain** device scoring (0–100), 8 performance presets (Potato → Cinematic), a **gacha pity tracker**, a **battle stats** analyzer, and an **Auto-Tune Wizard**. Works on Snapdragon/Adreno, MediaTek Dimensity/Mali, Exynos, and Tensor phones — from low-end to flagship.
+WuWaConfig is a free **Android app to boost Wuthering Waves FPS and tune graphics**. It analyzes your device `Client.log`, generates optimized **Engine.ini**, **Scalability.ini**, **GameUserSettings.ini**, **DeviceProfiles.ini**, and **Hardware.ini** configs, and deploys them via ADB (wireless debugging), Shizuku, Root, or SAF. Features include a **CVar editor**, **SmartBrain** device scoring (0–100), 8 performance presets (Potato → Cinematic), a **gacha pity tracker**, a **battle stats** analyzer, and a **battle stats** analyzer. Works on Snapdragon/Adreno, MediaTek Dimensity/Mali, Exynos, and Tensor phones — from low-end to flagship.
 
 🔒 **Privacy-first:** no analytics, no telemetry, no data sent to third parties. Only connects to localhost ADB and Kuro's official gacha API (user-initiated).
 
@@ -41,7 +41,6 @@ WuWaConfig is a free **Android app to boost Wuthering Waves FPS and tune graphic
 | 🔧 **CVar Editor** | Tweak individual console variables with live validation |
 | 🔮 **Gacha Pity Tracker** | Pull history, 50/50 status, soft/hard pity countdown |
 | ⚔️ **Battle Stats** | Full combat/exploration/economy/social/system breakdown |
-| 🪄 **Auto-Tune Wizard** | Iterative benchmark loop that hunts your target FPS |
 | 💾 **Backup & Restore** | Per-file backups before every write, recover in one tap |
 | 🔒 **Privacy-First** | No analytics, no telemetry, no cloud — everything stays on device |
 | 📱 **4 Access Methods** | ADB · Shizuku · Root · SAF — no root required |
@@ -240,9 +239,6 @@ Single button — generates configs with automatic CVar optimization: redundant 
 #### 8. Deploy
 Reads device Engine.ini for `[Core.System]` paths, regenerates with edits, pushes to device, refreshes KuroConfigMonitor hashes. Uses **hash snapshot + reconcile** pattern: saves hash file before deploy, compares afterward to detect concurrent game access, always recomputes from actual files. `ModifyCount` is capped at 8 to avoid suspicion. When "Allow restricted CVars" is OFF, forbidden CVars are stripped from all 5 INIs before push. Automatic deploy verification — pulls fresh Client.log, cross-references deployed CVars against engine-recognized ConfigMonitor CVars, shows accept/reject badge with color-coded tag chips: **N redundant** (matches game defaults), **N unknown** (not in UE4 binary dump), **N monitored** (ConfigMonitor-tracked).
 
-#### 9. Auto-Tune Wizard
-Iterative benchmark loop (up to 5 rounds): deploys preset → captures FPS via logcat → adjusts preset/options → redeploys until target FPS reached.
-
 ### Pity Tracker
 
 Fetches your **complete pull history** from Kuro's gacha API (no truncation — no 50-pull cap). 11 pool types: Character Event, Weapon Event, Standard, Beginner 1, Beginner 2, plus the 3 event-rotations of each. The screen is split into 4 panels.
@@ -348,7 +344,6 @@ app/
     │   ├── LogParser.kt          # Log decryption (XOR LUT), Convene URL extract, battle stat parse, CVar extraction, DecodeResult enum (per-line regexes pre-compiled)
     │   ├── SmartBrain.kt         # Scoring engine, 0-100, ~20 signals, preset recommendation
     │   ├── ForbiddenCvars.kt     # 31 restricted CVars, stripForbiddenCvars (called when restricted OFF)
-    │   ├── BenchmarkTuner.kt     # Auto-tune state machine, FPS logcat parsing, preset stepping
     │   ├── GachaApi.kt           # Gacha API client (HTTP POST, 11 pool types, hardcoded standard/character/weapon pool ids, character/weapon pity calc, count-aware totals for 10-pull collapsing)
     │   ├── GachaHistoryStore.kt  # Local gacha history persistence (12hr TTL)
     │   ├── ProfileStore.kt       # Profile cache persistence (player_profile.json, no TTL)
@@ -372,17 +367,17 @@ app/
     │   ├── AdbConnectionService.kt  # ADB foreground service (dataSync, START_STICKY)
     │   └── ShellUserService.kt      # Binder-based shell service for Shizuku UserService API (replaces reflection)
     └── ui/
-        ├── MainViewModel.kt      # Shared state holder — backend, deploy+verify, gacha, profile, deploy history, INI editor, auto-tune, theme/prefs
+        ├── MainViewModel.kt      # Shared state holder — backend, deploy+verify, gacha, profile, deploy history, INI editor, theme/prefs
         ├── IniEditorViewModel.kt # INI editor ViewModel (syncConfigHashes, pushSingleFile, refreshConfigHashes)
         ├── SettingsViewModel.kt  # Settings ViewModel (theme, backgrounds, backup dir)
         ├── GachaViewModel.kt      # Gacha ViewModel (fetch history, predictions, cancellable read)
         ├── ProfileViewModel.kt   # Profile ViewModel (read player profile, cache)
-        ├── DeployHistoryViewModel.kt # Deploy + device-analysis ViewModel (analyze, deploy, compare, battle stats, auto-tune)
+        ├── DeployHistoryViewModel.kt # Deploy + device-analysis ViewModel (analyze, deploy, compare, battle stats)
         ├── components/
         │   └── Components.kt     # GlassCard, GradientBackground, GlitchText, GlassButton, log viewer
         ├── screens/
         │   ├── HomeScreen.kt        # Backend control, custom config, clean config, quick actions, log viewer, deploy history
-        │   ├── ConfigGenScreen.kt   # Analysis, presets, options, advanced tuning, auto-tune, verification
+        │   ├── ConfigGenScreen.kt   # Analysis, presets, options, advanced tuning, verification
         │   ├── ReviewTuneScreen.kt  # Generated-config reviewer/editor/deploy screen (driven by ReviewTune* StateFlows)
         │   ├── PityScreen.kt        # Gacha fetcher, summary, predictions, per-pool breakdown, history, Stop Reading button
         │   ├── ProfileScreen.kt     # Player profile view (cached, UID/server/level/tower/rogue/BP)
@@ -441,7 +436,7 @@ app/
 
 ## 🔑 Keywords
 
-`wuthering-waves` `wuwa` `android` `fps-boost` `engine-ini` `config-optimizer` `gacha-tracker` `pity-calculator` `kuro-games` `mobile-gaming` `performance` `android-optimization` `ue4` `unreal-engine-4` `adb` `shizuku` `gaming-tool` `cvars-editor` `graphics-tuning` `snapdragon-gaming` `adreno-tuning` `mali-gpu-config` `low-end-booster` `auto-tune-wizard` `vulkan-optimization` `thermal-fix`
+`wuthering-waves` `wuwa` `android` `fps-boost` `engine-ini` `config-optimizer` `gacha-tracker` `pity-calculator` `kuro-games` `mobile-gaming` `performance` `android-optimization` `ue4` `unreal-engine-4` `adb` `shizuku` `gaming-tool` `cvars-editor` `graphics-tuning` `snapdragon-gaming` `adreno-tuning` `mali-gpu-config` `low-end-booster` `vulkan-optimization` `thermal-fix`
 
 ---
 

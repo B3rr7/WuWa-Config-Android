@@ -29,10 +29,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.wuwaconfig.app.config.BenchmarkTuner
-import com.wuwaconfig.app.config.RoundResult
-import com.wuwaconfig.app.config.TunerStage
-import com.wuwaconfig.app.config.TunerState
 import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.VerificationReport
@@ -110,9 +106,6 @@ fun ConfigGenScreen(
     var experimentalCvars by rememberSaveable { mutableStateOf(savedOptions?.experimentalCvars ?: false) }
 
     var gameMode by rememberSaveable { mutableStateOf(savedOptions?.mode ?: GameMode.Overworld) }
-    var tunerState by remember { mutableStateOf(TunerState()) }
-    var showGoPlayDialog by remember { mutableStateOf(false) }
-    var showResultDialog by remember { mutableStateOf(false) }
     var showDeployDialog by remember { mutableStateOf(false) }
     var deployDialogMessage by remember { mutableStateOf("") }
     var deployHashSyncMessage by remember { mutableStateOf("") }
@@ -136,136 +129,7 @@ fun ConfigGenScreen(
             }
         }
 
-    fun runDeployAndWait() {
-        scope.launch {
-            val preset = tunerState.preset
-            val opts = tunerState.options
-
-            tunerState = tunerState.copy(stage = TunerStage.DEPLOYING)
-            BenchmarkTuner.saveState(tunerState)
-
-            val generated = viewModel.configGenerator.generate(preset, opts, logInfo = logInfo ?: com.wuwaconfig.app.model.LogInfo())
-            val accepted = deployHistoryViewModel.deployGeneratedConfigs(generated, opts)
-            if (!accepted) {
-                tunerState = tunerState.copy(stage = TunerStage.COMPLETE, error = "Deploy could not start (busy or disconnected)")
-                BenchmarkTuner.saveState(tunerState)
-                showResultDialog = true
-                return@launch
-            }
-            var waitMs = 0
-            while (deployHistoryViewModel.isApplying.value && waitMs < 30000) {
-                delay(200)
-                waitMs += 200
-            }
-            if (deployHistoryViewModel.operationCancelled.value) {
-                tunerState = tunerState.copy(stage = TunerStage.COMPLETE, error = "Deploy cancelled")
-                BenchmarkTuner.saveState(tunerState)
-                showResultDialog = true
-                return@launch
-            }
-            if (deployHistoryViewModel.isApplying.value) {
-                tunerState = tunerState.copy(stage = TunerStage.COMPLETE, error = "Deploy timed out")
-                BenchmarkTuner.saveState(tunerState)
-                showResultDialog = true
-                return@launch
-            }
-            tunerState = tunerState.copy(stage = TunerStage.WAITING_FOR_PLAY)
-            BenchmarkTuner.saveState(tunerState)
-            showGoPlayDialog = true
-        }
-    }
-
-    fun captureAndAnalyze() {
-        scope.launch {
-            tunerState = tunerState.copy(stage = TunerStage.CAPTURING)
-            BenchmarkTuner.saveState(tunerState)
-
-            val round = tunerState.round
-            val currentPreset = tunerState.preset
-            val targetFps = tunerState.targetFps
-
-            val logcatResult = deployHistoryViewModel.executeShellCommand("logcat -d -v brief -t 500")
-            val result =
-                if (logcatResult.isSuccess) {
-                    BenchmarkTuner.parseFpsLogcat(logcatResult.getOrThrow())
-                } else {
-                    Result.failure(Exception("logcat via backend failed: ${logcatResult.exceptionOrNull()?.message}"))
-                }
-
-            if (result.isSuccess) {
-                val r = result.getOrThrow()
-                val newResults = tunerState.results + RoundResult(round, currentPreset, r.avgFps, r.minFps, r.stabilityPct)
-                if (r.avgFps >= targetFps || round >= 5) {
-                    tunerState =
-                        TunerState(
-                            stage = TunerStage.COMPLETE, round = round, preset = currentPreset,
-                            options = tunerState.options, targetFps = targetFps,
-                            results = newResults, finalPreset = currentPreset,
-                        )
-                    BenchmarkTuner.saveState(tunerState)
-                    showResultDialog = true
-                    return@launch
-                }
-                val nextPreset = BenchmarkTuner.pickPresetForFps(currentPreset, r.avgFps, targetFps)
-                val nextOpts = BenchmarkTuner.adjustOptionsForFps(tunerState.options, r.avgFps, targetFps)
-                tunerState =
-                    TunerState(
-                        stage = TunerStage.DEPLOYING, round = round + 1, preset = nextPreset,
-                        options = nextOpts, targetFps = targetFps, results = newResults,
-                    )
-                BenchmarkTuner.saveState(tunerState)
-                runDeployAndWait()
-            } else {
-                tunerState = tunerState.copy(stage = TunerStage.COMPLETE, error = result.exceptionOrNull()?.message)
-                BenchmarkTuner.saveState(tunerState)
-                showResultDialog = true
-            }
-        }
-    }
-
-    fun startTuner() {
-        val opts =
-            GeneratorOptions(
-                fps = fps, unlock120 = unlock120, unlockUltra = unlockUltra,
-                vsync = vsync, cool = cooling, vulkan = vulkan, hzb = hzb,
-                fog = fog, ca = ca, disableOutline = disableOutline,
-                disableRadialBlur = disableRadialBlur, disableBloom = disableBloom,
-                disableAutoExposure = disableAutoExposure, disableSSR = disableSSR,
-                mode = gameMode,
-                generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
-                generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
-                generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
-                importFromLog = false, useAdvancedGen = useAdvancedGen,
-                optimizeWithCvarDb = optimizeWithCvarDb,
-                disableAutoAdjust = disableAutoAdjust,
-                enableGSR = enableGSR,
-                experimentalCvars = experimentalCvars,
-            )
-        viewModel.saveGeneratorOptions(opts)
-        tunerState =
-            TunerState(
-                stage = TunerStage.DEPLOYING, round = 1, preset = selectedPreset,
-                options = opts, targetFps = fps,
-            )
-        BenchmarkTuner.saveState(tunerState)
-        runDeployAndWait()
-    }
-
     LaunchedEffect(Unit) {
-        val saved = BenchmarkTuner.loadState()
-        if (saved != null && saved.stage != TunerStage.IDLE) {
-            tunerState = saved
-            when (saved.stage) {
-                TunerStage.WAITING_FOR_PLAY -> showGoPlayDialog = true
-                TunerStage.COMPLETE -> showResultDialog = true
-                TunerStage.DEPLOYING, TunerStage.CAPTURING -> {
-                    tunerState = saved.copy(stage = TunerStage.WAITING_FOR_PLAY)
-                    BenchmarkTuner.saveState(tunerState)
-                    showGoPlayDialog = true
-                }
-                else -> {}
-            }
-        }
         insightsViewModel.restoreAnalysisFromCache()
     }
 
@@ -505,39 +369,6 @@ fun ConfigGenScreen(
                                 Text("Generate", fontWeight = FontWeight.Bold)
                             }
                         }
-                        when (tunerState.stage) {
-                            TunerStage.DEPLOYING, TunerStage.CAPTURING -> {
-                                GlassOutlinedButton(
-                                    onClick = {
-                                        deployHistoryViewModel.cancelOperation()
-                                        BenchmarkTuner.clearState()
-                                        tunerState = TunerState()
-                                        showGoPlayDialog = false
-                                        showResultDialog = false
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = true,
-                                    accentColor = NeonRed,
-                                ) {
-                                    val label =
-                                        when (tunerState.stage) {
-                                            TunerStage.DEPLOYING -> "Round ${tunerState.round}: deploying ${tunerState.preset}..."
-                                            TunerStage.CAPTURING -> "Round ${tunerState.round}: capturing FPS..."
-                                            else -> "Cancel Tuner"
-                                        }
-                                    Text(label, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            TunerStage.WAITING_FOR_PLAY, TunerStage.COMPLETE -> {}
-                            TunerStage.IDLE -> {
-                                GlassOutlinedButton(
-                                    onClick = { startTuner() },
-                                    enabled = backendStatus.connected && !isApplying,
-                                    accentColor = NeonRed,
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) { Text("Auto-Tune", fontWeight = FontWeight.Bold) }
-                            }
-                        }
                         if (isApplying) {
                             GlassOutlinedButton(
                                 onClick = { deployHistoryViewModel.cancelOperation() },
@@ -550,73 +381,6 @@ fun ConfigGenScreen(
                 }
             }
         }
-    }
-
-    if (showGoPlayDialog) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("Round ${tunerState.round}: Play the Game") },
-            text = {
-                Column {
-                    Text("Deployed ${tunerState.preset} preset (${tunerState.options.fps} FPS target).")
-                    Spacer(Modifier.height(12.dp))
-                    Text("Go play the game for about 30 seconds, then come back and tap Continue.")
-                    Spacer(Modifier.height(8.dp))
-                    Text("The tuner will read FPS data from the game's log output.", style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showGoPlayDialog = false
-                    captureAndAnalyze()
-                }) {
-                    Text("Continue", color = NeonGreen)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    deployHistoryViewModel.cancelOperation()
-                    BenchmarkTuner.clearState()
-                    tunerState = TunerState()
-                    showGoPlayDialog = false
-                }) { Text("Cancel Tuner", color = NeonRed) }
-            },
-        )
-    }
-
-    if (showResultDialog) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text(if (tunerState.error != null) "Auto-Tune Failed" else "Auto-Tune Complete") },
-            text = {
-                Column {
-                    if (tunerState.error != null) {
-                        Text("Error: ${tunerState.error}", color = NeonRed)
-                    } else {
-                        tunerState.finalPreset?.let { Text("Best preset: $it", fontWeight = FontWeight.Bold) }
-                        Spacer(Modifier.height(8.dp))
-                        Text("Results (${tunerState.results.size} round(s)):", fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(4.dp))
-                        tunerState.results.forEach { r ->
-                            Text("Round ${r.round} (${r.preset}): ${r.avgFps.toInt()} FPS, ${r.stabilityPct.toInt()}% stable")
-                        }
-                        if (tunerState.results.isEmpty()) {
-                            Text("Target FPS reached on first deployment.")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (tunerState.stage == TunerStage.COMPLETE) {
-                        selectedPreset = tunerState.finalPreset ?: selectedPreset
-                    }
-                    BenchmarkTuner.clearState()
-                    tunerState = TunerState()
-                    showResultDialog = false
-                }) { Text("Dismiss", color = NeonCyan) }
-            },
-        )
     }
 
     if (showDeployDialog) {
