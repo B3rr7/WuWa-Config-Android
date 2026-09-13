@@ -30,6 +30,15 @@ sealed interface UpdateState {
     data class Error(val message: String) : UpdateState
 }
 
+/** Live state of the game's C# optimization environment (auto-checked). */
+sealed interface CSharpEnvState {
+    data object Enabled : CSharpEnvState
+
+    data object Disabled : CSharpEnvState
+
+    data object Unknown : CSharpEnvState
+}
+
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app =
         application as? WuWaConfigApp
@@ -48,6 +57,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val configManager: ConfigManager by lazy {
         ConfigManager(getApplication(), { app.backend }, null)
     }
+
+    /**
+     * Live read of the game's command-line file. Auto-checked on Settings open so
+     * the card reflects reality even if the file was changed outside the app.
+     */
+    private val _csharpEnvState = MutableStateFlow<CSharpEnvState>(CSharpEnvState.Unknown)
+    val csharpEnvState: StateFlow<CSharpEnvState> = _csharpEnvState.asStateFlow()
 
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
@@ -68,6 +84,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setForceCSharpEnv(enabled: Boolean) {
         app.setForceCSharpEnv(enabled)
         viewModelScope.launch(Dispatchers.IO) { configManager.syncForceCSharpEnv(enabled) }
+    }
+
+    /**
+     * Auto-check: reads the game's UE4CommandLine.txt and reports the live state.
+     * - [CSharpEnvState.Enabled]  → file contains -ForceEnableCSharpEnvironment (C# is on)
+     * - [CSharpEnvState.Disabled] → absent / default uproject path (old JS path)
+     * - [CSharpEnvState.Unknown]  → file unreadable (no backend, permission denied, etc.)
+     */
+    fun refreshCSharpEnvState() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _csharpEnvState.value =
+                when (configManager.readForceCSharpEnv().getOrNull()) {
+                    true -> CSharpEnvState.Enabled
+                    false -> CSharpEnvState.Disabled
+                    null -> CSharpEnvState.Unknown
+                }
+        }
     }
 
     fun setTextOpacity(value: Float) = app.setTextOpacity(value)
