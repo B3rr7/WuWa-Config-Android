@@ -257,6 +257,26 @@ class ConfigManager(
             }
         }
 
+    /**
+     * Reads the game's runtime command-line file and reports whether the C#
+     * optimization environment is currently enabled. Auto-check: the file may
+     * have been toggled from outside the app (another tool, a manual edit), so
+     * this is the source of truth, not the persisted preference.
+     *
+     * @return `true` if the file contains `-ForceEnableCSharpEnvironment`;
+     *         `false` if it's absent, missing, or holds the default uproject path.
+     */
+    suspend fun readForceCSharpEnv(): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            try {
+                val content = backend.readFile(GamePaths.UE4_COMMAND_LINE_PATH).getOrNull() ?: ""
+                Result.success(content.contains("-ForceEnableCSharpEnvironment"))
+            } catch (e: Exception) {
+                LogRepository.add("ConfigManager: readForceCSharpEnv failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
+
     suspend fun restoreBackup(
         backup: ConfigBackup,
         onProgress: (String) -> Unit,

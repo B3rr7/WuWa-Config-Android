@@ -43,6 +43,7 @@ import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.config.ChipsetDetector.ChipsetInfo
+import com.wuwaconfig.app.ui.CSharpEnvState
 import com.wuwaconfig.app.ui.SettingsViewModel
 import com.wuwaconfig.app.ui.UpdateState
 import com.wuwaconfig.app.ui.components.GlassButton
@@ -597,10 +598,12 @@ fun SettingsScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
+                LaunchedEffect(Unit) { viewModel.refreshCSharpEnvState() }
                 GlassCard(accentColor = NeonPurple) {
                     GlassCardHeader("C# Optimization", NeonPurple)
                     Spacer(Modifier.height(8.dp))
                     val forceCSharpEnv by viewModel.forceCSharpEnv.collectAsStateWithLifecycle()
+                    val csharpState by viewModel.csharpEnvState.collectAsStateWithLifecycle()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -615,6 +618,19 @@ fun SettingsScreen(
                                     "login screen confirms it took effect.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            val (stateLabel, stateColor) =
+                                when (csharpState) {
+                                    CSharpEnvState.Enabled -> "C# is ON" to NeonGreen
+                                    CSharpEnvState.Disabled -> "C# is OFF (old JS path)" to NeonAmber
+                                    CSharpEnvState.Unknown -> "Unknown — check access method" to MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            Text(
+                                "Game state: $stateLabel",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = stateColor,
                             )
                         }
                         Switch(
