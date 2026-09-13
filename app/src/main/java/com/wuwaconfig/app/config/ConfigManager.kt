@@ -222,6 +222,41 @@ class ConfigManager(
             }
         }
 
+    /**
+     * Syncs the game's runtime command-line file (`UE4CommandLine.txt`) so the
+     * C# optimization environment matches the app's toggle. The shipped file is
+     * `../../../Client/Client.uproject` — the engine appends flags from it at
+     * startup, so we rewrite it in place rather than creating a sibling file.
+     *
+     * On: enabled  → file contains `-ForceEnableCSharpEnvironment`
+     * Off:         → file contains only the uproject path (restores shipped state)
+     *
+     * Case matters — the engine reads the flag verbatim, so the file is written
+     * with the exact spelling from the WuWa 3.6 guide.
+     */
+    suspend fun syncForceCSharpEnv(enabled: Boolean): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val targetPath = GamePaths.UE4_COMMAND_LINE_PATH
+                val content =
+                    if (enabled) {
+                        "-ForceEnableCSharpEnvironment\n"
+                    } else {
+                        "../../../Client/Client.uproject\n"
+                    }
+                backend.ensureDirectoryExists(GamePaths.UE4_COMMAND_LINE_PATH.substringBeforeLast("/")).getOrThrow()
+                backend.pushFile(
+                    File(context.cacheDir, "UE4CommandLine.txt").apply { writeText(content) }.absolutePath,
+                    targetPath,
+                )
+                LogRepository.add("ConfigManager: Force C# Environment ${if (enabled) "enabled" else "disabled"}", LogLevel.SUCCESS)
+                Result.success(targetPath)
+            } catch (e: Exception) {
+                LogRepository.add("ConfigManager: syncForceCSharpEnv failed: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
+            }
+        }
+
     suspend fun restoreBackup(
         backup: ConfigBackup,
         onProgress: (String) -> Unit,
