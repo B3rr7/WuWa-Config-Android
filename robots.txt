@@ -1,4 +1,14 @@
+# ═══════════════════════════════════════════════════════════════
+# WuWaConfig — robots.txt
+# Per Google Search Essentials: https://developers.google.com/search/docs
+# Allow all crawlers full access. Sitemap declared for discovery.
+# ═══════════════════════════════════════════════════════════════
+
 User-agent: *
 Allow: /
 
+# Block nothing — all sections (Features, FPS Lab, Presets, FAQ) are
+# public and meant to be indexed.
+
+# Sitemap (absolute URL so any crawler finds it)
 Sitemap: https://b3rr7.github.io/WuWa-Config-Android/sitemap.xml
