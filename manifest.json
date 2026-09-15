@@ -1,0 +1,55 @@
+{
+  "name": "WuWaConfig — Wuthering Waves Performance Optimizer",
+  "short_name": "WuWaConfig",
+  "description": "Player-built Android app that optimizes Wuthering Waves performance via a config editor and hardware-aware INI generator. Deploys via ADB, Shizuku, Root or SAF.",
+  "id": "/",
+  "start_url": "/WuWa-Config-Android/",
+  "scope": "/WuWa-Config-Android/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#faf8f2",
+  "theme_color": "#faf8f2",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["utilities", "productivity", "games"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%2316130b'/%3E%3Cpath d='M280 64 100 320h140l-20 128 200-256h-140l20-128z' fill='%23f2b437'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%2316130b'/%3E%3Cpath d='M105 24 38 120h52l-8 48 75-96h-52l8-48z' fill='%23f2b437'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "FPS Lab",
+      "short_name": "FPS Lab",
+      "description": "Estimate sustained FPS for your chipset",
+      "url": "/WuWa-Config-Android/#simulator"
+    },
+    {
+      "name": "Presets",
+      "short_name": "Presets",
+      "description": "8 optimization presets from Potato to Cinematic",
+      "url": "/WuWa-Config-Android/#presets"
+    },
+    {
+      "name": "FAQ",
+      "short_name": "FAQ",
+      "description": "Frequently asked questions about WuWaConfig",
+      "url": "/WuWa-Config-Android/#faq"
+    },
+    {
+      "name": "Download APK",
+      "short_name": "Download",
+      "description": "Download the latest APK from GitHub Releases",
+      "url": "https://github.com/b3rr7/WuWa-Config-Android/releases/latest"
+    }
+  ]
+}

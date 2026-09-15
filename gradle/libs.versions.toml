@@ -1,23 +1,23 @@
 [versions]
-agp = "9.4.0"
+agp = "8.4.2"
 kotlin = "1.9.24"
-ktlint = "14.2.0"
+ktlint = "12.1.0"
 composeBom = "2024.10.00"
 composeCompiler = "1.5.14"
 coreKtx = "1.13.1"
 lifecycle = "2.8.6"
 activityCompose = "1.9.2"
-navigationCompose = "2.10.1"
+navigationCompose = "2.8.1"
 coroutines = "1.8.1"
 shizuku = "13.1.5"
 documentfile = "1.0.1"
-securityCrypto = "1.1.0"
+securityCrypto = "1.1.0-alpha06"
 localbroadcastmanager = "1.1.0"
 gson = "2.10.1"
 coil = "2.7.0"
 media3 = "1.4.1"
 junit = "4.13.2"
-mockito = "5.23.0"
+mockito = "5.11.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
