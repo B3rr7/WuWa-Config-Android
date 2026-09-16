@@ -155,7 +155,6 @@ fun GlassCard(
     }
 }
 
-private val GlassDialogSolid = Color(0xFF1B1B30)
 val NeuBase = Color(0xFFE8ECF3)
 private val NeuDarkShadow = Color(0xFFBAC4D6)
 private val NeuLightShadow = Color(0xFFFFFFFF)
@@ -748,14 +747,16 @@ fun GradientBackground(content: @Composable () -> Unit) {
                         ),
             )
         } else if (hasImage) {
-            val painter =
-                rememberAsyncImagePainter(
-                    ImageRequest.Builder(LocalContext.current)
+            val bgImageContext = LocalContext.current
+            val imageRequest =
+                remember(imageUri) {
+                    ImageRequest.Builder(bgImageContext)
                         .data(imageUri)
                         .crossfade(true)
                         .error(android.R.drawable.stat_notify_error)
-                        .build(),
-                )
+                        .build()
+                }
+            val painter = rememberAsyncImagePainter(imageRequest)
             Image(
                 painter = painter,
                 contentDescription = null,
@@ -824,13 +825,12 @@ private fun VideoBackground(
         return
     }
 
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(videoUri) {
         val observer =
             LifecycleEventObserver { _, event ->
                 when (event) {
                     Lifecycle.Event.ON_PAUSE -> player.pause()
                     Lifecycle.Event.ON_RESUME -> player.play()
-                    Lifecycle.Event.ON_DESTROY -> player.release()
                     else -> {}
                 }
             }
