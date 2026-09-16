@@ -95,7 +95,9 @@ class MainActivity : ComponentActivity() {
             val colorSaturation by settingsViewModel.colorSaturation.collectAsStateWithLifecycle()
             var showTerms by rememberSaveable { mutableStateOf(mainViewModel.needsTermsAccept()) }
 
-            setNeonSaturation(colorSaturation)
+            LaunchedEffect(colorSaturation) {
+                setNeonSaturation(colorSaturation)
+            }
             WuWaConfigTheme(
                 themeMode = themeMode,
                 textOpacity = textOpacity,
@@ -226,6 +228,7 @@ fun AppNavigation(
                 viewModel = viewModel,
                 deployHistoryViewModel = deployHistoryViewModel,
                 backupViewModel = backupViewModel,
+                settingsViewModel = settingsViewModel,
                 onNavigateToBackups = { navController.navigate("backups") },
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToConfigGen = { navController.navigate("configgen") },

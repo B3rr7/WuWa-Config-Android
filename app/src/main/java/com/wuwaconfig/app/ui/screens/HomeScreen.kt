@@ -28,8 +28,10 @@ import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.ui.BackupViewModel
+import com.wuwaconfig.app.ui.CSharpEnvState
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.SettingsViewModel
 import com.wuwaconfig.app.ui.components.*
 import com.wuwaconfig.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -65,6 +67,7 @@ fun HomeScreen(
     viewModel: MainViewModel,
     deployHistoryViewModel: DeployHistoryViewModel,
     backupViewModel: BackupViewModel,
+    settingsViewModel: SettingsViewModel,
     onNavigateToBackups: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToConfigGen: () -> Unit,
@@ -97,10 +100,14 @@ fun HomeScreen(
     var showAdbDialog by remember { mutableStateOf(false) }
     var showBackupScopeDialog by remember { mutableStateOf(false) }
     var pendingApply by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
-    var adbHost by remember { mutableStateOf(PortScanner.getDeviceIp()) }
+    var adbHost by remember { mutableStateOf("127.0.0.1") }
     var adbPort by remember { mutableStateOf("") }
 
     val pickerScope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        adbHost = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { PortScanner.getDeviceIp() }
+    }
 
     val filePickerLauncher =
         rememberLauncherForActivityResult(
@@ -609,6 +616,52 @@ fun HomeScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                                 )
+                            }
+                            // --- C# Optimization quick toggle ---
+                            run {
+                                val forceCSharpEnv by settingsViewModel.forceCSharpEnv.collectAsStateWithLifecycle()
+                                val csharpState by settingsViewModel.csharpEnvState.collectAsStateWithLifecycle()
+                                LaunchedEffect(Unit) { settingsViewModel.refreshCSharpEnvState() }
+                                val (accent, subtitle) =
+                                    when (csharpState) {
+                                        CSharpEnvState.Enabled -> NeonPurple to "C# ON"
+                                        CSharpEnvState.Disabled -> NeonAmber to "C# OFF"
+                                        CSharpEnvState.Unknown -> NeonPurple to if (forceCSharpEnv) "C# ON*" else "C# OFF*"
+                                    }
+                                ElevatedButton(
+                                    onClick = { settingsViewModel.setForceCSharpEnv(!forceCSharpEnv) },
+                                    modifier = Modifier.fillMaxWidth().height(84.dp),
+                                    enabled = backendStatus.connected && !isApplying,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors =
+                                        ButtonDefaults.elevatedButtonColors(
+                                            containerColor = accent.copy(alpha = 0.08f),
+                                            contentColor = accent,
+                                        ),
+                                    elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
+                                ) {
+                                    Icon(Icons.Default.Memory, contentDescription = null, modifier = Modifier.size(22.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            "C# Optimization",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                        Text(
+                                            "UE4CommandLine.txt — -ForceEnableCSharpEnvironment",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        )
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        subtitle,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = accent,
+                                    )
+                                }
                             }
                             if (isApplying) {
                                 GlassOutlinedButton(

@@ -71,6 +71,8 @@ suspend fun <T> retryIO(
         }
         try {
             return Result.success(block())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             lastError = e
             if (!shouldRetry(e) || attempt == times - 1) {
