@@ -10,19 +10,130 @@ object LogParser {
         PLAINTEXT,
     }
 
+    interface DecryptStrategy {
+        val name: String
+
+        fun decrypt(data: ByteArray): ByteArray?
+    }
+
+    class XorLutStrategy : DecryptStrategy {
+        override val name: String = "XOR_LUT"
+
+        override fun decrypt(data: ByteArray): ByteArray? {
+            val result = data.copyOf()
+            for (i in result.indices) {
+                result[i] = XOR_LUT[result[i].toInt() and 0xFF]
+            }
+            return result
+        }
+    }
+
+    class XorConstantStrategy(private val key: Byte) : DecryptStrategy {
+        override val name: String = "XOR_${key.toInt().toString(16)}"
+
+        override fun decrypt(data: ByteArray): ByteArray? {
+            val result = data.copyOf()
+            for (i in result.indices) {
+                result[i] = (result[i].toInt() xor key.toInt()).toByte()
+            }
+            return result
+        }
+    }
+
+    class DoubleXorStrategy : DecryptStrategy {
+        override val name: String = "DOUBLE_XOR"
+
+        override fun decrypt(data: ByteArray): ByteArray? {
+            val step1 = ByteArray(data.size)
+            for (i in data.indices) {
+                step1[i] = (data[i].toInt() xor 0x4A).toByte()
+            }
+            val result = ByteArray(step1.size)
+            for (i in step1.indices) {
+                result[i] = XOR_LUT[step1[i].toInt() and 0xFF]
+            }
+            return result
+        }
+    }
+
+    private val strategies: List<DecryptStrategy> =
+        listOf(
+            XorLutStrategy(),
+            DoubleXorStrategy(),
+            XorConstantStrategy(0x4A.toByte()),
+            XorConstantStrategy(0xA5.toByte()),
+            XorConstantStrategy(0xEF.toByte()),
+        )
+
+    /**
+     * Dynamic multi-strategy fallback decryption.
+     * Tries each [DecryptStrategy] in order; validates the decrypted output
+     * with a 512-byte pre-flight check. Returns the first strategy whose
+     * output passes, or the LUT result as best-effort fallback.
+     *
+     * @param body the raw payload to decrypt
+     * @return the decrypted [ByteArray] if any strategy produces valid UE4 content, else `null`
+     */
+    fun decryptWithFallback(body: ByteArray): ByteArray? {
+        for (strategy in strategies) {
+            val decrypted = strategy.decrypt(body) ?: continue
+            if (verifyDecryption(decrypted)) {
+                return decrypted
+            }
+        }
+        return XorLutStrategy().decrypt(body)
+    }
+
+    /**
+     * 512-byte pre-flight verification checker.
+     * Screens the first min(512, decrypted.size) bytes for Unreal Engine keywords
+     * like "LogInit", "LogRHI", "Core.System", "GameUserSettings", etc.
+     * Returns true if the decrypted content looks like a valid UE4 log.
+     */
+    private fun verifyDecryption(decrypted: ByteArray): Boolean {
+        val sampleSize = minOf(512, decrypted.size)
+        if (sampleSize < 8) return false
+        val sample = decrypted.copyOfRange(0, sampleSize)
+        val sampleStr = String(sample, Charsets.UTF_8)
+        return UE4_KEYWORDS.any { keyword ->
+            sampleStr.contains(keyword, ignoreCase = true)
+        }
+    }
+
+    private val UE4_KEYWORDS =
+        listOf(
+            "LogInit",
+            "LogRHI",
+            "Core.System",
+            "GameUserSettings",
+            "K#GPUFamily",
+            "Selected Device Profile",
+            "Resolution",
+            "AverageFPS",
+            "r.ScreenPercentage",
+            "sg.ShadowQuality",
+            "PhysicalMemoryMB",
+            "LogDynamicAtlas",
+            "stdout",
+            "LogMemory",
+        )
+
     fun decryptWuwaLog(data: ByteArray): ByteArray? {
         if (data.size < 3) return null
         if (data[0] != 0x00.toByte() || data[1] != 0x54.toByte() || data[2] != 0x50.toByte()) return null
-        val body = applyXorLut(data.copyOfRange(3, data.size))
+        val body = data.copyOfRange(3, data.size)
+        val decrypted = decryptWithFallback(body) ?: return null
         var bom = 0
-        if (body.size >= 2 && body[0] == 0xFE.toByte() && body[1] == 0xFF.toByte()) bom = 2
-        return body.copyOfRange(bom, body.size)
+        if (decrypted.size >= 2 && decrypted[0] == 0xFE.toByte() && decrypted[1] == 0xFF.toByte()) bom = 2
+        return decrypted.copyOfRange(bom, decrypted.size)
     }
 
     fun decryptBackupLog(data: ByteArray): ByteArray? {
         if (data.size < 3) return null
         if (data[0] != 0xEF.toByte() || data[1] != 0xBB.toByte() || data[2] != 0xBF.toByte()) return null
-        return applyXorLut(data.copyOfRange(3, data.size))
+        val body = data.copyOfRange(3, data.size)
+        val decrypted = decryptWithFallback(body) ?: return null
+        return decrypted
     }
 
     fun applyXorLut(data: ByteArray): ByteArray {
