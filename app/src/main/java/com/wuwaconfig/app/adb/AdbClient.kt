@@ -48,7 +48,7 @@ class AdbClient(
 
     private val instanceId = System.identityHashCode(this)
 
-    private var keepaliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val keepaliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var keepaliveJob: Job? = null
 
     @Volatile
@@ -61,8 +61,6 @@ class AdbClient(
     private fun startKeepalive() {
         lastActivityMs = System.currentTimeMillis()
         keepaliveJob?.cancel()
-        keepaliveScope.cancel()
-        keepaliveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val connGen = generation.get()
         keepaliveJob =
             keepaliveScope.launch {
@@ -71,6 +69,10 @@ class AdbClient(
                     if (!connected) break
                     if (System.currentTimeMillis() - lastActivityMs > 25_000L) {
                         Log.d("AdbClient", "keepalive[$instanceId]: sending heartbeat")
+                        if (txMutex.isLocked) {
+                            Log.d("AdbClient", "keepalive[$instanceId]: skipping heartbeat — tx busy")
+                            continue
+                        }
                         val sock = socket
                         if (sock != null && sock.isConnected && !sock.isClosed) {
                             executeShellCommand("echo ping").onFailure {
@@ -302,9 +304,9 @@ class AdbClient(
         val inp = input ?: return
         val originalTimeout = sock.soTimeout
         try {
-            sock.soTimeout = 500
+            sock.soTimeout = 250
             var iterations = 0
-            while (iterations < 100) {
+            while (iterations < 10) {
                 iterations++
                 val msg = AdbProtocol.readMessage(inp) ?: break
                 when {
@@ -380,7 +382,7 @@ class AdbClient(
         Log.d("AdbClient", "disconnect[$instanceId]")
         connected = false
         keepaliveJob?.cancel()
-        keepaliveScope.cancel()
+        keepaliveJob = null
         try {
             socket?.close()
         } catch (_: Exception) {

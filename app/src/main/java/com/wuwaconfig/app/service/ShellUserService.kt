@@ -83,6 +83,9 @@ class ShellUserService : Binder() {
     /**
      * Drains the stream with a hard cap so oversized output cannot blow past the
      * ~1 MB binder transaction buffer in [onTransact]'s writeString.
+     * If the output is truncated, the returned string is prefixed with
+     * SHIZUKU_TRUNCATED so callers can detect it instead of silently
+     * receiving partial data (e.g. a truncated Client.log missing CVars).
      */
     private fun readBounded(stream: java.io.InputStream): String {
         val out = java.io.ByteArrayOutputStream(MAX_BINDER_OUTPUT)
@@ -95,6 +98,17 @@ class ShellUserService : Binder() {
             out.write(buf, 0, n)
             total += n
         }
-        return out.toString("UTF-8")
+        val truncated =
+            total >= MAX_BINDER_OUTPUT &&
+                run {
+                    // Check if more data remains beyond the cap.
+                    try {
+                        stream.read() != -1
+                    } catch (_: Exception) {
+                        false
+                    }
+                }
+        val text = out.toString("UTF-8")
+        return if (truncated) "SHIZUKU_TRUNCATED\n$text" else text
     }
 }

@@ -10,8 +10,14 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 class RootBackend : AccessBackend {
+    @Volatile
     override var isConnected: Boolean = false
         private set
+
+    companion object {
+        private const val ROOT_CMD_TIMEOUT_SEC = 15L
+        private const val ROOT_FILE_OP_TIMEOUT_SEC = 60L
+    }
 
     override suspend fun connect(): Result<Unit> =
         withContext(Dispatchers.IO) {
@@ -23,8 +29,8 @@ class RootBackend : AccessBackend {
                         .start()
                 val (output, timedOut) =
                     coroutineScope {
-                        val reader = async(Dispatchers.IO) { process.inputStream.bufferedReader().readText().trim() }
-                        val exited = process.waitFor(10, TimeUnit.SECONDS)
+                        val reader = async(Dispatchers.IO) { process.inputStream.bufferedReader().use { it.readText().trim() } }
+                        val exited = process.waitFor(ROOT_CMD_TIMEOUT_SEC, TimeUnit.SECONDS)
                         if (!exited) {
                             try {
                                 process.destroyForcibly()
@@ -37,7 +43,6 @@ class RootBackend : AccessBackend {
                         }
                     }
                 if (timedOut) {
-                    process.destroyForcibly()
                     LogRepository.add("Root check timed out", LogLevel.ERROR)
                     return@withContext Result.failure(Exception("Root check timed out"))
                 }
@@ -50,6 +55,8 @@ class RootBackend : AccessBackend {
                     LogRepository.add("Root access denied: $output", LogLevel.ERROR)
                     Result.failure(Exception(output.ifBlank { "Root access denied" }))
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("Root not available: ${e.message}", LogLevel.ERROR)
                 Result.failure(Exception("Root not available: ${e.message}"))
@@ -69,10 +76,17 @@ class RootBackend : AccessBackend {
                     ProcessBuilder("su", "-c", command)
                         .redirectErrorStream(true)
                         .start()
+                // Use longer timeout for file ops that may touch large outputs.
+                val timeoutSec =
+                    if (command.startsWith("cat ") || command.contains("base64") || command.startsWith("cp ")) {
+                        ROOT_FILE_OP_TIMEOUT_SEC
+                    } else {
+                        ROOT_CMD_TIMEOUT_SEC
+                    }
                 val (output, timedOut) =
                     coroutineScope {
-                        val reader = async(Dispatchers.IO) { process.inputStream.bufferedReader().readText() }
-                        val exited = process.waitFor(10, TimeUnit.SECONDS)
+                        val reader = async(Dispatchers.IO) { process.inputStream.bufferedReader().use { it.readText() } }
+                        val exited = process.waitFor(timeoutSec, TimeUnit.SECONDS)
                         if (!exited) {
                             try {
                                 process.destroyForcibly()
@@ -91,10 +105,18 @@ class RootBackend : AccessBackend {
                 val exitCode = process.exitValue()
                 if (exitCode != 0) {
                     LogRepository.add("Root shell failed (exit $exitCode): ${output.take(100)}", LogLevel.ERROR)
+                    // Su revoked or denied — mark disconnected so UI reflects it.
+                    if (output.contains("Permission denied", ignoreCase = true) ||
+                        output.contains("not allowed", ignoreCase = true)
+                    ) {
+                        isConnected = false
+                    }
                     Result.failure(Exception(output.trim().ifEmpty { "Command failed with exit code $exitCode" }))
                 } else {
                     Result.success(output.trim())
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("Root shell exception: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -138,11 +160,13 @@ class RootBackend : AccessBackend {
 
     override suspend fun readFileBytes(path: String): Result<ByteArray> =
         withContext(Dispatchers.IO) {
-            val b64 = executeShellCommand("base64 -w0 ${shQuote(path)}")
-            if (b64.isFailure) return@withContext Result.failure(b64.exceptionOrNull()!!)
             try {
+                val b64 = executeShellCommand("base64 -w0 ${shQuote(path)}")
+                if (b64.isFailure) return@withContext Result.failure(b64.exceptionOrNull()!!)
                 val bytes = Base64.decode(b64.getOrThrow(), Base64.DEFAULT)
                 Result.success(bytes)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("Root: readFileBytes base64 decode failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -153,8 +177,10 @@ class RootBackend : AccessBackend {
         sourcePath: String,
         targetPath: String,
     ): Result<String> {
-        val parent = java.io.File(targetPath).parent
-        executeShellCommand("mkdir -p ${shQuote(parent)}")
+        val parent = targetPath.substringBeforeLast('/', "")
+        if (parent.isEmpty()) return Result.failure(Exception("Invalid target path"))
+        val mkdir = executeShellCommand("mkdir -p ${shQuote(parent)}")
+        if (mkdir.isFailure) return mkdir.map { targetPath }
         return executeShellCommand("cp ${shQuote(sourcePath)} ${shQuote(targetPath)}").map { targetPath }
     }
 

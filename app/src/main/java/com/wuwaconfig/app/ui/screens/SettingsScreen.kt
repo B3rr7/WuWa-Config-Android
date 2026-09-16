@@ -612,8 +612,9 @@ fun SettingsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Force C# Environment", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                             Text(
-                                "Enable WuWa 3.6's C# optimization environment. " +
-                                    "Writes -ForceEnableCSharpEnvironment into the game's UE4CommandLine.txt. " +
+                                "Enable WuWa 3.6's C# optimization environment. Creates " +
+                                    "UE4CommandLine.txt with -ForceEnableCSharpEnvironment when ON, " +
+                                    "deletes it when OFF (inside .../UE4Game/Client/). " +
                                     "Restart the game after toggling; a '*' next to the version number on the " +
                                     "login screen confirms it took effect.",
                                 style = MaterialTheme.typography.bodySmall,
