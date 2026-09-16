@@ -224,33 +224,55 @@ class ConfigManager(
 
     /**
      * Syncs the game's runtime command-line file (`UE4CommandLine.txt`) so the
-     * C# optimization environment matches the app's toggle. The shipped file is
-     * `../../../Client/Client.uproject` — the engine appends flags from it at
-     * startup, so we rewrite it in place rather than creating a sibling file.
+     * C# optimization environment matches the app's toggle.
      *
-     * On: enabled  → file contains `-ForceEnableCSharpEnvironment`
-     * Off:         → file contains only the uproject path (restores shipped state)
+     * On: enabled  → create `UE4CommandLine.txt` containing `-ForceEnableCSharpEnvironment`
+     * Off: disabled → delete `UE4CommandLine.txt` (engine falls back to shipped state)
      *
-     * Case matters — the engine reads the flag verbatim, so the file is written
-     * with the exact spelling from the WuWa 3.6 guide.
+     * The file lives under `GamePaths.UE4_COMMAND_LINE_PATH` (inside the game folder:
+     * `.../files/UE4Game/Client/UE4CommandLine.txt`). Case matters — the engine
+     * reads the flag verbatim from WuWa 3.6 guide.
      */
     suspend fun syncForceCSharpEnv(enabled: Boolean): Result<String> =
         withContext(Dispatchers.IO) {
             try {
+                // Structured-concurrency: never swallow cancellation.
                 val targetPath = GamePaths.UE4_COMMAND_LINE_PATH
-                val content =
-                    if (enabled) {
-                        "-ForceEnableCSharpEnvironment\n"
-                    } else {
-                        "../../../Client/Client.uproject\n"
+                if (enabled) {
+                    backend.ensureDirectoryExists(targetPath.substringBeforeLast("/")).getOrThrow()
+                    val content = "-ForceEnableCSharpEnvironment\n"
+                    val stagingFile = File(context.cacheDir, "UE4CommandLine.txt").apply { writeText(content) }
+                    try {
+                        backend.pushFile(stagingFile.absolutePath, targetPath).getOrThrow()
+                    } finally {
+                        stagingFile.delete()
                     }
-                backend.ensureDirectoryExists(GamePaths.UE4_COMMAND_LINE_PATH.substringBeforeLast("/")).getOrThrow()
-                backend.pushFile(
-                    File(context.cacheDir, "UE4CommandLine.txt").apply { writeText(content) }.absolutePath,
-                    targetPath,
-                )
-                LogRepository.add("ConfigManager: Force C# Environment ${if (enabled) "enabled" else "disabled"}", LogLevel.SUCCESS)
-                Result.success(targetPath)
+                    LogRepository.add("ConfigManager: Force C# Environment enabled — created $targetPath", LogLevel.SUCCESS)
+                    Result.success(targetPath)
+                } else {
+                    val result = backend.deleteFile(targetPath)
+                    if (result.isFailure) {
+                        // rm -f is idempotent — shell always returns 0 even if file absent,
+                        // so isFailure means real permission/transport error. Only swallow
+                        // it if we can positively confirm file is already gone (success(false)).
+                        val existsResult = backend.fileExists(targetPath)
+                        if (existsResult.getOrNull() == false) {
+                            LogRepository.add("ConfigManager: Force C# Environment already disabled (no file)", LogLevel.SUCCESS)
+                            return@withContext Result.success(targetPath)
+                        }
+                        // exists true or exists check itself failed -> propagate original delete failure.
+                        throw result.exceptionOrNull() ?: Exception("delete failed: $targetPath")
+                    }
+                    // Verify deletion actually landed (SAF DocumentFile and scoped-storage edge).
+                    val stillExists = backend.fileExists(targetPath).getOrNull() == true
+                    if (stillExists) {
+                        throw Exception("delete reported success but file still exists: $targetPath")
+                    }
+                    LogRepository.add("ConfigManager: Force C# Environment disabled — deleted $targetPath", LogLevel.SUCCESS)
+                    Result.success(targetPath)
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("ConfigManager: syncForceCSharpEnv failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
