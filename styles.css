@@ -75,12 +75,16 @@ body{
 .t-dot.on{outline:2px solid var(--ink);outline-offset:2px}
 .t-dot::after{content:attr(data-tip);position:absolute;right:calc(100% + 16px);top:50%;transform:translateY(-50%);background:var(--ink);color:var(--paper);font-size:.7rem;font-weight:700;font-family:'JetBrains Mono',monospace;padding:5px 11px;white-space:nowrap;opacity:0;pointer-events:none;transition:.15s;z-index:5}
 .t-dot:hover::after,.t-dot:focus-visible::after{opacity:1}
+/* the dock floats at the right edge — keep the stats row clear of it */
+@media(min-width:881px){
+  .stats{padding-right:70px}
+}
 @media(max-width:880px){
-  .dock{top:auto;bottom:max(12px, env(safe-area-inset-bottom));right:auto;left:50%;transform:translateX(-50%);flex-direction:row;padding:10px 14px;gap:12px}
+  .dock{top:auto;bottom:max(12px, env(safe-area-inset-bottom));right:auto;left:50%;transform:translateX(-50%);flex-direction:row;padding:8px 12px;gap:10px;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(4px)}
   .dock-label{display:none}
-  .t-dot{width:34px;height:34px}
+  .t-dot{width:30px;height:30px}
   .t-dot::after{right:auto;top:auto;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%)}
-  .to-top{bottom:max(70px, calc(70px + env(safe-area-inset-bottom)))!important}
+  .to-top{bottom:max(64px, calc(64px + env(safe-area-inset-bottom)))!important}
   footer{padding-bottom:80px}
 }
 
@@ -109,7 +113,8 @@ body{
   html.js .burger{display:flex}
   html.js .nav-links{
     position:fixed;inset:0;flex-wrap:nowrap;max-width:none;
-    padding-top:calc(var(--nav-h) + 16px);flex-direction:column;align-items:stretch;gap:0;
+    justify-content:flex-start;align-items:stretch;
+    padding-top:calc(var(--nav-h) + 16px);flex-direction:column;gap:0;
     background:var(--paper);transform:translateX(100%);
     transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding-bottom:40px;
     border-top:1px solid var(--ink);
@@ -132,11 +137,14 @@ body{
 .deco-rule{position:absolute;left:0;right:0;top:38%;height:1px;background:var(--line)}
 
 .hero-grid{position:relative;display:grid;gap:clamp(30px,5vw,60px);grid-template-columns:1.2fr .8fr;align-items:end;width:100%}
+/* grid children must be allowed to shrink below the marquee's intrinsic
+   640px width, otherwise phones clip the H1, lead and CTA buttons */
+.hero-grid>*{min-width:0}
 @media(max-width:940px){.hero-grid{grid-template-columns:1fr}}
 
 .hero-rail{
   display:flex;overflow:hidden;border:1px solid var(--ink);
-  background:var(--paper-2);margin-bottom:26px;max-width:640px;
+  background:var(--paper-2);margin-bottom:26px;max-width:min(640px,100%);min-width:0;
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
   mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
 }
