@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>WuWaConfig — Wuthering Waves FPS Boost &amp; Engine.ini Config Optimizer for Android</title>
-<meta name="description" content="WuWaConfig — Free, open-source Wuthering Waves FPS booster for Android. SmartBrain device scoring, Engine.ini generator with 350+ CVars, 120 FPS unlock, 8 presets, pity tracker. Deploys via ADB, Shizuku, Root or SAF. Zero telemetry.">
-<meta name="keywords" content="Wuthering Waves, WuWa, FPS boost, Engine.ini, config optimizer, Android, Snapdragon, Adreno, Mali, Dimensity, Exynos, Tensor, Kirin, ADB, Shizuku, root, 120 FPS, gacha tracker, pity calculator, Kuro Games, UE4 mobile, cvars editor, SmartBrain">
+<title>WuWaConfig — Wuthering Waves FPS Boost, Engine.ini Generator &amp; Config Optimizer for Android</title>
+<meta name="description" content="WuWaConfig — Free open-source Wuthering Waves FPS booster &amp; config optimizer for Android. SmartBrain device scoring, Engine.ini / Scalability.ini / GameUserSettings.ini / DeviceProfiles.ini / Hardware.ini generator with 5,885 CVars, 8 presets, 120 FPS unlock, gacha pity tracker, battle stats. Deploys via ADB, Shizuku, Root or SAF. Zero telemetry. Troubleshoot FPS drops, thermal throttling, GPU OOM, texture errors.">
+<meta name="keywords" content="wuthering waves fps boost, wuwa config optimizer, engine.ini generator, android fps fix, fps drop fix, thermal throttling fix, gpu oom fix, texture error fix, adb wireless debugging, shizuku config deploy, root config tool, saf storage access, 120 fps unlock, smartbrain scoring, cvars editor, pity tracker, gacha tracker, battle stats analyzer, client.log analyzer, Snapdragon Adreno tuning, Dimensity Mali tuning, Exynos tuning, Tensor tuning, low-end booster, vulkan optimization, ue4 mobile config, resolution scale fix, frame pace fix, shadow quality fix, post process fix, foliage density fix, anti aliasing fix, anisotropic filtering fix, texture streaming fix, mip bias fix, lodbias fix, hzb occlusion fix, vulkan robust buffer access, gameusersettings.ini fix, scalability.ini fix, hardware.ini fix, deviceprofiles.ini fix, android 8+ config tool, no root config, zero telemetry config tool, wuthering waves optimization, wuwa performance, kuro games config">
 <meta name="author" content="Player42 (b3rr7)">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
 <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -50,8 +50,10 @@
 <meta property="article:tag" content="FPS Boost">
 <meta property="article:tag" content="Engine.ini">
 <meta property="article:tag" content="Android Optimization">
+<meta property="article:tag" content="Config Optimizer">
+<meta property="article:tag" content="Android Optimization">
 <meta property="article:published_time" content="2024-11-15T00:00:00+00:00">
-<meta property="article:modified_time" content="2025-09-12T12:45:00+00:00">
+<meta property="article:modified_time" content="2025-09-15T12:00:00+00:00">
 <meta property="article:expiration_time" content="2026-12-31T00:00:00+00:00">
 
 <!-- ═══ Twitter Card ═══ -->
@@ -79,14 +81,14 @@
 <!-- ═══ JSON-LD: SoftwareApplication (richer than MobileApplication) ═══ -->
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication",
-"name":"WuWaConfig","softwareVersion":"1.1.4",
+"name":"WuWaConfig","softwareVersion":"1.1.5",
 "applicationCategory":"UtilitiesApplication",
 "operatingSystem":"Android 8.0+",
 "fileSize":"12 MB",
 "downloadUrl":"https://github.com/b3rr7/WuWa-Config-Android/releases/latest",
 "installUrl":"https://github.com/b3rr7/WuWa-Config-Android/releases/latest",
 "releaseNotes":"https://github.com/b3rr7/WuWa-Config-Android/releases",
-"datePublished":"2024-11-15","dateModified":"2025-09-12",
+"datePublished":"2024-11-15","dateModified":"2025-09-15",
 "description":"Player-built Android app that optimizes Wuthering Waves performance via a config editor and hardware-aware INI generator. SmartBrain scores your device and generates ~350 CVars across 5 INI files. Deploys via ADB, Shizuku, Root or SAF. Zero telemetry.",
 "offers":{"@type":"Offer","price":"0","priceCurrency":"USD","availability":"https://schema.org/InStock"},
 "author":{"@type":"Person","name":"Player42","url":"https://github.com/b3rr7"},
@@ -394,6 +396,43 @@
       <div class="sb-box"><div class="sb-head"><span>Pity Math &amp; Cache</span><i></i></div><div class="sig"><span>Char: 80 hard / 66 soft, 50/50 &rarr; guaranteed · Weapon: 70/57, 75/25 · per-pool breakdown with last 5-star details · 12h TTL cache</span><b class="pos">12h TTL</b></div></div>
     </div>
   </div>
+</section>
+
+<!-- ══════════ TROUBLESHOOTING — SCANNABLE GRID ══════════ -->
+<section id="troubleshoot" class="alt">
+<div class="container">
+<div class="sec-head reveal">
+<span class="kicker">01.5 / Troubleshooting</span>
+<h2>Fix Common <em>Performance Issues</em></h2>
+<p>Wuthering Waves stuttering, FPS drops, thermal throttling, GPU OOM, or texture errors? SmartBrain reads your Client.log, identifies the bottleneck, and tunes your configs.</p>
+</div>
+<div class="tbl-wrap reveal">
+<table>
+<thead><tr><th>Issue</th><th>Likely Cause</th><th>Fix</th><th>SmartBrain Signal</th></tr></thead>
+<tbody>
+<tr><td class="pname" data-l="Issue">FPS drops below target</td><td data-l="Cause">Render scale too high, shadows maxed, frame pace cap misconfigured</td><td data-l="Fix">Lower Screen% to 60–80%, set Shadow to 0–2, check r.FramePace.MaxFPS, enable 120 FPS unlock on flagships</td><td data-l="Signal" class="neg">FPS drop vs cap −6 to −18</td></tr>
+<tr><td class="pname" data-l="Issue">Thermal throttling / overheating</td><td data-l="Cause">GPU-bound workload, too many dynamic lights, high texture pool, volumetric fog</td><td data-l="Fix">Switch to Potato/Endurance, set ReflectionEnvironment=0, reduce PoolSize to 512, disable volumetric fog, enable AutoCool</td><td data-l="Signal" class="neg">Thermal events −5 to −20</td></tr>
+<tr><td class="pname" data-l="Issue">GPU OOM (out of memory)</td><td data-l="Cause">Texture pool too large, shadow resolution too high, HD texture packs active</td><td data-l="Fix">Lower Shadow MaxResolution to 1024, reduce Anisotropic Filtering to 4, set PoolSize to 512, disable HD texture packs, step to Potato</td><td data-l="Signal" class="neg">GPU OOM −12 to −30</td></tr>
+<tr><td class="pname" data-l="Issue">Missing / broken textures</td><td data-l="Cause">Texture streaming disabled, MipBias too high, PoolSize too low, DeviceProfile mismatch</td><td data-l="Fix">Enable HZB occlusion, set MipMapLodBias to 0–1, raise PoolSize, verify DeviceProfile matches your GPU (Adreno/Mali/Xclipse/Maleoon)</td><td data-l="Signal" class="neg">Texture errors up to −20</td></tr>
+<tr><td class="pname" data-l="Issue">Stuttering / frame pacing uneven</td><td data-l="Cause">CPU-bound, VSync conflicts, RHICmd overhead, frame cap too low</td><td data-l="Fix">Lower render scale if CPU-bound, disable VSync, enable RHICmd bypass + parallel, set r.FramePace.MaxFPS to 60/120</td><td data-l="Signal">frame drop pattern</td></tr>
+<tr><td class="pname" data-l="Issue">Low FPS on low-end / budget phones</td><td data-l="Cause">Chipset too weak for preset, too high shadow quality, foliage density too high</td><td data-l="Fix">Use Potato or Endurance, set GrassCull to 1,500, Shadow to 0, Foliage LOD to 0.4, render scale 50%</td><td data-l="Signal" class="neg">Low-memory −15</td></tr>
+<tr><td class="pname" data-l="Issue">Exynos / Mali GPU underperforming</td><td data-l="Cause">Mali GPUs need lower shadow and streaming than Adreno equivalents</td><td data-l="Fix">Start one tier lower than Snapdragon equivalent (e.g., Competitive instead of High), lower shadow quality, reduce streaming</td><td data-l="Signal">GPU tier +30 to −20</td></tr>
+<tr><td class="pname" data-l="Issue">120 FPS not unlocking</td><td data-l="Cause">r.FramePace.MaxFPS not set, device too weak, thermal cap active</td><td data-l="Fix">Enable 120 FPS unlock toggle in GameUserSettings.ini, check r.FramePace.MaxFPS=120, ensure thermal headroom</td><td data-l="Signal">unlock120 option</td></tr>
+<tr><td class="pname" data-l="Issue">Post-processing artifacts / bloom overload</td><td data-l="Cause">PostProcessQuality too high, bloom value too high, auto-exposure on low-end</td><td data-l="Fix">Set PostProcessQuality to 0–2, Bloom to 0–1, disable auto-exposure, reduce radial blur</td><td data-l="Signal" class="neg">Room to improve −8</td></tr>
+<tr><td class="pname" data-l="Issue">Slow config deploy / Permission denied</td><td data-l="Cause">Scoped storage blocks shell user on Android 11+ / Chinese ROMs</td><td data-l="Fix">Use run-as fallback (Shizuku/ADB), switch to SAF for scoped storage, or Root, enable USB debugging + Security settings on Chinese ROMs</td><td data-l="Signal">deploy path</td></tr>
+</tbody>
+</table>
+</div>
+<div class="subhead reveal" style="margin-top:24px">Quick Fix Presets — by Problem</div>
+<div class="f-grid reveal">
+<article class="f-card"><span class="f-num">T.01</span><h3>Thermal Throttling Fix</h3><p>Potato or Endurance preset. Set ReflectionEnvironment=0, all dynamic lights=0, disable volumetric fog, reduce PoolSize to 512, enable AutoCool.</p></article>
+<article class="f-card"><span class="f-num">T.02</span><h3>GPU OOM Fix</h3><p>Potato baseline. Lower Shadow MaxResolution to 1024, Anisotropic Filtering to 4, PoolSize to 512, disable HD texture packs.</p></article>
+<article class="f-card"><span class="f-num">T.03</span><h3>FPS Drop Fix</h3><p>Balanced or Competitive. Lower Screen% to 60–80%, set Shadow to 0–2, check r.FramePace.MaxFPS, enable 120 FPS unlock on flagships.</p></article>
+<article class="f-card"><span class="f-num">T.04</span><h3>Texture Error Fix</h3><p>Enable HZB occlusion, set MipMapLodBias to 0–1, raise PoolSize, verify DeviceProfile matches your GPU (Adreno/Mali/Xclipse/Maleoon).</p></article>
+<article class="f-card"><span class="f-num">T.05</span><h3>Exynos / Mali Fix</h3><p>Start one tier below Snapdragon equivalent. Lower shadow quality, reduce streaming, Competitive or Balanced is the sweet spot.</p></article>
+<article class="f-card"><span class="f-num">T.06</span><h3>Low-End / Budget Fix</h3><p>Potato or Endurance. GrassCull=1,500, Shadow=0, Foliage LOD=0.4, render scale 50%, disable foliage density.</p></article>
+</div>
+</div>
 </section>
 
 <!-- ══════════ 02 HOW IT WORKS ══════════ -->
@@ -1027,7 +1066,9 @@
       <details><summary>Does it optimize MediaTek Dimensity phones with a Mali GPU?</summary><div class="faq-b">Yes — per-chipset tuning for Dimensity (Mali/PowerVR) is built in. Mali GPUs benefit most from <strong>lower shadow quality and reduced texture streaming</strong>, so Competitive or Balanced is usually the sweet spot; SmartBrain scores your exact GPU tier automatically.</div></details>
       <details><summary>Best preset for Poco X6 Pro / Snapdragon?</summary><div class="faq-b">Start with <strong>Balanced</strong> or <strong>High</strong> and let SmartBrain tune. Snapdragon 8 Gen 2/3 flagships can run Ultra or Cinematic with the 120 FPS unlock; mid-range chips are smoothest on Competitive or Performance.</div></details>
       <details><summary>Best settings for Redmi Note 12/13 &amp; budget phones?</summary><div class="faq-b">Start with <strong>Performance</strong> or <strong>Endurance</strong> — conservative render scale and shadows avoid thermal throttling and GPU OOM while still beating stock FPS.</div></details>
-      <details><summary>How do I get 120 FPS?</summary><div class="faq-b">Enable the <strong>120 FPS unlock</strong> toggle — it raises the frame-pace cap in <code>GameUserSettings.ini</code>. Works on capable flagships. If you overheat or drop frames, step down a preset until stable.</div></details>
+       <details><summary>How do I get 120 FPS?</summary><div class="faq-b">Enable the <strong>120 FPS unlock</strong> toggle — it raises the frame-pace cap in <code>GameUserSettings.ini</code>. Works on capable flagships. If you overheat or drop frames, step down a preset until stable.</div></details>
+<details><summary>How do I fix FPS drops in Wuthering Waves on Android?</summary><div class="faq-b">Use WuWaConfig to generate optimized Engine.ini and Scalability.ini files. SmartBrain reads your Client.log and scores your device 0-100. Lower render scale, shadow quality, and foliage density via the Balanced or Performance presets. Enable 120 FPS unlock on capable flagships. If thermal throttling persists, step down a preset until stable.</div></details>
+<details><summary>How do I fix thermal throttling in Wuthering Waves on Android?</summary><div class="faq-b">Use the Potato or Endurance preset to reduce GPU load. Lower shadow quality to 0, disable dynamic lights, set ReflectionEnvironment=0, reduce texture streaming MipBias, and disable volumetric fog. SmartBrain detects thermal events from your Client.log and adjusts the recommended preset. Keep render scale at 50-60% and enable AutoCool.</div></details>
     </div>
     <p class="faq-empty" id="faqEmpty">No matches — try a different keyword, or browse all questions by clearing the search.</p>
     <p class="sb-foot reveal" style="text-align:center;font-size:.74rem;margin-top:24px">

@@ -27,11 +27,17 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
     @Volatile
     private var serviceConnection: ServiceConnection? = null
 
+    @Volatile
+    private var boundBinder: IBinder? = null
+
+    @Volatile
+    private var deathRecipient: IBinder.DeathRecipient? = null
+
     interface IShellService {
         fun execCommand(command: String): String
     }
 
-    private class ShellServiceProxy(private val binder: IBinder) : IShellService {
+    private class ShellServiceProxy(val binder: IBinder) : IShellService {
         companion object {
             private const val TRANSACTION_EXEC_COMMAND = IBinder.FIRST_CALL_TRANSACTION + 1
         }
@@ -55,12 +61,15 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
     }
 
     override val isConnected: Boolean
-        get() =
-            try {
-                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED && shellService != null
+        get() {
+            return try {
+                if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) return false
+                val svc = shellService ?: return false
+                (svc as? ShellServiceProxy)?.binder?.pingBinder() ?: true
             } catch (_: Exception) {
                 false
             }
+        }
 
     override suspend fun connect(): Result<Unit> =
         withContext(Dispatchers.IO) {
@@ -110,12 +119,42 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                     binder: IBinder?,
                 ) {
                     if (binder != null && binder.pingBinder()) {
-                        shellService = ShellServiceProxy(binder)
+                        try {
+                            boundBinder?.let { old ->
+                                deathRecipient?.let { old.unlinkToDeath(it, 0) }
+                            }
+                        } catch (_: Exception) {
+                        }
+                        val recipient =
+                            IBinder.DeathRecipient {
+                                shellService = null
+                                serviceConnection = null
+                                boundBinder = null
+                                deathRecipient = null
+                            }
+                        try {
+                            binder.linkToDeath(recipient, 0)
+                            boundBinder = binder
+                            deathRecipient = recipient
+                        } catch (_: Exception) {
+                            // Binder already dead — leave shellService null.
+                        }
+                        if (binder.isBinderAlive) {
+                            shellService = ShellServiceProxy(binder)
+                        }
                     }
                     latch.countDown()
                 }
 
                 override fun onServiceDisconnected(name: ComponentName?) {
+                    try {
+                        boundBinder?.let { b ->
+                            deathRecipient?.let { b.unlinkToDeath(it, 0) }
+                        }
+                    } catch (_: Exception) {
+                    }
+                    boundBinder = null
+                    deathRecipient = null
                     shellService = null
                     latch.countDown()
                 }
@@ -140,6 +179,14 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
 
     override fun disconnect() {
         LogRepository.add("Shizuku disconnect")
+        try {
+            boundBinder?.let { b ->
+                deathRecipient?.let { b.unlinkToDeath(it, 0) }
+            }
+        } catch (_: Exception) {
+        }
+        boundBinder = null
+        deathRecipient = null
         serviceConnection?.let {
             try {
                 val args =
@@ -170,16 +217,20 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                 return@withContext Result.failure(Exception("Shizuku service not connected"))
             }
             val result =
-                retryIO(times = 3, backoffMs = 500L, shouldRetry = { e ->
-                    val msg = e.message?.lowercase() ?: ""
-                    msg.contains("service not connected") ||
-                        msg.contains("remote call failed") ||
-                        msg.contains("deadobject") ||
-                        msg.contains("broken pipe")
-                }) {
-                    parseServiceResult(
-                        withTimeout(SHIZUKU_CALL_TIMEOUT_MS) { svc.execCommand(command) },
-                    ).trim()
+                try {
+                    retryIO(times = 3, backoffMs = 500L, shouldRetry = { e ->
+                        val msg = e.message?.lowercase() ?: ""
+                        msg.contains("service not connected") ||
+                            msg.contains("remote call failed") ||
+                            msg.contains("deadobject") ||
+                            msg.contains("broken pipe")
+                    }) {
+                        parseServiceResult(
+                            withTimeout(SHIZUKU_CALL_TIMEOUT_MS) { svc.execCommand(command) },
+                        ).trim()
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 }
             if (result.isFailure) {
                 LogRepository.add("Shizuku shell exhausted: ${result.exceptionOrNull()?.message}", LogLevel.ERROR)
@@ -197,7 +248,8 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
             val bytes = sourceFile.readBytes()
             val localMd5 = computeMd5(bytes)
             val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-            if (File(targetPath).parent == null) {
+            val remoteParent = targetPath.substringBeforeLast('/', "")
+            if (remoteParent.isEmpty() || !targetPath.contains('/')) {
                 return@withContext Result.failure(Exception("Invalid target path"))
             }
 
@@ -208,12 +260,13 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
 
                 val result: String
                 if (plan.fitsSingleCommand) {
-                    result = execOrThrow(plan.joinedCommand)
+                    result = execOrThrowWithRunAs(plan.joinedCommand)
                 } else {
                     // Payload exceeds a single shell argument limit. Each write line is
                     // already < MAX_ARG_STRLEN, so push the base64 in small per-chunk
                     // commands instead of slicing the joined command string.
-                    execOrThrow(plan.setup)
+                    // Use run-as for setup/decode/verify which touch Android/data.
+                    execOrThrowWithRunAs(plan.setup)
                     for (w in plan.writes) execOrThrow(w)
                     execOrThrowWithRunAs(plan.decode)
                     result = execOrThrowWithRunAs(plan.verify)
@@ -262,8 +315,10 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
     override suspend fun ensureDirectoryExists(dirPath: String): Result<String> =
         withContext(Dispatchers.IO) {
             try {
-                val out = execOrThrow("mkdir -p ${shQuote(dirPath)}")
+                val out = execOrThrowWithRunAs("mkdir -p ${shQuote(dirPath)}")
                 Result.success(out)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(e)
             }
@@ -272,10 +327,19 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
     override suspend fun fileExists(path: String): Result<Boolean> =
         withContext(Dispatchers.IO) {
             try {
-                val out = execOrThrow("test -f ${shQuote(path)} && echo 1 || echo 0")
+                val out = execOrThrowWithRunAs("test -f ${shQuote(path)} && echo 1 || echo 0")
                 Result.success(out.trim() == "1")
-            } catch (_: Exception) {
-                Result.success(false)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val msg = e.message ?: ""
+                // Permission denied with run-as fallback failed -> real failure, not "not exists".
+                // Mirror AdbBackend parity: surface failure so disable path doesn't falsely succeed.
+                if (msg.contains("Permission denied", ignoreCase = true)) {
+                    Result.failure(e)
+                } else {
+                    Result.success(false)
+                }
             }
         }
 
@@ -315,8 +379,25 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
             val tmpFile = "/data/local/tmp/wuwa_read_${System.currentTimeMillis()}_$nonce.tmp"
             val tmpQuote = shQuote(tmpFile)
             try {
-                val cmd = "$shellCmd ${shQuote(path)} > $tmpQuote 2>/dev/null; chmod 644 $tmpQuote 2>/dev/null; echo DONE"
-                val result = execOrThrow(cmd)
+                val cmd =
+                    "$shellCmd ${shQuote(path)} > $tmpQuote 2>/dev/null; chmod 644 $tmpQuote 2>/dev/null; echo DONE"
+                val result =
+                    try {
+                        execOrThrow(cmd)
+                    } catch (e: Exception) {
+                        val msg = e.message ?: ""
+                        if (msg.contains("Permission denied", ignoreCase = true) && attempt == 0) {
+                            LogRepository.add(
+                                "Shizuku readViaTemp: Permission denied, retry via run-as",
+                                LogLevel.WARNING,
+                            )
+                            val runAsCmd =
+                                "run-as ${shQuote(gamePkg)} $shellCmd ${shQuote(path)} > $tmpQuote 2>/dev/null; chmod 644 $tmpQuote 2>/dev/null; echo DONE"
+                            execOrThrow(runAsCmd)
+                        } else {
+                            throw e
+                        }
+                    }
                 if (!result.contains("DONE")) {
                     throw Exception("Command failed: $result")
                 }
@@ -331,6 +412,8 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                 }
                 val out = decode(localFile)
                 return Result.success(out)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 lastError = e
                 LogRepository.add("Shizuku readViaTemp attempt $attempt failed: ${e.message}", LogLevel.WARNING)
@@ -361,10 +444,13 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
     ): Result<String> =
         withContext(Dispatchers.IO) {
             try {
-                val parent = java.io.File(targetPath).parent ?: return@withContext Result.failure(Exception("Invalid target path"))
-                execOrThrow("mkdir -p ${shQuote(parent)}")
-                execOrThrow("cp ${shQuote(sourcePath)} ${shQuote(targetPath)}")
+                val parent = targetPath.substringBeforeLast('/', "")
+                if (parent.isEmpty()) return@withContext Result.failure(Exception("Invalid target path"))
+                execOrThrowWithRunAs("mkdir -p ${shQuote(parent)}")
+                execOrThrowWithRunAs("cp ${shQuote(sourcePath)} ${shQuote(targetPath)}")
                 Result.success(targetPath)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("Shizuku copyFile failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -375,9 +461,11 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
         withContext(Dispatchers.IO) {
             LogRepository.add("Shizuku delete: $path")
             try {
-                execOrThrow("rm -f ${shQuote(path)}")
+                execOrThrowWithRunAs("rm -f ${shQuote(path)}")
                 LogRepository.add("Shizuku delete completed: $path", LogLevel.SUCCESS)
                 Result.success(Unit)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("Shizuku delete failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -438,6 +526,9 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
      * misreport failures.
      */
     private fun parseServiceResult(output: String): String {
+        if (output.startsWith("SHIZUKU_TRUNCATED")) {
+            throw Exception("Output truncated at ~900KB binder limit — use readViaTemp for large files")
+        }
         if (output.startsWith("SHIZUKU_EXIT=")) {
             val rest = output.removePrefix("SHIZUKU_EXIT=")
             val nl = rest.indexOf('\n')
@@ -446,7 +537,11 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                 val msg = if (nl < 0) "" else rest.substring(nl + 1)
                 throw Exception(msg.ifBlank { "Command failed (exit $code)" })
             }
-            return if (nl < 0) "" else rest.substring(nl + 1)
+            val body = if (nl < 0) "" else rest.substring(nl + 1)
+            if (body.startsWith("SHIZUKU_TRUNCATED")) {
+                throw Exception("Output truncated at ~900KB binder limit — use readViaTemp for large files")
+            }
+            return body
         }
         // The service returns exactly this string when its watchdog kills a hung
         // command. Match only as a prefix so log *content* containing the phrase

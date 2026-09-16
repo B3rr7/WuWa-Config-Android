@@ -77,13 +77,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setHashMonitorEnabled(enabled: Boolean) = app.setHashMonitorEnabled(enabled)
 
     /**
-     * Toggles the game's runtime C# optimization environment. The preference is
-     * persisted immediately; the command-line file is rewritten in the background
-     * so the change takes effect on the next game launch.
+     * Toggles the game's runtime C# optimization environment. Preference is
+     * persisted optimistically; if the file operation fails the live state is
+     * refreshed and the preference is reverted so toggle and game state stay in
+     * sync (critical for disable path — user must not see OFF while file still
+     * exists due to permission/transport error).
      */
     fun setForceCSharpEnv(enabled: Boolean) {
         app.setForceCSharpEnv(enabled)
-        viewModelScope.launch(Dispatchers.IO) { configManager.syncForceCSharpEnv(enabled) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = configManager.syncForceCSharpEnv(enabled)
+            if (result.isFailure) {
+                // Revert preference — file didn't move, don't lie to UI.
+                app.setForceCSharpEnv(!enabled)
+            }
+            // Always refresh live game state after the file operation settles.
+            refreshCSharpEnvState()
+        }
     }
 
     /**

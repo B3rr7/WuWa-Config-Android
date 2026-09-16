@@ -4,6 +4,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
@@ -78,6 +80,8 @@ object PortScanner {
     private suspend fun scanHost(host: String): Int =
         withContext(Dispatchers.IO) {
             val batchSize = 50
+            val concurrency = 20
+            val semaphore = Semaphore(concurrency)
             val startTime = System.currentTimeMillis()
             val MAX_SCAN_MS = 20_000L
             for (batch in (SCAN_START..SCAN_END).chunked(batchSize)) {
@@ -85,7 +89,9 @@ object PortScanner {
                 val results =
                     coroutineScope {
                         batch.map { port ->
-                            async { tryPort(host, port) }
+                            async {
+                                semaphore.withPermit { tryPort(host, port) }
+                            }
                         }.awaitAll()
                     }
                 val found = results.firstOrNull { it > 0 }
