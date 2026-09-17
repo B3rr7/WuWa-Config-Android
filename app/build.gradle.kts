@@ -88,7 +88,10 @@ android {
 
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // Explicit entries — single-string brace expansion is a documented
+            // AGP 9 known-issue; identical behavior on AGP 8.
+            excludes.add("/META-INF/AL2.0")
+            excludes.add("/META-INF/LGPL2.1")
         }
     }
 
