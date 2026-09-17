@@ -1,0 +1,2415 @@
+.
+├── AGENTS.md
+├── analyze_cvars.py
+├── apk_extract
+│   ├── apk_base
+│   │   ├── agconnect-core.properties
+│   │   ├── age-signals.properties
+│   │   ├── AndroidManifest.xml
+│   │   ├── androidsupportmultidexversion.txt
+│   │   ├── asset-delivery.properties
+│   │   ├── assets
+│   │   │   ├── __accfinfo.tsb
+│   │   │   ├── acginf.dat
+│   │   │   ├── __acinfo.tsb
+│   │   │   ├── __acsinfo.t.p.sin
+│   │   │   ├── agconnect-services.json
+│   │   │   ├── com
+│   │   │   │   └── appsflyer
+│   │   │   │       └── internal
+│   │   │   │           ├── 1ef4f10b9adfdad9a-
+│   │   │   │           ├── 4c337fab34977e37d-
+│   │   │   │           ├── 85cbdb71e241e9c4b-
+│   │   │   │           └── abcc32aa48e1938c-
+│   │   │   ├── dexopt
+│   │   │   │   ├── baseline.prof
+│   │   │   │   └── baseline.profm
+│   │   │   ├── grs_sdk_global_route_config_opendevicesdk.json
+│   │   │   ├── grs_sdk_global_route_config_opensdkService.json
+│   │   │   ├── grs_sdk_server_config.json
+│   │   │   ├── grs_sp.bks
+│   │   │   ├── gt4-index.html
+│   │   │   ├── gt4.js
+│   │   │   ├── gt4-loading.gif
+│   │   │   ├── H7GBKHeavy.TTF
+│   │   │   ├── hmsincas.bks
+│   │   │   ├── hmsrootcas.bks
+│   │   │   ├── https.bks
+│   │   │   ├── httpserver.config
+│   │   │   ├── Kanit-Medium.ttf
+│   │   │   ├── kr_plugin_config.json
+│   │   │   ├── kr_sdk_config.json
+│   │   │   ├── LaguSansBold.otf
+│   │   │   ├── MotoyaAporoStdW5.otf
+│   │   │   ├── progress.json
+│   │   │   ├── sobotphonecode.json
+│   │   │   ├── SUITE-Bold.otf
+│   │   │   ├── UE4CommandLine.txt
+│   │   │   ├── vulkan_profiles
+│   │   │   │   ├── VP_AKI_desktop_vulkan.json
+│   │   │   │   ├── VP_AKI_mobile_vulkan.json
+│   │   │   │   ├── VP_ANDROID_vulkan_profile_2021.json
+│   │   │   │   ├── VP_ANDROID_vulkan_profile_2022.json
+│   │   │   │   ├── VP_ANDROID_vulkan_profile_2025.json
+│   │   │   │   ├── VP_UE_desktop_vulkan.json
+│   │   │   │   └── VP_UE_mobile_vulkan.json
+│   │   │   └── WebViewJavascriptBridge.js
+│   │   ├── billing.properties
+│   │   ├── classes10.dex
+│   │   ├── classes11.dex
+│   │   ├── classes12.dex
+│   │   ├── classes13.dex
+│   │   ├── classes14.dex
+│   │   ├── classes15.dex
+│   │   ├── classes16.dex
+│   │   ├── classes2.dex
+│   │   ├── classes3.dex
+│   │   ├── classes4.dex
+│   │   ├── classes5.dex
+│   │   ├── classes6.dex
+│   │   ├── classes7.dex
+│   │   ├── classes8.dex
+│   │   ├── classes9.dex
+│   │   ├── classes.dex
+│   │   ├── core-common.properties
+│   │   ├── DebugProbesKt.bin
+│   │   ├── firebase-analytics.properties
+│   │   ├── firebase-annotations.properties
+│   │   ├── firebase-datatransport.properties
+│   │   ├── firebase-encoders-json.properties
+│   │   ├── firebase-encoders.properties
+│   │   ├── firebase-encoders-proto.properties
+│   │   ├── firebase-iid-interop.properties
+│   │   ├── firebase-installations-interop.properties
+│   │   ├── firebase-installations.properties
+│   │   ├── firebase-measurement-connector.properties
+│   │   ├── firebase-messaging.properties
+│   │   ├── generated-sources
+│   │   │   └── com
+│   │   │       └── twitter
+│   │   │           └── TldLists.java
+│   │   ├── googleid.properties
+│   │   ├── HMSCore-availableupdate.properties
+│   │   ├── HMSCore-baselegacyapi.properties
+│   │   ├── HMSCore-base.properties
+│   │   ├── HMSCore-device.properties
+│   │   ├── HMSCore-hatool.properties
+│   │   ├── HMSCore-log.properties
+│   │   ├── HMSCore-stats.properties
+│   │   ├── HMSCore-ui.properties
+│   │   ├── integrity.properties
+│   │   ├── kotlin
+│   │   │   ├── annotation
+│   │   │   │   └── annotation.kotlin_builtins
+│   │   │   ├── collections
+│   │   │   │   └── collections.kotlin_builtins
+│   │   │   ├── coroutines
+│   │   │   │   └── coroutines.kotlin_builtins
+│   │   │   ├── internal
+│   │   │   │   └── internal.kotlin_builtins
+│   │   │   ├── kotlin.kotlin_builtins
+│   │   │   ├── ranges
+│   │   │   │   └── ranges.kotlin_builtins
+│   │   │   └── reflect
+│   │   │       └── reflect.kotlin_builtins
+│   │   ├── META-INF
+│   │   │   ├── activity-ktx_release.kotlin_module
+│   │   │   ├── activity_release.kotlin_module
+│   │   │   ├── ads-adservices-java_release.kotlin_module
+│   │   │   ├── androidx.activity_activity-ktx.version
+│   │   │   ├── androidx.activity_activity.version
+│   │   │   ├── androidx.annotation_annotation-experimental.version
+│   │   │   ├── androidx.appcompat_appcompat-resources.version
+│   │   │   ├── androidx.appcompat_appcompat.version
+│   │   │   ├── androidx.arch.core_core-runtime.version
+│   │   │   ├── androidx.asynclayoutinflater_asynclayoutinflater.version
+│   │   │   ├── androidx.biometric_biometric.version
+│   │   │   ├── androidx.browser_browser.version
+│   │   │   ├── androidx.cardview_cardview.version
+│   │   │   ├── androidx.coordinatorlayout_coordinatorlayout.version
+│   │   │   ├── androidx.core_core-ktx.version
+│   │   │   ├── androidx.core_core.version
+│   │   │   ├── androidx.credentials_credentials-play-services-auth.version
+│   │   │   ├── androidx.credentials_credentials.version
+│   │   │   ├── androidx.cursoradapter_cursoradapter.version
+│   │   │   ├── androidx.customview_customview.version
+│   │   │   ├── androidx.databinding_viewbinding.version
+│   │   │   ├── androidx.documentfile_documentfile.version
+│   │   │   ├── androidx.drawerlayout_drawerlayout.version
+│   │   │   ├── androidx.exifinterface_exifinterface.version
+│   │   │   ├── androidx.fragment_fragment-ktx.version
+│   │   │   ├── androidx.fragment_fragment.version
+│   │   │   ├── androidx.interpolator_interpolator.version
+│   │   │   ├── androidx.legacy_legacy-support-core-ui.version
+│   │   │   ├── androidx.legacy_legacy-support-core-utils.version
+│   │   │   ├── androidx.legacy_legacy-support-v13.version
+│   │   │   ├── androidx.legacy_legacy-support-v4.version
+│   │   │   ├── androidx.lifecycle_lifecycle-extensions.version
+│   │   │   ├── androidx.lifecycle_lifecycle-livedata-core-ktx.version
+│   │   │   ├── androidx.lifecycle_lifecycle-livedata-core.version
+│   │   │   ├── androidx.lifecycle_lifecycle-livedata.version
+│   │   │   ├── androidx.lifecycle_lifecycle-process.version
+│   │   │   ├── androidx.lifecycle_lifecycle-runtime-ktx.version
+│   │   │   ├── androidx.lifecycle_lifecycle-runtime.version
+│   │   │   ├── androidx.lifecycle_lifecycle-service.version
+│   │   │   ├── androidx.lifecycle_lifecycle-viewmodel-ktx.version
+│   │   │   ├── androidx.lifecycle_lifecycle-viewmodel-savedstate.version
+│   │   │   ├── androidx.lifecycle_lifecycle-viewmodel.version
+│   │   │   ├── androidx.loader_loader.version
+│   │   │   ├── androidx.localbroadcastmanager_localbroadcastmanager.version
+│   │   │   ├── androidx.media_media.version
+│   │   │   ├── androidx.print_print.version
+│   │   │   ├── androidx.privacysandbox.ads_ads-adservices-java.version
+│   │   │   ├── androidx.privacysandbox.ads_ads-adservices.version
+│   │   │   ├── androidx.profileinstaller_profileinstaller.version
+│   │   │   ├── androidx.recyclerview_recyclerview.version
+│   │   │   ├── androidx.savedstate_savedstate-ktx.version
+│   │   │   ├── androidx.savedstate_savedstate.version
+│   │   │   ├── androidx.security_security-crypto.version
+│   │   │   ├── androidx.slidingpanelayout_slidingpanelayout.version
+│   │   │   ├── androidx.startup_startup-runtime.version
+│   │   │   ├── androidx.swiperefreshlayout_swiperefreshlayout.version
+│   │   │   ├── androidx.tracing_tracing.version
+│   │   │   ├── androidx.vectordrawable_vectordrawable-animated.version
+│   │   │   ├── androidx.vectordrawable_vectordrawable.version
+│   │   │   ├── androidx.versionedparcelable_versionedparcelable.version
+│   │   │   ├── androidx.viewpager_viewpager.version
+│   │   │   ├── collection.kotlin_module
+│   │   │   ├── com
+│   │   │   │   └── android
+│   │   │   ├── com.google.firebase-firebase-common.kotlin_module
+│   │   │   ├── com.google.firebase-firebase-common-ktx.kotlin_module
+│   │   │   ├── core-ktx_release.kotlin_module
+│   │   │   ├── core_release.kotlin_module
+│   │   │   ├── credentials_release.kotlin_module
+│   │   │   ├── facebook-core_release.kotlin_module
+│   │   │   ├── fragment-ktx_release.kotlin_module
+│   │   │   ├── java.com.google.android.gmscore.integ.client.identity_credentials_identity_credentials.kotlin_module
+│   │   │   ├── java.com.google.android.gmscore.integ.client.measurement_api_measurement_api.kotlin_module
+│   │   │   ├── jvm.kotlin_module
+│   │   │   ├── kotlin-reflection.kotlin_module
+│   │   │   ├── kotlin-stdlib-jdk7.kotlin_module
+│   │   │   ├── kotlin-stdlib-jdk8.kotlin_module
+│   │   │   ├── kotlin-stdlib.kotlin_module
+│   │   │   ├── kotlinx-coroutines-android.kotlin_module
+│   │   │   ├── kotlinx_coroutines_android.version
+│   │   │   ├── kotlinx-coroutines-core.kotlin_module
+│   │   │   ├── kotlinx_coroutines_core.version
+│   │   │   ├── kotlinx-coroutines-play-services.kotlin_module
+│   │   │   ├── kotlinx_coroutines_play_services.version
+│   │   │   ├── lifecycle-common.kotlin_module
+│   │   │   ├── lifecycle-livedata-core-ktx_release.kotlin_module
+│   │   │   ├── lifecycle-livedata_release.kotlin_module
+│   │   │   ├── lifecycle-runtime-ktx_release.kotlin_module
+│   │   │   ├── lifecycle-runtime_release.kotlin_module
+│   │   │   ├── lifecycle-viewmodel-ktx_release.kotlin_module
+│   │   │   ├── lifecycle-viewmodel_release.kotlin_module
+│   │   │   ├── lifecycle-viewmodel-savedstate_release.kotlin_module
+│   │   │   ├── moshi.kotlin_module
+│   │   │   ├── nanohttpd
+│   │   │   │   ├── default-mimetypes.properties
+│   │   │   │   └── mimetypes.properties
+│   │   │   ├── Nid-OAuth_release.kotlin_module
+│   │   │   ├── okhttp.kotlin_module
+│   │   │   ├── reflect.kotlin_module
+│   │   │   ├── savedstate-ktx_release.kotlin_module
+│   │   │   ├── savedstate_release.kotlin_module
+│   │   │   ├── services
+│   │   │   │   ├── javax.ws.rs.ext.MessageBodyReader
+│   │   │   │   ├── javax.ws.rs.ext.MessageBodyWriter
+│   │   │   │   ├── javax.ws.rs.ext.Providers
+│   │   │   │   ├── kotlin.reflect.jvm.internal.impl.builtins.BuiltInsLoader
+│   │   │   │   ├── kotlin.reflect.jvm.internal.impl.resolve.ExternalOverridabilityCondition
+│   │   │   │   ├── kotlinx.coroutines.CoroutineExceptionHandler
+│   │   │   │   ├── kotlinx.coroutines.internal.MainDispatcherFactory
+│   │   │   │   └── org.glassfish.jersey.internal.spi.AutoDiscoverable
+│   │   │   ├── tiktok-open-sdk-share_release.kotlin_module
+│   │   │   └── version-control-info.textproto
+│   │   ├── network-common.properties
+│   │   ├── network-framework-compat.properties
+│   │   ├── network-grs.properties
+│   │   ├── org
+│   │   │   ├── apache
+│   │   │   │   └── commons
+│   │   │   │       └── codec
+│   │   │   │           └── language
+│   │   │   │               └── bm
+│   │   │   │                   ├── ash_approx_any.txt
+│   │   │   │                   ├── ash_approx_common.txt
+│   │   │   │                   ├── ash_approx_cyrillic.txt
+│   │   │   │                   ├── ash_approx_english.txt
+│   │   │   │                   ├── ash_approx_french.txt
+│   │   │   │                   ├── ash_approx_german.txt
+│   │   │   │                   ├── ash_approx_hebrew.txt
+│   │   │   │                   ├── ash_approx_hungarian.txt
+│   │   │   │                   ├── ash_approx_polish.txt
+│   │   │   │                   ├── ash_approx_romanian.txt
+│   │   │   │                   ├── ash_approx_russian.txt
+│   │   │   │                   ├── ash_approx_spanish.txt
+│   │   │   │                   ├── ash_exact_any.txt
+│   │   │   │                   ├── ash_exact_approx_common.txt
+│   │   │   │                   ├── ash_exact_common.txt
+│   │   │   │                   ├── ash_exact_cyrillic.txt
+│   │   │   │                   ├── ash_exact_english.txt
+│   │   │   │                   ├── ash_exact_french.txt
+│   │   │   │                   ├── ash_exact_german.txt
+│   │   │   │                   ├── ash_exact_hebrew.txt
+│   │   │   │                   ├── ash_exact_hungarian.txt
+│   │   │   │                   ├── ash_exact_polish.txt
+│   │   │   │                   ├── ash_exact_romanian.txt
+│   │   │   │                   ├── ash_exact_russian.txt
+│   │   │   │                   ├── ash_exact_spanish.txt
+│   │   │   │                   ├── ash_hebrew_common.txt
+│   │   │   │                   ├── ash_languages.txt
+│   │   │   │                   ├── ash_rules_any.txt
+│   │   │   │                   ├── ash_rules_cyrillic.txt
+│   │   │   │                   ├── ash_rules_english.txt
+│   │   │   │                   ├── ash_rules_french.txt
+│   │   │   │                   ├── ash_rules_german.txt
+│   │   │   │                   ├── ash_rules_hebrew.txt
+│   │   │   │                   ├── ash_rules_hungarian.txt
+│   │   │   │                   ├── ash_rules_polish.txt
+│   │   │   │                   ├── ash_rules_romanian.txt
+│   │   │   │                   ├── ash_rules_russian.txt
+│   │   │   │                   ├── ash_rules_spanish.txt
+│   │   │   │                   ├── gen_approx_any.txt
+│   │   │   │                   ├── gen_approx_arabic.txt
+│   │   │   │                   ├── gen_approx_common.txt
+│   │   │   │                   ├── gen_approx_cyrillic.txt
+│   │   │   │                   ├── gen_approx_czech.txt
+│   │   │   │                   ├── gen_approx_dutch.txt
+│   │   │   │                   ├── gen_approx_english.txt
+│   │   │   │                   ├── gen_approx_french.txt
+│   │   │   │                   ├── gen_approx_german.txt
+│   │   │   │                   ├── gen_approx_greeklatin.txt
+│   │   │   │                   ├── gen_approx_greek.txt
+│   │   │   │                   ├── gen_approx_hebrew.txt
+│   │   │   │                   ├── gen_approx_hungarian.txt
+│   │   │   │                   ├── gen_approx_italian.txt
+│   │   │   │                   ├── gen_approx_polish.txt
+│   │   │   │                   ├── gen_approx_portuguese.txt
+│   │   │   │                   ├── gen_approx_romanian.txt
+│   │   │   │                   ├── gen_approx_russian.txt
+│   │   │   │                   ├── gen_approx_spanish.txt
+│   │   │   │                   ├── gen_approx_turkish.txt
+│   │   │   │                   ├── gen_exact_any.txt
+│   │   │   │                   ├── gen_exact_approx_common.txt
+│   │   │   │                   ├── gen_exact_arabic.txt
+│   │   │   │                   ├── gen_exact_common.txt
+│   │   │   │                   ├── gen_exact_cyrillic.txt
+│   │   │   │                   ├── gen_exact_czech.txt
+│   │   │   │                   ├── gen_exact_dutch.txt
+│   │   │   │                   ├── gen_exact_english.txt
+│   │   │   │                   ├── gen_exact_french.txt
+│   │   │   │                   ├── gen_exact_german.txt
+│   │   │   │                   ├── gen_exact_greeklatin.txt
+│   │   │   │                   ├── gen_exact_greek.txt
+│   │   │   │                   ├── gen_exact_hebrew.txt
+│   │   │   │                   ├── gen_exact_hungarian.txt
+│   │   │   │                   ├── gen_exact_italian.txt
+│   │   │   │                   ├── gen_exact_polish.txt
+│   │   │   │                   ├── gen_exact_portuguese.txt
+│   │   │   │                   ├── gen_exact_romanian.txt
+│   │   │   │                   ├── gen_exact_russian.txt
+│   │   │   │                   ├── gen_exact_spanish.txt
+│   │   │   │                   ├── gen_exact_turkish.txt
+│   │   │   │                   ├── gen_hebrew_common.txt
+│   │   │   │                   ├── gen_languages.txt
+│   │   │   │                   ├── gen_rules_any.txt
+│   │   │   │                   ├── gen_rules_arabic.txt
+│   │   │   │                   ├── gen_rules_cyrillic.txt
+│   │   │   │                   ├── gen_rules_czech.txt
+│   │   │   │                   ├── gen_rules_dutch.txt
+│   │   │   │                   ├── gen_rules_english.txt
+│   │   │   │                   ├── gen_rules_french.txt
+│   │   │   │                   ├── gen_rules_german.txt
+│   │   │   │                   ├── gen_rules_greeklatin.txt
+│   │   │   │                   ├── gen_rules_greek.txt
+│   │   │   │                   ├── gen_rules_hebrew.txt
+│   │   │   │                   ├── gen_rules_hungarian.txt
+│   │   │   │                   ├── gen_rules_italian.txt
+│   │   │   │                   ├── gen_rules_polish.txt
+│   │   │   │                   ├── gen_rules_portuguese.txt
+│   │   │   │                   ├── gen_rules_romanian.txt
+│   │   │   │                   ├── gen_rules_russian.txt
+│   │   │   │                   ├── gen_rules_spanish.txt
+│   │   │   │                   ├── gen_rules_turkish.txt
+│   │   │   │                   ├── lang.txt
+│   │   │   │                   ├── sep_approx_any.txt
+│   │   │   │                   ├── sep_approx_common.txt
+│   │   │   │                   ├── sep_approx_french.txt
+│   │   │   │                   ├── sep_approx_hebrew.txt
+│   │   │   │                   ├── sep_approx_italian.txt
+│   │   │   │                   ├── sep_approx_portuguese.txt
+│   │   │   │                   ├── sep_approx_spanish.txt
+│   │   │   │                   ├── sep_exact_any.txt
+│   │   │   │                   ├── sep_exact_approx_common.txt
+│   │   │   │                   ├── sep_exact_common.txt
+│   │   │   │                   ├── sep_exact_french.txt
+│   │   │   │                   ├── sep_exact_hebrew.txt
+│   │   │   │                   ├── sep_exact_italian.txt
+│   │   │   │                   ├── sep_exact_portuguese.txt
+│   │   │   │                   ├── sep_exact_spanish.txt
+│   │   │   │                   ├── sep_hebrew_common.txt
+│   │   │   │                   ├── sep_languages.txt
+│   │   │   │                   ├── sep_rules_any.txt
+│   │   │   │                   ├── sep_rules_french.txt
+│   │   │   │                   ├── sep_rules_hebrew.txt
+│   │   │   │                   ├── sep_rules_italian.txt
+│   │   │   │                   ├── sep_rules_portuguese.txt
+│   │   │   │                   └── sep_rules_spanish.txt
+│   │   │   └── spongycastle
+│   │   │       └── x509
+│   │   │           ├── CertPathReviewerMessages_de.properties
+│   │   │           └── CertPathReviewerMessages.properties
+│   │   ├── play-services-ads-identifier.properties
+│   │   ├── play-services-appset.properties
+│   │   ├── play-services-auth-api-phone.properties
+│   │   ├── play-services-auth-base.properties
+│   │   ├── play-services-auth-blockstore.properties
+│   │   ├── play-services-auth.properties
+│   │   ├── play-services-basement.properties
+│   │   ├── play-services-base.properties
+│   │   ├── play-services-cloud-messaging.properties
+│   │   ├── play-services-fido.properties
+│   │   ├── play-services-games-v2.properties
+│   │   ├── play-services-identity-credentials.properties
+│   │   ├── play-services-location.properties
+│   │   ├── play-services-measurement-api.properties
+│   │   ├── play-services-measurement-base.properties
+│   │   ├── play-services-measurement-impl.properties
+│   │   ├── play-services-measurement.properties
+│   │   ├── play-services-measurement-sdk-api.properties
+│   │   ├── play-services-measurement-sdk.properties
+│   │   ├── play-services-places-placereport.properties
+│   │   ├── play-services-stats.properties
+│   │   ├── play-services-tasks.properties
+│   │   ├── res
+│   │   │   ├── anim
+│   │   │   │   ├── abc_fade_in.xml
+│   │   │   │   ├── abc_fade_out.xml
+│   │   │   │   ├── abc_grow_fade_in_from_bottom.xml
+│   │   │   │   ├── abc_popup_enter.xml
+│   │   │   │   ├── abc_popup_exit.xml
+│   │   │   │   ├── abc_shrink_fade_out_from_bottom.xml
+│   │   │   │   ├── abc_slide_in_bottom.xml
+│   │   │   │   ├── abc_slide_in_top.xml
+│   │   │   │   ├── abc_slide_out_bottom.xml
+│   │   │   │   ├── abc_slide_out_top.xml
+│   │   │   │   ├── abc_tooltip_enter.xml
+│   │   │   │   ├── abc_tooltip_exit.xml
+│   │   │   │   ├── btn_checkbox_to_checked_box_inner_merged_animation.xml
+│   │   │   │   ├── btn_checkbox_to_checked_box_outer_merged_animation.xml
+│   │   │   │   ├── btn_checkbox_to_checked_icon_null_animation.xml
+│   │   │   │   ├── btn_checkbox_to_unchecked_box_inner_merged_animation.xml
+│   │   │   │   ├── btn_checkbox_to_unchecked_check_path_merged_animation.xml
+│   │   │   │   ├── btn_checkbox_to_unchecked_icon_null_animation.xml
+│   │   │   │   ├── btn_radio_to_off_mtrl_dot_group_animation.xml
+│   │   │   │   ├── btn_radio_to_off_mtrl_ring_outer_animation.xml
+│   │   │   │   ├── btn_radio_to_off_mtrl_ring_outer_path_animation.xml
+│   │   │   │   ├── btn_radio_to_on_mtrl_dot_group_animation.xml
+│   │   │   │   ├── btn_radio_to_on_mtrl_ring_outer_animation.xml
+│   │   │   │   ├── btn_radio_to_on_mtrl_ring_outer_path_animation.xml
+│   │   │   │   ├── fragment_fast_out_extra_slow_in.xml
+│   │   │   │   ├── noaction.xml
+│   │   │   │   ├── sobot_pickerview_dialog_scale_in.xml
+│   │   │   │   ├── sobot_pickerview_dialog_scale_out.xml
+│   │   │   │   ├── sobot_pickerview_slide_in_bottom.xml
+│   │   │   │   ├── sobot_pickerview_slide_out_bottom.xml
+│   │   │   │   ├── sobot_popupwindow_in.xml
+│   │   │   │   ├── sobot_popupwindow_out.xml
+│   │   │   │   ├── sobot_push_left_in.xml
+│   │   │   │   ├── sobot_push_left_out.xml
+│   │   │   │   ├── sobot_push_right_in.xml
+│   │   │   │   ├── sobot_push_right_out.xml
+│   │   │   │   ├── tw__accelerate_cubic.xml
+│   │   │   │   └── tw__slide_out.xml
+│   │   │   ├── animator
+│   │   │   │   ├── fragment_close_enter.xml
+│   │   │   │   ├── fragment_close_exit.xml
+│   │   │   │   ├── fragment_fade_enter.xml
+│   │   │   │   ├── fragment_fade_exit.xml
+│   │   │   │   ├── fragment_open_enter.xml
+│   │   │   │   └── fragment_open_exit.xml
+│   │   │   ├── color
+│   │   │   │   ├── abc_background_cache_hint_selector_material_dark.xml
+│   │   │   │   ├── abc_background_cache_hint_selector_material_light.xml
+│   │   │   │   ├── abc_btn_colored_borderless_text_material.xml
+│   │   │   │   ├── abc_btn_colored_text_material.xml
+│   │   │   │   ├── abc_color_highlight_material.xml
+│   │   │   │   ├── abc_hint_foreground_material_dark.xml
+│   │   │   │   ├── abc_hint_foreground_material_light.xml
+│   │   │   │   ├── abc_primary_text_disable_only_material_dark.xml
+│   │   │   │   ├── abc_primary_text_disable_only_material_light.xml
+│   │   │   │   ├── abc_primary_text_material_dark.xml
+│   │   │   │   ├── abc_primary_text_material_light.xml
+│   │   │   │   ├── abc_search_url_text.xml
+│   │   │   │   ├── abc_secondary_text_material_dark.xml
+│   │   │   │   ├── abc_secondary_text_material_light.xml
+│   │   │   │   ├── abc_tint_btn_checkable.xml
+│   │   │   │   ├── abc_tint_default.xml
+│   │   │   │   ├── abc_tint_edittext.xml
+│   │   │   │   ├── abc_tint_seek_thumb.xml
+│   │   │   │   ├── abc_tint_spinner.xml
+│   │   │   │   ├── abc_tint_switch_track.xml
+│   │   │   │   ├── com_facebook_button_text_color.xml
+│   │   │   │   ├── common_google_signin_btn_text_dark.xml
+│   │   │   │   ├── common_google_signin_btn_text_light.xml
+│   │   │   │   ├── common_google_signin_btn_tint.xml
+│   │   │   │   ├── switch_thumb_material_dark.xml
+│   │   │   │   └── switch_thumb_material_light.xml
+│   │   │   ├── color-v26
+│   │   │   │   └── biometric_error_color.xml
+│   │   │   ├── drawable
+│   │   │   │   ├── abc_action_bar_item_background_material.xml
+│   │   │   │   ├── abc_btn_borderless_material.xml
+│   │   │   │   ├── abc_btn_check_material_anim.xml
+│   │   │   │   ├── abc_btn_check_material.xml
+│   │   │   │   ├── abc_btn_colored_material.xml
+│   │   │   │   ├── abc_btn_default_mtrl_shape.xml
+│   │   │   │   ├── abc_btn_radio_material_anim.xml
+│   │   │   │   ├── abc_btn_radio_material.xml
+│   │   │   │   ├── abc_cab_background_internal_bg.xml
+│   │   │   │   ├── abc_cab_background_top_material.xml
+│   │   │   │   ├── abc_control_background_material.xml
+│   │   │   │   ├── abc_dialog_material_background.xml
+│   │   │   │   ├── abc_edit_text_material.xml
+│   │   │   │   ├── abc_ic_ab_back_material.xml
+│   │   │   │   ├── abc_ic_arrow_drop_right_black_24dp.xml
+│   │   │   │   ├── abc_ic_clear_material.xml
+│   │   │   │   ├── abc_ic_go_search_api_material.xml
+│   │   │   │   ├── abc_ic_menu_copy_mtrl_am_alpha.xml
+│   │   │   │   ├── abc_ic_menu_cut_mtrl_alpha.xml
+│   │   │   │   ├── abc_ic_menu_overflow_material.xml
+│   │   │   │   ├── abc_ic_menu_paste_mtrl_am_alpha.xml
+│   │   │   │   ├── abc_ic_menu_selectall_mtrl_alpha.xml
+│   │   │   │   ├── abc_ic_menu_share_mtrl_alpha.xml
+│   │   │   │   ├── abc_ic_search_api_material.xml
+│   │   │   │   ├── abc_ic_voice_search_api_material.xml
+│   │   │   │   ├── abc_item_background_holo_dark.xml
+│   │   │   │   ├── abc_item_background_holo_light.xml
+│   │   │   │   ├── abc_list_divider_material.xml
+│   │   │   │   ├── abc_list_selector_background_transition_holo_dark.xml
+│   │   │   │   ├── abc_list_selector_background_transition_holo_light.xml
+│   │   │   │   ├── abc_list_selector_holo_dark.xml
+│   │   │   │   ├── abc_list_selector_holo_light.xml
+│   │   │   │   ├── abc_ratingbar_indicator_material.xml
+│   │   │   │   ├── abc_ratingbar_material.xml
+│   │   │   │   ├── abc_ratingbar_small_material.xml
+│   │   │   │   ├── abc_seekbar_thumb_material.xml
+│   │   │   │   ├── abc_seekbar_tick_mark_material.xml
+│   │   │   │   ├── abc_seekbar_track_material.xml
+│   │   │   │   ├── abc_spinner_textfield_background_material.xml
+│   │   │   │   ├── abc_star_black_48dp.xml
+│   │   │   │   ├── abc_star_half_black_48dp.xml
+│   │   │   │   ├── abc_switch_thumb_material.xml
+│   │   │   │   ├── abc_tab_indicator_material.xml
+│   │   │   │   ├── abc_text_cursor_material.xml
+│   │   │   │   ├── abc_textfield_search_material.xml
+│   │   │   │   ├── abc_vector_test.xml
+│   │   │   │   ├── background_login_btn.xml
+│   │   │   │   ├── btn_checkbox_checked_mtrl.xml
+│   │   │   │   ├── btn_checkbox_checked_to_unchecked_mtrl_animation.xml
+│   │   │   │   ├── btn_checkbox_unchecked_mtrl.xml
+│   │   │   │   ├── btn_checkbox_unchecked_to_checked_mtrl_animation.xml
+│   │   │   │   ├── btn_radio_off_mtrl.xml
+│   │   │   │   ├── btn_radio_off_to_on_mtrl_animation.xml
+│   │   │   │   ├── btn_radio_on_mtrl.xml
+│   │   │   │   ├── btn_radio_on_to_off_mtrl_animation.xml
+│   │   │   │   ├── button_shape.xml
+│   │   │   │   ├── com_facebook_auth_dialog_background.xml
+│   │   │   │   ├── com_facebook_auth_dialog_cancel_background.xml
+│   │   │   │   ├── com_facebook_auth_dialog_header_background.xml
+│   │   │   │   ├── com_facebook_button_background.xml
+│   │   │   │   ├── com_facebook_button_icon.xml
+│   │   │   │   ├── com_facebook_button_like_background.xml
+│   │   │   │   ├── com_facebook_favicon_blue.xml
+│   │   │   │   ├── common_google_signin_btn_icon_dark_focused.xml
+│   │   │   │   ├── common_google_signin_btn_icon_dark_normal.xml
+│   │   │   │   ├── common_google_signin_btn_icon_dark.xml
+│   │   │   │   ├── common_google_signin_btn_icon_disabled.xml
+│   │   │   │   ├── common_google_signin_btn_icon_light_focused.xml
+│   │   │   │   ├── common_google_signin_btn_icon_light_normal.xml
+│   │   │   │   ├── common_google_signin_btn_icon_light.xml
+│   │   │   │   ├── common_google_signin_btn_text_dark_focused.xml
+│   │   │   │   ├── common_google_signin_btn_text_dark_normal.xml
+│   │   │   │   ├── common_google_signin_btn_text_dark.xml
+│   │   │   │   ├── common_google_signin_btn_text_disabled.xml
+│   │   │   │   ├── common_google_signin_btn_text_light_focused.xml
+│   │   │   │   ├── common_google_signin_btn_text_light_normal.xml
+│   │   │   │   ├── common_google_signin_btn_text_light.xml
+│   │   │   │   ├── downloadimageh.png
+│   │   │   │   ├── ic_other_sign_in.xml
+│   │   │   │   ├── ic_passkey.xml
+│   │   │   │   ├── ic_password.xml
+│   │   │   │   ├── kr_bg_age_confirm_choose_birthday.xml
+│   │   │   │   ├── kr_bg_agreement_terms.xml
+│   │   │   │   ├── kr_bg_aki_webview.xml
+│   │   │   │   ├── kr_bg_cancel_btn_warning_dialog.xml
+│   │   │   │   ├── kr_bg_dialog_order_warning.xml
+│   │   │   │   ├── kr_bg_group_akr_warning_dialog.xml
+│   │   │   │   ├── kr_bg_history_list.xml
+│   │   │   │   ├── kr_bg_item_pay_normal.xml
+│   │   │   │   ├── kr_bg_item_pay_selected.xml
+│   │   │   │   ├── kr_bg_login_input.xml
+│   │   │   │   ├── kr_bg_login_success_tips.xml
+│   │   │   │   ├── kr_bg_main_button_selector.xml
+│   │   │   │   ├── kr_bg_protocol_age_terms.xml
+│   │   │   │   ├── kr_bg_switch_account.xml
+│   │   │   │   ├── kr_bg_webview_progress.xml
+│   │   │   │   ├── kr_btn_pay_loading.xml
+│   │   │   │   ├── kr_check_box.xml
+│   │   │   │   ├── kr_core_fg_webview_transparent.xml
+│   │   │   │   ├── kr_cursor.xml
+│   │   │   │   ├── kr_custom_color.xml
+│   │   │   │   ├── kr_history_item_shape.xml
+│   │   │   │   ├── kr_input_edittext_bg.xml
+│   │   │   │   ├── kr_loading.xml
+│   │   │   │   ├── kr_pay_loading.xml
+│   │   │   │   ├── kr_scrollbar_vertical_thumb_with_padding.xml
+│   │   │   │   ├── kr_scrollbar_vertical_thumb.xml
+│   │   │   │   ├── kr_view_bg_shape.xml
+│   │   │   │   ├── kr_view_paylist_divider.xml
+│   │   │   │   ├── kr_view_toast_shape.xml
+│   │   │   │   ├── kuro_view_loading_shape.xml
+│   │   │   │   ├── notification_action_background.xml
+│   │   │   │   ├── notification_bg_low.xml
+│   │   │   │   ├── notification_bg.xml
+│   │   │   │   ├── notification_icon_background.xml
+│   │   │   │   ├── notification_tile_bg.xml
+│   │   │   │   ├── selector_capture_back.xml
+│   │   │   │   ├── sobot_background_tab.xml
+│   │   │   │   ├── sobot_bg_auto_complete_item.xml
+│   │   │   │   ├── sobot_bg_cai_reason_lable_checkbox_bg.xml
+│   │   │   │   ├── sobot_bg_cai_reason_lable_content_bg.xml
+│   │   │   │   ├── sobot_bg_checkbox.xml
+│   │   │   │   ├── sobot_bg_default_pic.xml
+│   │   │   │   ├── sobot_bg_dialog_list_selected.xml
+│   │   │   │   ├── sobot_bg_dialog_list.xml
+│   │   │   │   ├── sobot_bg_emoticon.xml
+│   │   │   │   ├── sobot_bg_gray_18dp.xml
+│   │   │   │   ├── sobot_bg_gray_4dp.xml
+│   │   │   │   ├── sobot_bg_item_issue.9.png
+│   │   │   │   ├── sobot_bg_line_4.xml
+│   │   │   │   ├── sobot_bg_loading_dialog.xml
+│   │   │   │   ├── sobot_bg_more_normal.xml
+│   │   │   │   ├── sobot_bg_normal.xml
+│   │   │   │   ├── sobot_bg_theme_color_10dp.xml
+│   │   │   │   ├── sobot_bg_theme_color_14dp.xml
+│   │   │   │   ├── sobot_bg_theme_color_4dp.xml
+│   │   │   │   ├── sobot_bg_theme_search_f_4.xml
+│   │   │   │   ├── sobot_bg_theme_search_f.xml
+│   │   │   │   ├── sobot_bg_ticket_info.xml
+│   │   │   │   ├── sobot_btn_back_grey_selector.xml
+│   │   │   │   ├── sobot_btn_back_selector.xml
+│   │   │   │   ├── sobot_btn_bg_help_center.xml
+│   │   │   │   ├── sobot_btn_bg_lable_select.xml
+│   │   │   │   ├── sobot_btn_bg_line_4.xml
+│   │   │   │   ├── sobot_btn_bg_line_8.xml
+│   │   │   │   ├── sobot_btn_bg_line_and_grey_8.xml
+│   │   │   │   ├── sobot_btn_bg_send_normal.xml
+│   │   │   │   ├── sobot_btn_bg_send_pressed.xml
+│   │   │   │   ├── sobot_btn_bg_transparent_22.xml
+│   │   │   │   ├── sobot_btn_bg_white_4.xml
+│   │   │   │   ├── sobot_btn_chat_room_long_left.xml
+│   │   │   │   ├── sobot_btn_leavemsg_text_color_selector.xml
+│   │   │   │   ├── sobot_btn_normal_selector.xml
+│   │   │   │   ├── sobot_btn_sendmsg_selector.xml
+│   │   │   │   ├── sobot_btn_tag_text_color_selector.xml
+│   │   │   │   ├── sobot_btn_text_color_selector.xml
+│   │   │   │   ├── sobot_btn_text_selector.xml
+│   │   │   │   ├── sobot_button_style_pressed.xml
+│   │   │   │   ├── sobot_button_style.xml
+│   │   │   │   ├── sobot_card_background_shadow2.xml
+│   │   │   │   ├── sobot_card_background_shadow_common.xml
+│   │   │   │   ├── sobot_card_background_shadow.xml
+│   │   │   │   ├── sobot_chat_bottom_bg_pressed.xml
+│   │   │   │   ├── sobot_chat_bottom_selector.xml
+│   │   │   │   ├── sobot_chat_ding_cai_bg.xml
+│   │   │   │   ├── sobot_chat_dingcai_bottom_def.xml
+│   │   │   │   ├── sobot_chat_hollow_bg.xml
+│   │   │   │   ├── sobot_chat_msg_bg_centre.xml
+│   │   │   │   ├── sobot_chat_msg_bg_left_temp_1.xml
+│   │   │   │   ├── sobot_chat_msg_bg_left.xml
+│   │   │   │   ├── sobot_chat_msg_bg_right.xml
+│   │   │   │   ├── sobot_chat_msg_bg_transparent.xml
+│   │   │   │   ├── sobot_chat_msg_bg_white.xml
+│   │   │   │   ├── sobot_chat_msg_hollow_bg_left.xml
+│   │   │   │   ├── sobot_chat_msg_hollow_bg_right.xml
+│   │   │   │   ├── sobot_chat_msg_left_bg_transparent.xml
+│   │   │   │   ├── sobot_chat_msg_template_bg_left.xml
+│   │   │   │   ├── sobot_chat_msg_transfer_hollow_bg.xml
+│   │   │   │   ├── sobot_chat_plus_button_selector.xml
+│   │   │   │   ├── sobot_chat_sensitive_card_sendcontent_bg.xml
+│   │   │   │   ├── sobot_chatting_voice_bg_blur.xml
+│   │   │   │   ├── sobot_chatting_voice_bg_press.xml
+│   │   │   │   ├── sobot_chatting_voice_bg_selector.xml
+│   │   │   │   ├── sobot_checkbox_btn.xml
+│   │   │   │   ├── sobot_consult_bg_normal.xml
+│   │   │   │   ├── sobot_custom_scroll_style.xml
+│   │   │   │   ├── sobot_dialog_button_selector.xml
+│   │   │   │   ├── sobot_dialog_title_bg.xml
+│   │   │   │   ├── sobot_dissatisfied_btn.xml
+│   │   │   │   ├── sobot_doalig_bg_style.xml
+│   │   │   │   ├── sobot_edittext_noborder_shape.xml
+│   │   │   │   ├── sobot_emoticon_button_selector.xml
+│   │   │   │   ├── sobot_emoticon_del_selector.xml
+│   │   │   │   ├── sobot_evaleuate_btn_aiagent_cai_selector.xml
+│   │   │   │   ├── sobot_evaleuate_btn_aiagent_cai_shoushi_selector.xml
+│   │   │   │   ├── sobot_evaleuate_btn_cai_selector.xml
+│   │   │   │   ├── sobot_evaluate_btn_aiagent_zan_selector.xml
+│   │   │   │   ├── sobot_evaluate_btn_aiagent_zan_shoushi_selector.xml
+│   │   │   │   ├── sobot_evaluate_btn_no_selector.xml
+│   │   │   │   ├── sobot_evaluate_btn_yes_selector.xml
+│   │   │   │   ├── sobot_evaluate_btn_zan_selector.xml
+│   │   │   │   ├── sobot_evaluate_commit_def_selector.xml
+│   │   │   │   ├── sobot_evaluate_commit_press_selector.xml
+│   │   │   │   ├── sobot_evaluate_commit_selector.xml
+│   │   │   │   ├── sobot_evaluate_def_bg.xml
+│   │   │   │   ├── sobot_evaluate_rating.xml
+│   │   │   │   ├── sobot_header_toolbar_bg.xml
+│   │   │   │   ├── sobot_help_center_item_bg.xml
+│   │   │   │   ├── sobot_hollow_bg.xml
+│   │   │   │   ├── sobot_hollow_gray_bg.xml
+│   │   │   │   ├── sobot_icon_arrow_selector.xml
+│   │   │   │   ├── sobot_icon_completed_point_selector.xml
+│   │   │   │   ├── sobot_icon_play_seek_point.xml
+│   │   │   │   ├── sobot_icon_right_selector.xml
+│   │   │   │   ├── sobot_indicator_oval_focus_bg.xml
+│   │   │   │   ├── sobot_indicator_oval_normal_bg.xml
+│   │   │   │   ├── sobot_indicator_point_nomal.xml
+│   │   │   │   ├── sobot_indicator_point_select.xml
+│   │   │   │   ├── sobot_item_setting_selector.xml
+│   │   │   │   ├── sobot_keyboard_button_selector.xml
+│   │   │   │   ├── sobot_layout_custom_card_order_bg.xml
+│   │   │   │   ├── sobot_layout_lable_nomal.xml
+│   │   │   │   ├── sobot_loading_anim.xml
+│   │   │   │   ├── sobot_loading_layout_button.xml
+│   │   │   │   ├── sobot_loading_progressbar_style.xml
+│   │   │   │   ├── sobot_location_btn_selector.xml
+│   │   │   │   ├── sobot_normal_btn_bg.xml
+│   │   │   │   ├── sobot_notify_bg.xml
+│   │   │   │   ├── sobot_not_readinfo_btn.xml
+│   │   │   │   ├── sobot_ordercard_btn_selector.xml
+│   │   │   │   ├── sobot_oval_gray_bg.xml
+│   │   │   │   ├── sobot_oval_green_bg.xml
+│   │   │   │   ├── sobot_oval_white_bg.xml
+│   │   │   │   ├── sobot_pic_delete_selector.xml
+│   │   │   │   ├── sobot_po_seekbar.xml
+│   │   │   │   ├── sobot_post_category_checkbox_selector.xml
+│   │   │   │   ├── sobot_progressbar_circle_loading.xml
+│   │   │   │   ├── sobot_progressbar_loading.xml
+│   │   │   │   ├── sobot_progressbar_preview.xml
+│   │   │   │   ├── sobot_radio_btn_selector.xml
+│   │   │   │   ├── sobot_rc_line.xml
+│   │   │   │   ├── sobot_recording_hint_bg.xml
+│   │   │   │   ├── sobot_round_angle_toast.xml
+│   │   │   │   ├── sobot_rounded_corners_bg.xml
+│   │   │   │   ├── sobot_round_ticket.xml
+│   │   │   │   ├── sobot_satisfie_btn.xml
+│   │   │   │   ├── sobot_satisfied_btn_text_selector.xml
+│   │   │   │   ├── sobot_search_bg.xml
+│   │   │   │   ├── sobot_shadow_bg.xml
+│   │   │   │   ├── sobot_swith_robot_bg.xml
+│   │   │   │   ├── sobot_ten_rating_item_bg_def.xml
+│   │   │   │   ├── sobot_ten_rating_item_bg_sel.xml
+│   │   │   │   ├── sobot_text_button_color_selector.xml
+│   │   │   │   ├── sobot_text_color_selector_custom_card.xml
+│   │   │   │   ├── sobot_ticket_deal_text_color_selector.xml
+│   │   │   │   ├── sobot_ticket_detail_status_deal.xml
+│   │   │   │   ├── sobot_ticket_detail_status_reply.xml
+│   │   │   │   ├── sobot_ticket_detail_status_resolved.xml
+│   │   │   │   ├── sobot_top_shadow_bg.xml
+│   │   │   │   ├── sobot_vioce_button_selector.xml
+│   │   │   │   ├── sobot_voice_animation_cancle.xml
+│   │   │   │   ├── sobot_voice_animation.xml
+│   │   │   │   ├── sobot_voice_appoint_left_icon.xml
+│   │   │   │   ├── sobot_voice_appoint_right_icon.xml
+│   │   │   │   ├── sobot_voice_to_icon.xml
+│   │   │   │   ├── sobot_webview_btn_back_selector.xml
+│   │   │   │   ├── sobot_webview_btn_copy_selector.xml
+│   │   │   │   ├── sobot_webview_btn_forward_selector.xml
+│   │   │   │   ├── sobot_webview_btn_reload_selector.xml
+│   │   │   │   ├── sobot_word_delete_selector.xml
+│   │   │   │   ├── splashscreen_landscape.png
+│   │   │   │   ├── splashscreen_l.xml
+│   │   │   │   ├── tooltip_frame_dark.xml
+│   │   │   │   ├── tooltip_frame_light.xml
+│   │   │   │   ├── tw__bg_media_badge.xml
+│   │   │   │   ├── tw__btn_composer_tweet.xml
+│   │   │   │   ├── tw__call_to_action.xml
+│   │   │   │   ├── tw__gif_badge.xml
+│   │   │   │   ├── tw__like_action.xml
+│   │   │   │   ├── tw__login_btn_default.xml
+│   │   │   │   ├── tw__login_btn_disabled.xml
+│   │   │   │   ├── tw__login_btn_pressed.xml
+│   │   │   │   ├── tw__login_btn.xml
+│   │   │   │   ├── tw__player_overlay.xml
+│   │   │   │   ├── tw__quote_tweet_border.xml
+│   │   │   │   ├── tw__seekbar_thumb.xml
+│   │   │   │   ├── tw__share_action.xml
+│   │   │   │   ├── tw__video_pause_btn.xml
+│   │   │   │   ├── tw__video_play_btn.xml
+│   │   │   │   ├── tw__video_replay_btn.xml
+│   │   │   │   ├── tw__video_seekbar.xml
+│   │   │   │   ├── tw__vine_badge.xml
+│   │   │   │   ├── upsdk_cancel_bg.xml
+│   │   │   │   ├── upsdk_third_download_bg.xml
+│   │   │   │   └── upsdk_update_all_button.xml
+│   │   │   ├── drawable-anydpi-v21
+│   │   │   │   └── fingerprint_dialog_fp_icon.xml
+│   │   │   ├── drawable-hdpi-v4
+│   │   │   │   ├── btn_back_normal.png
+│   │   │   │   ├── btn_back_press.png
+│   │   │   │   ├── expression_100.png
+│   │   │   │   ├── expression_101.png
+│   │   │   │   ├── expression_102.png
+│   │   │   │   ├── expression_103.png
+│   │   │   │   ├── expression_104.png
+│   │   │   │   ├── expression_105.png
+│   │   │   │   ├── expression_10.png
+│   │   │   │   ├── expression_11.png
+│   │   │   │   ├── expression_12.png
+│   │   │   │   ├── expression_13.png
+│   │   │   │   ├── expression_14.png
+│   │   │   │   ├── expression_15.png
+│   │   │   │   ├── expression_16.png
+│   │   │   │   ├── expression_17.png
+│   │   │   │   ├── expression_18.png
+│   │   │   │   ├── expression_19.png
+│   │   │   │   ├── expression_1.png
+│   │   │   │   ├── expression_20.png
+│   │   │   │   ├── expression_21.png
+│   │   │   │   ├── expression_22.png
+│   │   │   │   ├── expression_23.png
+│   │   │   │   ├── expression_24.png
+│   │   │   │   ├── expression_25.png
+│   │   │   │   ├── expression_26.png
+│   │   │   │   ├── expression_27.png
+│   │   │   │   ├── expression_28.png
+│   │   │   │   ├── expression_29.png
+│   │   │   │   ├── expression_2.png
+│   │   │   │   ├── expression_30.png
+│   │   │   │   ├── expression_31.png
+│   │   │   │   ├── expression_32.png
+│   │   │   │   ├── expression_33.png
+│   │   │   │   ├── expression_34.png
+│   │   │   │   ├── expression_35.png
+│   │   │   │   ├── expression_36.png
+│   │   │   │   ├── expression_37.png
+│   │   │   │   ├── expression_38.png
+│   │   │   │   ├── expression_39.png
+│   │   │   │   ├── expression_3.png
+│   │   │   │   ├── expression_40.png
+│   │   │   │   ├── expression_41.png
+│   │   │   │   ├── expression_42.png
+│   │   │   │   ├── expression_43.png
+│   │   │   │   ├── expression_44.png
+│   │   │   │   ├── expression_45.png
+│   │   │   │   ├── expression_46.png
+│   │   │   │   ├── expression_47.png
+│   │   │   │   ├── expression_48.png
+│   │   │   │   ├── expression_49.png
+│   │   │   │   ├── expression_4.png
+│   │   │   │   ├── expression_50.png
+│   │   │   │   ├── expression_51.png
+│   │   │   │   ├── expression_52.png
+│   │   │   │   ├── expression_53.png
+│   │   │   │   ├── expression_54.png
+│   │   │   │   ├── expression_55.png
+│   │   │   │   ├── expression_56.png
+│   │   │   │   ├── expression_57.png
+│   │   │   │   ├── expression_58.png
+│   │   │   │   ├── expression_59.png
+│   │   │   │   ├── expression_5.png
+│   │   │   │   ├── expression_60.png
+│   │   │   │   ├── expression_61.png
+│   │   │   │   ├── expression_62.png
+│   │   │   │   ├── expression_63.png
+│   │   │   │   ├── expression_64.png
+│   │   │   │   ├── expression_65.png
+│   │   │   │   ├── expression_66.png
+│   │   │   │   ├── expression_67.png
+│   │   │   │   ├── expression_68.png
+│   │   │   │   ├── expression_69.png
+│   │   │   │   ├── expression_6.png
+│   │   │   │   ├── expression_70.png
+│   │   │   │   ├── expression_71.png
+│   │   │   │   ├── expression_72.png
+│   │   │   │   ├── expression_73.png
+│   │   │   │   ├── expression_74.png
+│   │   │   │   ├── expression_75.png
+│   │   │   │   ├── expression_76.png
+│   │   │   │   ├── expression_77.png
+│   │   │   │   ├── expression_78.png
+│   │   │   │   ├── expression_79.png
+│   │   │   │   ├── expression_7.png
+│   │   │   │   ├── expression_80.png
+│   │   │   │   ├── expression_81.png
+│   │   │   │   ├── expression_82.png
+│   │   │   │   ├── expression_83.png
+│   │   │   │   ├── expression_84.png
+│   │   │   │   ├── expression_85.png
+│   │   │   │   ├── expression_86.png
+│   │   │   │   ├── expression_87.png
+│   │   │   │   ├── expression_88.png
+│   │   │   │   ├── expression_89.png
+│   │   │   │   ├── expression_8.png
+│   │   │   │   ├── expression_90.png
+│   │   │   │   ├── expression_91.png
+│   │   │   │   ├── expression_92.png
+│   │   │   │   ├── expression_93.png
+│   │   │   │   ├── expression_94.png
+│   │   │   │   ├── expression_95.png
+│   │   │   │   ├── expression_96.png
+│   │   │   │   ├── expression_97.png
+│   │   │   │   ├── expression_98.png
+│   │   │   │   ├── expression_99.png
+│   │   │   │   ├── expression_9.png
+│   │   │   │   ├── notification_oversize_large_icon_bg.png
+│   │   │   │   ├── qrcode_goback.png
+│   │   │   │   ├── scan_light.png
+│   │   │   │   ├── sobot_bg_emoticon_pressed.9.png
+│   │   │   │   └── sobot_btn_emoticon_input_bg.xml
+│   │   │   ├── drawable-ldrtl-xxhdpi-v4
+│   │   │   │   ├── sobot_cur_choose.png
+│   │   │   │   ├── sobot_cur_level.png
+│   │   │   │   ├── sobot_icon_right_arrow.png
+│   │   │   │   ├── sobot_icon_right_normal.png
+│   │   │   │   ├── sobot_icon_titlebar_back.png
+│   │   │   │   ├── sobot_item_arrow.png
+│   │   │   │   ├── sobot_right_arrow_icon.png
+│   │   │   │   ├── sobot_swith_robot_bg.xml
+│   │   │   │   └── sobot_wo_from_back.png
+│   │   │   ├── drawable-mdpi-v4
+│   │   │   │   ├── com_facebook_profile_picture_blank_portrait.png
+│   │   │   │   └── com_facebook_profile_picture_blank_square.png
+│   │   │   ├── drawable-night-v8
+│   │   │   │   ├── sobot_chat_hollow_gray_bg.xml
+│   │   │   │   ├── sobot_normal_btn_bg.xml
+│   │   │   │   ├── sobot_not_readinfo_btn.xml
+│   │   │   │   ├── sobot_oval_white_bg.xml
+│   │   │   │   ├── sobot_shadow_bg.xml
+│   │   │   │   ├── sobot_swith_robot_bg.xml
+│   │   │   │   └── sobot_top_shadow_bg.xml
+│   │   │   ├── drawable-night-xhdpi-v8
+│   │   │   │   ├── sobot_attachment_right_arrow.png
+│   │   │   │   ├── sobot_camera_picture_normal.png
+│   │   │   │   ├── sobot_choose_file_normal.png
+│   │   │   │   ├── sobot_dialog_back.png
+│   │   │   │   ├── sobot_icon_manualwork_normal.png
+│   │   │   │   ├── sobot_icon_point_create.png
+│   │   │   │   ├── sobot_icon_point_new.png
+│   │   │   │   ├── sobot_icon_right_arrow.png
+│   │   │   │   ├── sobot_layout_custom_card_bg.9.png
+│   │   │   │   ├── sobot_leavemsg_normal.png
+│   │   │   │   ├── sobot_location_normal.png
+│   │   │   │   ├── sobot_order_normal.png
+│   │   │   │   ├── sobot_pic_list_add.png
+│   │   │   │   ├── sobot_picture_satisfaction_normal.png
+│   │   │   │   ├── sobot_pop_black_right_normal.png
+│   │   │   │   ├── sobot_pop_black_right_pressed.png
+│   │   │   │   ├── sobot_pop_fuzhi_normal.png
+│   │   │   │   ├── sobot_pop_fuzhi_pressed.png
+│   │   │   │   ├── sobot_pop_satisfaction.png
+│   │   │   │   ├── sobot_post_category_checkbox_pressed.png
+│   │   │   │   ├── sobot_resolve_bg.9.png
+│   │   │   │   ├── sobot_search.png
+│   │   │   │   ├── sobot_small_star_empty.png
+│   │   │   │   ├── sobot_star_empty.png
+│   │   │   │   ├── sobot_take_picture_normal.png
+│   │   │   │   └── sobot_take_video_normal.png
+│   │   │   ├── drawable-night-xxhdpi-v8
+│   │   │   │   ├── sobot_bottombar_conversation.png
+│   │   │   │   ├── sobot_bottombar_leavemsg.png
+│   │   │   │   ├── sobot_bottombar_satisfaction.png
+│   │   │   │   ├── sobot_delete_history_msg.png
+│   │   │   │   ├── sobot_emoticon_normal.png
+│   │   │   │   ├── sobot_icon_cai_def.png
+│   │   │   │   ├── sobot_icon_checkbox_n.png
+│   │   │   │   ├── sobot_icon_close.png
+│   │   │   │   ├── sobot_icon_titlebar_back.png
+│   │   │   │   ├── sobot_icon_transfer.png
+│   │   │   │   ├── sobot_icon_vioce_normal.png
+│   │   │   │   ├── sobot_icon_zan_def.png
+│   │   │   │   ├── sobot_keyboard_normal.png
+│   │   │   │   ├── sobot_picture_add_close.png
+│   │   │   │   └── sobot_picture_add_normal.png
+│   │   │   ├── drawable-watch-v8
+│   │   │   │   ├── abc_dialog_material_background.xml
+│   │   │   │   ├── common_google_signin_btn_text_dark_normal.xml
+│   │   │   │   ├── common_google_signin_btn_text_disabled.xml
+│   │   │   │   └── common_google_signin_btn_text_light_normal.xml
+│   │   │   ├── drawable-xhdpi-v4
+│   │   │   │   ├── bottom_background_img.png
+│   │   │   │   ├── close_btn_img_black.png
+│   │   │   │   ├── close_btn_img.png
+│   │   │   │   ├── kr_channel_ic_close.png
+│   │   │   │   ├── login_btn_img.png
+│   │   │   │   ├── naver_icon.png
+│   │   │   │   ├── nid_progress_dialog_shape.xml
+│   │   │   │   ├── sobon_icon_map_left.png
+│   │   │   │   ├── sobon_icon_map.png
+│   │   │   │   ├── sobot_album_tag_video_white.png
+│   │   │   │   ├── sobot_avatar_robot.png
+│   │   │   │   ├── sobot_bg_default_long_pic.png
+│   │   │   │   ├── sobot_bg_default_map.png
+│   │   │   │   ├── sobot_bg_default_pic_img.png
+│   │   │   │   ├── sobot_camera_picture_normal.png
+│   │   │   │   ├── sobot_chatting_default_head.png
+│   │   │   │   ├── sobot_choose_file_normal.png
+│   │   │   │   ├── sobot_def_admin.png
+│   │   │   │   ├── sobot_default_pic_err.png
+│   │   │   │   ├── sobot_default_pic.png
+│   │   │   │   ├── sobot_dialog_back.png
+│   │   │   │   ├── sobot_emoticon_del_normal.png
+│   │   │   │   ├── sobot_emoticon_del_press.png
+│   │   │   │   ├── sobot_ic_back.png
+│   │   │   │   ├── sobot_ic_camera.png
+│   │   │   │   ├── sobot_ic_cancel.png
+│   │   │   │   ├── sobot_icon_add.png
+│   │   │   │   ├── sobot_icon_arrow_down.png
+│   │   │   │   ├── sobot_icon_arrow_up.png
+│   │   │   │   ├── sobot_icon_back.png
+│   │   │   │   ├── sobot_icon_consulting_default_pic.png
+│   │   │   │   ├── sobot_icon_dir.png
+│   │   │   │   ├── sobot_icon_evaluate.png
+│   │   │   │   ├── sobot_icon_file_doc.png
+│   │   │   │   ├── sobot_icon_file_mp3.png
+│   │   │   │   ├── sobot_icon_file_mp4.png
+│   │   │   │   ├── sobot_icon_file_pdf.png
+│   │   │   │   ├── sobot_icon_file.png
+│   │   │   │   ├── sobot_icon_file_ppt.png
+│   │   │   │   ├── sobot_icon_file_rar.png
+│   │   │   │   ├── sobot_icon_file_txt.png
+│   │   │   │   ├── sobot_icon_file_unknow.png
+│   │   │   │   ├── sobot_icon_file_xls.png
+│   │   │   │   ├── sobot_icon_loading.png
+│   │   │   │   ├── sobot_icon_nonet2.png
+│   │   │   │   ├── sobot_icon_nonet.png
+│   │   │   │   ├── sobot_icon_point_old.png
+│   │   │   │   ├── sobot_icon_radio_btn_normal.png
+│   │   │   │   ├── sobot_icon_radio_btn_selected.png
+│   │   │   │   ├── sobot_icon_remove.png
+│   │   │   │   ├── sobot_icon_right_arrow.png
+│   │   │   │   ├── sobot_icon_right_pressed.png
+│   │   │   │   ├── sobot_icon_switch.png
+│   │   │   │   ├── sobot_icon_switch_robot.png
+│   │   │   │   ├── sobot_icon_tag_nonet.png
+│   │   │   │   ├── sobot_icon_triangle_down.png
+│   │   │   │   ├── sobot_icon_triangle_up.png
+│   │   │   │   ├── sobot_ic_pause.png
+│   │   │   │   ├── sobot_ic_play.png
+│   │   │   │   ├── sobot_input_clear.png
+│   │   │   │   ├── sobot_item_arrow.png
+│   │   │   │   ├── sobot_last_page.png
+│   │   │   │   ├── sobot_layout_custom_card_bg.9.png
+│   │   │   │   ├── sobot_leavemsg_normal.png
+│   │   │   │   ├── sobot_link_image.png
+│   │   │   │   ├── sobot_ll_switch_robot_bg.png
+│   │   │   │   ├── sobot_location_normal.png
+│   │   │   │   ├── sobot_logo_icon.png
+│   │   │   │   ├── sobot_logo_small_icon.png
+│   │   │   │   ├── sobot_message_bubble_1.png
+│   │   │   │   ├── sobot_message_bubble_2.png
+│   │   │   │   ├── sobot_message_bubble_3.png
+│   │   │   │   ├── sobot_mini_program_logo_gray.png
+│   │   │   │   ├── sobot_mini_program_logo.png
+│   │   │   │   ├── sobot_mini_program_logo_white.png
+│   │   │   │   ├── sobot_no_last_page.png
+│   │   │   │   ├── sobot_no_pre_page.png
+│   │   │   │   ├── sobot_notice_arrow_down.png
+│   │   │   │   ├── sobot_notice_arrow_up.png
+│   │   │   │   ├── sobot_order_normal.png
+│   │   │   │   ├── sobot_photo_selected.png
+│   │   │   │   ├── sobot_photo_unselected.png
+│   │   │   │   ├── sobot_pic_delete_normal.png
+│   │   │   │   ├── sobot_pic_delete_pressed.png
+│   │   │   │   ├── sobot_pic_list_add.png
+│   │   │   │   ├── sobot_pic_send_icon.png
+│   │   │   │   ├── sobot_picture_satisfaction_normal.png
+│   │   │   │   ├── sobot_pop_fuzhi_normal.png
+│   │   │   │   ├── sobot_pop_fuzhi_pressed.png
+│   │   │   │   ├── sobot_pop_satisfaction.png
+│   │   │   │   ├── sobot_pop_voice_receive_anime_1.png
+│   │   │   │   ├── sobot_pop_voice_receive_anime_2.png
+│   │   │   │   ├── sobot_pop_voice_receive_anime_3.png
+│   │   │   │   ├── sobot_pop_voice_receive_anime_4.png
+│   │   │   │   ├── sobot_pop_voice_receive_anime_5.png
+│   │   │   │   ├── sobot_pop_voice_send_anime_1.png
+│   │   │   │   ├── sobot_pop_voice_send_anime_2.png
+│   │   │   │   ├── sobot_pop_voice_send_anime_3.png
+│   │   │   │   ├── sobot_pop_voice_send_anime_appoint_1.png
+│   │   │   │   ├── sobot_pop_voice_send_anime_appoint_2.png
+│   │   │   │   ├── sobot_pop_voice_send_anime_appoint_3.png
+│   │   │   │   ├── sobot_pop_voice_send_anime_appoint_left_1.png
+│   │   │   │   ├── sobot_pop_voice_send_anime_appoint_left_2.png
+│   │   │   │   ├── sobot_pop_voice_send_anime_appoint_left_3.png
+│   │   │   │   ├── sobot_post_category_checkbox_normal.png
+│   │   │   │   ├── sobot_post_category_checkbox_pressed.png
+│   │   │   │   ├── sobot_pre_page.png
+│   │   │   │   ├── sobot_quick_menu_evaluate.png
+│   │   │   │   ├── sobot_quick_menu_knowledge.png
+│   │   │   │   ├── sobot_quick_menu_leave.png
+│   │   │   │   ├── sobot_quick_menu_link.png
+│   │   │   │   ├── sobot_quick_menu_message.png
+│   │   │   │   ├── sobot_quick_menu_out.png
+│   │   │   │   ├── sobot_reply.png
+│   │   │   │   ├── sobot_resolve_bg.9.png
+│   │   │   │   ├── sobot_rich_item_vedoi_default.png
+│   │   │   │   ├── sobot_robot.png
+│   │   │   │   ├── sobot_select_time_zone.png
+│   │   │   │   ├── sobot_skill_group_scroll_img.9.png
+│   │   │   │   ├── sobot_successed_icon.png
+│   │   │   │   ├── sobot_take_picture_normal.png
+│   │   │   │   ├── sobot_take_video_normal.png
+│   │   │   │   ├── sobot_voice_change_fail.png
+│   │   │   │   ├── sobot_voice_change_success.png
+│   │   │   │   ├── sobot_webview_toolsbar_back_disable.png
+│   │   │   │   ├── sobot_webview_toolsbar_back_normal.png
+│   │   │   │   ├── sobot_webview_toolsbar_back_pressed.png
+│   │   │   │   ├── sobot_webview_toolsbar_copy_normal.png
+│   │   │   │   ├── sobot_webview_toolsbar_copy_pressed.png
+│   │   │   │   ├── sobot_webview_toolsbar_forward_disable.png
+│   │   │   │   ├── sobot_webview_toolsbar_forward_normal.png
+│   │   │   │   ├── sobot_webview_toolsbar_forward_pressed.png
+│   │   │   │   ├── sobot_webview_toolsbar_reload_normal.png
+│   │   │   │   ├── sobot_webview_toolsbar_reload_pressed.png
+│   │   │   │   ├── sobot_wo_from_back.png
+│   │   │   │   ├── sobot_word_delete_normal.png
+│   │   │   │   ├── sobot_word_delete_pressed.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00000.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00001.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00002.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00003.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00004.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00005.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00006.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00007.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00008.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00009.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00010.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00011.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00012.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00013.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00014.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00015.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00016.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00017.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00018.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00019.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00020.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00021.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00022.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00023.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00024.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00025.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00026.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00027.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00028.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00029.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00030.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00031.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00032.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00033.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00034.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00035.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00036.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00037.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00038.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00039.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00040.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00041.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00042.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00043.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00044.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00045.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00046.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00047.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00048.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00049.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00050.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00051.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00052.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00053.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00054.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00055.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00056.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00057.png
+│   │   │   │   ├── tw__heart_animation_detail_60fps_00058.png
+│   │   │   │   └── tw__heart_animation_detail_60fps_00059.png
+│   │   │   ├── drawable-xxhdpi-v4
+│   │   │   │   ├── kr_bg_aki_dialog_content.9.png
+│   │   │   │   ├── kr_bg_aki_dialog_top_bar.png
+│   │   │   │   ├── kr_bg_aki_warning_dialog.9.png
+│   │   │   │   ├── kr_bg_aki_warning_dialog_decoration.png
+│   │   │   │   ├── kr_channel_icon_back_black.png
+│   │   │   │   ├── kr_check_box_check.png
+│   │   │   │   ├── kr_check_box_uncheck.png
+│   │   │   │   ├── kr_dl_del_default.png
+│   │   │   │   ├── kr_ic_code.png
+│   │   │   │   ├── kr_ic_user_default.png
+│   │   │   │   ├── sobot_announcement_img_icon.png
+│   │   │   │   ├── sobot_bottombar_conversation.png
+│   │   │   │   ├── sobot_bottombar_leavemsg.png
+│   │   │   │   ├── sobot_bottombar_satisfaction.png
+│   │   │   │   ├── sobot_cur_choose.png
+│   │   │   │   ├── sobot_cur_data.png
+│   │   │   │   ├── sobot_cur_input_clear.png
+│   │   │   │   ├── sobot_cur_level.png
+│   │   │   │   ├── sobot_cur_search.png
+│   │   │   │   ├── sobot_cur_selected.png
+│   │   │   │   ├── sobot_cur_time.png
+│   │   │   │   ├── sobot_delete_file.png
+│   │   │   │   ├── sobot_delete_history_msg.png
+│   │   │   │   ├── sobot_emoticon_normal.png
+│   │   │   │   ├── sobot_evaluate_star_empty.png
+│   │   │   │   ├── sobot_evaluate_star_full.png
+│   │   │   │   ├── sobot_icon_aiagent_cai_checked.png
+│   │   │   │   ├── sobot_icon_aiagent_cai_checked_shoushi.png
+│   │   │   │   ├── sobot_icon_aiagent_cai_def.png
+│   │   │   │   ├── sobot_icon_aiagent_cai_def_shoushi.png
+│   │   │   │   ├── sobot_icon_aiagent_zan_checked.png
+│   │   │   │   ├── sobot_icon_aiagent_zan_checked_shoushi.png
+│   │   │   │   ├── sobot_icon_aiagent_zan_def.png
+│   │   │   │   ├── sobot_icon_aiagent_zan_def_shoushi.png
+│   │   │   │   ├── sobot_icon_already_read.png
+│   │   │   │   ├── sobot_icon_cai_checked.png
+│   │   │   │   ├── sobot_icon_cai_def.png
+│   │   │   │   ├── sobot_icon_checkbox_n.png
+│   │   │   │   ├── sobot_icon_checkbox_s.png
+│   │   │   │   ├── sobot_icon_close.png
+│   │   │   │   ├── sobot_icon_completed.png
+│   │   │   │   ├── sobot_icon_error_cha.png
+│   │   │   │   ├── sobot_icon_image_loading_error.png
+│   │   │   │   ├── sobot_icon_manyi_def.png
+│   │   │   │   ├── sobot_icon_manyi_sel.png
+│   │   │   │   ├── sobot_icon_no_checked.png
+│   │   │   │   ├── sobot_icon_no_def.png
+│   │   │   │   ├── sobot_icon_no_manyi_def.png
+│   │   │   │   ├── sobot_icon_no_manyi_sel.png
+│   │   │   │   ├── sobot_icon_no_read.png
+│   │   │   │   ├── sobot_icon_right_normal.png
+│   │   │   │   ├── sobot_icon_send_fail.png
+│   │   │   │   ├── sobot_icon_success.png
+│   │   │   │   ├── sobot_icon_tanhao.png
+│   │   │   │   ├── sobot_icon_titlebar_back.png
+│   │   │   │   ├── sobot_icon_transfer.png
+│   │   │   │   ├── sobot_icon_vioce_normal.png
+│   │   │   │   ├── sobot_icon_yes_checked.png
+│   │   │   │   ├── sobot_icon_yes_def.png
+│   │   │   │   ├── sobot_icon_zan_checked.png
+│   │   │   │   ├── sobot_icon_zan_def.png
+│   │   │   │   ├── sobot_keyboard_normal.png
+│   │   │   │   ├── sobot_loading_img.png
+│   │   │   │   ├── sobot_no_reply.png
+│   │   │   │   ├── sobot_not_readinfo.png
+│   │   │   │   ├── sobot_not_read_newmsg.png
+│   │   │   │   ├── sobot_phone.png
+│   │   │   │   ├── sobot_picture_add_close.png
+│   │   │   │   ├── sobot_picture_add_normal.png
+│   │   │   │   ├── sobot_progressbar_loading_first.png
+│   │   │   │   ├── sobot_progressbar_loading_second.png
+│   │   │   │   ├── sobot_progressbar_loading_third.png
+│   │   │   │   ├── sobot_recording_volum1.png
+│   │   │   │   ├── sobot_recording_volum2.png
+│   │   │   │   ├── sobot_recording_volum3.png
+│   │   │   │   ├── sobot_recording_volum4.png
+│   │   │   │   ├── sobot_recording_volum5.png
+│   │   │   │   ├── sobot_recording_volum6.png
+│   │   │   │   ├── sobot_recording_volum7.png
+│   │   │   │   ├── sobot_recording_volum8.png
+│   │   │   │   ├── sobot_recording_volum_cancle_1.png
+│   │   │   │   ├── sobot_recording_volum_cancle_2.png
+│   │   │   │   ├── sobot_recording_volum_cancle_3.png
+│   │   │   │   ├── sobot_recording_volum_cancle_4.png
+│   │   │   │   ├── sobot_recording_volum_cancle_5.png
+│   │   │   │   ├── sobot_recording_volum_cancle_6.png
+│   │   │   │   ├── sobot_recording_volum_cancle_7.png
+│   │   │   │   ├── sobot_recording_volum_cancle_8.png
+│   │   │   │   ├── sobot_right_arrow_icon.png
+│   │   │   │   ├── sobot_right_arrow_icon_rtl.png
+│   │   │   │   ├── sobot_switch_btn.png
+│   │   │   │   ├── sobot_ticket_new_flag.png
+│   │   │   │   ├── sobot_tickt_history.png
+│   │   │   │   └── sobot_upload_file.png
+│   │   │   ├── drawable-xxxhdpi-v4
+│   │   │   │   ├── bg_get_phone_code.9.png
+│   │   │   │   ├── kr_bg_aki_negative_btn.9.png
+│   │   │   │   ├── kr_bg_aki_negative_btn_dark.png
+│   │   │   │   ├── kr_bg_aki_positive_btn.9.png
+│   │   │   │   ├── kr_bg_main_button.9.png
+│   │   │   │   ├── kr_close.png
+│   │   │   │   ├── kr_error_qr_code_pay.png
+│   │   │   │   ├── kr_goback.png
+│   │   │   │   ├── kr_ic_aki_loading_center.png
+│   │   │   │   ├── kr_ic_btn_pay_loading.png
+│   │   │   │   ├── kr_ic_can_not_see_psw.png
+│   │   │   │   ├── kr_ic_can_see_psw.png
+│   │   │   │   ├── kr_ic_clean_edit.png
+│   │   │   │   ├── kr_ic_loading.png
+│   │   │   │   ├── kr_icon_bind_fail.png
+│   │   │   │   ├── kr_icon_bind_success.png
+│   │   │   │   ├── kr_ic_pay_loading.png
+│   │   │   │   ├── kr_ic_pay_selected.png
+│   │   │   │   ├── kr_ic_refresh.png
+│   │   │   │   ├── kr_ic_terms_arrow.png
+│   │   │   │   ├── kr_item_delete.png
+│   │   │   │   ├── kr_item_down.png
+│   │   │   │   ├── kr_item_up.png
+│   │   │   │   ├── kr_logo.png
+│   │   │   │   ├── kr_shape_aki_webview.png
+│   │   │   │   ├── kr_warning.png
+│   │   │   │   ├── kr_web_trans_close.png
+│   │   │   │   ├── kuro_icon_login_email.png
+│   │   │   │   ├── kuro_icon_login_facebook.png
+│   │   │   │   ├── kuro_icon_login_google.png
+│   │   │   │   ├── kuro_icon_login_guest.png
+│   │   │   │   ├── kuro_icon_login_line.png
+│   │   │   │   ├── kuro_icon_login_more.png
+│   │   │   │   ├── kuro_icon_login_naver.png
+│   │   │   │   ├── kuro_icon_login_pgs.png
+│   │   │   │   ├── kuro_icon_login_preamble_code.png
+│   │   │   │   ├── kuro_icon_login_scan.png
+│   │   │   │   └── kuro_icon_login_twitter.png
+│   │   │   ├── interpolator
+│   │   │   │   ├── btn_checkbox_checked_mtrl_animation_interpolator_0.xml
+│   │   │   │   ├── btn_checkbox_checked_mtrl_animation_interpolator_1.xml
+│   │   │   │   ├── btn_checkbox_unchecked_mtrl_animation_interpolator_0.xml
+│   │   │   │   ├── btn_checkbox_unchecked_mtrl_animation_interpolator_1.xml
+│   │   │   │   ├── btn_radio_to_off_mtrl_animation_interpolator_0.xml
+│   │   │   │   ├── btn_radio_to_on_mtrl_animation_interpolator_0.xml
+│   │   │   │   └── fast_out_slow_in.xml
+│   │   │   ├── layout
+│   │   │   │   ├── abc_action_bar_title_item.xml
+│   │   │   │   ├── abc_action_bar_up_container.xml
+│   │   │   │   ├── abc_action_menu_item_layout.xml
+│   │   │   │   ├── abc_action_menu_layout.xml
+│   │   │   │   ├── abc_action_mode_bar.xml
+│   │   │   │   ├── abc_action_mode_close_item_material.xml
+│   │   │   │   ├── abc_activity_chooser_view_list_item.xml
+│   │   │   │   ├── abc_activity_chooser_view.xml
+│   │   │   │   ├── abc_alert_dialog_button_bar_material.xml
+│   │   │   │   ├── abc_alert_dialog_material.xml
+│   │   │   │   ├── abc_alert_dialog_title_material.xml
+│   │   │   │   ├── abc_cascading_menu_item_layout.xml
+│   │   │   │   ├── abc_dialog_title_material.xml
+│   │   │   │   ├── abc_expanded_menu_layout.xml
+│   │   │   │   ├── abc_list_menu_item_checkbox.xml
+│   │   │   │   ├── abc_list_menu_item_icon.xml
+│   │   │   │   ├── abc_list_menu_item_layout.xml
+│   │   │   │   ├── abc_list_menu_item_radio.xml
+│   │   │   │   ├── abc_popup_menu_header_item_layout.xml
+│   │   │   │   ├── abc_popup_menu_item_layout.xml
+│   │   │   │   ├── abc_screen_content_include.xml
+│   │   │   │   ├── abc_screen_simple_overlay_action_mode.xml
+│   │   │   │   ├── abc_screen_simple.xml
+│   │   │   │   ├── abc_screen_toolbar.xml
+│   │   │   │   ├── abc_search_dropdown_item_icons_2line.xml
+│   │   │   │   ├── abc_search_view.xml
+│   │   │   │   ├── abc_select_dialog_material.xml
+│   │   │   │   ├── abc_tooltip.xml
+│   │   │   │   ├── activity_endisable_service.xml
+│   │   │   │   ├── activity_oauth_webview.xml
+│   │   │   │   ├── browser_actions_context_menu_page.xml
+│   │   │   │   ├── browser_actions_context_menu_row.xml
+│   │   │   │   ├── capture.xml
+│   │   │   │   ├── com_facebook_activity_layout.xml
+│   │   │   │   ├── com_facebook_device_auth_dialog_fragment.xml
+│   │   │   │   ├── com_facebook_login_fragment.xml
+│   │   │   │   ├── com_facebook_smart_device_dialog_fragment.xml
+│   │   │   │   ├── com_facebook_tooltip_bubble.xml
+│   │   │   │   ├── custom_dialog.xml
+│   │   │   │   ├── downloader_progress.xml
+│   │   │   │   ├── fingerprint_dialog_layout.xml
+│   │   │   │   ├── hms_download_progress.xml
+│   │   │   │   ├── hwpush_layout2.xml
+│   │   │   │   ├── hwpush_trans_activity.xml
+│   │   │   │   ├── ime_base_split_test_activity.xml
+│   │   │   │   ├── ime_secondary_split_test_activity.xml
+│   │   │   │   ├── kr_channel_dialog_webview.xml
+│   │   │   │   ├── kr_core_activity_webview.xml
+│   │   │   │   ├── kr_core_dialog_webview.xml
+│   │   │   │   ├── kr_dialog_age_confirmation.xml
+│   │   │   │   ├── kr_dialog_bind_success.xml
+│   │   │   │   ├── kr_dialog_bind.xml
+│   │   │   │   ├── kr_dialog_confirm.xml
+│   │   │   │   ├── kr_dialog_dev_bind_failure.xml
+│   │   │   │   ├── kr_dialog_head.xml
+│   │   │   │   ├── kr_dialog_history_login_tips.xml
+│   │   │   │   ├── kr_dialog_history_login.xml
+│   │   │   │   ├── kr_dialog_logo_top_bar.xml
+│   │   │   │   ├── kr_dialog_pay_list.xml
+│   │   │   │   ├── kr_dialog_payment_restriction_warning.xml
+│   │   │   │   ├── kr_dialog_preamble_code.xml
+│   │   │   │   ├── kr_dialog_protocol_update_tips.xml
+│   │   │   │   ├── kr_dialog_title_top_bar.xml
+│   │   │   │   ├── kr_dialog_warning.xml
+│   │   │   │   ├── kr_dialog_webview_top_bar.xml
+│   │   │   │   ├── kr_item_email_login_fast_login.xml
+│   │   │   │   ├── kr_item_fastlogin.xml
+│   │   │   │   ├── kr_item_login_history_account.xml
+│   │   │   │   ├── kr_item_payment_restriction_detail.xml
+│   │   │   │   ├── kr_layout_auto_login.xml
+│   │   │   │   ├── kr_layout_camera_permission_tips.xml
+│   │   │   │   ├── kr_layout_login_popwindow.xml
+│   │   │   │   ├── kr_qrcode_login.xml
+│   │   │   │   ├── kr_toast_tips.xml
+│   │   │   │   ├── kr_view_check_box.xml
+│   │   │   │   ├── kr_view_edit_text_with_del.xml
+│   │   │   │   ├── kr_view_order_query.xml
+│   │   │   │   ├── kr_view_paylist_item.xml
+│   │   │   │   ├── kr_view_qr_code_pay_error.xml
+│   │   │   │   ├── kr_view_stub_pay_error.xml
+│   │   │   │   ├── kuro_dialog_agreement_affirm.xml
+│   │   │   │   ├── kuro_dialog_fast_login.xml
+│   │   │   │   ├── kuro_dialog_loading.xml
+│   │   │   │   ├── kuro_dialog_login.xml
+│   │   │   │   ├── kuro_dialog_personal_center.xml
+│   │   │   │   ├── kuro_dialog_protocol_age_confirm.xml
+│   │   │   │   ├── kuro_dialog_webview.xml
+│   │   │   │   ├── kuro_item_fast_login.xml
+│   │   │   │   ├── layout_loading_view.xml
+│   │   │   │   ├── linesdk_activity_lineauthentication.xml
+│   │   │   │   ├── nid_progress_dialog.xml
+│   │   │   │   ├── notification_action_tombstone.xml
+│   │   │   │   ├── notification_action.xml
+│   │   │   │   ├── notification_media_action.xml
+│   │   │   │   ├── notification_media_cancel_action.xml
+│   │   │   │   ├── notification_template_big_media_custom.xml
+│   │   │   │   ├── notification_template_big_media_narrow_custom.xml
+│   │   │   │   ├── notification_template_big_media_narrow.xml
+│   │   │   │   ├── notification_template_big_media.xml
+│   │   │   │   ├── notification_template_custom_big.xml
+│   │   │   │   ├── notification_template_icon_group.xml
+│   │   │   │   ├── notification_template_lines_media.xml
+│   │   │   │   ├── notification_template_media_custom.xml
+│   │   │   │   ├── notification_template_media.xml
+│   │   │   │   ├── notification_template_part_chronometer.xml
+│   │   │   │   ├── notification_template_part_time.xml
+│   │   │   │   ├── package_list_item.xml
+│   │   │   │   ├── select_dialog_item_material.xml
+│   │   │   │   ├── select_dialog_multichoice_material.xml
+│   │   │   │   ├── select_dialog_singlechoice_material.xml
+│   │   │   │   ├── sobot_activity_camera.xml
+│   │   │   │   ├── sobot_activity_choose_file.xml
+│   │   │   │   ├── sobot_activity_consultation_list.xml
+│   │   │   │   ├── sobot_activity_cusfield_listview_items.xml
+│   │   │   │   ├── sobot_activity_cusfield.xml
+│   │   │   │   ├── sobot_activity_file_detail.xml
+│   │   │   │   ├── sobot_activity_form_info.xml
+│   │   │   │   ├── sobot_activity_help_center.xml
+│   │   │   │   ├── sobot_activity_muit_post_msg.xml
+│   │   │   │   ├── sobot_activity_post_category_items.xml
+│   │   │   │   ├── sobot_activity_post_category.xml
+│   │   │   │   ├── sobot_activity_post_leave_msg.xml
+│   │   │   │   ├── sobot_activity_post_msg.xml
+│   │   │   │   ├── sobot_activity_privacy_agreement.xml
+│   │   │   │   ├── sobot_activity_problem_category.xml
+│   │   │   │   ├── sobot_activity_problem_detail.xml
+│   │   │   │   ├── sobot_activity_query_from.xml
+│   │   │   │   ├── sobot_activity_quote_detail.xml
+│   │   │   │   ├── sobot_activity_select_pic_and_video.xml
+│   │   │   │   ├── sobot_activity_select_region.xml
+│   │   │   │   ├── sobot_activity_skill_group.xml
+│   │   │   │   ├── sobot_activity_ticket_detail.xml
+│   │   │   │   ├── sobot_activity_ticket_list.xml
+│   │   │   │   ├── sobot_activity_time_zone.xml
+│   │   │   │   ├── sobot_activity_video.xml
+│   │   │   │   ├── sobot_activity_webview.xml
+│   │   │   │   ├── sobot_camera_view.xml
+│   │   │   │   ├── sobot_chat_act.xml
+│   │   │   │   ├── sobot_chat_bottom_pluspage.xml
+│   │   │   │   ├── sobot_chat_fragment.xml
+│   │   │   │   ├── sobot_chat_main.xml
+│   │   │   │   ├── sobot_chat_msg_appoint_audio.xml
+│   │   │   │   ├── sobot_chat_msg_appoint_card_h.xml
+│   │   │   │   ├── sobot_chat_msg_appoint_card.xml
+│   │   │   │   ├── sobot_chat_msg_appoint_file.xml
+│   │   │   │   ├── sobot_chat_msg_appoint_linkcard.xml
+│   │   │   │   ├── sobot_chat_msg_appoint_other.xml
+│   │   │   │   ├── sobot_chat_msg_appoint_vedio.xml
+│   │   │   │   ├── sobot_chat_msg_file_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_aiagent_button_type.xml
+│   │   │   │   ├── sobot_chat_msg_item_ai_card_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_ai_card_more.xml
+│   │   │   │   ├── sobot_chat_msg_item_ai_card_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_ai_card.xml
+│   │   │   │   ├── sobot_chat_msg_item_appoint_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_appoint_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_article_card_common.xml
+│   │   │   │   ├── sobot_chat_msg_item_article_card_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_audiot_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_cai_reason_card.xml
+│   │   │   │   ├── sobot_chat_msg_item_card_btn.xml
+│   │   │   │   ├── sobot_chat_msg_item_card_goods_h.xml
+│   │   │   │   ├── sobot_chat_msg_item_card_goods_v.xml
+│   │   │   │   ├── sobot_chat_msg_item_card_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_card_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_change_languae.xml
+│   │   │   │   ├── sobot_chat_msg_item_consult.xml
+│   │   │   │   ├── sobot_chat_msg_item_custom_card_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_custom_card_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_evaluate.xml
+│   │   │   │   ├── sobot_chat_msg_item_file_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_file_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_hot_fad.xml
+│   │   │   │   ├── sobot_chat_msg_item_hot_issue.xml
+│   │   │   │   ├── sobot_chat_msg_item_hot_tab.xml
+│   │   │   │   ├── sobot_chat_msg_item_imgt_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_imgt_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_issue_item.xml
+│   │   │   │   ├── sobot_chat_msg_item_location_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_mini_program_card_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_muiti_leave_msg.xml
+│   │   │   │   ├── sobot_chat_msg_item_notice.xml
+│   │   │   │   ├── sobot_chat_msg_item_order_card_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_order_card_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_qr_item.xml
+│   │   │   │   ├── sobot_chat_msg_item_question_recommend.xml
+│   │   │   │   ├── sobot_chat_msg_item_retracted_msg.xml
+│   │   │   │   ├── sobot_chat_msg_item_rich_image_view.xml
+│   │   │   │   ├── sobot_chat_msg_item_rich_vedio_view.xml
+│   │   │   │   ├── sobot_chat_msg_item_rich.xml
+│   │   │   │   ├── sobot_chat_msg_item_robot_answer_items_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_robot_keyword_items_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_sdk_history_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_sensitive_authorize.xml
+│   │   │   │   ├── sobot_chat_msg_item_system_tip.xml
+│   │   │   │   ├── sobot_chat_msg_item_template1_item_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_template1_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_template2_item_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_template2_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_template3_item_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_template3_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_template4_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_template5_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_template6_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_text_btn.xml
+│   │   │   │   ├── sobot_chat_msg_item_tip.xml
+│   │   │   │   ├── sobot_chat_msg_item_txt_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_txt_r.xml
+│   │   │   │   ├── sobot_chat_msg_item_video_l.xml
+│   │   │   │   ├── sobot_chat_msg_item_video_r.xml
+│   │   │   │   ├── sobot_chat_msg_link_card.xml
+│   │   │   │   ├── sobot_choose_dir_item.xml
+│   │   │   │   ├── sobot_choose_file_item.xml
+│   │   │   │   ├── sobot_clear_history_dialog.xml
+│   │   │   │   ├── sobot_common_custom_toast_layout_2.xml
+│   │   │   │   ├── sobot_common_custom_toast_layout.xml
+│   │   │   │   ├── sobot_common_layout_titlebar.xml
+│   │   │   │   ├── sobot_common_permission_popup.xml
+│   │   │   │   ├── sobot_common_permission_purpose_tip_popup.xml
+│   │   │   │   ├── sobot_custom_toast_layout_2.xml
+│   │   │   │   ├── sobot_custom_toast_layout.xml
+│   │   │   │   ├── sobot_custom_week_bar.xml
+│   │   │   │   ├── sobot_delete_picture_popup.xml
+│   │   │   │   ├── sobot_dialog_choose_languae.xml
+│   │   │   │   ├── sobot_dialog_from_search.xml
+│   │   │   │   ├── sobot_dialog_list_item.xml
+│   │   │   │   ├── sobot_dialog_list.xml
+│   │   │   │   ├── sobot_dialog_time_zone.xml
+│   │   │   │   ├── sobot_dropdown_lv_head.xml
+│   │   │   │   ├── sobot_emoticon_layout.xml
+│   │   │   │   ├── sobot_fragment_post_msg.xml
+│   │   │   │   ├── sobot_fragment_ticket_info.xml
+│   │   │   │   ├── sobot_free_account_tip_popup.xml
+│   │   │   │   ├── sobot_item_auto_complete_menu.xml
+│   │   │   │   ├── sobot_item_choose_languae.xml
+│   │   │   │   ├── sobot_item_cus_level.xml
+│   │   │   │   ├── sobot_item_emoticonpage.xml
+│   │   │   │   ├── sobot_item_form_info_select.xml
+│   │   │   │   ├── sobot_item_form_info_text.xml
+│   │   │   │   ├── sobot_item_from_search.xml
+│   │   │   │   ├── sobot_item_phone_code_t.xml
+│   │   │   │   ├── sobot_item_phone_code.xml
+│   │   │   │   ├── sobot_item_select_level.xml
+│   │   │   │   ├── sobot_item_select_region.xml
+│   │   │   │   ├── sobot_item_time_zone.xml
+│   │   │   │   ├── sobot_item_upload_file.xml
+│   │   │   │   ├── sobot_layout_attachment_view.xml
+│   │   │   │   ├── sobot_layout_auto_complete.xml
+│   │   │   │   ├── sobot_layout_basepickerview.xml
+│   │   │   │   ├── sobot_layout_cai_reason_lable_item.xml
+│   │   │   │   ├── sobot_layout_calendar_view.xml
+│   │   │   │   ├── sobot_layout_card_menu.xml
+│   │   │   │   ├── sobot_layout_chat_bottom.xml
+│   │   │   │   ├── sobot_layout_chat_left_msg_bottom.xml
+│   │   │   │   ├── sobot_layout_chat_left_msg_right_empty.xml
+│   │   │   │   ├── sobot_layout_chat_loading.xml
+│   │   │   │   ├── sobot_layout_chat_more_menu.xml
+│   │   │   │   ├── sobot_layout_chat_titlebar.xml
+│   │   │   │   ├── sobot_layout_common_dialog.xml
+│   │   │   │   ├── sobot_layout_common_titlebar.xml
+│   │   │   │   ├── sobot_layout_dialog_reply.xml
+│   │   │   │   ├── sobot_layout_evaluate_item.xml
+│   │   │   │   ├── sobot_layout_evaluate.xml
+│   │   │   │   ├── sobot_layout_lable.xml
+│   │   │   │   ├── sobot_layout_net_error.xml
+│   │   │   │   ├── sobot_layout_online_service_bottom.xml
+│   │   │   │   ├── sobot_layout_overlay.xml
+│   │   │   │   ├── sobot_layout_progress_imageview.xml
+│   │   │   │   ├── sobot_layout_ticket_evaluate.xml
+│   │   │   │   ├── sobot_layout_top_divider.xml
+│   │   │   │   ├── sobot_list_item_emoticon.xml
+│   │   │   │   ├── sobot_list_item_help_category.xml
+│   │   │   │   ├── sobot_list_item_help_center.xml
+│   │   │   │   ├── sobot_list_item_plus_menu.xml
+│   │   │   │   ├── sobot_list_item_robot.xml
+│   │   │   │   ├── sobot_list_item_skill_pic_text_des.xml
+│   │   │   │   ├── sobot_list_item_skill_pic_text.xml
+│   │   │   │   ├── sobot_list_item_skill_text.xml
+│   │   │   │   ├── sobot_list_no_data.xml
+│   │   │   │   ├── sobot_loading_layout_empty.xml
+│   │   │   │   ├── sobot_loading_layout_error.xml
+│   │   │   │   ├── sobot_loading_layout_loading.xml
+│   │   │   │   ├── sobot_msg_center_item.xml
+│   │   │   │   ├── sobot_permission_popup.xml
+│   │   │   │   ├── sobot_permission_purpose_tip_popup.xml
+│   │   │   │   ├── sobot_photo_activity.xml
+│   │   │   │   ├── sobot_pickerview_time.xml
+│   │   │   │   ├── sobot_piclist_item.xml
+│   │   │   │   ├── sobot_pop_chat_room_long_press.xml
+│   │   │   │   ├── sobot_post_msg_cusfield_checkbox_item.xml
+│   │   │   │   ├── sobot_post_msg_cusfield_list_item.xml
+│   │   │   │   ├── sobot_progress_dialog.xml
+│   │   │   │   ├── sobot_resend_message_dialog.xml
+│   │   │   │   ├── sobot_select_pic_and_video_item.xml
+│   │   │   │   ├── sobot_srl_classics_footer.xml
+│   │   │   │   ├── sobot_srl_classics_header.xml
+│   │   │   │   ├── sobot_take_pic_pop.xml
+│   │   │   │   ├── sobot_ten_rating_item.xml
+│   │   │   │   ├── sobot_ticket_detail_foot_item.xml
+│   │   │   │   ├── sobot_ticket_detail_head_item.xml
+│   │   │   │   ├── sobot_ticket_detail_item.xml
+│   │   │   │   ├── sobot_ticket_detail_no_data_item.xml
+│   │   │   │   ├── sobot_ticket_info_item.xml
+│   │   │   │   ├── sobot_video_view.xml
+│   │   │   │   ├── sobot_viewpager.xml
+│   │   │   │   ├── sobot_week_bar.xml
+│   │   │   │   ├── status_bar_ongoing_event_progress_bar.xml
+│   │   │   │   ├── support_simple_spinner_dropdown_item.xml
+│   │   │   │   ├── tw__action_bar.xml
+│   │   │   │   ├── tw__activity_composer.xml
+│   │   │   │   ├── tw__activity_oauth.xml
+│   │   │   │   ├── tw__composer_view.xml
+│   │   │   │   ├── tw__gallery_activity.xml
+│   │   │   │   ├── tw__media_badge.xml
+│   │   │   │   ├── tw__player_activity.xml
+│   │   │   │   ├── tw__tweet_compact.xml
+│   │   │   │   ├── tw__tweet_quote.xml
+│   │   │   │   ├── tw__tweet.xml
+│   │   │   │   ├── tw__video_control.xml
+│   │   │   │   ├── upsdk_app_dl_progress_dialog.xml
+│   │   │   │   └── upsdk_ota_update_view.xml
+│   │   │   ├── layout-land
+│   │   │   │   └── downloader_progress.xml
+│   │   │   ├── layout-v26
+│   │   │   │   └── abc_screen_toolbar.xml
+│   │   │   ├── layout-watch-v8
+│   │   │   │   ├── abc_alert_dialog_button_bar_material.xml
+│   │   │   │   └── abc_alert_dialog_title_material.xml
+│   │   │   ├── mipmap-anydpi-v26
+│   │   │   │   ├── ic_launcher_round.xml
+│   │   │   │   └── ic_launcher.xml
+│   │   │   ├── mipmap-hdpi-v4
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_round.png
+│   │   │   │   └── qrcode_goback.png
+│   │   │   ├── mipmap-ldpi-v4
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-mdpi-v4
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-xhdpi-v4
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-xxhdpi-v4
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_round.png
+│   │   │   │   ├── kr_pay_close.png
+│   │   │   │   ├── kuro_kr_channel_ic_close.png
+│   │   │   │   └── kuro_kr_channel_icon_back_black.png
+│   │   │   ├── mipmap-xxxhdpi-v4
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_round.png
+│   │   │   │   ├── pc_logo.png
+│   │   │   │   └── qrcode_login.png
+│   │   │   ├── raw
+│   │   │   │   ├── beep.ogg
+│   │   │   │   ├── com_android_billingclient_heterodyne_info
+│   │   │   │   ├── com_android_billingclient_registration_info.binarypb
+│   │   │   │   ├── firebase_common_keep.xml
+│   │   │   │   ├── keep.xml
+│   │   │   │   ├── video_b.wav
+│   │   │   │   ├── video_f.wav
+│   │   │   │   └── video_g.wav
+│   │   │   └── xml
+│   │   │       ├── appsflyer_backup_rules.xml
+│   │   │       ├── appsflyer_data_extraction_rules.xml
+│   │   │       ├── com_android_billingclient_phenotype.xml
+│   │   │       ├── file_paths.xml
+│   │   │       ├── image_share_filepaths.xml
+│   │   │       ├── sobot_provider_paths.xml
+│   │   │       ├── splits0.xml
+│   │   │       └── splits1.xml
+│   │   ├── resources.arsc
+│   │   ├── review.properties
+│   │   ├── stamp-cert-sha256
+│   │   ├── transport-api.properties
+│   │   ├── transport-backend-cct.properties
+│   │   └── transport-runtime.properties
+│   ├── apks
+│   │   ├── base.apk
+│   │   ├── split_config.arm64_v8a.apk
+│   │   ├── split_config.en.apk
+│   │   ├── split_config.xxhdpi.apk
+│   │   └── split_obbassets.apk
+│   ├── apk_split_config.arm64_v8a
+│   │   ├── AndroidManifest.xml
+│   │   ├── lib
+│   │   │   └── arm64-v8a
+│   │   │       ├── libAk3DAudioBedMixer.so
+│   │   │       ├── libAkAudioInput.so
+│   │   │       ├── libAkCompressor.so
+│   │   │       ├── libAkDelay.so
+│   │   │       ├── libAkFlanger.so
+│   │   │       ├── libAkGain.so
+│   │   │       ├── libAkGuitarDistortion.so
+│   │   │       ├── libAkHarmonizer.so
+│   │   │       ├── libAkImpacter.so
+│   │   │       ├── libAkMatrixReverb.so
+│   │   │       ├── libAkMeter.so
+│   │   │       ├── libAkParametricEQ.so
+│   │   │       ├── libAkPeakLimiter.so
+│   │   │       ├── libAkPitchShifter.so
+│   │   │       ├── libAkRecorderADM.so
+│   │   │       ├── libAkRecorder.so
+│   │   │       ├── libAkRoomVerb.so
+│   │   │       ├── libAkSidechain.so
+│   │   │       ├── libAkSilenceGenerator.so
+│   │   │       ├── libAkSineTone.so
+│   │   │       ├── libAkStereoDelay.so
+│   │   │       ├── libAkSynthOne.so
+│   │   │       ├── libAkTimeStretch.so
+│   │   │       ├── libAkToneGen.so
+│   │   │       ├── libAkTremolo.so
+│   │   │       ├── libanogs.so
+│   │   │       ├── libanort.so
+│   │   │       ├── libapm.so
+│   │   │       ├── libCrashSight.so
+│   │   │       ├── libc++_shared.so
+│   │   │       ├── libframeestimationGL.so
+│   │   │       ├── libframeestimationVK.so
+│   │   │       ├── libgetuiext3.so
+│   │   │       ├── libgtcore.so
+│   │   │       ├── libhpatchz.so
+│   │   │       ├── libmagt_sdk.so
+│   │   │       ├── libMasteringSuite.so
+│   │   │       ├── libMFRCConfig.so
+│   │   │       ├── libMFRCLayer_eco.so
+│   │   │       ├── libMFRC_SDK.so
+│   │   │       ├── libmmkv.so
+│   │   │       ├── libmonosgen-2.0.so
+│   │   │       ├── libsobot.so
+│   │   │       ├── libSystem.Globalization.Native.so
+│   │   │       ├── libSystem.Native.so
+│   │   │       ├── libUE4.so
+│   │   │       ├── libVkLayer_khronos_profiles.so
+│   │   │       └── libVkLayer_mfrc.so
+│   │   ├── META-INF
+│   │   │   ├── BNDLTOOL.RSA
+│   │   │   ├── BNDLTOOL.SF
+│   │   │   └── MANIFEST.MF
+│   │   └── stamp-cert-sha256
+│   ├── apk_split_config.en
+│   │   ├── AndroidManifest.xml
+│   │   ├── META-INF
+│   │   │   ├── BNDLTOOL.RSA
+│   │   │   ├── BNDLTOOL.SF
+│   │   │   └── MANIFEST.MF
+│   │   ├── resources.arsc
+│   │   └── stamp-cert-sha256
+│   ├── apk_split_config.xxhdpi
+│   │   ├── AndroidManifest.xml
+│   │   ├── META-INF
+│   │   │   ├── BNDLTOOL.RSA
+│   │   │   ├── BNDLTOOL.SF
+│   │   │   └── MANIFEST.MF
+│   │   ├── res
+│   │   │   ├── drawable-anydpi-v21
+│   │   │   │   ├── fingerprint_dialog_error.xml
+│   │   │   │   ├── ic_call_answer_low.xml
+│   │   │   │   ├── ic_call_answer_video_low.xml
+│   │   │   │   ├── ic_call_answer_video.xml
+│   │   │   │   ├── ic_call_answer.xml
+│   │   │   │   ├── ic_call_decline_low.xml
+│   │   │   │   └── ic_call_decline.xml
+│   │   │   ├── drawable-ldrtl-xxhdpi-v4
+│   │   │   │   └── abc_spinner_mtrl_am_alpha.9.png
+│   │   │   ├── drawable-night-xxhdpi-v8
+│   │   │   │   └── sobot_icon_dialog_close.png
+│   │   │   ├── drawable-xhdpi-v4
+│   │   │   │   ├── com_facebook_tooltip_black_background.9.png
+│   │   │   │   ├── com_facebook_tooltip_black_bottomnub.png
+│   │   │   │   ├── com_facebook_tooltip_black_topnub.png
+│   │   │   │   ├── com_facebook_tooltip_black_xout.png
+│   │   │   │   ├── com_facebook_tooltip_blue_background.9.png
+│   │   │   │   ├── com_facebook_tooltip_blue_bottomnub.png
+│   │   │   │   ├── com_facebook_tooltip_blue_topnub.png
+│   │   │   │   ├── com_facebook_tooltip_blue_xout.png
+│   │   │   │   ├── common_full_open_on_phone.png
+│   │   │   │   ├── icon.png
+│   │   │   │   ├── notification_bg_low_normal.9.png
+│   │   │   │   ├── notification_bg_low_pressed.9.png
+│   │   │   │   ├── notification_bg_normal.9.png
+│   │   │   │   ├── notification_bg_normal_pressed.9.png
+│   │   │   │   └── notify_panel_notification_icon_bg.png
+│   │   │   └── drawable-xxhdpi-v4
+│   │   │       ├── abc_ab_share_pack_mtrl_alpha.9.png
+│   │   │       ├── abc_btn_check_to_on_mtrl_000.png
+│   │   │       ├── abc_btn_check_to_on_mtrl_015.png
+│   │   │       ├── abc_btn_radio_to_on_mtrl_000.png
+│   │   │       ├── abc_btn_radio_to_on_mtrl_015.png
+│   │   │       ├── abc_btn_switch_to_on_mtrl_00001.9.png
+│   │   │       ├── abc_btn_switch_to_on_mtrl_00012.9.png
+│   │   │       ├── abc_cab_background_top_mtrl_alpha.9.png
+│   │   │       ├── abc_ic_commit_search_api_mtrl_alpha.png
+│   │   │       ├── abc_list_divider_mtrl_alpha.9.png
+│   │   │       ├── abc_list_focused_holo.9.png
+│   │   │       ├── abc_list_longpressed_holo.9.png
+│   │   │       ├── abc_list_pressed_holo_dark.9.png
+│   │   │       ├── abc_list_pressed_holo_light.9.png
+│   │   │       ├── abc_list_selector_disabled_holo_dark.9.png
+│   │   │       ├── abc_list_selector_disabled_holo_light.9.png
+│   │   │       ├── abc_menu_hardkey_panel_mtrl_mult.9.png
+│   │   │       ├── abc_popup_background_mtrl_mult.9.png
+│   │   │       ├── abc_scrubber_control_off_mtrl_alpha.png
+│   │   │       ├── abc_scrubber_control_to_pressed_mtrl_000.png
+│   │   │       ├── abc_scrubber_control_to_pressed_mtrl_005.png
+│   │   │       ├── abc_scrubber_primary_mtrl_alpha.9.png
+│   │   │       ├── abc_scrubber_track_mtrl_alpha.9.png
+│   │   │       ├── abc_spinner_mtrl_am_alpha.9.png
+│   │   │       ├── abc_switch_track_mtrl_alpha.9.png
+│   │   │       ├── abc_tab_indicator_mtrl_alpha.9.png
+│   │   │       ├── abc_textfield_activated_mtrl_alpha.9.png
+│   │   │       ├── abc_textfield_default_mtrl_alpha.9.png
+│   │   │       ├── abc_textfield_search_activated_mtrl_alpha.9.png
+│   │   │       ├── abc_textfield_search_default_mtrl_alpha.9.png
+│   │   │       ├── abc_text_select_handle_left_mtrl.png
+│   │   │       ├── abc_text_select_handle_middle_mtrl.png
+│   │   │       ├── abc_text_select_handle_right_mtrl.png
+│   │   │       ├── btn_login_base.9.png
+│   │   │       ├── btn_login_disable.9.png
+│   │   │       ├── btn_login_press.9.png
+│   │   │       ├── com_facebook_button_like_icon_selected.png
+│   │   │       ├── com_facebook_close.png
+│   │   │       ├── common_google_signin_btn_icon_dark_normal_background.9.png
+│   │   │       ├── common_google_signin_btn_icon_light_normal_background.9.png
+│   │   │       ├── common_google_signin_btn_text_dark_normal_background.9.png
+│   │   │       ├── common_google_signin_btn_text_light_normal_background.9.png
+│   │   │       ├── googleg_disabled_color_18.png
+│   │   │       ├── googleg_standard_color_18.png
+│   │   │       ├── ic_plusone_medium_off_client.png
+│   │   │       ├── ic_plusone_small_off_client.png
+│   │   │       ├── ic_plusone_standard_off_client.png
+│   │   │       ├── ic_plusone_tall_off_client.png
+│   │   │       ├── push.png
+│   │   │       ├── push_small.png
+│   │   │       ├── sobot_icon_dialog_close.png
+│   │   │       ├── tw__action_heart_off_default.png
+│   │   │       ├── tw__action_heart_on_default.png
+│   │   │       ├── tw__composer_close.png
+│   │   │       ├── tw__composer_logo_blue.png
+│   │   │       ├── tw__composer_logo_white.png
+│   │   │       ├── tw__ic_gif_badge.png
+│   │   │       ├── tw__ic_inline_share.png
+│   │   │       ├── tw__ic_logo_blue.png
+│   │   │       ├── tw__ic_logo_default.png
+│   │   │       ├── tw__ic_logo_white.png
+│   │   │       ├── tw__ic_play_default.png
+│   │   │       ├── tw__ic_play_pressed.png
+│   │   │       ├── tw__ic_retweet_dark.png
+│   │   │       ├── tw__ic_retweet_light.png
+│   │   │       ├── tw__ic_seekbar_bg.9.png
+│   │   │       ├── tw__ic_seekbar_progress_bg.9.png
+│   │   │       ├── tw__ic_seekbar_secondary_bg.9.png
+│   │   │       ├── tw__ic_tweet_photo_error_dark.png
+│   │   │       ├── tw__ic_tweet_photo_error_light.png
+│   │   │       ├── tw__ic_tweet_verified.png
+│   │   │       ├── tw__ic_video_pause.png
+│   │   │       ├── tw__ic_video_pause_pressed.png
+│   │   │       ├── tw__ic_video_play.png
+│   │   │       ├── tw__ic_video_play_pressed.png
+│   │   │       ├── tw__ic_video_replay.png
+│   │   │       ├── tw__ic_video_replay_pressed.png
+│   │   │       ├── tw__ic_vine_badge.png
+│   │   │       ├── upsdk_btn_emphasis_normal_layer.9.png
+│   │   │       ├── upsdk_cancel_normal.png
+│   │   │       └── upsdk_cancel_pressed_bg.png
+│   │   ├── resources.arsc
+│   │   └── stamp-cert-sha256
+│   ├── apk_split_obbassets
+│   │   ├── AndroidManifest.xml
+│   │   ├── assets
+│   │   │   └── main.obb.png
+│   │   ├── META-INF
+│   │   │   ├── BNDLTOOL.RSA
+│   │   │   ├── BNDLTOOL.SF
+│   │   │   └── MANIFEST.MF
+│   │   └── stamp-cert-sha256
+│   ├── build_xrefs.py
+│   ├── calibrate_xrefs.py
+│   ├── decrypt_device_logs.py
+│   ├── device_logs
+│   │   ├── backups
+│   │   │   ├── Client-backup-2026.09.05-21.13.08-2026.09.05-21.26.29.log
+│   │   │   ├── Client-backup-2026.09.05-21.27.06-2026.09.05-21.27.35.log
+│   │   │   ├── Client-backup-2026.09.06-20.52.35-2026.09.06-21.13.58.log
+│   │   │   ├── Client-backup-2026.09.06-21.33.31-2026.09.06-21.42.46.log
+│   │   │   ├── Client-backup-2026.09.08-07.02.56-2026.09.08-07.11.39.log
+│   │   │   ├── Client-backup-2026.09.08-21.59.16-2026.09.08-22.18.46.log
+│   │   │   ├── Client-backup-2026.09.09-13.30.55-2026.09.09-13.31.48.log
+│   │   │   ├── Client-backup-2026.09.09-13.52.58-2026.09.09-14.07.23.log
+│   │   │   ├── Client-backup-2026.09.09-19.00.51-2026.09.09-19.02.02.log
+│   │   │   ├── Client-backup-2026.09.09-19.02.11-2026.09.09-19.08.59.log
+│   │   │   ├── Client-backup-2026.09.09-21.43.10-2026.09.09-21.43.26.log
+│   │   │   └── Client-backup-2026.09.09-21.58.27-2026.09.09-22.45.39.log
+│   │   ├── Client-backup-null-2026.09.06-21.33.30.log
+│   │   ├── Client.log
+│   │   ├── decrypted
+│   │   │   ├── Client-backup-2026.09.05-21.13.08-2026.09.05-21.26.29.log.txt
+│   │   │   ├── Client-backup-2026.09.05-21.27.06-2026.09.05-21.27.35.log.txt
+│   │   │   ├── Client-backup-2026.09.06-20.52.35-2026.09.06-21.13.58.log.txt
+│   │   │   ├── Client-backup-2026.09.06-21.33.31-2026.09.06-21.42.46.log.txt
+│   │   │   ├── Client-backup-2026.09.08-07.02.56-2026.09.08-07.11.39.log.txt
+│   │   │   ├── Client-backup-2026.09.08-21.59.16-2026.09.08-22.18.46.log.txt
+│   │   │   ├── Client-backup-2026.09.09-13.30.55-2026.09.09-13.31.48.log.txt
+│   │   │   ├── Client-backup-2026.09.09-13.52.58-2026.09.09-14.07.23.log.txt
+│   │   │   ├── Client-backup-2026.09.09-19.00.51-2026.09.09-19.02.02.log.txt
+│   │   │   ├── Client-backup-2026.09.09-19.02.11-2026.09.09-19.08.59.log.txt
+│   │   │   ├── Client-backup-2026.09.09-21.43.10-2026.09.09-21.43.26.log.txt
+│   │   │   ├── Client-backup-2026.09.09-21.58.27-2026.09.09-22.45.39.log.txt
+│   │   │   ├── Client-backup-null-2026.09.06-21.33.30.log.txt
+│   │   │   ├── Client.log.txt
+│   │   │   └── cvars_live_values.tsv
+│   │   └── SavedConfig
+│   │       ├── Android
+│   │       │   ├── ApexDestruction.ini
+│   │       │   ├── ControlRig.ini
+│   │       │   ├── CrashSight.ini
+│   │       │   ├── DeviceProfiles.ini
+│   │       │   ├── EditorScriptingUtilities.ini
+│   │       │   ├── Engine.ini
+│   │       │   ├── Game.ini
+│   │       │   ├── GameplayAbilities.ini
+│   │       │   ├── GameplayTags.ini
+│   │       │   ├── GameUserSettings.ini
+│   │       │   ├── Hardware.ini
+│   │       │   ├── HoudiniNiagara.ini
+│   │       │   ├── Input.ini
+│   │       │   ├── KooSharp.ini
+│   │       │   ├── KuroAnimConfig.ini
+│   │       │   ├── KuroApp.ini
+│   │       │   ├── KuroEditorCompiler.ini
+│   │       │   ├── KuroNetwork.ini
+│   │       │   ├── KuroPakKey.ini
+│   │       │   ├── KuroPuerts.ini
+│   │       │   ├── KuroSequenceConfig.ini
+│   │       │   ├── Niagara.ini
+│   │       │   ├── ObjectPoolConfig.ini
+│   │       │   ├── OpenCVLensDistortion.ini
+│   │       │   ├── PuertsJsEnv.ini
+│   │       │   ├── RuntimeOptions.ini
+│   │       │   ├── Scalability.ini
+│   │       │   ├── Simplygon.ini
+│   │       │   ├── SQLite.ini
+│   │       │   ├── StreamlineCore.ini
+│   │       │   ├── StreamlineDeepDVC.ini
+│   │       │   ├── StreamlineDLSSG.ini
+│   │       │   ├── StreamlineReflex.ini
+│   │       │   ├── Synthesis.ini
+│   │       │   ├── TpSafe.ini
+│   │       │   └── Wwise.ini
+│   │       └── CrashReportClient
+│   │           ├── UE4CC-Android-000523AC08DF0EA4AAFFC5D6E0B9B9A0
+│   │           │   └── CrashReportClient.ini
+│   │           ├── UE4CC-Android-000534BA08DF0EBD7A7058545BDE943E
+│   │           │   └── CrashReportClient.ini
+│   │           ├── UE4CC-Android-0005647108DF0EBB57BBED342532EE57
+│   │           │   └── CrashReportClient.ini
+│   │           ├── UE4CC-Android-00056CF808DF0E79A82756A695A178C2
+│   │           │   └── CrashReportClient.ini
+│   │           ├── UE4CC-Android-000578E508DF0F7D59AFD1EC743225CB
+│   │           │   └── CrashReportClient.ini
+│   │           ├── UE4CC-Android-00057BD208DF0EA4DAC5D3C8E580B944
+│   │           │   └── CrashReportClient.ini
+│   │           └── UE4CC-Android-0005D33508DF0E7693CCF82646CE3A56
+│   │               └── CrashReportClient.ini
+│   ├── diag_xrefs.py
+│   ├── game_config
+│   │   └── Client
+│   │       └── Config
+│   │           ├── AMD.json
+│   │           ├── DGFX_ACM.json
+│   │           ├── DGFX_BMG.json
+│   │           ├── IGFX_LNL.json
+│   │           ├── IGFX_MTL_ARL.json
+│   │           ├── Kuro
+│   │           │   ├── KuroLevelPrefabConfig.json
+│   │           │   ├── KuroPlatformSdkConfig.json
+│   │           │   └── NewKuroLevelPrefabConfig.json
+│   │           ├── NVIDIA.json
+│   │           ├── RTX.json
+│   │           └── SpatialData
+│   │               ├── SpatialDataCookConfig.backup.json
+│   │               └── SpatialDataCookConfig.json
+│   ├── mine_so_cvars.py
+│   ├── rawscan_so.py
+│   ├── RECOVERED_REPORT.md.bak
+│   ├── so_cvars_all.txt
+│   ├── so_cvars_in_db_not_found_in_so.txt
+│   ├── so_cvars_NEW_vs_appdb.txt
+│   ├── so_other_dotted.txt
+│   ├── so_strings_rawscan.txt
+│   ├── validate_cvars.py
+│   └── xrefs.pkl
+├── app
+│   ├── build.gradle.kts
+│   ├── lint.xml
+│   ├── proguard-rules.pro
+│   └── src
+│       ├── main
+│       │   ├── AndroidManifest.xml
+│       │   ├── assets
+│       │   │   ├── cvars
+│       │   │   │   ├── config_monitor_cvars_categorized.txt
+│       │   │   │   ├── config_monitor_cvars.txt
+│       │   │   │   ├── config_monitor_values_categorized.txt
+│       │   │   │   ├── config_monitor_values.txt
+│       │   │   │   ├── libUE4_cvars_categorized.txt
+│       │   │   │   └── libUE4_cvars.txt
+│       │   │   └── user_guide.html
+│       │   ├── java
+│       │   │   └── com
+│       │   │       └── wuwaconfig
+│       │   │           └── app
+│       │   │               ├── adb
+│       │   │               │   ├── AdbClient.kt
+│       │   │               │   ├── AdbCrypto.kt
+│       │   │               │   ├── AdbProtocol.kt
+│       │   │               │   └── PortScanner.kt
+│       │   │               ├── backend
+│       │   │               │   ├── AccessBackend.kt
+│       │   │               │   ├── AdbBackend.kt
+│       │   │               │   ├── RootBackend.kt
+│       │   │               │   ├── SafBackend.kt
+│       │   │               │   ├── ShellUtils.kt
+│       │   │               │   └── ShizukuBackend.kt
+│       │   │               ├── config
+│       │   │               │   ├── BackupStore.kt
+│       │   │               │   ├── ChipsetDetector.kt
+│       │   │               │   ├── ConfigGenerator.kt
+│       │   │               │   ├── ConfigGenUtil.kt
+│       │   │               │   ├── ConfigManager.kt
+│       │   │               │   ├── CvarCategorizer.kt
+│       │   │               │   ├── CvarDatabase.kt
+│       │   │               │   ├── CvarOptimizer.kt
+│       │   │               │   ├── DeployHistoryStore.kt
+│       │   │               │   ├── ForbiddenCvars.kt
+│       │   │               │   ├── GachaApi.kt
+│       │   │               │   ├── GachaHistoryStore.kt
+│       │   │               │   ├── HashMonitor.kt
+│       │   │               │   ├── HashSync.kt
+│       │   │               │   ├── IniHashUtil.kt
+│       │   │               │   ├── LogParser.kt
+│       │   │               │   ├── ProfileExtractor.kt
+│       │   │               │   ├── ProfileStore.kt
+│       │   │               │   └── SmartBrain.kt
+│       │   │               ├── MainActivity.kt
+│       │   │               ├── model
+│       │   │               │   ├── BattleStats.kt
+│       │   │               │   ├── BattleStatsStore.kt
+│       │   │               │   ├── ConfigHashInfo.kt
+│       │   │               │   ├── ConfigPreset.kt
+│       │   │               │   ├── DeployRecord.kt
+│       │   │               │   ├── GachaRecord.kt
+│       │   │               │   ├── GamePaths.kt
+│       │   │               │   ├── LogAnalysisStore.kt
+│       │   │               │   ├── LogEntry.kt
+│       │   │               │   ├── LogInfo.kt
+│       │   │               │   ├── LogRepository.kt
+│       │   │               │   ├── PlayerProfile.kt
+│       │   │               │   ├── PresetModels.kt
+│       │   │               │   └── VerificationReport.kt
+│       │   │               ├── service
+│       │   │               │   ├── AdbConnectionService.kt
+│       │   │               │   └── ShellUserService.kt
+│       │   │               ├── ui
+│       │   │               │   ├── BackupViewModel.kt
+│       │   │               │   ├── components
+│       │   │               │   │   └── Components.kt
+│       │   │               │   ├── DeployHistoryViewModel.kt
+│       │   │               │   ├── DeviceOps.kt
+│       │   │               │   ├── GachaViewModel.kt
+│       │   │               │   ├── IniEditorViewModel.kt
+│       │   │               │   ├── LogInsightsViewModel.kt
+│       │   │               │   ├── MainViewModel.kt
+│       │   │               │   ├── ProfileViewModel.kt
+│       │   │               │   ├── screens
+│       │   │               │   │   ├── BackupScreen.kt
+│       │   │               │   │   ├── BattleStatsScreen.kt
+│       │   │               │   │   ├── ConfigGenScreen.kt
+│       │   │               │   │   ├── HistoryScreen.kt
+│       │   │               │   │   ├── HomeScreen.kt
+│       │   │               │   │   ├── IniEditorScreen.kt
+│       │   │               │   │   ├── LogsScreen.kt
+│       │   │               │   │   ├── PityScreen.kt
+│       │   │               │   │   ├── ProfileScreen.kt
+│       │   │               │   │   ├── ReviewTuneScreen.kt
+│       │   │               │   │   ├── SettingsScreen.kt
+│       │   │               │   │   ├── SetupScreen.kt
+│       │   │               │   │   ├── TermsScreen.kt
+│       │   │               │   │   └── UserGuideScreen.kt
+│       │   │               │   ├── SettingsViewModel.kt
+│       │   │               │   └── theme
+│       │   │               │       ├── Color.kt
+│       │   │               │       ├── Theme.kt
+│       │   │               │       └── Type.kt
+│       │   │               ├── update
+│       │   │               │   └── UpdateManager.kt
+│       │   │               ├── util
+│       │   │               │   ├── AtomicFile.kt
+│       │   │               │   └── LineDiff.kt
+│       │   │               └── WuWaConfigApp.kt
+│       │   └── res
+│       │       ├── drawable
+│       │       │   ├── config_logo.png
+│       │       │   ├── ic_launcher_background.xml
+│       │       │   └── ic_launcher_foreground.xml
+│       │       ├── font
+│       │       │   ├── monospace.ttf
+│       │       │   ├── rajdhani_bold.ttf
+│       │       │   └── serif.ttf
+│       │       ├── mipmap-anydpi-v26
+│       │       │   ├── ic_launcher_round.xml
+│       │       │   └── ic_launcher.xml
+│       │       ├── values
+│       │       │   ├── colors.xml
+│       │       │   ├── strings.xml
+│       │       │   └── themes.xml
+│       │       └── xml
+│       │           ├── file_paths.xml
+│       │           └── network_security_config.xml
+│       └── test
+│           ├── java
+│           │   └── com
+│           │       └── wuwaconfig
+│           │           └── app
+│           │               ├── adb
+│           │               │   ├── AdbClientTest.kt
+│           │               │   └── AdbProtocolTest.kt
+│           │               ├── backend
+│           │               │   ├── PushFilePlanTest.kt
+│           │               │   └── ShellUtilsTest.kt
+│           │               ├── config
+│           │               │   ├── ConfigGeneratorTest.kt
+│           │               │   ├── ConfigGenUtilTest.kt
+│           │               │   ├── ConfigManagerTest.kt
+│           │               │   ├── CvarCategorizerTest.kt
+│           │               │   ├── CvarDatabaseOptimizeTest.kt
+│           │               │   ├── CvarDatabaseTest.kt
+│           │               │   ├── CvarOptimizerTest.kt
+│           │               │   ├── ForbiddenCvarsTest.kt
+│           │               │   ├── GachaApiTest.kt
+│           │               │   ├── GachaHistoryStoreTest.kt
+│           │               │   ├── GachaPredictionTest.kt
+│           │               │   ├── HashMonitorTest.kt
+│           │               │   ├── LogParserTest.kt
+│           │               │   └── SmartBrainTest.kt
+│           │               ├── update
+│           │               │   └── UpdateManagerTest.kt
+│           │               └── util
+│           │                   └── AtomicFileTest.kt
+│           └── resources
+│               └── cvars
+│                   ├── config_monitor_cvars.txt
+│                   ├── config_monitor_values.txt
+│                   └── libUE4_cvars.txt
+├── app_icon.png
+├── apple-touch-icon.png
+├── build.gradle.kts
+├── CODE_OF_CONDUCT.md
+├── CONTRIBUTING.md
+├── decrypt_log.py
+├── docs
+│   ├── CONFIG-GENERATOR.md
+│   └── README.md
+├── favicon.png
+├── gradle
+│   ├── libs.versions.toml
+│   └── wrapper
+│       ├── gradle-wrapper.jar
+│       └── gradle-wrapper.properties
+├── gradle.properties
+├── gradlew
+├── gradlew.bat
+├── graphify-out
+│   ├── 2026-07-28
+│   │   ├── graph.json
+│   │   ├── GRAPH_REPORT.md
+│   │   └── manifest.json
+│   ├── 2026-07-29
+│   │   ├── graph.json
+│   │   ├── GRAPH_REPORT.md
+│   │   └── manifest.json
+│   ├── 2026-07-30
+│   │   ├── graph.json
+│   │   ├── GRAPH_REPORT.md
+│   │   └── manifest.json
+│   ├── 2026-08-08
+│   │   ├── graph.json
+│   │   ├── GRAPH_REPORT.md
+│   │   └── manifest.json
+│   ├── 2026-08-25
+│   │   ├── graph.json
+│   │   ├── GRAPH_REPORT.md
+│   │   └── manifest.json
+│   ├── 2026-09-06
+│   │   ├── graph.json
+│   │   ├── GRAPH_REPORT.md
+│   │   └── manifest.json
+│   ├── 2026-09-16
+│   │   ├── graph.json
+│   │   ├── GRAPH_REPORT.md
+│   │   └── manifest.json
+│   ├── 2026-09-17
+│   │   ├── graph.json
+│   │   ├── GRAPH_REPORT.md
+│   │   └── manifest.json
+│   ├── cache
+│   │   ├── ast
+│   │   │   └── v0.9.63-s3
+│   │   │       ├── 0038b6c51b7b98b83cb83d55d30223e8e2b135616784b13f2a6a8c85cc4418fe.json
+│   │   │       ├── 05e9b7204b5773d5177a0d26862b5d3f915d9473f76a2bb53b29ae9552e8dfb7.json
+│   │   │       ├── 0b0388901e454b5af651d370fe662045d6fc2b1e797a4f744e4cdbc6989c7346.json
+│   │   │       ├── 0fcd2e7aedfe827b49fff556ed59caaf9814a6766d38ab3cf7410a77cabbca2c.json
+│   │   │       ├── 100e539f80e8331c95d0511d3d7d2d1935c04746195108cfefb08e9a18824be2.json
+│   │   │       ├── 103890f4c6ce8898219fcc8b259da3507eaaf2328883e0d03db7bc6eeb6c0d28.json
+│   │   │       ├── 1247b67385e57ba303aa9f532130d4062ca21125d97a8150cb1c4e3cc1dfb73c.json
+│   │   │       ├── 14362e05f6bbae0ebb7a41e078c5ffd17910fea251ab22eb7dc795ffb67930e9.json
+│   │   │       ├── 1677fe2c8afbe15eacd805beef5aa1ce710f80f2792f228bef41d98361f1370f.json
+│   │   │       ├── 1853b511edefcfff0274f49f14d2be1ae4a2411864f13e2a40bda4e0a1f3c20e.json
+│   │   │       ├── 1d1ae8659d7811c4965bcb4a35c2f1a6618b92bd5da307eb73a159d3ca406093.json
+│   │   │       ├── 20639d793a3428105aa95406e5c1945e780ce1a3158cf4f898a941fa40f318e3.json
+│   │   │       ├── 211b7fcecf147fe71ab6501aba0576a263a2162d55212a6ee80636b459420b92.json
+│   │   │       ├── 21b649933e2b4987854cab5dfc244d702d41b5257039b7bb7c61ff7f77dde511.json
+│   │   │       ├── 223c3eba159cf768610aa6557fb9d40321a91e09461ec77e7ca493396a57e3c5.json
+│   │   │       ├── 229f35ded903f9bd08ad84dd3ea70e2452e174847f3578b0b4e2240c29806bca.json
+│   │   │       ├── 26a21b93cf106cf9a8986ff362e7ca91719453448bb6c7bb7d86146f12d731d9.json
+│   │   │       ├── 2b01c670ac1435e932e2af71931d23a635a3242b8a8a41e2d7d9bdbc5ffa6a6e.json
+│   │   │       ├── 2b0a4cfc44708f02bb493990bbec122b3fbbbb0f4834f67aa4ce4962d8035af7.json
+│   │   │       ├── 2c04e008b2240f8f4454733bee762228379b9aba302737d41748d0d943951983.json
+│   │   │       ├── 2f2dd55d5749d503ffc69735afafede09afb64abd9c4d85e5d7394fd5d7703d3.json
+│   │   │       ├── 301676b0859e2628e1e5106471bc8e54739d5c98d2c65b3d97e8dca1423d5f8b.json
+│   │   │       ├── 3117dcad650eb01df04c60431b6ee3a2ab807d5b6ea3a7f86b3d559ae29d4b86.json
+│   │   │       ├── 318141aa566f6d39b8eb742d1650c61c2ad89dde1f03ec00b86a0744c7745133.json
+│   │   │       ├── 31ca1b9eb2e6f46675e75d0157ee259bfca4602a77ea198ad5d130ab1bcb6631.json
+│   │   │       ├── 3b284e7a1dba7c51069e0c0517e2441e9e58915654d65bd176bb4327c15ee82f.json
+│   │   │       ├── 3bed7182712857c158f4c91b884769cc07ae29577fe36daeac5941c3b74e6bd0.json
+│   │   │       ├── 3e95272ac9f18ae5cd4763bce4d2044441ef6ef80560f1ec95ffc2a7213ccb87.json
+│   │   │       ├── 3eae7380706bc0f1ff033e99aa501dcf2d311776fc9689d888d898900163be28.json
+│   │   │       ├── 405dbf35606e6b762c88fd9b8fb761716a9a2037bc3d1aeabdea81f8b13eeb10.json
+│   │   │       ├── 432e771830f1b3c41945402423407c35ab7a29846b4c8141c95e3d66fc92ff36.json
+│   │   │       ├── 455e10c24ee692ddcdcadb45d697a7dd9ea666ee362d7ab83e91afdc874dd0a5.json
+│   │   │       ├── 496b15301980dd196bdff518d971fe0c089b8ba42d93d8ec946561aac6b9686c.json
+│   │   │       ├── 4d9fe7275409b48829e3f6ca53617446c576c299505a10ccc129519f92104057.json
+│   │   │       ├── 4f8d2304b6c045f38e14539ec59c616caf2bcb2de0df8dd9f28348c55ef4c271.json
+│   │   │       ├── 4fe388585749d85ee4c3a85082c12f89586619eedabee3a665c63d1920e86a53.json
+│   │   │       ├── 52d196644c17066af24da1ed6bcd994f199d8d5fba3c52b1489d994bdf97b53a.json
+│   │   │       ├── 53e9d0f6e6d08968f13484f5bd0b60762cf047d9c732a14a0626dae2b5326a2f.json
+│   │   │       ├── 5593da8cf1632a3ab5cfd03ac67e94b20ac8c1036dd3a3779174fab4e5b0dc7e.json
+│   │   │       ├── 5736a959bbf7d47497d3b7563a873c2def71c11c3a58a2a705d9bdf1c1f7a036.json
+│   │   │       ├── 588f81fa37c6183a56c243f084ea6bfb956cf8a7b98f76941c2f32b255adc0ef.json
+│   │   │       ├── 5b061707440de83c4ed45582e225c8c6d2616cccaa2f2ef43a708a6aadc130d9.json
+│   │   │       ├── 5cfb3103fd7801b88a6d3704d2f4a9ef325cbbc7650c204e80f44e7797badb15.json
+│   │   │       ├── 5e6033878501a613782e090f9c613e2980401bf5a324e9087a471f48e976557f.json
+│   │   │       ├── 600578cbaec8800a912fe76e6ed415071e4ed95722d8cac5d9474fca54122b28.json
+│   │   │       ├── 610ef9fc5a3027a20cb0b70a1424b500edc1827f3d101d50dd19a8d649631d30.json
+│   │   │       ├── 6364dac8f357a0cf1a1ed50638743f2a5525ab4fbe4dc51c89e8a0cbbc6c55ea.json
+│   │   │       ├── 63744e57ff5e8a3106f8dc69a2e90aea622544227a568413e3d9abb26e252517.json
+│   │   │       ├── 644f0b96e86d562d1a064b47019b86fdaa977218c94fdfbfd7e4769fccd27734.json
+│   │   │       ├── 6482a90ac7da98815e0b0da21585bb6276657b6a2762c4cd28cd84363dc36e48.json
+│   │   │       ├── 6a29728a356918a3fb50349f7798d35f79d8847963fee0dbc080aa65cc351040.json
+│   │   │       ├── 6be4b058c0ef1d28b57e4930cef85df4bb60eee24651c80880b07c9404ab6d97.json
+│   │   │       ├── 715986aada85462721835939d382d86101a5795ba39f4254b44299df7905a7ad.json
+│   │   │       ├── 71f2f617c0367f2fed8fbb9134ba2fa999d711ffb3210093985c60fbc3a14ab4.json
+│   │   │       ├── 745b695f38bd62830fde786d0cda294dcc31900d8fc7ef47de5b61f733db8f0b.json
+│   │   │       ├── 746ecac159ca2419667b6b61156cf0b6216802f36acfd498064555dbc5d3a292.json
+│   │   │       ├── 74902104fc2f35208022349a596650fa8c52376db493395e19872e71d58cf9c2.json
+│   │   │       ├── 77d8684cb7e538525ced2f3187b0d6f2523bd8213d2545b8c19b731cbdd8df67.json
+│   │   │       ├── 791f92351d49c62d36b19501f0c2f104e587983083654c300820a376d79047a5.json
+│   │   │       ├── 7ad931f466a5e90d5b7d32c2eb32b1ef8e9a7d997e52e930b97ca5ef9c38c8be.json
+│   │   │       ├── 7bfb36a27334f0d60b93547547f7019725c3a3f06057d7542602aef01e86bfbd.json
+│   │   │       ├── 7d58457e06079a1e386f813f707267af1ee330158512ffcc4c5066b6821c7062.json
+│   │   │       ├── 7e09a5da76f5408bb44fb427cc1d36538c16131bf9d3a528f8bf2eefff865da4.json
+│   │   │       ├── 7ff1272a6e998fffc67d94b745a78970cf13ee153a63518bd614fda49f424e22.json
+│   │   │       ├── 805fc1a9b7fef8755780ba74d4e48439aa37e19ded6d7c97f0f2cdcdc904af15.json
+│   │   │       ├── 841e362e7d2486d79e5df85b201f04f99780856f807a7f6767c6b460cc9e99b2.json
+│   │   │       ├── 87bc184d23e720aadc65007bab25f8641c7b05b0feb5c028d5476cc9f3b0c883.json
+│   │   │       ├── 87c3a8bba04ff45f802c6e787d651ec72d31e677b7e40ca61904743d2cf89fd8.json
+│   │   │       ├── 890dc65e3e3750ba56559e3581e1163b32c4e78f4b3ebd7fc97e0d602d8ee0e5.json
+│   │   │       ├── 89b157294e05742d5909fdca94f625a2ea3cf6c6baa51ba7b5e867656dae2be4.json
+│   │   │       ├── 92c9fdacf224c39e46fbe890748879aa0b80910b6208b55269ff2293043b4482.json
+│   │   │       ├── 9ba839734942ad17abe2486be6b24fa162103b24b79a491e440ee02e7c925e05.json
+│   │   │       ├── 9d2835d17e4c3320328a76de72bab44fa2cc9e3dac46756fe49a1b274356efa1.json
+│   │   │       ├── 9f04b71a5f5d19b0a3e4b23aa0a0ede7e55df5a3d4aa1932e4b6e314ba25517b.json
+│   │   │       ├── aa6219a0214ade2fa492399babd9f28c21f0f591e8838341648731c9937e3b6a.json
+│   │   │       ├── aa680fb54bb07caaeec01b7bd27fe3f0df4c96a06cf5cb66f7ea6521a5153090.json
+│   │   │       ├── aeefc19e6bc12b5eaf6061c44989e0098debded2d6bb16a5c7a17ab45ad64f88.json
+│   │   │       ├── aef8277d7be37d02101174de6312a5dfa29a6eff17d8ecd851dfd21b9eb6382e.json
+│   │   │       ├── b25d15b529ea862b06a34c7f469e32a9a1d00fd383325f4e87eb04db01cf88a9.json
+│   │   │       ├── b31fab92c5c2227079081f693ce762d3e9f3ebdeef544a447a380ecd74f36c10.json
+│   │   │       ├── b3cd4e563bec4cd539577b50657c527412375f1e86e52776f3c783e2cbf43798.json
+│   │   │       ├── b43c00be3a427ea4f962c2bbfc3c701d1fa98ee52c9f5bb81edd6a0c336a1b16.json
+│   │   │       ├── b6b87cf6e603429eb2215fa133688fd179092130e146de827eb1e8035cea1d32.json
+│   │   │       ├── b9d9ab815cffc051209f9149b58ecbd34ecdf32c21bab5c2fa6139c41ffb3e06.json
+│   │   │       ├── ba922b7937e2d7e4e3d44c8def13147cc9658b1c407179c084f01f21b56873a9.json
+│   │   │       ├── c18950cc4ebab6b90030d160a0c08e7438f137f5e093f0b7ab2f9f556f9900fb.json
+│   │   │       ├── c2b384edff97b5723386fe7803fc6521c19ba577040db7cdb1ea415d5ad573a4.json
+│   │   │       ├── c2fef5d9d43931b52574be1d30819a1ad832578141750643bd5f984e39f9b07c.json
+│   │   │       ├── c33b011a7fb07adc5761459fbe3b68da35330c406b8f7f2daaadf185b67f2c8a.json
+│   │   │       ├── c4d918b709ae7575a9de62f9d0f845f2c5110d99013433c6a99892ec1db778a0.json
+│   │   │       ├── c6149d35cc794bf0ab9e6f1d6d91950f672ff374e336efcb358a22fe5c551b0b.json
+│   │   │       ├── c6aa2e3216d052a30d12157699bba0170f3ad2e0296917672bdbc4562b787bc6.json
+│   │   │       ├── c786a3bb368814b58e9310aee2dc96b97542efb092e28936d15e4f26b2f4dec3.json
+│   │   │       ├── cabc41f4e756ce7c28661ecc9ee7010d60c402b87d679fe1d2a6c10d996f6322.json
+│   │   │       ├── d17e42b6e258abb2d3a0a2a62c1422b20cfc30020edd666179b22e0589083783.json
+│   │   │       ├── d369e9645c5afdf1679734489829e4ba1d211bd4abdd375d83e8192ed5bed496.json
+│   │   │       ├── d42788aa7fbccdf3ef79e7c5d62e87327ef005cfd477a3c7df3834f8a9e5ad48.json
+│   │   │       ├── d75a8c4ad206720ddc26b7aaf34acb15c899ae568a6f7bab52ab2d4682d574a4.json
+│   │   │       ├── dbbdb3f6fe4dee26b98c865f0b0ff85f4c4a52a7f86ae92fc037e7a22ebb6c15.json
+│   │   │       ├── dbedfc7e82c60b7c9c0608b65a36e53dbcdfa07b673bf53e987b980d31a578a1.json
+│   │   │       ├── dc21d685b4c0e156a4dd1ecf4750b55bad6be4bf7e0bf64de09e240fc6ee863b.json
+│   │   │       ├── dc69ae1b9ff0a70b271600852b7a874737ab7bc34740e417e4c711934507c912.json
+│   │   │       ├── dcfd10e8521d1c1e653b02878433aae0abbdb72620c2afdfca9a6ca8cc9e116f.json
+│   │   │       ├── e44290a3aa3f9fbc38756e8f04d48b5fd1ea0ba6658c4b978dfc07c12d0bfb23.json
+│   │   │       ├── e7129ffeb0066eb940a1cebb80bc1858db11b6cc7112195b95f556d233693bd8.json
+│   │   │       ├── f0551800ac25278e11327e0f93e99e7f8767fe21cb4303a75fd8e2ca8c1445b5.json
+│   │   │       ├── f28d60f7dd0d64ec0fe92005b14c6ce3f7ef1051f45d79d9a3f342414a06752d.json
+│   │   │       ├── f4a096fcb6b4cabba426b70993a9d9aae890daa84ec79c79d3902a0a84213d00.json
+│   │   │       ├── f5d5870c02cc3cbd2c909ea7536a6e04d13cf5d8a5a10c2cb4e90294d808a123.json
+│   │   │       ├── fd006ca9b94a9cad7c45ae186e7cefe494a46a9e0e6369351ecaf3011bd852ed.json
+│   │   │       ├── fd4d3be9693be0e10d801a8f4ab260b07ff56176abb0dce8bed004db5f45084f.json
+│   │   │       └── ff321855bc7f5af5b3bdfd37e87d0202d94324babd0af2b5ce06e0ef182cef2a.json
+│   │   ├── last_query_stamp
+│   │   └── stat-index.json
+│   ├── graph.html
+│   ├── graph.json
+│   ├── GRAPH_REPORT.md
+│   ├── GRAPH_TREE.html
+│   └── manifest.json
+├── icon-96.webp
+├── index.html
+├── keystore.properties
+├── LICENSE
+├── local.properties
+├── logs
+├── mall
+│   ├── Aalto_Full_Sprite.webp
+│   ├── Aemeath_Full_Sprite.webp
+│   ├── Attribute Aero.webp
+│   ├── Attribute Electro.webp
+│   ├── Attribute Fusion.webp
+│   ├── Attribute Glacio.webp
+│   ├── Attribute Havoc.webp
+│   ├── Attribute Spectro.webp
+│   ├── Augusta_Full_Sprite.webp
+│   ├── Baizhi_Full_Sprite.webp
+│   ├── Brant_Full_Sprite.webp
+│   ├── Buling_Full_Sprite.webp
+│   ├── Calcharo_Full_Sprite.webp
+│   ├── Camellya_Full_Sprite.webp
+│   ├── Cantarella_Full_Sprite.webp
+│   ├── Carlotta_Full_Sprite.webp
+│   ├── Cartethyia_Full_Sprite.webp
+│   ├── Changli_Full_Sprite.webp
+│   ├── Chisa_Full_Sprite.webp
+│   ├── Chixia_Full_Sprite.webp
+│   ├── Ciaccona_Full_Sprite.webp
+│   ├── Danjin_Full_Sprite.webp
+│   ├── Denia_Full_Sprite.webp
+│   ├── Encore_Full_Sprite.webp
+│   ├── Exorcistic_Adjuration_Full_Sprite.webp
+│   ├── Galbrena_Full_Sprite.webp
+│   ├── Hiyuki_Full_Sprite.webp
+│   ├── Iuno_Full_Sprite.webp
+│   ├── Jianxin_Full_Sprite.webp
+│   ├── Jingran_Full_Sprite.webp
+│   ├── Jinhsi_Full_Sprite.webp
+│   ├── Jiyan_Full_Sprite.webp
+│   ├── Lingyang_Full_Sprite.webp
+│   ├── Lucilla_Full_Sprite.webp
+│   ├── Lucy_Full_Sprite.webp
+│   ├── Lumi_Full_Sprite.webp
+│   ├── Lupa_Full_Sprite.webp
+│   ├── Luuk_Herssen_Full_Sprite.webp
+│   ├── Lynae_Full_Sprite.webp
+│   ├── Mornye_Full_Sprite.webp
+│   ├── Mortefi_Full_Sprite.webp
+│   ├── Peach_Blossom_Full_Sprite.webp
+│   ├── Phoebe_Full_Sprite.webp
+│   ├── Phrolova_Full_Sprite.webp
+│   ├── Qingxiao_Full_Sprite.webp
+│   ├── Qiuyuan_Full_Sprite.webp
+│   ├── Rebecca_Full_Sprite.webp
+│   ├── Roccia_Full_Sprite.webp
+│   ├── Sanhua_Full_Sprite.webp
+│   ├── Shorekeeper_Full_Sprite.webp
+│   ├── Sigrika_Full_Sprite.webp
+│   ├── Suisui_Full_Sprite.webp
+│   ├── Taoqi_Full_Sprite.webp
+│   ├── Verina_Full_Sprite.webp
+│   ├── Xiangli_Yao_Full_Sprite.webp
+│   ├── Yangyang_Full_Sprite_Live2D.webp
+│   ├── Yangyang_Full_Sprite.webp
+│   ├── Yangyang_Xuanling_Full_Sprite.webp
+│   ├── Yinlin_Full_Sprite.webp
+│   ├── Youhu_Full_Sprite.webp
+│   ├── Yuanwu_Full_Sprite.webp
+│   ├── Zani_Full_Sprite.webp
+│   └── Zhezhi_Full_Sprite.webp
+├── manifest.json
+├── og-image.png
+├── PITY_REVIEW.md
+├── project_structure.txt
+├── PROMO.md
+├── README.md
+├── release.jks
+├── robots.txt
+├── screenshots
+│   ├── photo_6075515064975824060_y.jpg
+│   ├── photo_6075515064975824061_y.jpg
+│   ├── photo_6075515064975824062_y.jpg
+│   ├── photo_6075515064975824063_y.jpg
+│   ├── photo_6075515064975824064_y.jpg
+│   ├── photo_6075515064975824065_y.jpg
+│   ├── screen-01.webp
+│   ├── screen-02.webp
+│   ├── screen-03.webp
+│   ├── screen-04.webp
+│   ├── screen-05.webp
+│   └── screen-06.webp
+├── SECURITY.md
+├── settings.gradle.kts
+├── sitemap.xml
+└── styles.css
+
+155 directories, 2258 files

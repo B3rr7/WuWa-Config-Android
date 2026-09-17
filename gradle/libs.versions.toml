@@ -1,9 +1,8 @@
 [versions]
-agp = "8.4.2"
-kotlin = "1.9.24"
+agp = "9.4.0"
+kotlin = "2.2.10"
 ktlint = "12.1.0"
 composeBom = "2024.10.00"
-composeCompiler = "1.5.14"
 coreKtx = "1.13.1"
 lifecycle = "2.8.6"
 activityCompose = "1.9.2"
@@ -50,5 +49,5 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
