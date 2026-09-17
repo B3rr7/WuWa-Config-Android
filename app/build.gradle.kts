@@ -77,6 +77,11 @@ android {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
 
+    // NOTE: applicationVariants + ApkVariantOutputImpl is legacy/internal API that
+    // breaks on AGP 9 (removed in AGP 10). The public replacement
+    // (androidComponents.onVariants + ApkVariantOutput.outputFileName) requires
+    // AGP 9+ — verified against the AGP 8.4.2 gradle-api jar, which has no such
+    // members. Migrate together with the AGP bump, not before.
     applicationVariants.configureEach {
         val vName = name
         val vVersion = versionName
