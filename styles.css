@@ -77,7 +77,7 @@ body{
 .t-dot:hover::after,.t-dot:focus-visible::after{opacity:1}
 /* the dock floats at the right edge — keep the stats row clear of it */
 @media(min-width:881px){
-  .stats{padding-right:70px}
+  .stats{padding-right:96px}
 }
 @media(max-width:880px){
   .dock{top:auto;bottom:max(12px, env(safe-area-inset-bottom));right:auto;left:50%;transform:translateX(-50%);flex-direction:row;padding:8px 12px;gap:10px;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(4px)}
@@ -93,7 +93,8 @@ body{
 .navbar.scrolled{box-shadow:0 1px 0 var(--ink),0 6px 0 -4px var(--line-2)}
 .nav-in{display:flex;align-items:center;justify-content:space-between;height:100%}
 .logo{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.1rem;text-decoration:none;color:var(--ink);letter-spacing:-.02em;text-transform:uppercase}
-.logo-mark{width:30px;height:30px;background:var(--ink);display:grid;place-items:center;color:var(--paper)}
+.logo-mark{width:30px;height:30px;background:var(--ink);display:grid;place-items:center;color:var(--paper);overflow:hidden}
+.logo-mark img{width:100%;height:100%;object-fit:cover;display:block}
 .logo em{font-style:normal;color:var(--a1)}
 .nav-links{display:flex;align-items:center;gap:2px;list-style:none}
 .nav-links a{color:var(--ink-2);text-decoration:none;font-weight:700;font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;padding:9px 13px;transition:.15s;min-height:44px;display:inline-flex;align-items:center;gap:7px}
@@ -281,8 +282,8 @@ body{
   font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;
   letter-spacing:.08em;text-transform:uppercase;
   padding-bottom:8px;border-bottom:1px solid rgba(233,228,214,.14);margin-bottom:10px}
-.a-app-ic{width:20px;height:20px;background:var(--a2);color:#15130e;display:grid;place-items:center;flex:0 0 auto}
-.a-app-ic .ic{width:12px;height:12px}
+.a-app-ic{width:20px;height:20px;display:grid;place-items:center;flex:0 0 auto;overflow:hidden}
+.a-app-ic img{width:100%;height:100%;object-fit:cover;display:block}
 .a-live{margin-left:auto;font-size:8px;letter-spacing:.16em;color:#15130e;
   background:var(--a2);padding:2px 6px;font-weight:800;animation:pulse 2s infinite}
 
