@@ -139,11 +139,8 @@ object LogParser {
     fun applyXorLut(data: ByteArray): ByteArray {
         // LUT is NOT self-inverse: LUT(LUT(b)) = b xor 0x4A for ALL b.
         // The game stores plaintext as LUT(plaintext xor 0x4A) so a single pass restores it.
-        val result = data.copyOf()
-        for (i in result.indices) {
-            result[i] = XOR_LUT[result[i].toInt() and 0xFF]
-        }
-        return result
+        // Delegates to XorLutStrategy to keep a single crypto path.
+        return checkNotNull(XorLutStrategy().decrypt(data)) { "XorLutStrategy failed" }
     }
 
     fun decodeLogBytes(data: ByteArray): Pair<String, DecodeResult> {

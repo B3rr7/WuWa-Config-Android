@@ -8,7 +8,6 @@ enum class GameMode(val label: String) {
 data class CvarEntry(
     val key: String,
     val value: String,
-    val isOverridden: Boolean = false,
 )
 
 data class GeneratorOptions(

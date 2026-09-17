@@ -14,6 +14,9 @@ android {
         targetSdk = 34
         versionCode = 16
         versionName = "1.1.5"
+        // App ships only res/values (no translations); strip locales bundled
+        // by androidx/material/media3/coil to save a few hundred KB.
+        resConfigs("en")
     }
 
     val keystoreProps =

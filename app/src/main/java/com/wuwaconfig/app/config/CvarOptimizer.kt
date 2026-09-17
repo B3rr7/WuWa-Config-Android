@@ -156,9 +156,14 @@ object CvarOptimizer {
             when {
                 isHardLimited -> 0
                 isConstrained && tier !in listOf("flagship", "high") -> 0
-                tier == "flagship" -> 2
-                tier == "high" -> 2
-                tier == "mid_high" -> 1
+                isConstrained && tier == "flagship" -> 2
+                isConstrained && tier == "high" -> 1
+                tier == "flagship" && ram >= 12000 -> 7
+                tier == "flagship" && ram >= 8000 -> 6
+                tier == "flagship" -> 5
+                tier == "high" && ram >= 8000 -> 5
+                tier == "high" -> 4
+                tier == "mid_high" -> 2
                 tier == "mid" -> 1
                 else -> 0
             }
@@ -237,7 +242,7 @@ object CvarOptimizer {
         if (improved) {
             val newScreen = (current.screen * 1.15f).toInt().coerceIn(50, 100)
             val newShadow = (current.shadow + 1).coerceAtMost(5)
-            val newDetail = (current.detail + 1).coerceAtMost(2)
+            val newDetail = (current.detail + 1).coerceAtMost(7)
             val newSsr = (current.ssr + 1).coerceAtMost(4)
             return current.copy(
                 screen = newScreen,

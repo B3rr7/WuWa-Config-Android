@@ -36,18 +36,21 @@ class DeployHistoryStore(private val storeFile: File) {
     ): Boolean {
         return synchronized(lock) {
             val idx = records.indexOfFirst { it.id == id }
-            if (idx < 0) return false
-            records[idx] =
-                records[idx].copy(
-                    outcomeFps = outcome.fpsActual,
-                    outcomeThermal = outcome.thermalEvents,
-                    outcomeOom = outcome.gpuOom,
-                    outcomeDrops = outcome.dropFrames,
-                    outcomeTimestamp = System.currentTimeMillis(),
-                    baselineClientLogSnippet = if (records[idx].baselineClientLogSnippet.isEmpty()) snippet else records[idx].baselineClientLogSnippet,
-                )
-            saveLocked()
-            return true
+            if (idx < 0) {
+                false
+            } else {
+                records[idx] =
+                    records[idx].copy(
+                        outcomeFps = outcome.fpsActual,
+                        outcomeThermal = outcome.thermalEvents,
+                        outcomeOom = outcome.gpuOom,
+                        outcomeDrops = outcome.dropFrames,
+                        outcomeTimestamp = System.currentTimeMillis(),
+                        baselineClientLogSnippet = if (records[idx].baselineClientLogSnippet.isEmpty()) snippet else records[idx].baselineClientLogSnippet,
+                    )
+                saveLocked()
+                true
+            }
         }
     }
 

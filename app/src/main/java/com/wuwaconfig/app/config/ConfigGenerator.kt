@@ -198,7 +198,6 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
     private val HEADER_TIME_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd @ HH:mm", Locale.US)
 
     fun configHeader(
-        platform: String,
         preset: String,
         logInfo: LogInfo,
     ): String {
@@ -281,7 +280,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         LogRepository.add("ConfigGenerator: building DeviceProfiles.ini")
         val dp = buildAndroidDeviceProfilesIni(p, opts, logInfo, preset)
         val gus = buildAndroidGameUserSettingsIni(p, opts, logInfo)
-        val sc = if (opts.generateScalability) buildAndroidScalabilityIni(p, opts) else ""
+        val sc = if (opts.generateScalability) buildAndroidScalabilityIni(p) else ""
         val hw = if (opts.generateHardware) buildAndroidHardwareIni(p, opts, logInfo, preset) else ""
         val deduplicatedEngine = deduplicateIniText(optimizedEngine)
         val finalEngine =
@@ -492,7 +491,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val corePaths = coreSystemPaths ?: DEFAULT_CORE_SYSTEM
         val ctx = EngineIniContext(p, opts, corePaths, dt, hasVulkan, activePreset)
         val lines = mutableListOf<String>()
-        lines.add(configHeader("Android", activePreset, logInfo))
+        lines.add(configHeader(activePreset, logInfo))
         lines.add("")
         ctx.corePaths.forEach { lines.add(it) }
         lines.add("")
@@ -504,7 +503,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         lines.addAll(buildShadowSection(ctx))
         lines.addAll(buildTextureStreamingSection(ctx))
         lines.addAll(buildMobileRenderingSection(ctx))
-        lines.addAll(buildVrsSection(ctx))
+        lines.addAll(buildVrsSection())
         lines.addAll(buildEffectsParticlesSection(ctx))
         lines.addAll(buildWaterReflectionSection(ctx))
         lines.addAll(buildScreenSpaceEffectsSection(ctx))
@@ -513,12 +512,12 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         lines.addAll(buildAdvancedLodCullingSection(ctx))
         lines.addAll(buildAnimationBlueprintSection(ctx))
         lines.addAll(buildFrameDisplaySection(ctx))
-        lines.addAll(buildPipelineRhiSection(ctx))
+        lines.addAll(buildPipelineRhiSection())
         lines.addAll(buildThermalStabilitySection(ctx))
-        lines.addAll(buildForbiddenCvarOverridesSection(ctx))
+        lines.addAll(buildForbiddenCvarOverridesSection())
         lines.addAll(buildPerformanceTweaksSection(ctx))
         lines.addAll(buildExperimentalCvarsSection(ctx))
-        lines.addAll(buildEnrichmentCvars(p, opts))
+        lines.addAll(buildEnrichmentCvars(p))
         lines.addAll(buildGameModeToaSection(ctx))
         lines.add("[/Script/Engine.StreamingSettings]")
         lines.add("s.TimeLimitExceededMultiplier=1.5")
@@ -691,7 +690,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         )
     }
 
-    private fun buildVrsSection(ctx: EngineIniContext): List<String> {
+    private fun buildVrsSection(): List<String> {
         return listOf(
             "; ── VRS (Variable Rate Shading) ───────────────────────",
             "r.VRS.EnableMaterial=1",
@@ -890,7 +889,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         )
     }
 
-    private fun buildPipelineRhiSection(ctx: EngineIniContext): List<String> {
+    private fun buildPipelineRhiSection(): List<String> {
         return listOf(
             "; ── PIPELINE / RHI ───────────────────────────────────",
             "r.PSO.CacheEvictScheme=1",
@@ -935,7 +934,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         return lines
     }
 
-    private fun buildForbiddenCvarOverridesSection(ctx: EngineIniContext): List<String> {
+    private fun buildForbiddenCvarOverridesSection(): List<String> {
         return listOf(
             "; ── FORBIDDEN CVAR OVERRIDES ──────────────────────────",
             "; Disabling known problematic CVars detected in log",
@@ -1104,10 +1103,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
      * no fabricated CVars leak into the config. Values are scaled by preset tier using the
      * q0/q1/q2 gates already used everywhere else in the builder.
      */
-    private fun buildEnrichmentCvars(
-        p: PresetProfile,
-        opts: GeneratorOptions,
-    ): List<String> {
+    private fun buildEnrichmentCvars(p: PresetProfile): List<String> {
         val out = mutableListOf<String>()
         out.add("")
         out.add("; ── CURATED ENRICHMENT (DB-verified, scaled by preset) ────")
@@ -1294,7 +1290,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             val rootBaseProfile = if (presetBaseProfile == "Android_Ultra") "Android_VeryHigh" else "Android"
             val lines =
                 mutableListOf<String>().apply {
-                    add(configHeader("Android", activePreset, logInfo))
+                    add(configHeader(activePreset, logInfo))
                     add("[DeviceProfiles]")
                     profiles.forEach { add("+DeviceProfileNameAndTypes=$it,Android") }
                     add("")
@@ -1315,7 +1311,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
 
         val lines =
             mutableListOf<String>().apply {
-                add(configHeader("Android", activePreset, logInfo))
+                add(configHeader(activePreset, logInfo))
                 add("[DeviceProfiles]")
                 add("+DeviceProfileNameAndTypes=$profile,Android")
                 add("")
@@ -1438,10 +1434,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         ).joinToString("\n")
     }
 
-    private fun buildAndroidScalabilityIni(
-        p: PresetProfile,
-        opts: GeneratorOptions,
-    ): String {
+    private fun buildAndroidScalabilityIni(p: PresetProfile): String {
         val viewQ =
             if (p.q1) {
                 3
@@ -1660,10 +1653,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         ).joinToString("\n")
     }
 
-    fun parseCvarEntries(
-        engineIni: String,
-        logInfo: LogInfo = LogInfo(),
-    ): List<CvarEntry> = com.wuwaconfig.app.config.parseCvarEntries(engineIni, logInfo)
+    fun parseCvarEntries(engineIni: String): List<CvarEntry> = com.wuwaconfig.app.config.parseCvarEntries(engineIni)
 
     fun applyCvarOverrides(
         text: String,

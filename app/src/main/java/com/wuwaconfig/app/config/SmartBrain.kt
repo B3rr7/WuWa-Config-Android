@@ -15,16 +15,9 @@ object SmartBrain {
 
     private data class ResInfo(val width: Int, val height: Int?)
 
-    // Hoisted out of parseResolution: the old body recompiled this Regex on every
-    // call, i.e. twice per scoring pass (~2 allocations per device analysis).
-    private val RESOLUTION_REGEX = Regex("\\s*[xX*]\\s*")
-
-    private fun parseResolution(res: String?): ResInfo? {
-        if (res == null) return null
-        val parts = res.trim().split(RESOLUTION_REGEX)
-        val w = parts.firstOrNull()?.toIntOrNull() ?: return null
-        val h = parts.getOrNull(1)?.toIntOrNull()
-        return ResInfo(w, h)
+    private fun parseResInfo(res: String?): ResInfo? {
+        val p = parseResolution(res) ?: return null
+        return ResInfo(p.first, p.second)
     }
 
     private fun hasCvar(
@@ -222,7 +215,7 @@ object SmartBrain {
             }
         }
 
-        val res = parseResolution(info.resolution)
+        val res = parseResInfo(info.resolution)
         val effectiveRes = res?.let { minOf(it.width, it.height ?: 0) } ?: 0
         val isHighRes = effectiveRes >= 1440
         val is4k = effectiveRes >= 2160
@@ -461,9 +454,9 @@ object SmartBrain {
             score >= 75 && (tier == "flagship" || tier == "high") && info.vulkanStatus == "available" -> "high"
             score >= 70 && (tier == "flagship" || tier == "high") -> "high"
             score >= 45 && info.fpsActual != null && info.fpsCap != null && (info.fpsCap - info.fpsActual.toInt()) > 15 -> "competitive"
-            score >= 40 -> "balanced"
             info.autoAdjustTriggers > 10 && score >= 25 -> "endurance"
             info.thermalEvents >= 3 && score >= 30 -> "endurance"
+            score >= 40 -> "balanced"
             info.autoAdjustTriggers > 10 -> "performance"
             score >= 20 -> "performance"
             else -> "potato"

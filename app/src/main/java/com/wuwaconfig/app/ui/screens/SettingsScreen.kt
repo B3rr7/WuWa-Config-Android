@@ -43,7 +43,6 @@ import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.config.ChipsetDetector.ChipsetInfo
-import com.wuwaconfig.app.ui.CSharpEnvState
 import com.wuwaconfig.app.ui.SettingsViewModel
 import com.wuwaconfig.app.ui.UpdateState
 import com.wuwaconfig.app.ui.components.GlassButton
@@ -593,51 +592,6 @@ fun SettingsScreen(
                             checked = hashMonitorEnabled,
                             onCheckedChange = { viewModel.setHashMonitorEnabled(it) },
                             colors = SwitchDefaults.colors(checkedThumbColor = NeonBlue, checkedTrackColor = NeonBlue.copy(alpha = 0.3f)),
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                }
-
-                LaunchedEffect(Unit) { viewModel.refreshCSharpEnvState() }
-                GlassCard(accentColor = NeonPurple) {
-                    GlassCardHeader("C# Optimization", NeonPurple)
-                    Spacer(Modifier.height(8.dp))
-                    val forceCSharpEnv by viewModel.forceCSharpEnv.collectAsStateWithLifecycle()
-                    val csharpState by viewModel.csharpEnvState.collectAsStateWithLifecycle()
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Force C# Environment", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Text(
-                                "Enable WuWa 3.6's C# optimization environment. Creates " +
-                                    "UE4CommandLine.txt with -ForceEnableCSharpEnvironment when ON, " +
-                                    "deletes it when OFF (inside .../UE4Game/Client/). " +
-                                    "Restart the game after toggling; a '*' next to the version number on the " +
-                                    "login screen confirms it took effect.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            val (stateLabel, stateColor) =
-                                when (csharpState) {
-                                    CSharpEnvState.Enabled -> "C# is ON" to NeonGreen
-                                    CSharpEnvState.Disabled -> "C# is OFF (old JS path)" to NeonAmber
-                                    CSharpEnvState.Unknown -> "Unknown — check access method" to MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                            Text(
-                                "Game state: $stateLabel",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = stateColor,
-                            )
-                        }
-                        Switch(
-                            checked = forceCSharpEnv,
-                            onCheckedChange = { viewModel.setForceCSharpEnv(it) },
-                            colors = SwitchDefaults.colors(checkedThumbColor = NeonPurple, checkedTrackColor = NeonPurple.copy(alpha = 0.3f)),
                         )
                     }
                     Spacer(Modifier.height(12.dp))
