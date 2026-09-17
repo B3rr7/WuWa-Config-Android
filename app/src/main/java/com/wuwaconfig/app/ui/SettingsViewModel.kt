@@ -179,5 +179,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun installNow() {
         val ready = (_updateState.value as? UpdateState.Ready) ?: return
         UpdateManager.openForInstall(getApplication(), ready.file)
+            .onFailure { _updateState.value = UpdateState.Error(it.message ?: "Could not open installer") }
     }
 }

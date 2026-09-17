@@ -35,6 +35,7 @@
             </intent-filter>
         </activity>
 
+        <!-- Required by the Shizuku host (reflective instantiate). Do NOT set exported=false. -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"
@@ -57,6 +58,7 @@
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
+        <!-- Hosted by Shizuku's UserService mechanism, not bound by the system. Keep exported=false. -->
         <service
             android:name=".service.ShellUserService"
             android:exported="false" />

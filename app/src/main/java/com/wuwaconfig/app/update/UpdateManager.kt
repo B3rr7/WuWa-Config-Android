@@ -232,7 +232,7 @@ object UpdateManager {
     fun openForInstall(
         context: Context,
         apkFile: File,
-    ) {
+    ): Result<Unit> {
         val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}$FILE_PROVIDER_AUTHORITY_SUFFIX", apkFile)
         val intent =
             Intent(Intent.ACTION_VIEW).apply {
@@ -240,7 +240,17 @@ object UpdateManager {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-        context.startActivity(intent)
+        // Kiosk / stripped ROMs may ship no package installer — fail as a
+        // Result instead of crashing with ActivityNotFoundException.
+        if (intent.resolveActivity(context.packageManager) == null) {
+            return Result.failure(Exception("No package installer found on device"))
+        }
+        return try {
+            context.startActivity(intent)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     fun updatesDir(context: Context): File = File(context.cacheDir, "updates")
