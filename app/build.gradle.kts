@@ -1,6 +1,8 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ktlint)
 }
 
@@ -14,9 +16,12 @@ android {
         targetSdk = 34
         versionCode = 16
         versionName = "1.1.5"
+    }
+
+    androidResources {
         // App ships only res/values (no translations); strip locales bundled
         // by androidx/material/media3/coil to save a few hundred KB.
-        resConfigs("en")
+        localeFilters.add("en")
     }
 
     val keystoreProps =
@@ -64,8 +69,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
     }
 
     buildFeatures {
@@ -73,21 +80,21 @@ android {
         buildConfig = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
-    }
-
-    // NOTE: applicationVariants + ApkVariantOutputImpl is legacy/internal API that
-    // breaks on AGP 9 (removed in AGP 10). The public replacement
-    // (androidComponents.onVariants + ApkVariantOutput.outputFileName) requires
-    // AGP 9+ — verified against the AGP 8.4.2 gradle-api jar, which has no such
-    // members. Migrate together with the AGP bump, not before.
-    applicationVariants.configureEach {
-        val vName = name
-        val vVersion = versionName
-        outputs.configureEach {
-            val apkName = if (vName == "release") "WuWaConfig-v$vVersion-release.apk" else "WuWaConfig-debug.apk"
-            (this as com.android.build.gradle.internal.api.ApkVariantOutputImpl).outputFileName = apkName
+    // AGP 9 uses the lazy Variant API. Rename APK outputs through the public
+    // androidComponents API instead of the removed applicationVariants API.
+    androidComponents {
+        onVariants(selector().all()) { variant ->
+            variant.outputs.forEach { output ->
+                output.outputFileName.set(
+                    output.versionName.map { appVersionName ->
+                        if (variant.buildType == "release") {
+                            "WuWaConfig-v$appVersionName-release.apk"
+                        } else {
+                            "WuWaConfig-debug.apk"
+                        }
+                    },
+                )
+            }
         }
     }
 
