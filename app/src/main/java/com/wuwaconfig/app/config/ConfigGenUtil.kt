@@ -1,7 +1,6 @@
 package com.wuwaconfig.app.config
 
 import com.wuwaconfig.app.model.CvarEntry
-import com.wuwaconfig.app.model.LogInfo
 
 internal val CVAR_PREFIXES =
     listOf(
@@ -129,29 +128,23 @@ fun deduplicateIniText(text: String): String {
     return lines.filterIndexed { i, _ -> i !in toRemove }.joinToString("\n")
 }
 
+private val RESOLUTION_SPLIT_REGEX = Regex("\\s*[xX*]\\s*")
+
 fun parseResolution(res: String?): Pair<Int, Int>? {
     if (res.isNullOrBlank()) return null
-    val parts = res.trim().split(Regex("\\s*[xX*]\\s*"))
+    val parts = res.trim().split(RESOLUTION_SPLIT_REGEX)
     val w = parts.firstOrNull()?.toIntOrNull() ?: return null
     val h = parts.getOrNull(1)?.toIntOrNull() ?: return null
     if (w <= 0 || h <= 0) return null
     return w to h
 }
 
-fun parseCvarEntries(
-    engineIni: String,
-    logInfo: LogInfo = LogInfo(),
-): List<CvarEntry> {
+fun parseCvarEntries(engineIni: String): List<CvarEntry> {
     val entries = mutableListOf<CvarEntry>()
-    var currentCategory = ""
     for (line in engineIni.lines()) {
         val trimmed = line.trim()
         if (trimmed.startsWith("[")) continue
-        if (trimmed.startsWith(";")) {
-            val cat = trimmed.removePrefix(";").trim().trim('─').trim()
-            if (cat.isNotEmpty() && !cat.startsWith("═")) currentCategory = cat
-            continue
-        }
+        if (trimmed.startsWith(";")) continue
         val eq = trimmed.indexOf('=')
         if (eq > 0) {
             val key = trimmed.substring(0, eq).trim()

@@ -1,5 +1,13 @@
--keep class com.wuwaconfig.app.** { *; }
--dontwarn com.wuwaconfig.app.**
+# Gson models — serialized reflectively (BackupStore, DeployHistoryStore,
+# ProfileStore, GachaHistoryStore, LogAnalysisStore, BattleStatsStore,
+# GeneratorOptions, GachaData). Verified via fromJson/toJson call sites.
+-keep class com.wuwaconfig.app.model.** { *; }
+
+# Instantiated reflectively by the Shizuku host process via ComponentName —
+# R8 cannot see this edge, so it must be kept explicitly.
+-keep class com.wuwaconfig.app.service.ShellUserService { <init>(...); }
+
+# Shizuku uses reflection R8 traces — keep is required, not optional.
 -keep class rikka.shizuku.** { *; }
 -dontwarn rikka.shizuku.**
 
@@ -14,4 +22,3 @@
 -keepattributes Signature,InnerClasses,EnclosingMethod,*Annotation*
 -keep class com.google.gson.reflect.TypeToken { *; }
 -keep class * extends com.google.gson.reflect.TypeToken
-

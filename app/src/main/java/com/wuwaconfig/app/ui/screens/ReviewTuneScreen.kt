@@ -84,9 +84,7 @@ fun ReviewTuneScreen(
             (newFiles[f]?.isNotBlank() == true) || (currentDevice[f]?.isNotBlank() == true)
         }
 
-    var selectedTab by rememberSaveable {
-        mutableStateOf(0)
-    }
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
     LaunchedEffect(available) {
         if (available.isNotEmpty()) {
             selectedTab = selectedTab.coerceIn(0, available.lastIndex)
@@ -109,7 +107,6 @@ fun ReviewTuneScreen(
     val deviceTextPresent = deviceText.isNotBlank()
     val deviceMd5 = remember(deviceText) { if (deviceTextPresent) Hashing.md5Of(deviceText) else "n/a" }
     val newMd5 = remember(newText) { Hashing.md5Of(newText) }
-    val oldMd5 = remember(originalGenerated) { Hashing.md5Of(originalGenerated) }
 
     val diff =
         remember(deviceText, newText) {
@@ -219,7 +216,6 @@ fun ReviewTuneScreen(
                     deviceLoading = currentDeviceLoading == currentFile,
                     deviceError = currentDeviceError,
                     deviceMd5 = deviceMd5,
-                    oldMd5 = oldMd5,
                     newMd5 = newMd5,
                     summary = diff?.summary,
                 )
@@ -263,11 +259,7 @@ fun ReviewTuneScreen(
                 val gus = newFiles["GameUserSettings.ini"].orEmpty()
                 val scal = newFiles["Scalability.ini"].orEmpty()
                 val hw = newFiles["Hardware.ini"].orEmpty()
-                val overrides =
-                    viewModel.configGenerator.parseCvarEntries(engine)
-                        .filter { it.isOverridden }
-                        .associate { it.key to it.value }
-                val opts = generatorOptions.copy(cvarOverrides = overrides)
+                val opts = generatorOptions.copy(cvarOverrides = emptyMap())
                 onDeploy(
                     GeneratedIni(
                         engine = engine,
@@ -387,7 +379,6 @@ private fun FileMetaBar(
     deviceLoading: Boolean,
     deviceError: String?,
     deviceMd5: String,
-    oldMd5: String,
     newMd5: String,
     summary: com.wuwaconfig.app.util.DiffSummary?,
 ) {

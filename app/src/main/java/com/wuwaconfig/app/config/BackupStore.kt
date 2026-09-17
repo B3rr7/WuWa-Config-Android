@@ -71,7 +71,7 @@ class BackupStore(
                 Log.d("BackupStore", "createBackup: saving backup to $backupDir")
                 val backup = ConfigBackup(name = name, files = configFiles, type = type)
                 File(backupDir, "${backup.id}.json").writeAtomic(gson.toJson(backup))
-                exportPublicCopy(backup, name, configFiles)
+                exportPublicCopy(backup, configFiles)
                 Log.d("BackupStore", "createBackup: SUCCESS")
                 LogRepository.add("ConfigManager: backup '$name' created", LogLevel.SUCCESS)
                 Result.success(backup)
@@ -144,7 +144,6 @@ class BackupStore(
      */
     private fun exportPublicCopy(
         backup: ConfigBackup,
-        name: String,
         configFiles: List<ConfigFile>,
     ) {
         if (!canWritePublicStorage()) {

@@ -208,10 +208,9 @@ class HashMonitor(
                     // Unique temp name so a retry or a concurrent (mutex-serialized)
                     // refresh can never clobber another's staging file.
                     val tempFile = File(context.cacheDir, "KuroConfigMonitor.hash.${System.nanoTime()}")
-                    var hashTempPath = ""
+                    val hashTempPath = GamePaths.HASH_MONITOR_PATH + ".new"
                     try {
                         tempFile.writeText(newContent)
-                        hashTempPath = GamePaths.HASH_MONITOR_PATH + ".new"
                         var hashPushOk = false
                         var hashPushError: Throwable? = null
                         for (attempt in 0..PUSH_RETRY_COUNT) {
