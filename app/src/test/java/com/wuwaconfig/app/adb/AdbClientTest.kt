@@ -1,6 +1,7 @@
 package com.wuwaconfig.app.adb
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
@@ -34,13 +35,53 @@ private class FakeSocket(
     /** Stream the test (acting as the server) writes to, which the client reads. */
     val serverOutput: PipedOutputStream get() = serverOut
 
-    override fun getInputStream(): PipedInputStream = clientIn
+    // The client reads exclusively through this stream. It honors SO_TIMEOUT
+    // (raw pipes don't): AdbClient.drainTrailingWrite sets a 250ms timeout and
+    // relies on SocketTimeoutException to end the drain — a raw pipe read
+    // would block forever once the server is done writing.
+    override fun getInputStream(): java.io.InputStream =
+        object : java.io.FilterInputStream(clientIn) {
+            override fun read(b: ByteArray, off: Int, len: Int): Int {
+                val timeout = readTimeoutMs
+                if (timeout == 0) return pipe.read(b, off, len)
+                val deadline = System.currentTimeMillis() + timeout
+                while (true) {
+                    if (pipe.available() > 0) return pipe.read(b, off, len)
+                    if (System.currentTimeMillis() >= deadline) {
+                        throw java.net.SocketTimeoutException("Read timed out")
+                    }
+                    Thread.sleep(5)
+                }
+            }
+
+            private val pipe: PipedInputStream get() = clientIn
+        }
+
+    // Real sockets honor SO_TIMEOUT; pipes don't. Store it locally so the
+    // wrapper above (and drainTrailingWrite's save/restore) sees it.
+    @Volatile
+    private var readTimeoutMs = 0
+
+    override fun getSoTimeout(): Int = readTimeoutMs
+
+    override fun setSoTimeout(timeout: Int) {
+        readTimeoutMs = timeout
+    }
 
     override fun getOutputStream(): PipedOutputStream = clientOut
 
     override fun isConnected(): Boolean = !closed.get()
 
     override fun isClosed(): Boolean = closed.get()
+
+    // A fake must not dial real TCP: AdbClient.connect() calls connect() plus
+    // option setters on the factory socket. No-op the connect; the setters
+    // below are safe on an unconnected socket.
+    override fun connect(endpoint: java.net.SocketAddress) {
+    }
+
+    override fun connect(endpoint: java.net.SocketAddress, timeout: Int) {
+    }
 
     override fun close() {
         closed.set(true)
@@ -77,7 +118,9 @@ class AdbClientTest {
         runBlocking {
             val (client, socket) = createClientPair()
             // Start the fake server: read the CNXN the client sends, then reply with CNXN.
-            withContext(Dispatchers.IO) {
+            // Runs concurrently (launch): the server blocks on the pipe read until
+            // the client below writes, so awaiting it here would deadlock.
+            launch(Dispatchers.IO) {
                 val msg = AdbProtocol.readMessage(socket.serverInput)
                 assertTrue("client should send CNXN", msg!!.command.contentEquals(AdbProtocol.CNXN))
                 AdbProtocol.writeMessage(socket.serverOutput, AdbProtocol.createConnectionMessage())
@@ -94,7 +137,7 @@ class AdbClientTest {
     fun `executeShellCommand returns the server response`() =
         runBlocking {
             val (client, socket) = createClientPair()
-            withContext(Dispatchers.IO) {
+            launch(Dispatchers.IO) {
                 // 1. Client sends CNXN; we reply CNXN (auth success).
                 AdbProtocol.readMessage(socket.serverInput)
                 AdbProtocol.writeMessage(socket.serverOutput, AdbProtocol.createConnectionMessage())
@@ -103,7 +146,7 @@ class AdbClientTest {
             client.connect(5555).getOrThrow()
 
             val remoteId = 200
-            withContext(Dispatchers.IO) {
+            launch(Dispatchers.IO) {
                 // 2. Client sends OPEN for "shell:echo hello"
                 val open = AdbProtocol.readMessage(socket.serverInput)!!
                 assertTrue(open.command.contentEquals(AdbProtocol.OPEN))
@@ -146,10 +189,13 @@ class AdbClientTest {
         runBlocking {
             val (client, socket) = createClientPair()
             // Server sends nothing — the client waits for a CNXN/AUTH/OKAY response.
-            // We don't write anything. The auth loop has a 30s deadline; instead of
-            // waiting that long, we close the socket so readMessage returns null.
+            // We don't write anything. The auth loop has a 30s deadline, but the
+            // deadline is only checked between reads, so a blocked pipe read would
+            // hang forever: close the SERVER WRITE end (feeds the client's read)
+            // so the pending read throws and connect() fails fast. (Closing the
+            // server read end does NOT unblock the client's read.)
             withContext(Dispatchers.IO) {
-                socket.serverInput.close()
+                socket.serverOutput.close()
             }
             kotlinx.coroutines.delay(50)
             val result = client.connect(5555)
@@ -161,7 +207,7 @@ class AdbClientTest {
     fun `connect rejects a foreign CLSE during command`() =
         runBlocking {
             val (client, socket) = createClientPair()
-            withContext(Dispatchers.IO) {
+            launch(Dispatchers.IO) {
                 AdbProtocol.readMessage(socket.serverInput)
                 AdbProtocol.writeMessage(socket.serverOutput, AdbProtocol.createConnectionMessage())
             }
@@ -169,7 +215,7 @@ class AdbClientTest {
             client.connect(5555).getOrThrow()
 
             val remoteId = 1234
-            withContext(Dispatchers.IO) {
+            launch(Dispatchers.IO) {
                 val open = AdbProtocol.readMessage(socket.serverInput)!!
                 // A foreign CLSE (wrong arg1) should be ignored, then our CLSE closes it.
                 AdbProtocol.writeMessage(

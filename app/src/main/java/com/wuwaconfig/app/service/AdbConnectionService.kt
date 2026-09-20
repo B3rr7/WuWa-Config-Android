@@ -30,7 +30,11 @@ class AdbConnectionService : Service() {
         LogRepository.add("AdbConnectionService: onStartCommand")
         val notification = buildNotification()
         startForeground(NOTIFICATION_ID, notification)
-        return START_STICKY
+        // Connection state is owned by DeployHistoryViewModel (sole start/stop
+        // authority). NOT_STICKY avoids an orphan "ADB connection active"
+        // notification if the system kills and restarts us with a null intent
+        // when no ADB socket exists.
+        return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

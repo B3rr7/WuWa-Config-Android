@@ -65,7 +65,7 @@ class ShellUserService : Binder() {
             watchdog.interrupt()
             if (!exited) {
                 process.destroyForcibly()
-                "Command timed out after 60s"
+                "Command timed out (process did not exit after output drained)"
             } else {
                 val exitCode = process.exitValue()
                 if (exitCode != 0) {

@@ -144,7 +144,14 @@ class MainActivity : ComponentActivity() {
             if (!Environment.isExternalStorageManager()) {
                 val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                 intent.data = android.net.Uri.parse("package:$packageName")
-                manageStorageLauncher.launch(intent)
+                // Kiosk / stripped / some Chinese ROMs may ship no Settings
+                // handler for this action — fail silently instead of crashing
+                // with ActivityNotFoundException (same guard as UpdateManager).
+                if (intent.resolveActivity(packageManager) == null) return
+                try {
+                    manageStorageLauncher.launch(intent)
+                } catch (_: Exception) {
+                }
             }
         } else {
             val permissions = mutableListOf<String>()

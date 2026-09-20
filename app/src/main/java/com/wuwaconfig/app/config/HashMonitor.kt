@@ -185,21 +185,19 @@ class HashMonitor(
                             patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
                         }
                     } else {
-                        // No existing content — build from scratch (first-time)
+                        // No existing content — build from scratch (first-time).
+                        // Reuse the hashes already computed by the scan loop above
+                        // (updates map) instead of re-reading every file from the
+                        // device a second time. Each computeIniHash issues a
+                        // readFileBytes over the active backend (ADB/Shizuku/Root),
+                        // so the redundant pass was a double device read per file —
+                        // the "double backup" bug.
                         for (name in GamePaths.MONITORED_FILES) {
-                            val hashResult = computeIniHash(name)
-                            val hash =
-                                if (hashResult.isSuccess) {
-                                    hashResult.getOrThrow()
-                                } else {
-                                    LogRepository.add("ConfigManager: first-time hash FAILED for $name, using fallback", LogLevel.ERROR)
-                                    val content = backend.readFile("${GamePaths.TARGET_DIR}/$name").getOrDefault("")
-                                    computeMd5(content.toByteArray())
-                                }
+                            val patch = updates[name] ?: continue
                             patchedLines.add("[$name]")
-                            patchedLines.add("Hash=$hash")
-                            patchedLines.add("ModifyCount=0")
-                            patchedLines.add("LastModifiedTime=$now")
+                            patchedLines.add("Hash=${patch["Hash"] ?: ""}")
+                            patchedLines.add("ModifyCount=${patch["ModifyCount"] ?: "0"}")
+                            patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
                             patchedLines.add("")
                         }
                     }
