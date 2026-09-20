@@ -15,7 +15,7 @@ gson = "2.13.2"
 coil = "2.7.0"
 media3 = "1.7.1"
 junit = "4.13.2"
-mockito = "5.11.0"
+mockito = "5.23.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
