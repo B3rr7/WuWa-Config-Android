@@ -62,9 +62,12 @@ private class FakeHashBackend : AccessBackend {
             Result.success("")
         }
 
+    val readFileBytesCallCount = mutableMapOf<String, Int>()
+
     override suspend fun readFileBytes(path: String): Result<ByteArray> {
         if (readBytesFail) return Result.failure(Exception("read failed"))
         val name = path.substringAfterLast("/")
+        readFileBytesCallCount[name] = readFileBytesCallCount.getOrDefault(name, 0) + 1
         return Result.success(fileContents.getOrPut(name) { "content-for-$name".toByteArray() })
     }
 
@@ -188,6 +191,47 @@ class HashMonitorTest {
             for (name in GamePaths.MONITORED_FILES) {
                 val count = Regex("\\[$name\\]").findAll(out).count()
                 assertEquals("section $name should appear exactly once", 1, count)
+            }
+        }
+
+    @Test
+    fun `refreshConfigHashes reads each config file exactly once on first run`() =
+        runBlocking {
+            // Bug: the first-time hash creation path previously recomputed
+            // computeIniHash in the else-branch, causing each file to be
+            // read from the device twice. This test guards against regression.
+            monitor.refreshConfigHashes()
+            for (name in GamePaths.MONITORED_FILES) {
+                val calls = backend.readFileBytesCallCount[name] ?: 0
+                assertEquals(
+                    "config file $name should be read exactly once (not double-read)",
+                    1,
+                    calls,
+                )
+            }
+        }
+
+    @Test
+    fun `reconcileAfterModify with no prior snapshot does not double-read`() =
+        runBlocking {
+            // Simulate a deploy: no hash file exists on device → snapshot is null →
+            // reconcileAfterModify calls refreshConfigHashes() (incrementModifyCount=false).
+            // The hash file should be written once, each config file read exactly once.
+            val result = monitor.reconcileAfterModify(null)
+            assertTrue(result.isSuccess)
+            val out = backend.hashFileContent.toString()
+            for (name in GamePaths.MONITORED_FILES) {
+                val calls = backend.readFileBytesCallCount[name] ?: 0
+                assertEquals(
+                    "config file $name should be read exactly once during reconcile",
+                    1,
+                    calls,
+                )
+                // First-time after null snapshot → incrementModifyCount=false → ModifyCount=0.
+                assertTrue(
+                    "ModifyCount for $name should be 0 (first-time, no increment)",
+                    out.contains("[$name]") && out.contains("ModifyCount=0"),
+                )
             }
         }
 }

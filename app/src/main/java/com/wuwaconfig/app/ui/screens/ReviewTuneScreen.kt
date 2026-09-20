@@ -63,6 +63,20 @@ private val ReviewMonitoredFiles =
 
 private val FileAccents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber, NeonPink)
 
+/**
+ * Defense-in-depth: strip null characters and non-printable control chars
+ * (excluding \t and \n) from text before it reaches Compose's Text /
+ * BasicTextField composables. Even though [LineDiff.compute] now sanitizes
+ * at the source, this guard catches text that bypasses the diff path
+ * (e.g. user paste into the editor, or direct device reads).
+ *
+ * Returns the safe text and how many characters were stripped.
+ */
+private fun sanitizeForRender(text: String): Pair<String, Int> {
+    val filtered = text.filterNot { c -> c == '\u0000' || (c.code < 0x20 && c != '\t') || c.code == 0x7F }
+    return Pair(filtered, text.length - filtered.length)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReviewTuneScreen(
@@ -218,6 +232,7 @@ fun ReviewTuneScreen(
                     deviceMd5 = deviceMd5,
                     newMd5 = newMd5,
                     summary = diff?.summary,
+                    sanitizedCount = diff?.sanitizedLines ?: 0,
                 )
 
                 Box(
@@ -381,6 +396,7 @@ private fun FileMetaBar(
     deviceMd5: String,
     newMd5: String,
     summary: com.wuwaconfig.app.util.DiffSummary?,
+    sanitizedCount: Int = 0,
 ) {
     Column(
         modifier =
@@ -440,6 +456,14 @@ private fun FileMetaBar(
                 DiffBadge(label = "=${summary.unchanged}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        if (sanitizedCount > 0) {
+            Text(
+                "Warning: $sanitizedCount line(s) contained null/corrupt characters and were sanitized",
+                fontSize = 10.sp,
+                color = NeonPink,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
     }
 }
 
@@ -467,7 +491,11 @@ private fun EditorPane(
     onChange: (String) -> Unit,
 ) {
     val scroll = rememberScrollState()
-    val lineCount = text.count { it == '\n' } + 1
+    // Sanitize for render: null chars / control chars from a corrupted device file
+    // (or user paste) crash BasicTextField's text layout engine. Strip them here
+    // so the editor always receives clean text.
+    val safeText = sanitizeForRender(text).first
+    val lineCount = safeText.count { it == '\n' } + 1
     Row(
         modifier =
             Modifier
@@ -495,7 +523,7 @@ private fun EditorPane(
             }
         }
         BasicTextField(
-            value = text,
+            value = safeText,
             onValueChange = onChange,
             readOnly = readOnly,
             textStyle =
@@ -531,7 +559,7 @@ private fun DiffPane(
                 .border(width = 1.dp, color = accent.copy(alpha = 0.4f), shape = RoundedCornerShape(8.dp))
                 .padding(8.dp),
     ) {
-        items(diff.lines, key = { it.oldLineNumber ?: it.newLineNumber ?: it.text }) { line ->
+        items(diff.lines, key = { "${it.kind}:${it.oldLineNumber ?: "-"}:${it.newLineNumber ?: "-"}" }) { line ->
             DiffRow(line)
         }
     }
@@ -545,6 +573,9 @@ private fun DiffRow(line: DiffLine) {
             DiffLine.Kind.REMOVED -> Triple(Color(0x33EF4444), NeonPink, "-")
             DiffLine.Kind.CONTEXT -> Triple(Color.Transparent, MaterialTheme.colorScheme.onSurfaceVariant, " ")
         }
+    // Defense-in-depth: LineDiff.compute already sanitizes, but guard against
+    // null/control chars reaching the Text composable (IndexOutOfBoundsException).
+    val safeText = sanitizeForRender(line.text).first
     Row(
         modifier =
             Modifier
@@ -576,12 +607,21 @@ private fun DiffRow(line: DiffLine) {
             modifier = Modifier.width(28.dp),
         )
         Text(
-            "$prefix ${line.text}",
+            "$prefix $safeText",
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
             color = if (line.kind == DiffLine.Kind.CONTEXT) Color(0xFFB0B0B0) else bar,
             modifier = Modifier.padding(start = 4.dp),
         )
+        // Warning indicator for sanitized (corrupted) lines.
+        if (line.sanitized) {
+            Icon(
+                Icons.Default.Visibility,
+                contentDescription = "Corrupted line — sanitized for display",
+                tint = NeonPink,
+                modifier = Modifier.size(10.dp),
+            )
+        }
     }
 }
 

@@ -100,13 +100,19 @@ class BackupStore(
             }
 
         val privateNames = privateBackups.map { it.name }.toSet()
+        // Public copies of private backups share the backup's data, so they must
+        // not be listed again — match both the id-suffixed dir that
+        // exportPublicCopy creates and the unsuffixed legacy layout.
+        val privateDirNames = privateBackups
+            .flatMap { listOf(sanitizeDirName(it.name), publicDirName(it)) }
+            .toSet()
         val publicBackupsDir = File(publicDir, "Backups")
         val publicBackups =
             if (publicBackupsDir.exists()) {
                 publicBackupsDir.listFiles()
                     ?.filter { it.isDirectory }
                     ?.filter { dir -> dir.listFiles()?.any { f -> f.extension == "ini" } == true }
-                    ?.filter { dir -> dir.name !in privateNames }
+                    ?.filter { dir -> dir.name !in privateNames && dir.name !in privateDirNames }
                     ?.mapNotNull { dir ->
                         try {
                             val iniFiles =

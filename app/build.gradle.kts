@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace = "com.wuwaconfig.app"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.wuwaconfig.app"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 16
         versionName = "1.1.5"
     }
@@ -110,6 +110,12 @@ android {
     lint {
         lintConfig = file("lint.xml")
     }
+
+    testOptions {
+        // android.jar methods are stubs that throw in unit tests; AdbClient
+        // (Log.d) and friends need default no-op returns instead.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -137,7 +143,6 @@ dependencies {
 
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.security.crypto)
-    implementation(libs.androidx.localbroadcastmanager)
     implementation(libs.gson)
     implementation(libs.coil.compose)
     implementation(libs.media3.exoplayer)

@@ -225,7 +225,7 @@ object UpdateManager {
             } catch (e: NoSuchMethodError) {
                 return emptyList()
             }
-        val history = info.signingCertificateHistory ?: return emptyList()
+        val history = info?.signingCertificateHistory ?: return emptyList()
         return history.map { it.toByteArray() }
     }
 

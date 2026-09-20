@@ -68,8 +68,9 @@ fun PityScreen(
             containerColor = Color.Transparent,
         ) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = padding,
             ) {
                 item { Spacer(Modifier.height(4.dp)) }
 

@@ -4,8 +4,10 @@
 -keep class com.wuwaconfig.app.model.** { *; }
 
 # Instantiated reflectively by the Shizuku host process via ComponentName —
-# R8 cannot see this edge, so it must be kept explicitly.
--keep class com.wuwaconfig.app.service.ShellUserService { <init>(...); }
+# R8 cannot see this edge, so the whole class must be kept explicitly
+# (onTransact/execCommand survive only by fragile intra-class reachability
+# if only <init> is kept).
+-keep class com.wuwaconfig.app.service.ShellUserService { *; }
 
 # Shizuku uses reflection R8 traces — keep is required, not optional.
 -keep class rikka.shizuku.** { *; }
