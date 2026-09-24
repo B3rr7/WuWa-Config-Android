@@ -105,6 +105,7 @@ class MainActivity : ComponentActivity() {
                 textOpacity = textOpacity,
                 fontFamilyName = fontFamilyName,
                 fontScale = fontScale,
+                colorSaturation = colorSaturation,
             ) {
                 if (showTerms) {
                     TermsScreen(

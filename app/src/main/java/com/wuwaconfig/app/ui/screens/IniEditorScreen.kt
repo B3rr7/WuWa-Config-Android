@@ -40,7 +40,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.ui.IniEditorViewModel
+import com.wuwaconfig.app.ui.components.BouncingOrb
 import com.wuwaconfig.app.ui.components.GlassCard
+import com.wuwaconfig.app.ui.components.GlassDialog
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
@@ -75,6 +77,7 @@ fun IniEditorScreen(
     var showSearch by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var currentMatch by remember { mutableIntStateOf(0) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
     val vertical = rememberScrollState()
@@ -83,6 +86,12 @@ fun IniEditorScreen(
     val matches = remember(query, editorText) { findMatches(editorText, query) }
     val safeMatch = if (matches.isEmpty()) 0 else currentMatch.coerceIn(0, matches.lastIndex)
     val isDirty = editorText != (iniContent ?: "")
+    val goBackToGrid: () -> Unit = {
+        viewModel.returnToFileList()
+        showSearch = false
+        query = ""
+        currentMatch = 0
+    }
 
     val iniTransform =
         remember(matches, safeMatch) {
@@ -102,12 +111,18 @@ fun IniEditorScreen(
     LaunchedEffect(Unit) {
         viewModel.syncConfigHashes()
     }
-    var lastLoadedFile by remember { mutableStateOf<String?>(null) }
+    var lastLoadedFile by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(editingFileName, iniContent) {
         val content = iniContent
         if (content != null && editingFileName != lastLoadedFile) {
             editorText = content
             lastLoadedFile = editingFileName
+        }
+    }
+    LaunchedEffect(editingFileName) {
+        if (editingFileName == null) {
+            lastLoadedFile = null
+            editorText = ""
         }
     }
     LaunchedEffect(successMessage) {
@@ -148,10 +163,7 @@ fun IniEditorScreen(
                     navigationIcon = {
                         IconButton(onClick = {
                             if (editingFileName != null) {
-                                viewModel.returnToFileList()
-                                showSearch = false
-                                query = ""
-                                currentMatch = 0
+                                if (isDirty) showDiscardDialog = true else goBackToGrid()
                             } else {
                                 onBack()
                             }
@@ -356,6 +368,25 @@ fun IniEditorScreen(
                         }
                     }
                 }
+            }
+
+            if (showDiscardDialog) {
+                GlassDialog(
+                    onDismissRequest = { showDiscardDialog = false },
+                    title = { Text("Discard changes?", fontWeight = FontWeight.Bold) },
+                    text = { Text("You have unsaved changes to $editingFileName. Discard them?") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showDiscardDialog = false
+                            goBackToGrid()
+                        }) {
+                            Text("Discard", color = NeonRed, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDiscardDialog = false }) { Text("Keep editing") }
+                    },
+                )
             }
         }
     }
@@ -676,29 +707,3 @@ private fun IniLoadingAnimation(text: String) {
     }
 }
 
-@Composable
-private fun BouncingOrb(
-    color: Color,
-    index: Int,
-) {
-    val transition = rememberInfiniteTransition(label = "orb$index")
-    val offset by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = -14f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = 520, delayMillis = index * 160, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "offset$index",
-    )
-    Box(
-        Modifier
-            .size(14.dp)
-            .offset(y = offset.dp)
-            .clip(RoundedCornerShape(50))
-            .background(
-                Brush.radialGradient(listOf(color, color.copy(alpha = 0.35f))),
-            ),
-    )
-}

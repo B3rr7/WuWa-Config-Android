@@ -122,8 +122,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _reviewTuneCurrentDeviceLoading = MutableStateFlow<String?>(null)
     val reviewTuneCurrentDeviceLoading: StateFlow<String?> = _reviewTuneCurrentDeviceLoading.asStateFlow()
 
-    private val _reviewTuneCurrentDeviceError = MutableStateFlow<String?>(null)
-    val reviewTuneCurrentDeviceError: StateFlow<String?> = _reviewTuneCurrentDeviceError.asStateFlow()
+    private val _reviewTuneCurrentDeviceError = MutableStateFlow<Map<String, String?>>(emptyMap())
+    val reviewTuneCurrentDeviceError: StateFlow<Map<String, String?>> = _reviewTuneCurrentDeviceError.asStateFlow()
 
     private val _reviewTuneCurrentDevice = MutableStateFlow<Map<String, String>>(emptyMap())
     val reviewTuneCurrentDevice: StateFlow<Map<String, String>> = _reviewTuneCurrentDevice.asStateFlow()
@@ -146,7 +146,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 "Hardware.ini" to payload.hardware,
             )
         _reviewTuneCurrentDevice.value = emptyMap()
-        _reviewTuneCurrentDeviceError.value = null
+        _reviewTuneCurrentDeviceError.value = emptyMap()
     }
 
     fun updateReviewTuneFile(
@@ -162,7 +162,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun reloadDeviceFileForReview(fileName: String) {
         viewModelScope.launch {
             _reviewTuneCurrentDeviceLoading.value = fileName
-            _reviewTuneCurrentDeviceError.value = null
+            _reviewTuneCurrentDeviceError.value = _reviewTuneCurrentDeviceError.value - fileName
             configManager.readCurrentConfig(fileName)
                 .onSuccess { content ->
                     val cur = _reviewTuneCurrentDevice.value.toMutableMap()
@@ -170,7 +170,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _reviewTuneCurrentDevice.value = cur
                 }
                 .onFailure { e ->
-                    _reviewTuneCurrentDeviceError.value = "$fileName: ${e.message ?: "unknown error"}"
+                    _reviewTuneCurrentDeviceError.value = _reviewTuneCurrentDeviceError.value + (fileName to (e.message ?: "unknown error"))
                 }
             _reviewTuneCurrentDeviceLoading.value = null
         }

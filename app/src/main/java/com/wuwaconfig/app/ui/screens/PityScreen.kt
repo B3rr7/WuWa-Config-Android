@@ -30,6 +30,7 @@ import com.wuwaconfig.app.model.GachaRecord
 import com.wuwaconfig.app.model.PityPrediction
 import com.wuwaconfig.app.model.SsrInterval
 import com.wuwaconfig.app.ui.GachaViewModel
+import com.wuwaconfig.app.ui.components.BouncingOrb
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassTopBar
@@ -891,29 +892,3 @@ private fun PityLoadingAnimation(text: String) {
     }
 }
 
-@Composable
-private fun BouncingOrb(
-    color: Color,
-    index: Int,
-) {
-    val transition = rememberInfiniteTransition(label = "orb$index")
-    val offset by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = -14f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = 520, delayMillis = index * 160, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "offset$index",
-    )
-    Box(
-        Modifier
-            .size(14.dp)
-            .offset(y = offset.dp)
-            .clip(RoundedCornerShape(50))
-            .background(
-                Brush.radialGradient(listOf(color, color.copy(alpha = 0.35f))),
-            ),
-    )
-}

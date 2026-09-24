@@ -55,34 +55,6 @@ private fun typographyWithFont(family: FontFamily): androidx.compose.material3.T
         labelSmall = Typography.labelSmall.copy(fontFamily = family),
     )
 
-private val DarkColorScheme =
-    darkColorScheme(
-        primary = NeonPurple,
-        onPrimary = Color.Black,
-        primaryContainer = Color(0xFF4A1E8A),
-        onPrimaryContainer = NeonPurple,
-        secondary = NeonCyan,
-        onSecondary = Color.Black,
-        secondaryContainer = Color(0xFF006880),
-        onSecondaryContainer = NeonCyan,
-        tertiary = NeonPink,
-        onTertiary = Color.Black,
-        tertiaryContainer = Color(0xFF680020),
-        onTertiaryContainer = NeonPink,
-        background = DarkBg,
-        onBackground = Color.White,
-        surface = DarkSurface,
-        onSurface = Color.White,
-        surfaceVariant = CardSurface,
-        onSurfaceVariant = Color(0xFFECE8FF),
-        outline = Color(0xFF3A3A5C),
-        outlineVariant = Color(0xFF252550),
-        error = NeonRed,
-        onError = Color.Black,
-        errorContainer = Color(0xFF680010),
-        onErrorContainer = NeonRed,
-    )
-
 private val LightColorScheme =
     lightColorScheme(
         primary = Color(0xFF7C4DFF),
@@ -118,6 +90,7 @@ fun WuWaConfigTheme(
     textOpacity: Float = 1f,
     fontFamilyName: String = "Default",
     fontScale: Float = 1f,
+    colorSaturation: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val isDark =
@@ -126,13 +99,40 @@ fun WuWaConfigTheme(
             "light" -> false
             else -> isSystemInDarkTheme()
         }
+    val neon = remember(colorSaturation) { neonPaletteOf(colorSaturation) }
     val baseScheme =
         when {
             dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
                 val context = LocalContext.current
                 if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
             }
-            isDark -> DarkColorScheme
+            isDark ->
+                darkColorScheme(
+                    primary = neon.purple,
+                    onPrimary = Color.Black,
+                    primaryContainer = Color(0xFF4A1E8A),
+                    onPrimaryContainer = neon.purple,
+                    secondary = neon.cyan,
+                    onSecondary = Color.Black,
+                    secondaryContainer = Color(0xFF006880),
+                    onSecondaryContainer = neon.cyan,
+                    tertiary = neon.pink,
+                    onTertiary = Color.Black,
+                    tertiaryContainer = Color(0xFF680020),
+                    onTertiaryContainer = neon.pink,
+                    background = DarkBg,
+                    onBackground = Color.White,
+                    surface = DarkSurface,
+                    onSurface = Color.White,
+                    surfaceVariant = CardSurface,
+                    onSurfaceVariant = Color(0xFFECE8FF),
+                    outline = Color(0xFF3A3A5C),
+                    outlineVariant = Color(0xFF252550),
+                    error = neon.red,
+                    onError = Color.Black,
+                    errorContainer = Color(0xFF680010),
+                    onErrorContainer = neon.red,
+                )
             else -> LightColorScheme
         }
     val alpha = textOpacity.coerceIn(0.5f, 1f)
@@ -177,6 +177,7 @@ fun WuWaConfigTheme(
         val scaledDensity = Density(density.density, scale)
         CompositionLocalProvider(
             LocalDensity provides scaledDensity,
+            LocalNeon provides neon,
             LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = family),
         ) {
             content()

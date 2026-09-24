@@ -88,6 +88,7 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
             val preSnapshot = configManager.snapshotHashFile().getOrNull()
             configManager.pushSingleFile(fileName, content) {}
                 .onSuccess {
+                    _iniEditorContent.value = content
                     addLog("INI Editor: $fileName pushed, refreshing hashes...", LogLevel.SUCCESS)
                     configManager.reconcileAfterModify(preSnapshot).onSuccess { hashMsg ->
                         addLog("$fileName saved. $hashMsg", LogLevel.SUCCESS)
