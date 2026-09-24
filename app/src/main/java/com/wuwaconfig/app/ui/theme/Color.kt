@@ -1,5 +1,7 @@
 package com.wuwaconfig.app.ui.theme
 
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import android.graphics.Color as AndroidColor
 
@@ -15,10 +17,42 @@ val GlassCardBg = Color(0x1AFFFFFF)
 val GlassCardBorder = Color(0x28FFFFFF)
 val GlassSurface = Color(0x12FFFFFF)
 
+data class NeonPalette(
+    val purple: Color,
+    val cyan: Color,
+    val pink: Color,
+    val green: Color,
+    val red: Color,
+    val amber: Color,
+    val blue: Color,
+    val gold: Color,
+)
+
+fun neonPaletteOf(factor: Float): NeonPalette {
+    val f = factor.coerceIn(0.5f, 1.6f)
+    return NeonPalette(
+        purple = adjustSaturation(neonBases[0], f),
+        cyan = adjustSaturation(neonBases[1], f),
+        pink = adjustSaturation(neonBases[2], f),
+        green = adjustSaturation(neonBases[3], f),
+        red = adjustSaturation(neonBases[4], f),
+        amber = adjustSaturation(neonBases[5], f),
+        blue = adjustSaturation(neonBases[6], f),
+        gold = adjustSaturation(neonBases[7], f),
+    )
+}
+
+val LocalNeon = staticCompositionLocalOf { neonPaletteOf(1f) }
+
 private var _neonSaturation = 1f
 
 fun setNeonSaturation(value: Float) {
-    _neonSaturation = value.coerceIn(0.5f, 1.6f)
+    val factor = value.coerceIn(0.5f, 1.6f)
+    if (factor == _neonSaturation) return
+    _neonSaturation = factor
+    for (i in neonBases.indices) {
+        neonColors[i] = adjustSaturation(neonBases[i], factor)
+    }
 }
 
 fun adjustSaturation(
@@ -45,14 +79,28 @@ private val BaseNeonAmber = Color(0xFFED6C00)
 private val BaseNeonBlue = Color(0xFF1565FF)
 private val BaseNeonGold = Color(0xFFFFB300)
 
-val NeonPurple: Color get() = adjustSaturation(BaseNeonPurple, _neonSaturation)
-val NeonCyan: Color get() = adjustSaturation(BaseNeonCyan, _neonSaturation)
-val NeonPink: Color get() = adjustSaturation(BaseNeonPink, _neonSaturation)
-val NeonGreen: Color get() = adjustSaturation(BaseNeonGreen, _neonSaturation)
-val NeonRed: Color get() = adjustSaturation(BaseNeonRed, _neonSaturation)
-val NeonAmber: Color get() = adjustSaturation(BaseNeonAmber, _neonSaturation)
-val NeonBlue: Color get() = adjustSaturation(BaseNeonBlue, _neonSaturation)
-val NeonGold: Color get() = adjustSaturation(BaseNeonGold, _neonSaturation)
+private val neonBases =
+    arrayOf(
+        BaseNeonPurple,
+        BaseNeonCyan,
+        BaseNeonPink,
+        BaseNeonGreen,
+        BaseNeonRed,
+        BaseNeonAmber,
+        BaseNeonBlue,
+        BaseNeonGold,
+    )
+
+private val neonColors = mutableStateListOf<Color>().apply { addAll(neonBases) }
+
+val NeonPurple: Color get() = neonColors[0]
+val NeonCyan: Color get() = neonColors[1]
+val NeonPink: Color get() = neonColors[2]
+val NeonGreen: Color get() = neonColors[3]
+val NeonRed: Color get() = neonColors[4]
+val NeonAmber: Color get() = neonColors[5]
+val NeonBlue: Color get() = neonColors[6]
+val NeonGold: Color get() = neonColors[7]
 
 val GlassDialogBg = Color(0xCC12122A)
 val GlassDialogBorder = Color(0x28FFFFFF)

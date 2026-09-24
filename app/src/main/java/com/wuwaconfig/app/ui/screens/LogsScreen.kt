@@ -79,16 +79,16 @@ fun LogsScreen(
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
 
-    val isAtBottom by remember {
+    val isNearTop by remember {
         derivedStateOf {
-            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-            last != null && last.index >= listState.layoutInfo.totalItemsCount - 3
+            val first = listState.layoutInfo.visibleItemsInfo.firstOrNull()
+            first != null && first.index < 3
         }
     }
 
-    LaunchedEffect(filtered.size) {
-        if (filterLevel == null && searchQuery.isBlank() && isAtBottom) {
-            listState.animateScrollToItem((filtered.size - 1).coerceAtLeast(0))
+    LaunchedEffect(filtered) {
+        if (filterLevel == null && searchQuery.isBlank() && isNearTop) {
+            listState.animateScrollToItem(0)
         }
     }
 
@@ -128,10 +128,10 @@ fun LogsScreen(
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
             floatingActionButton = {
-                if (filtered.isNotEmpty() && !isAtBottom) {
+                if (filtered.isNotEmpty() && !isNearTop) {
                     FloatingActionButton(
                         onClick = {
-                            scope.launch { listState.animateScrollToItem((filtered.size - 1).coerceAtLeast(0)) }
+                            scope.launch { listState.animateScrollToItem(0) }
                         },
                         containerColor = NeonCyan.copy(alpha = 0.9f),
                         contentColor = Color.Black,
@@ -282,8 +282,12 @@ fun LogsScreen(
                                         style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                                         color = c.copy(alpha = 0.65f),
                                     )
+                                    val highlighted =
+                                        remember(log.message, debouncedQuery, c) {
+                                            buildHighlightedMessage(log.message, debouncedQuery, c)
+                                        }
                                     Text(
-                                        buildHighlightedMessage(log.message, debouncedQuery, c),
+                                        highlighted,
                                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                                         color = c,
                                         modifier = Modifier.padding(top = 1.dp),
@@ -298,7 +302,6 @@ fun LogsScreen(
     }
 }
 
-@Composable
 private fun buildHighlightedMessage(
     message: String,
     query: String,

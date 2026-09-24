@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.ui.LogInsightsViewModel
+import com.wuwaconfig.app.ui.components.BouncingOrb
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassTopBar
@@ -95,33 +96,18 @@ fun BattleStatsScreen(
                     }
                 } else {
                     val s = stats ?: return@Column
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (fromCache) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = NeonCyan.copy(alpha = 0.15f),
-                            ) {
-                                Text(
-                                    "Cached from analysis",
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    color = NeonCyan,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
-                        } else {
-                            Spacer(Modifier)
-                        }
-                        TextButton(
-                            onClick = { viewModel.refreshBattleStats() },
+                    if (fromCache) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = NeonCyan.copy(alpha = 0.15f),
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Refresh", color = NeonGreen, fontSize = 13.sp)
+                            Text(
+                                "Cached from analysis",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                color = NeonCyan,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                         }
                     }
                     BattleStatsHeader(s)
@@ -140,7 +126,7 @@ fun BattleStatsScreen(
 
                 if (stats != null) {
                     GlassButton(
-                        onClick = { viewModel.loadBattleStats() },
+                        onClick = { viewModel.refreshBattleStats() },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !loading,
                         accentColor = NeonGreen,
@@ -334,29 +320,3 @@ private fun BattleStatsLoadingAnimation(
     }
 }
 
-@Composable
-private fun BouncingOrb(
-    color: Color,
-    index: Int,
-) {
-    val transition = rememberInfiniteTransition(label = "orb$index")
-    val offset by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = -14f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = 520, delayMillis = index * 160, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "offset$index",
-    )
-    Box(
-        Modifier
-            .size(14.dp)
-            .offset(y = offset.dp)
-            .clip(RoundedCornerShape(50))
-            .background(
-                Brush.radialGradient(listOf(color, color.copy(alpha = 0.35f))),
-            ),
-    )
-}

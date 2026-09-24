@@ -348,7 +348,7 @@ private fun BackupManageCard(
             GlassOutlinedButton(
                 onClick = onDelete,
                 accentColor = NeonRed,
-                modifier = Modifier.height(40.dp),
+                height = 40.dp,
             ) {
                 Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
@@ -360,7 +360,7 @@ private fun BackupManageCard(
                 enabled = connected && !isApplying,
                 accentColor = accent,
                 contentColor = Color.White,
-                modifier = Modifier.height(40.dp),
+                height = 40.dp,
             ) {
                 Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))

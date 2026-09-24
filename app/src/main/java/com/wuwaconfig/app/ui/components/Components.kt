@@ -8,8 +8,12 @@ import android.graphics.Shader
 import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -21,8 +25,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -160,6 +166,8 @@ private val NeuDarkShadow = Color(0xFFBAC4D6)
 private val NeuLightShadow = Color(0xFFFFFFFF)
 private val NeuCorner = 22.dp
 
+private val neuPaint = androidx.compose.ui.graphics.Paint()
+
 fun Modifier.neumorphic(
     cornerRadius: Dp = NeuCorner,
     elevation: Dp = 7.dp,
@@ -172,7 +180,7 @@ fun Modifier.neumorphic(
         val off = elevation.toPx()
         val blur = elevation.toPx() * 1.6f
         drawIntoCanvas { canvas ->
-            val paint = androidx.compose.ui.graphics.Paint()
+            val paint = neuPaint
             val frame = paint.asFrameworkPaint()
             frame.isAntiAlias = true
             frame.maskFilter = BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL)
@@ -531,6 +539,7 @@ fun GlassButton(
     enabled: Boolean = true,
     accentColor: Color = NeonCyan,
     contentColor: Color = Color.Black,
+    height: Dp = 52.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
@@ -548,7 +557,7 @@ fun GlassButton(
 
     Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp).graphicsLayer(scaleX = scale, scaleY = scale),
+        modifier = modifier.height(height).graphicsLayer(scaleX = scale, scaleY = scale),
         enabled = enabled,
         shape = RoundedCornerShape(8.dp),
         interactionSource = interactionSource,
@@ -591,6 +600,7 @@ fun GlassOutlinedButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     accentColor: Color = NeonRed,
+    height: Dp = 52.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
@@ -606,7 +616,7 @@ fun GlassOutlinedButton(
 
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.height(52.dp).graphicsLayer(scaleX = scale, scaleY = scale),
+        modifier = modifier.height(height).graphicsLayer(scaleX = scale, scaleY = scale),
         enabled = enabled,
         shape = RoundedCornerShape(8.dp),
         interactionSource = interactionSource,
@@ -714,6 +724,72 @@ fun MiniLogViewer(modifier: Modifier = Modifier) {
     val logs by LogRepository.entries.collectAsStateWithLifecycle()
     if (logs.isEmpty()) return
     TerminalLogCard(modifier = modifier, title = "status.log", accentColor = NeonAmber)
+}
+
+@Composable
+fun BouncingOrb(
+    color: Color,
+    index: Int,
+) {
+    val transition = rememberInfiniteTransition(label = "orb$index")
+    val offset by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = -14f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 520, delayMillis = index * 160, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "offset$index",
+    )
+    Box(
+        Modifier
+            .size(14.dp)
+            .offset(y = offset.dp)
+            .clip(RoundedCornerShape(50))
+            .background(
+                Brush.radialGradient(listOf(color, color.copy(alpha = 0.35f))),
+            ),
+    )
+}
+
+@Composable
+fun OrbLoadingCard(
+    text: String,
+    accentColor: Color,
+    colors: List<Color> = listOf(NeonCyan, NeonGold, NeonPurple),
+    progress: Int = 0,
+) {
+    GlassCard(accentColor = accentColor) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                colors.forEachIndexed { index, color ->
+                    BouncingOrb(color, index)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (progress > 0) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "$progress%",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = accentColor,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -849,6 +925,7 @@ private fun VideoBackground(
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             }
         },
+        update = { view -> if (view.getPlayer() != player) view.setPlayer(player) },
         modifier = modifier,
     )
     Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 1f - alpha)))
@@ -949,9 +1026,10 @@ fun GlassDialog(
     dismissButton: @Composable (() -> Unit)? = null,
     properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
 ) {
+    val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val view = LocalView.current
-    DisposableEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    DisposableEffect(isLight) {
+        if (!isLight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             (view.context as? Activity)?.window?.decorView?.setRenderEffect(
                 RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
             )
@@ -967,7 +1045,6 @@ fun GlassDialog(
         onDismissRequest = onDismissRequest,
         properties = properties,
     ) {
-        val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
         val shape = RoundedCornerShape(28.dp)
         val titleColor = accentColor
         val bodyColor =
@@ -1047,6 +1124,7 @@ private fun GlassDialogContent(
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable (() -> Unit)?,
 ) {
+    val bodyScroll = rememberScrollState()
     Column(modifier = Modifier.padding(24.dp)) {
         icon?.let {
             Box(
@@ -1072,7 +1150,9 @@ private fun GlassDialogContent(
                     modifier =
                         Modifier
                             .padding(bottom = 20.dp)
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .heightIn(max = 340.dp)
+                            .verticalScroll(bodyScroll),
                 ) { it() }
             }
         }

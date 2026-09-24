@@ -49,8 +49,12 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
 import com.wuwaconfig.app.util.DiffLine
+import com.wuwaconfig.app.util.DiffResult
+import com.wuwaconfig.app.util.DiffSummary
 import com.wuwaconfig.app.util.Hashing
 import com.wuwaconfig.app.util.LineDiff
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val ReviewMonitoredFiles =
     listOf(
@@ -62,6 +66,12 @@ private val ReviewMonitoredFiles =
     )
 
 private val FileAccents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber, NeonPink)
+
+private data class DiffSnapshot(
+    val deviceText: String,
+    val newText: String,
+    val result: DiffResult?,
+)
 
 /**
  * Defense-in-depth: strip null characters and non-printable control chars
@@ -122,10 +132,19 @@ fun ReviewTuneScreen(
     val deviceMd5 = remember(deviceText) { if (deviceTextPresent) Hashing.md5Of(deviceText) else "n/a" }
     val newMd5 = remember(newText) { Hashing.md5Of(newText) }
 
-    val diff =
-        remember(deviceText, newText) {
-            if (deviceTextPresent) LineDiff.compute(deviceText, newText) else null
+    var diffSnapshot by remember { mutableStateOf(DiffSnapshot("", "", null)) }
+    LaunchedEffect(deviceText, newText) {
+        if (!deviceTextPresent) return@LaunchedEffect
+        val current = diffSnapshot
+        if (current.result != null && current.deviceText == deviceText && current.newText == newText) {
+            return@LaunchedEffect
         }
+        val result = withContext(Dispatchers.Default) { LineDiff.compute(deviceText, newText) }
+        diffSnapshot = DiffSnapshot(deviceText, newText, result)
+    }
+    val diff = diffSnapshot.result?.takeIf {
+        diffSnapshot.deviceText == deviceText && diffSnapshot.newText == newText
+    }
 
     LaunchedEffect(currentFile) {
         val key = currentFile
@@ -228,7 +247,7 @@ fun ReviewTuneScreen(
                     fileName = currentFile,
                     deviceTextPresent = deviceTextPresent,
                     deviceLoading = currentDeviceLoading == currentFile,
-                    deviceError = currentDeviceError,
+                    deviceError = currentDeviceError[currentFile],
                     deviceMd5 = deviceMd5,
                     newMd5 = newMd5,
                     summary = diff?.summary,
@@ -246,6 +265,10 @@ fun ReviewTuneScreen(
                     } else if (viewMode == "diff" && diff != null) {
                         DiffPane(
                             diff = diff,
+                            accent = FileAccents[ReviewMonitoredFiles.indexOf(currentFile).coerceIn(0, FileAccents.lastIndex)],
+                        )
+                    } else if (viewMode == "diff" && deviceTextPresent) {
+                        DiffComputingPlaceholder(
                             accent = FileAccents[ReviewMonitoredFiles.indexOf(currentFile).coerceIn(0, FileAccents.lastIndex)],
                         )
                     } else {
@@ -414,8 +437,6 @@ private fun FileMetaBar(
                     "Fetching $fileName…"
                 } else if (!deviceTextPresent) {
                     "No on-device file"
-                } else if (fileName.isEmpty()) {
-                    "$"
                 } else {
                     "Device: ${deviceMd5.take(12)}"
                 },
@@ -502,21 +523,22 @@ private fun EditorPane(
                 .fillMaxSize()
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFF1A1A2E))
-                .border(width = 1.dp, color = accent.copy(alpha = 0.4f), shape = RoundedCornerShape(8.dp)),
+                .border(width = 1.dp, color = accent.copy(alpha = 0.4f), shape = RoundedCornerShape(8.dp))
+                .verticalScroll(scroll),
     ) {
         Column(
             modifier =
                 Modifier
                     .width(48.dp)
                     .background(Color(0xFF11111F))
-                    .padding(top = 8.dp, end = 6.dp, bottom = 8.dp)
-                    .verticalScroll(scroll),
+                    .padding(top = 8.dp, end = 6.dp, bottom = 8.dp),
             horizontalAlignment = Alignment.End,
         ) {
             for (i in 1..lineCount) {
                 Text(
                     "$i",
                     fontSize = 10.sp,
+                    lineHeight = 16.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 )
@@ -530,6 +552,7 @@ private fun EditorPane(
                 MaterialTheme.typography.bodySmall.copy(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
+                    lineHeight = 16.sp,
                     color = if (readOnly) Color(0xFFB0B0B0) else Color(0xFFE0E0E0),
                 ),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
@@ -537,8 +560,26 @@ private fun EditorPane(
             modifier =
                 Modifier
                     .weight(1f)
-                    .padding(start = 4.dp, end = 8.dp, top = 8.dp, bottom = 8.dp)
-                    .verticalScroll(scroll),
+                    .padding(start = 4.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun DiffComputingPlaceholder(accent: Color) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF1A1A2E))
+                .border(width = 1.dp, color = accent.copy(alpha = 0.4f), shape = RoundedCornerShape(8.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(28.dp),
+            color = accent,
+            strokeWidth = 2.dp,
         )
     }
 }
@@ -713,6 +754,19 @@ private fun DeploySummaryDialog(
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
 ) {
+    var summaries by remember { mutableStateOf<Map<String, DiffSummary?>>(emptyMap()) }
+    var ready by remember { mutableStateOf(false) }
+    LaunchedEffect(available, newFiles, currentDevice) {
+        ready = false
+        summaries =
+            withContext(Dispatchers.Default) {
+                available.associateWith { file ->
+                    val dev = currentDevice[file].orEmpty()
+                    if (dev.isBlank()) null else LineDiff.compute(dev, newFiles[file].orEmpty()).summary
+                }
+            }
+        ready = true
+    }
     GlassDialog(
         onDismissRequest = onCancel,
         accentColor = NeonGreen,
@@ -720,9 +774,7 @@ private fun DeploySummaryDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 available.forEach { file ->
-                    val new = newFiles[file].orEmpty()
-                    val dev = currentDevice[file].orEmpty()
-                    val summary = if (dev.isBlank()) null else LineDiff.compute(dev, new).summary
+                    val summary = summaries[file]
                     Spacer(Modifier.height(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -737,7 +789,9 @@ private fun DeploySummaryDialog(
                         Spacer(Modifier.width(8.dp))
                         Text(file, fontWeight = FontWeight.SemiBold)
                     }
-                    if (summary == null) {
+                    if (!ready) {
+                        Text("…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    } else if (summary == null) {
                         Text(
                             "(new install — no on-device file to compare)",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,

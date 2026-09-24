@@ -44,9 +44,11 @@ import com.wuwaconfig.app.ui.components.GlassSwitch
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -111,6 +113,7 @@ fun ConfigGenScreen(
     var deployHashSyncMessage by remember { mutableStateOf("") }
 
     val scope = rememberCoroutineScope()
+    var isGenerating by remember { mutableStateOf(false) }
 
     val logPickerLauncher =
         rememberLauncherForActivityResult(
@@ -330,7 +333,8 @@ fun ConfigGenScreen(
                                 modifier = Modifier.weight(1f),
                             ) { Text("Back") }
                             GlassButton(
-                                onClick = {
+                                onClick = onGenerate@{
+                                    if (isGenerating) return@onGenerate
                                     val opts =
                                         GeneratorOptions(
                                             fps = fps, unlock120 = unlock120, unlockUltra = unlockUltra,
@@ -350,19 +354,29 @@ fun ConfigGenScreen(
                                             experimentalCvars = experimentalCvars,
                                         )
                                     viewModel.saveGeneratorOptions(opts)
-                                    val generated = viewModel.configGenerator.generate(selectedPreset, opts, logInfo = logInfo ?: com.wuwaconfig.app.model.LogInfo())
-                                    val payload =
-                                        com.wuwaconfig.app.ui.MainViewModel.ReviewTunePayload(
-                                            engine = generated.engine,
-                                            deviceProfiles = generated.deviceProfiles,
-                                            gameUserSettings = generated.gameUserSettings,
-                                            scalability = generated.scalability,
-                                            hardware = generated.hardware,
-                                        )
-                                    viewModel.openReviewTune(payload, opts)
-                                    onNavigateToReviewTune()
+                                    isGenerating = true
+                                    scope.launch {
+                                        try {
+                                            val generated =
+                                                withContext(Dispatchers.Default) {
+                                                    viewModel.configGenerator.generate(selectedPreset, opts, logInfo = logInfo ?: com.wuwaconfig.app.model.LogInfo())
+                                                }
+                                            val payload =
+                                                com.wuwaconfig.app.ui.MainViewModel.ReviewTunePayload(
+                                                    engine = generated.engine,
+                                                    deviceProfiles = generated.deviceProfiles,
+                                                    gameUserSettings = generated.gameUserSettings,
+                                                    scalability = generated.scalability,
+                                                    hardware = generated.hardware,
+                                                )
+                                            viewModel.openReviewTune(payload, opts)
+                                            onNavigateToReviewTune()
+                                        } finally {
+                                            isGenerating = false
+                                        }
+                                    }
                                 },
-                                enabled = !isApplying,
+                                enabled = !isApplying && !isGenerating,
                                 accentColor = NeonCyan,
                                 contentColor = Color.White,
                                 modifier = Modifier.weight(1f),
