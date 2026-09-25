@@ -25,10 +25,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -1124,7 +1122,6 @@ private fun GlassDialogContent(
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable (() -> Unit)?,
 ) {
-    val bodyScroll = rememberScrollState()
     Column(modifier = Modifier.padding(24.dp)) {
         icon?.let {
             Box(
@@ -1150,9 +1147,7 @@ private fun GlassDialogContent(
                     modifier =
                         Modifier
                             .padding(bottom = 20.dp)
-                            .fillMaxWidth()
-                            .heightIn(max = 340.dp)
-                            .verticalScroll(bodyScroll),
+                            .fillMaxWidth(),
                 ) { it() }
             }
         }
