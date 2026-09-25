@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -609,6 +610,8 @@ fun SettingsScreen(
                                 "Current version",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
@@ -616,14 +619,25 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = NeonGreen,
+                                maxLines = 1,
                             )
                         }
+                        Spacer(Modifier.width(12.dp))
                         GlassButton(
                             onClick = { viewModel.checkForUpdates() },
+                            modifier = Modifier.widthIn(max = 190.dp),
                             enabled = updateState !is UpdateState.Checking && updateState !is UpdateState.Downloading,
                             accentColor = NeonGreen,
                             contentColor = NeonGreen,
-                        ) { Text("Check for updates", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                        ) {
+                            Text(
+                                "Check for updates",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
                     when (val state = updateState) {
