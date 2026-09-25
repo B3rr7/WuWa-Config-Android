@@ -543,9 +543,10 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     }
                     replaced
                 } else {
-                    ""
+                    ini.engine
                 }
 
+            _readingProgress.value = 15
             val result =
                 configManager.applyCustomConfigs(
                     engineIni = if (opts.generateEngine) engineWithPaths else null,
@@ -556,7 +557,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 ) { msg -> addLog(msg) }
             if (result.isSuccess) {
                 addLog("SUCCESS: ${result.getOrThrow()}")
-                _deployResult.value = result.getOrThrow()
+                _readingProgress.value = 40
                 configManager.reconcileAfterModify(preSnapshot)
                     .onSuccess {
                         addLog(it)
@@ -568,7 +569,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     }
                 if (opts.generateEngine) {
                     addLog("Verifying deployed CVars against ConfigMonitor...")
-                    _readingProgress.value = 50
+                    _readingProgress.value = 60
                     configManager.verifyDeployedCvars(lastGeneratedCvars).onSuccess { report ->
                         val cvarValues = cvarDatabase.extractCvarValues(engineWithPaths)
                         val details =
@@ -577,7 +578,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                                 cvarValues,
                             )
                         _verificationReport.value = report.copy(cvarDetails = details)
-                        _readingProgress.value = 100
+                        _readingProgress.value = 85
                         addLog("VERIFY: ${report.recognizedCount}/${report.totalCount} CVars accepted by engine")
                         if (details.values.count { it.matchesDefault } > 0) {
                             addLog("CVar DB: ${details.values.count { it.matchesDefault }} redundant CVars (match game defaults)")
@@ -590,6 +591,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                         addLog("Verify skipped: ${e.message}")
                     }
                 }
+                _readingProgress.value = 90
                 if (prefs.getBoolean("deploy_history", true)) {
                     val cachedLogInfo = LogAnalysisStore.load(getApplication())?.logInfo
                     val baselinePair: Pair<LogInfo, String> =
@@ -639,6 +641,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     _deployRecords.value = deployHistoryStore.getAllRecords()
                     addLog("Deploy record saved (id: ${recordId.take(8)}...)")
                 }
+                _deployResult.value = result.getOrThrow()
                 _readingProgress.value = 0
             } else {
                 val err = result.exceptionOrNull()?.message ?: "Unknown error"
