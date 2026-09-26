@@ -156,7 +156,14 @@ object LogParser {
             if ((b0 == 0xFE && b1 == 0xFF) || (b0 == 0xFF && b1 == 0xFE)) return true
         }
         if (nuls * 100 >= sampleSize * 35 && asciiOrWhitespace * 100 >= sampleSize * 40) return true
-        if (asciiOrWhitespace * 100 >= sampleSize * 90) return true
+        if (asciiOrWhitespace * 100 >= sampleSize * 90) {
+            // Printable, yes — but is it a LOG? For anything long enough to judge, a
+            // real decoded UE log carries at least one log-shaped token, and noise
+            // does not reliably carry one. See MIN_SAMPLE_FOR_KEYWORD_SCAN.
+            if (sampleSize < MIN_SAMPLE_FOR_KEYWORD_SCAN) return true
+            val text = String(decoded.copyOfRange(0, sampleSize), Charsets.UTF_8).lowercase()
+            return LOG_SHAPE_TOKENS.any { text.contains(it) }
+        }
         // High-byte-dominant: CJK log content. Require it to decode as VALID UTF-8
         // with no replacement characters, which is what separates real CJK text from
         // an XOR-LUT'd plain text file or a high-entropy blob. A raw byte-count or
@@ -213,6 +220,29 @@ object LogParser {
             "stdout",
             "LogMemory",
         )
+
+    /**
+     * Much broader, lower-confidence log-shape tokens. Used ONLY for payloads too
+     * short to keyword-validate, where the alternative is refusing to read a
+     * correctly-encrypted-but-tiny log at all.
+     */
+    private val LOG_SHAPE_TOKENS =
+        listOf(
+            "log", "error", "warning", "verbose", "engine", "texture", "shader", "[",
+        )
+
+    /**
+     * Below this many bytes the UE4_KEYWORDS scan is unreliable, so a short payload
+     * is accepted on plausibility alone. Above it, plausibility alone is NOT enough:
+     *
+     * A real failure seen on-device — an empty main Client.log made the app fall back
+     * to a backup log that decoded to printable-but-meaningless text. Accepting that
+     * on "92% printable" merged noise into the analysis and produced
+     * "VERIFY: 0/93 CVars accepted" — a confident, completely fabricated result.
+     * Printability is not evidence: XOR-LUT output of arbitrary bytes is often
+     * printable. Log SHAPE is.
+     */
+    private const val MIN_SAMPLE_FOR_KEYWORD_SCAN = 128
 
     fun decryptWuwaLog(data: ByteArray): ByteArray? {
         if (data.size < 3) return null

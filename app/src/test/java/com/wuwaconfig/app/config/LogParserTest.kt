@@ -220,4 +220,48 @@ class LogParserTest {
         val decrypted = LogParser.decryptWuwaLog(encrypted)
         assertEquals(plaintext.toList(), decrypted!!.toList())
     }
+
+    /**
+     * Regression from a real device run: with an empty main Client.log the app fell
+     * back to a backup log that decoded to printable-but-meaningless text. The
+     * plausibility gate accepted it, the merge poisoned the analysis, and the app
+     * reported a fabricated "VERIFY: 0/93 CVars accepted by engine".
+     *
+     * Printability is not evidence — XOR-LUT output of arbitrary bytes is often
+     * printable. A payload long enough to judge must look like a LOG.
+     */
+    @Test
+    fun `a long printable payload that is not log-shaped is rejected`() {
+        val noise = ByteArray(512) { (it * 37 % 95 + 32).toByte() }
+        assertNull(
+            "printable noise must not be accepted as a decoded log",
+            LogParser.decryptWithFallback(noise),
+        )
+    }
+
+    @Test
+    fun `a long log-shaped payload with no UE4 keyword is accepted by the gate`() {
+        // Deliberately avoids every UE4_KEYWORDS entry so verifyDecryption() cannot
+        // pass this — it is accepted only by the new log-shape gate, which is exactly
+        // the path under test.
+        val text = buildString {
+            repeat(12) { i ->
+                append("[2026.09.26-22.19.44:Warning] verbose: texture streaming budget exceeded ($i)\n")
+            }
+        }
+        val encrypted = encryptPlaintext(text.toByteArray(Charsets.UTF_8), wuwaHeader)
+        assertEquals(
+            text,
+            String(LogParser.decryptWuwaLog(encrypted)!!, Charsets.UTF_8),
+        )
+    }
+
+    @Test
+    fun `a short correctly encrypted payload is still accepted`() {
+        // Below the keyword-scan threshold there is nothing to judge, so a
+        // header-validated, correctly-encrypted short log is still read.
+        val plaintext = "Log line"
+        val encrypted = encryptPlaintext(plaintext.toByteArray(Charsets.UTF_8), wuwaHeader)
+        assertEquals(plaintext, String(LogParser.decryptWuwaLog(encrypted)!!, Charsets.UTF_8))
+    }
 }
