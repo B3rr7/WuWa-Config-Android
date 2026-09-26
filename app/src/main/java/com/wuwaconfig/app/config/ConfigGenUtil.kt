@@ -138,6 +138,88 @@ fun deduplicateIniText(text: String): String {
 
 private val RESOLUTION_SPLIT_REGEX = Regex("\\s*[xX*]\\s*")
 
+/** Marker tag on a CVar line that the engine cannot use on this target. */
+const val DEAD_CVAR_MARKER = "WuWaConfig:DEAD"
+
+/**
+ * Result of the platform-availability pass over the generated INIs.
+ */
+data class DeadCvarPassResult(
+    val platform: TargetPlatform,
+    /** Per-file count of CVars marked dead. */
+    val markedByFile: Map<String, Int>,
+    val totalMarked: Int,
+    val reasons: Set<String>,
+) {
+    /** One-line summary for the log, so the active mode is never ambiguous. */
+    fun summary(): String =
+        if (platform == TargetPlatform.UNKNOWN) {
+            "Platform UNKNOWN (no usable log) — no CVar marked dead"
+        } else if (totalMarked == 0) {
+            "Platform $platform — no CVar marked dead"
+        } else {
+            "Platform $platform — $totalMarked CVar(s) marked dead " +
+                "(${markedByFile.entries.joinToString { "${it.key}:${it.value}" }}) " +
+                "[${reasons.joinToString("; ")}]"
+        }
+}
+
+/**
+ * Comments out CVars that the target platform can never use, without deleting them.
+ *
+ * The line is emitted as `;r.Foo=1 ; [WuWaConfig:DEAD] reason`. UE4 treats a leading
+ * `;` as a comment, so the CVar goes inert — which is a no-op, because the engine was
+ * already ignoring it — while the text and the value stay visible and re-enablable by
+ * deleting one character. This mirrors the marker shape CvarDatabase already emits
+ * (`;$line ; [CvarDB] $reason`), so both passes read the same way in the file.
+ *
+ * The verdict is recomputed from scratch on every call — nothing is persisted, so
+ * there is no sticky "dead" state to clear. If the detected platform changes (e.g.
+ * the user turns on Vulkan in the game, and the log then reports Vulkan instead of
+ * OpenGL ES), the `r.Vulkan.*` family comes back automatically on the next generate.
+ *
+ * Only lines that pass [CVAR_PREFIXES] and are not already commented are touched, so
+ * `[Core.System] Paths=` lines and section headers are left alone.
+ */
+fun markPlatformDeadCvars(
+    iniText: String,
+    platform: TargetPlatform,
+    fileLabel: String,
+    accumulator: MutableMap<String, Int> = mutableMapOf(),
+    reasonSink: MutableSet<String> = mutableSetOf(),
+): String {
+    // Nothing to judge: fail safe rather than guess.
+    if (platform == TargetPlatform.UNKNOWN) return iniText
+    val out = iniText.lines().toMutableList()
+    for (i in out.indices) {
+        val raw = out[i]
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) continue
+        if (trimmed.startsWith("[") && trimmed.endsWith("]")) continue
+        if (trimmed.startsWith(";") || trimmed.startsWith("#") || trimmed.startsWith("//")) continue
+
+        val cvarLine = stripCvarsDirective(trimmed)
+        val eq = cvarLine.indexOf('=')
+        if (eq <= 0) continue
+        val key = cvarLine.substring(0, eq).trim()
+        val keyLower = key.lowercase()
+        if (!CVAR_PREFIXES.any { keyLower.startsWith(it) }) continue
+
+        val verdict = classifyCvar(key, platform)
+        if (verdict !is CvarVerdict.Dead) continue
+
+        val indent = raw.substring(0, raw.length - raw.trimStart().length)
+        // Use `trimmed`, not `raw`: `raw` still carries the original indentation, so
+        // interpolating it after the ';' produced "    ;    +CVars=..." and put the
+        // indent inside the comment. UE4 only treats a line as a comment when ';' is
+        // its FIRST character.
+        out[i] = "$indent;$trimmed ; [$DEAD_CVAR_MARKER] ${verdict.reason} (${verdict.scope})"
+        accumulator.merge(fileLabel, 1, Int::plus)
+        reasonSink.add(verdict.reason)
+    }
+    return out.joinToString("\n")
+}
+
 /**
  * Removes a leading `+CVars=` / `-CVars=` directive prefix, case-insensitively
  * (the game's INIs are not consistent about the directive's casing — see

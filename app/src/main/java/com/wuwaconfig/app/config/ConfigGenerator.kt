@@ -283,7 +283,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val sc = if (opts.generateScalability) buildAndroidScalabilityIni(p) else ""
         val hw = if (opts.generateHardware) buildAndroidHardwareIni(p, opts, logInfo, preset) else ""
         val deduplicatedEngine = deduplicateIniText(optimizedEngine)
-        val finalEngine =
+        val stripped =
             applyForbiddenCvarStrip(
                 deduplicatedEngine,
                 dp,
@@ -292,6 +292,33 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 hw,
                 allowRestrictedCvars = opts.allowRestrictedCvars,
             )
+        // Platform-availability pass, applied LAST so it sees the final text. Running
+        // it before applyForbiddenCvarStrip would make the strip skip these lines
+        // (it ignores `;`-comments), and running it before deduplicateIniText would
+        // let a marked line's key still collide with a live duplicate.
+        val platform = detectPlatform(logInfo)
+        val counts = mutableMapOf<String, Int>()
+        val reasons = mutableSetOf<String>()
+        fun mark(
+            text: String,
+            label: String,
+        ) = markPlatformDeadCvars(text, platform, label, counts, reasons)
+        val finalEngine =
+            PostProcessedIni(
+                mark(stripped.engine, "Engine.ini"),
+                mark(stripped.deviceProfiles, "DeviceProfiles.ini"),
+                mark(stripped.gameUserSettings, "GameUserSettings.ini"),
+                mark(stripped.scalability, "Scalability.ini"),
+                mark(stripped.hardware, "Hardware.ini"),
+            )
+        val deadResult =
+            DeadCvarPassResult(
+                platform = platform,
+                markedByFile = counts,
+                totalMarked = counts.values.sum(),
+                reasons = reasons,
+            )
+        LogRepository.add("ConfigGenerator: ${deadResult.summary()}", LogLevel.INFO)
         val cvarNames = extractCvarNames(finalEngine.engine)
         LogRepository.add("ConfigGenerator: generation complete", LogLevel.SUCCESS)
         return GenerateResult(

@@ -91,8 +91,22 @@ class AdbCrypto(private val context: Context) : CryptoAdapter {
         }
     }
 
-    /** Pre-load keys off the main thread to avoid first-connection jank. */
-    fun warmUp() = ensureKeys()
+    /**
+     * Pre-load keys off the main thread to avoid first-connection jank.
+     *
+     * Deliberately swallows every failure. This is launched from
+     * `WuWaConfigApp.onCreate` on an app-scoped SupervisorJob, where an uncaught
+     * exception reaches the default uncaught handler and kills the process — a
+     * Keystore problem (unavailable, locked, hardware fault) would then take down
+     * the whole app at startup even though key material is only needed by the ADB
+     * backend. Failing here is recoverable: the ADB backend reports the error when
+     * the user actually connects.
+     */
+    fun warmUp() {
+        runCatching { ensureKeys() }.onFailure { e ->
+            Log.e(TAG, "ADB key warm-up failed; the ADB backend will report it on connect", e)
+        }
+    }
 
     private fun buildEncryptedFile(file: File): EncryptedFile {
         return EncryptedFile.Builder(
@@ -110,24 +124,31 @@ class AdbCrypto(private val context: Context) : CryptoAdapter {
             // Genuinely absent -> caller is allowed to generate a new key.
             null
         } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) {
-            // The master key was invalidated (biometric enrollment change / keystore reset).
-            // This is NOT recoverable by regenerating: doing so would silently rotate the
-            // user's authorized ADB identity, and the failure would only surface later as
-            // an unexplained auth rejection.
+            // The master key itself was invalidated. Regenerating would silently rotate
+            // the user's authorized ADB identity, so fail with something actionable
+            // instead of a bare "auth rejected" much later.
             throw IllegalStateException(
                 "ADB key material was permanently invalidated. Clear app storage or use the " +
                     "Shizuku/Root backend. (${e.message})",
                 e,
             )
         } catch (e: Exception) {
-            // A transient Keystore hiccup here would silently rotate the ADB identity and
-            // force re-authorization. Returning null IS the "generate a new key" signal, so
-            // an unreadable-but-present key must fail loudly instead.
-            Log.e(TAG, "Keystore read failed for ${file.name}; NOT regenerating to protect the ADB identity", e)
-            throw IllegalStateException(
-                "Cannot read existing ADB key material (${file.name}): ${e.message}",
-                e,
+            // The ciphertext exists but cannot be decrypted — "No matching key found
+            // for the ciphertext in the stream". That happens when the Tink keyset
+            // outlives the Keystore master key (app data cleared, keystore entry
+            // recreated, restore onto a new device).
+            //
+            // Returning null IS the "generate a new identity" signal, and here that is
+            // the ONLY correct outcome: a key we cannot read is a key we can never
+            // authenticate with, so the user is already forced to re-authorize.
+            // Throwing instead crashed the app at startup, which is strictly worse
+            // than rotating a key that was already worthless.
+            Log.w(
+                TAG,
+                "Encrypted ${file.name} is undecryptable (${e.message}); " +
+                    "the old ADB identity is unusable, generating a new one",
             )
+            null
         }
     }
 
