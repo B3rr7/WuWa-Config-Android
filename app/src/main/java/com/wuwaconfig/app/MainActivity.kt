@@ -1,5 +1,6 @@
 package com.wuwaconfig.app
 
+import android.util.Log
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -108,7 +109,15 @@ class MainActivity : ComponentActivity() {
         // gacha-history endpoint), the player UID/region/level, shell command strings,
         // and the wireless-ADB host:port. App-wide rather than per-screen so the
         // guarantee cannot be forgotten on a new destination.
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        if (BuildConfig.SECURE_SCREENSHOTS) {
+            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            // Screenshot-enabled build (./gradlew -PsecureScreenshots=false). The flag
+            // blocks `adb shell screencap` as well as user screenshots, which makes UI
+            // work impossible, so it is a build-time switch rather than a hardcoded
+            // always-on. Release builds default to protected.
+            Log.w("MainActivity", "FLAG_SECURE disabled for this build (secureScreenshots=false)")
+        }
         // Seed the neon palette BEFORE the first composition. Doing it from a
         // LaunchedEffect made the first frame render at the previous process's
         // saturation and then visibly snap.

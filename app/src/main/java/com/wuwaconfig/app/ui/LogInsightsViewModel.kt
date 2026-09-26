@@ -89,35 +89,23 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
                 _readingProgress.value = 0
                 addLog("Pulling full Client.log from device...")
                 _readingProgress.value = 10
-                val result = configManager.readFullClientLogWithMetadata()
+                // The game rotates Client.log at ~20 MB, so a single-file read sees only
+                // the tail of the newest session. This merged every recent log instead.
+                val result = configManager.readMergedClientLog()
                 if (result.isSuccess) {
                     _readingProgress.value = 60
-                    val (text, decrypted) = result.getOrThrow()
-                    addLog(
-                        if (decrypted == com.wuwaconfig.app.config.LogParser.DecodeResult.DECRYPTED) "Encrypted log detected; decrypted successfully." else "Plain log detected.",
-                    )
+                    val (text, report) = result.getOrThrow()
+                    addLog("Encrypted log detected; decrypted successfully.")
+                    addLog("Read ${report.used.size} log file(s), ${"%.1f".format(report.bytesRead / 1024.0 / 1024.0)} MB, newest first:")
+                    report.used.take(6).forEach { addLog("  + $it") }
+                    if (report.skipped.isNotEmpty()) {
+                        addLog("Skipped ${report.skipped.size}: ${report.skipped.take(3).joinToString("; ")}", LogLevel.WARNING)
+                    }
 
                     _readingProgress.value = 75
-                    val initialInfo =
-                        withContext(Dispatchers.Default) { com.wuwaconfig.app.config.LogParser.parseLog(text) }
-                    val analysisText =
-                        if (initialInfo.gpu == null && initialInfo.deviceModel == null && initialInfo.cpuName == null && initialInfo.ramMb == null) {
-                            addLog("No device data in current log, checking backup logs...")
-                            _readingProgress.value = 80
-                            val backupResult = configManager.readFullLatestBackupLog()
-                            if (backupResult.isSuccess) {
-                                val (backupText, _) = backupResult.getOrThrow()
-                                addLog("Merging backup log with current log for complete analysis")
-                                "$backupText\n$text"
-                            } else {
-                                addLog("Backup log not available: ${backupResult.exceptionOrNull()?.message}", LogLevel.WARNING)
-                                text
-                            }
-                        } else {
-                            text
-                        }
+                    val analysisText = text
                     _readingProgress.value = 95
-                    doAnalyzeLogText(analysisText, allowRestrictedCvars, if (analysisText == text) initialInfo else null)
+                    doAnalyzeLogText(analysisText, allowRestrictedCvars, null)
                 } else {
                     addLog("FAILED: ${result.exceptionOrNull()?.message}")
                 }
