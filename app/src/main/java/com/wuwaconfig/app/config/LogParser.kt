@@ -118,7 +118,13 @@ object LogParser {
      * Returns true if the decrypted content looks like a valid UE4 log.
      */
     private fun verifyDecryption(decrypted: ByteArray): Boolean {
-        val sampleSize = minOf(512, decrypted.size)
+        // 16 KB, not 512 B. Measured on a real device log: this game opens with a long
+        // burst of repeated launcher lines ("Sharphereal: Display: [...] calculate all
+        // size of lang res") before any engine category appears, and the first
+        // LogInit landed at byte 43,798 while LogKuroRendering was at 47,652. A 512-byte
+        // sample therefore reported a perfectly valid decrypted log as unverified, which
+        // pushed every read onto the best-effort fallback path.
+        val sampleSize = minOf(16 * 1024, decrypted.size)
         if (sampleSize < 8) return false
         val sample = decrypted.copyOfRange(0, sampleSize)
         val sampleStr = String(sample, Charsets.UTF_8)
@@ -136,6 +142,20 @@ object LogParser {
      * gate, but XOR-LUT transforming it yields non-text, so this check rejects it.
      * Real decrypted log content is overwhelmingly printable text, so it passes.
      */
+    /**
+     * True when [text] carries at least one engine-log marker.
+     *
+     * Used by the multi-log reader to drop a log file whose head could not be
+     * decrypted, without which one undecryptable file injects noise into a merged
+     * analysis. The markers are deliberately broad — this is a "is this a log at
+     * all" test, not a content test.
+     */
+    fun looksLikeEngineLogText(text: String): Boolean {
+        if (text.isBlank()) return false
+        val sample = text.take(4096).lowercase()
+        return LOG_SHAPE_TOKENS.any { sample.contains(it) }
+    }
+
     private fun looksLikeDecodedText(decoded: ByteArray): Boolean {
         val sampleSize = minOf(512, decoded.size)
         if (sampleSize == 0) return false
@@ -219,6 +239,21 @@ object LogParser {
             "LogDynamicAtlas",
             "stdout",
             "LogMemory",
+            // Kuro's own mobile categories. Measured on a real device log: this game
+            // does NOT emit the classic desktop `LogInit:` / `LogRHI:` / `Core.System`
+            // forms, so a stock-UE4 keyword list alone failed to recognise a valid log.
+            "LogKuroRendering",
+            "LogKuroLogging",
+            "LogKuroStreaming",
+            "LogAndroid",
+            "LogPakFile",
+            "LogConsoleManager",
+            "LogStreaming",
+            "LogContentStreaming",
+            "LogFramePacer",
+            "LogKuro",
+            "GameThread",
+            "Log file open",
         )
 
     /**
@@ -228,7 +263,10 @@ object LogParser {
      */
     private val LOG_SHAPE_TOKENS =
         listOf(
-            "log", "error", "warning", "verbose", "engine", "texture", "shader", "[",
+            // Multi-character markers only. A single "[" was in this list and is a
+            // no-op: at the 4-16 KB sample sizes used here, essentially any text
+            // contains a bracket, so it contributed false confidence and no signal.
+            "log", "error", "warning", "verbose", "engine", "texture", "shader",
         )
 
     /**

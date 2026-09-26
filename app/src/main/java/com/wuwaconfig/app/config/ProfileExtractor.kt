@@ -31,6 +31,9 @@ class ProfileExtractor(
     companion object {
         private val BACKUP_LOG_NAME_REGEX = Regex("""Client-backup-[A-Za-z0-9._-]+\.log""")
 
+        /** Matches the `YYYY.MM.DD-HH.MM.SS` stamps the game embeds in backup names. */
+        private val BACKUP_STAMP_REGEX = Regex("""(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2})""")
+
         // Table names differ per database — see the schema note on queryDb().
         private const val LOCAL_STORAGE_TABLE = "LocalStorage"
         private const val DEVICE_STORAGE_TABLE = "DeviceStorage"
@@ -85,9 +88,14 @@ class ProfileExtractor(
     suspend fun verifyDeployedCvars(generatedCvars: Set<String>): Result<VerificationReport> =
         withContext(Dispatchers.IO) {
             try {
-                val logResult = readRemoteLogText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
-                if (logResult.isFailure) return@withContext Result.failure(logResult.exceptionOrNull()!!)
-                val (text, _) = logResult.getOrThrow()
+                // The current Client.log alone is not enough: the game rotates it at
+                // ~20 MB, so the newest session's CVar/battle/perf history usually lives
+                // in the backups. Reading only the current log is what made verification
+                // report 0 accepted CVars when the live log had just been truncated.
+                val merged = readMergedClientLog()
+                if (merged.isFailure) return@withContext Result.failure(merged.exceptionOrNull()!!)
+                val (text, report) = merged.getOrThrow()
+                LogRepository.add("verifyDeployedCvars: ${report.summary()}", LogLevel.INFO)
                 val info = LogParser.parseLog(text)
                 val recognizedLower = info.activeCvars.keys.map { it.lowercase() }.toSet()
                 val accepted = generatedCvars.filter { it.lowercase() in recognizedLower }.toSet()
@@ -214,6 +222,166 @@ class ProfileExtractor(
             },
             onFailure = { Result.failure(it) },
         )
+
+    // ── Multi-log reading ────────────────────────────────────────────────
+    //
+    // The game caps each Client.log at ~20 MB and rotates the old one to
+    // Client-backup-<start>-<end>.log. A device inspected during this work held
+    // 20 backups totalling ~194 MB, but readFullLatestBackupLog() takes
+    // `ls -t … | head -1`, i.e. exactly ONE of them. Everything the game had
+    // written in earlier sessions was silently discarded.
+
+    /**
+     * Every backup log, newest session first.
+     *
+     * Sorted by the timestamp embedded in the FILENAME, not by mtime: on the device
+     * inspected, seven files shared an mtime of `2026-09-23 17:34` (a bulk restore
+     * artifact) while their names spanned three weeks, so `ls -t` ordering is not
+     * trustworthy. Names whose stamp cannot be parsed sort last.
+     */
+    suspend fun listBackupLogsNewestFirst(): List<String> =
+        withContext(Dispatchers.IO) {
+            val listed =
+                backend.executeShellCommand(
+                    "ls -1 ${shQuote(GamePaths.LOG_DIR)}/Client-backup-*.log 2>/dev/null",
+                )
+            val paths = listed.getOrNull().orEmpty().lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+            // The name came from remote `ls`, so it is never trusted as shell input.
+            val safe = paths.filter { BACKUP_LOG_NAME_REGEX.matches(it.substringAfterLast("/")) }
+            if (safe.size != paths.size) {
+                LogRepository.add(
+                    "ProfileExtractor: ignored ${paths.size - safe.size} backup log name(s) that did not match the expected pattern",
+                    LogLevel.WARNING,
+                )
+            }
+            safe.sortedByDescending { backupLogSortKey(it) }
+        }
+
+    /** Epoch millis of the session-start stamp in a backup filename; 0 when absent. */
+    private fun backupLogSortKey(path: String): Long {
+        val m = BACKUP_STAMP_REGEX.find(path.substringAfterLast("/")) ?: return 0L
+        val g = m.groupValues
+        val nums = IntArray(6) { g[it + 1].toIntOrNull() ?: return 0L }
+        return runCatching {
+            java.util.Calendar.getInstance().apply {
+                clear()
+                set(nums[0], nums[1] - 1, nums[2], nums[3], nums[4], nums[5])
+            }.timeInMillis
+        }.getOrDefault(0L)
+    }
+
+    /**
+     * Reads at most [maxBytes] from the START of a remote log and decrypts it.
+     *
+     * The transform is a byte-wise XOR-LUT with no chaining, so a prefix decrypts
+     * correctly on its own. That makes a head read meaningful and, unlike a full
+     * read, it does not pull 20 MB through the shell for a file whose interesting
+     * content is all in the first few hundred KB.
+     *
+     * The head size is deliberately kept under the binder budget: base64 inflates by
+     * ~4/3, so [maxBytes] must stay below ShellUserService's MAX_BINDER_OUTPUT.
+     */
+    private suspend fun readRemoteLogHeadToText(
+        path: String,
+        maxBytes: Long,
+    ): Result<Pair<String, LogParser.DecodeResult>> =
+        withContext(Dispatchers.IO) {
+            val quoted = shQuote(path)
+            val cmd = "head -c $maxBytes $quoted 2>/dev/null | base64 -w0 2>/dev/null"
+            val out = backend.executeShellCommand(cmd).getOrNull()?.trim().orEmpty()
+            if (out.isEmpty()) return@withContext Result.failure(Exception("empty head read: $path"))
+            val bytes =
+                runCatching { android.util.Base64.decode(out, android.util.Base64.DEFAULT) }
+                    .getOrElse { return@withContext Result.failure(Exception("base64 decode failed: $path")) }
+            if (bytes.isEmpty()) return@withContext Result.failure(Exception("empty head read: $path"))
+            val decoded = LogParser.decodeLogBytes(bytes)
+            if (decoded.second != LogParser.DecodeResult.DECRYPTED) {
+                LogRepository.add(
+                    "ProfileExtractor: ${path.substringAfterLast("/")} head did not decrypt (${decoded.second}); skipped",
+                    LogLevel.WARNING,
+                )
+            }
+            Result.success(decoded)
+        }
+
+    /** Which logs went into a merged read, and what was skipped. */
+    data class MergedLogReport(
+        val used: List<String>,
+        val skipped: List<String>,
+        val bytesRead: Long,
+    ) {
+        fun summary(): String =
+            "Merged ${used.size} log(s), ${
+                "%.1f".format(bytesRead / 1024.0 / 1024.0)
+            } MB" + if (skipped.isEmpty()) "" else " (skipped ${skipped.size})"
+    }
+
+    /**
+     * Reads the current log plus the head of each backup, concatenated NEWEST FIRST.
+     *
+     * Order matters: LogParser.parseLog is first-match-wins, so putting the newest
+     * session first makes each field resolve to the current value rather than the
+     * oldest. The previous `readFullLatestBackupLog` merge appended the backup BEFORE
+     * the current log ("$backupText\n$text"), which inverted exactly that.
+     *
+     * Each log is validated independently, so one undecryptable file degrades to a
+     * skip instead of poisoning the whole analysis.
+     */
+    suspend fun readMergedClientLog(
+        headBytesPerLog: Long = 256L * 1024,
+        maxBackupLogs: Int = 8,
+        totalBudgetBytes: Long = 8L * 1024 * 1024,
+    ): Result<Pair<String, MergedLogReport>> =
+        withContext(Dispatchers.IO) {
+            val used = mutableListOf<String>()
+            val skipped = mutableListOf<String>()
+            val parts = mutableListOf<String>()
+            var bytes = 0L
+
+            val currentPath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
+            val current = readRemoteLogToText(currentPath)
+            if (current.isSuccess) {
+                val text = current.getOrThrow().first
+                if (text.isNotBlank()) {
+                    parts += text
+                    bytes += text.length
+                    used += GamePaths.LOG_FILE_NAME
+                }
+            } else {
+                skipped += "${GamePaths.LOG_FILE_NAME} (${current.exceptionOrNull()?.message})"
+            }
+
+            for (path in listBackupLogsNewestFirst()) {
+                if (used.size - 1 >= maxBackupLogs) {
+                    skipped += "${path.substringAfterLast("/")} (over the $maxBackupLogs backup limit)"
+                    continue
+                }
+                if (bytes >= totalBudgetBytes) {
+                    skipped += "${path.substringAfterLast("/")} (over the byte budget)"
+                    continue
+                }
+                val head = readRemoteLogHeadToText(path, headBytesPerLog)
+                if (head.isFailure) {
+                    skipped += "${path.substringAfterLast("/")} (${head.exceptionOrNull()?.message})"
+                    continue
+                }
+                val (text, _decode) = head.getOrThrow()
+                if (!LogParser.looksLikeEngineLogText(text)) {
+                    skipped += "${path.substringAfterLast("/")} (undecryptable)"
+                    continue
+                }
+                parts += text
+                bytes += text.length
+                used += path.substringAfterLast("/")
+            }
+
+            if (parts.isEmpty()) {
+                return@withContext Result.failure(Exception("No readable Client.log found"))
+            }
+            val report = MergedLogReport(used, skipped, bytes)
+            LogRepository.add("ProfileExtractor: ${report.summary()} — newest first", LogLevel.INFO)
+            Result.success(parts.joinToString("\n") to report)
+        }
 
     suspend fun readProfile(onProgress: (Int) -> Unit = {}): Result<PlayerProfile> =
         withContext(Dispatchers.IO) {

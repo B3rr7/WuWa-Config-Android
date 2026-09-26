@@ -565,6 +565,16 @@ class ConfigManager(
 
     suspend fun readFullClientLogWithMetadata(): Result<Pair<String, LogParser.DecodeResult>> = profileExtractor.readFullClientLogWithMetadata()
 
+    /**
+     * Current log + the head of every recent backup, newest first. Replaces the
+     * single-latest-backup read, which discarded all but one of the game's rotated
+     * logs (20 files / ~194 MB on the device inspected).
+     */
+    suspend fun readMergedClientLog(
+        headBytesPerLog: Long = 256L * 1024,
+        maxBackupLogs: Int = 8,
+    ): Result<Pair<String, ProfileExtractor.MergedLogReport>> = profileExtractor.readMergedClientLog(headBytesPerLog, maxBackupLogs)
+
     suspend fun readFullLatestBackupLog(): Result<Pair<String, LogParser.DecodeResult>> = profileExtractor.readFullLatestBackupLog()
 
     // ===== Hash subsystem (delegated to HashMonitor) =====
