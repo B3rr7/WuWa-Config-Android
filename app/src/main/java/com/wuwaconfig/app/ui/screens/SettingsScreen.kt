@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.ui.screens
 
+import com.wuwaconfig.app.util.isLocalOnlyImageUri
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -9,9 +10,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -153,10 +155,18 @@ fun SettingsScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        if (backendStatus.method == AccessMethod.ADB) {
-                            "ADB: Needs Wireless Debugging enabled in Developer Options. Works on Android 11-15."
-                        } else {
-                            "ROOT: Uses su command. Requires a rooted device."
+                        // One branch per AccessMethod: the old if/else told SHIZUKU
+                        // and SAF users "Requires a rooted device", which is simply
+                        // wrong about their device requirements.
+                        when (backendStatus.method) {
+                            AccessMethod.ADB ->
+                                "ADB: Needs Wireless Debugging enabled in Developer Options. No root required."
+                            AccessMethod.SHIZUKU ->
+                                "SHIZUKU: Uses the Shizuku service (ADB-driven). No root required — install Shizuku and grant its permission once per boot."
+                            AccessMethod.ROOT ->
+                                "ROOT: Uses the su command. Requires a rooted device."
+                            AccessMethod.SAF ->
+                                "SAF: Uses the system file picker. No root required, but Android 11+ hides Android/data so you must pick the game's folder explicitly."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -204,6 +214,13 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     )
+                    // The drag stays local and is committed once on release.
+                    // Publishing every onValueChange frame wrote SharedPreferences
+                    // AND published to a StateFlow that feeds
+                    // CompositionLocalProvider(LocalDensity ...) in Theme.kt —
+                    // invalidating the whole content tree and forcing a full
+                    // re-layout on every frame of the drag.
+                    var textOpacityDraft by remember(textOpacity) { mutableFloatStateOf(textOpacity) }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Text(
                             "Light",
@@ -211,8 +228,9 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         )
                         Slider(
-                            value = textOpacity,
-                            onValueChange = { viewModel.setTextOpacity(it) },
+                            value = textOpacityDraft,
+                            onValueChange = { textOpacityDraft = it },
+                            onValueChangeFinished = { viewModel.setTextOpacity(textOpacityDraft) },
                             valueRange = 0.5f..1f,
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                             colors =
@@ -229,7 +247,7 @@ fun SettingsScreen(
                         )
                     }
                     Text(
-                        "${(textOpacity * 100).toInt()}%",
+                        "${(textOpacityDraft * 100).toInt()}%",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = NeonGreen,
@@ -246,6 +264,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     )
+                    var colorSaturationDraft by remember(colorSaturation) { mutableFloatStateOf(colorSaturation) }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Text(
                             "Soft",
@@ -253,8 +272,9 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         )
                         Slider(
-                            value = colorSaturation,
-                            onValueChange = { viewModel.setColorSaturation(it) },
+                            value = colorSaturationDraft,
+                            onValueChange = { colorSaturationDraft = it },
+                            onValueChangeFinished = { viewModel.setColorSaturation(colorSaturationDraft) },
                             valueRange = 0.5f..1.6f,
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                             colors =
@@ -271,7 +291,7 @@ fun SettingsScreen(
                         )
                     }
                     Text(
-                        "${(colorSaturation * 100).toInt()}%",
+                        "${(colorSaturationDraft * 100).toInt()}%",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = NeonPurple,
@@ -310,8 +330,14 @@ fun SettingsScreen(
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(if (selected) NeonPurple.copy(alpha = 0.22f) else Color.Transparent)
                                         .border(1.dp, if (selected) NeonPurple else Color.Transparent, RoundedCornerShape(10.dp))
-                                        .clickable { viewModel.setFontFamily(option) }
-                                        .padding(vertical = 10.dp),
+                                        // 4-way exclusive choice: `selectable` with
+                                        // Role.RadioButton gives TalkBack the
+                                        // "selected" state the bare clickable lacked.
+                                        .selectable(
+                                            selected = selected,
+                                            onClick = { viewModel.setFontFamily(option) },
+                                            role = Role.RadioButton,
+                                        ).padding(vertical = 10.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -339,6 +365,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    var fontScaleDraft by remember(fontScale) { mutableFloatStateOf(fontScale) }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Text(
                             "A",
@@ -346,8 +373,9 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         )
                         Slider(
-                            value = fontScale,
-                            onValueChange = { viewModel.setFontScale(it) },
+                            value = fontScaleDraft,
+                            onValueChange = { fontScaleDraft = it },
+                            onValueChangeFinished = { viewModel.setFontScale(fontScaleDraft) },
                             valueRange = 0.85f..1.4f,
                             steps = 10,
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
@@ -365,7 +393,7 @@ fun SettingsScreen(
                         )
                     }
                     Text(
-                        "${(fontScale * 100).toInt()}%",
+                        "${(fontScaleDraft * 100).toInt()}%",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = NeonPurple,
@@ -419,10 +447,18 @@ fun SettingsScreen(
                                     100.dp,
                                 ).clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.2f)),
                         ) {
-                            val previewPainter =
-                                rememberAsyncImagePainter(
-                                    ImageRequest.Builder(ctx).data(imageUri).crossfade(true).build(),
-                                )
+                            // The request itself must be remembered: this screen
+                            // recomposes on EVERY frame of the slider drags below,
+                            // and an unremembered ImageRequest is a new allocation
+                            // (plus a new Coil job) per frame.
+                            val previewRequest =
+                                remember(imageUri) {
+                                    ImageRequest.Builder(ctx)
+                                        .data(if (isLocalOnlyImageUri(imageUri, ctx)) imageUri else null)
+                                        .crossfade(true)
+                                        .build()
+                                }
+                            val previewPainter = rememberAsyncImagePainter(previewRequest)
                             Image(
                                 painter = previewPainter,
                                 contentDescription = "Preview",
@@ -445,6 +481,7 @@ fun SettingsScreen(
                     }
                     if (hasBg) {
                         Spacer(Modifier.height(12.dp))
+                        var bgAlphaDraft by remember(bgAlpha) { mutableFloatStateOf(bgAlpha) }
                         Text("Opacity", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text(
@@ -453,8 +490,9 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             )
                             Slider(
-                                value = bgAlpha,
-                                onValueChange = { viewModel.setBackgroundOpacity(it) },
+                                value = bgAlphaDraft,
+                                onValueChange = { bgAlphaDraft = it },
+                                onValueChangeFinished = { viewModel.setBackgroundOpacity(bgAlphaDraft) },
                                 valueRange = 0.05f..0.70f,
                                 modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                                 colors =

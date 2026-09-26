@@ -130,11 +130,91 @@ class ConfigManagerTest {
                 r.Streaming.Boost=1
                 r.ScreenPercentage=100
                 """.trimIndent()
-            val result = manager().pushSingleFile("Engine.ini", content) { }
+            val result = manager().pushSingleFile("Engine.ini", content, onProgress = { })
             assertTrue(result.isSuccess)
             val out = backend.pushed.single()
             assertFalse(out.contains("r.Streaming.Boost"))
             assertFalse(out.contains("r.ScreenPercentage"))
             assertTrue(out.contains("r.ShadowQuality=3"))
+        }
+
+    // ── pushSingleFile honours the CALLER's allowRestrictedCvars ──
+    // pushSingleFile used to re-read the GLOBAL pref (WuWaConfigApp.instance
+    // .allowRestrictedCvarsEnabled) instead of the opts.allowRestrictedCvars the generator
+    // was actually driven with. Whenever the two disagreed the generator's strip decision
+    // was silently overridden here — so a config generated with restricted CVars OFF could
+    // still reach the device with r.ScreenPercentage on it, and vice versa.
+    //
+    // The parameter is now part of the signature, so passing it BY NAME is the regression
+    // guard: the old signature would not compile with this call. Note the global pref
+    // itself cannot be set from a headless JVM test (WuWaConfigApp.instance is a lateinit
+    // Application that is never initialised outside an instrumented process, and the default
+    // argument already fails closed to "strip"), so the two explicit-argument directions
+    // below are what pins the caller's value winning.
+
+    private val contentWithRestricted =
+        """
+        [SystemSettings]
+        r.ShadowQuality=3
+        r.Streaming.Boost=1
+        r.ScreenPercentage=100
+        r.FramePace=60
+        """.trimIndent() + "\n"
+
+    @Test
+    fun `pushSingleFile strips restricted CVars when the caller passes false`() =
+        runBlocking {
+            backend.ensureOk = true
+            val result =
+                manager().pushSingleFile(
+                    "Engine.ini",
+                    contentWithRestricted,
+                    onProgress = { },
+                    allowRestrictedCvars = false,
+                )
+            assertTrue(result.isSuccess)
+
+            val out = backend.pushed.single()
+            assertFalse("r.Streaming.Boost must be stripped", out.contains("r.Streaming.Boost"))
+            assertFalse("r.ScreenPercentage must be stripped", out.contains("r.ScreenPercentage"))
+            // Non-restricted CVars must survive.
+            assertTrue(out.contains("r.ShadowQuality=3"))
+            assertTrue(out.contains("r.FramePace=60"))
+        }
+
+    @Test
+    fun `pushSingleFile keeps restricted CVars when the caller passes true`() =
+        runBlocking {
+            backend.ensureOk = true
+            val result =
+                manager().pushSingleFile(
+                    "Engine.ini",
+                    contentWithRestricted,
+                    onProgress = { },
+                    allowRestrictedCvars = true,
+                )
+            assertTrue(result.isSuccess)
+
+            val out = backend.pushed.single()
+            assertTrue("r.Streaming.Boost must be preserved", out.contains("r.Streaming.Boost"))
+            assertTrue("r.ScreenPercentage must be preserved", out.contains("r.ScreenPercentage"))
+            assertTrue(out.contains("r.ShadowQuality=3"))
+        }
+
+    @Test
+    fun `pushSingleFile strip decision is not affected by the order of the two calls`() =
+        runBlocking {
+            // Same manager, same backend, opposite caller values. If any global/pref state
+            // leaked between calls the second result would be a copy of the first.
+            backend.ensureOk = true
+            val m = manager()
+
+            m.pushSingleFile("Engine.ini", contentWithRestricted, onProgress = { }, allowRestrictedCvars = true)
+            m.pushSingleFile("Engine.ini", contentWithRestricted, onProgress = { }, allowRestrictedCvars = false)
+
+            val keep = backend.pushed.toList()[0]
+            val strip = backend.pushed.toList()[1]
+            assertTrue(keep.contains("r.Streaming.Boost"))
+            assertFalse(strip.contains("r.Streaming.Boost"))
         }
 }

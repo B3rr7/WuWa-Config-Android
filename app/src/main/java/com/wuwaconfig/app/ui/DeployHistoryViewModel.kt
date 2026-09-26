@@ -26,6 +26,7 @@ import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.service.AdbConnectionService
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -244,7 +245,16 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         } catch (e: Exception) {
             addLog("WARN: failed to stop ADB connection service: ${e.message}", LogLevel.WARNING)
         }
-        app.backend.disconnect()
+        // onCleared() runs on the main thread and viewModelScope is already
+        // cancelled by this point, so the backend teardown goes on its own IO
+        // scope. For AdbBackend disconnect() performs a BLOCKING socket.close().
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                app.backend.disconnect()
+            } catch (e: Exception) {
+                addLog("WARN: backend disconnect failed: ${e.message}", LogLevel.WARNING)
+            }
+        }
     }
 
     fun connectAdbManual(
@@ -401,7 +411,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     return@launchBackendOp
                 }
                 val logText = result.getOrThrow()
-                val parsed = com.wuwaconfig.app.config.LogParser.parseLog(logText)
+                val parsed = withContext(Dispatchers.Default) { com.wuwaconfig.app.config.LogParser.parseLog(logText) }
                 deployHistoryStore.updateOutcome(id, parsed, logText.take(2048))
                 _deployRecords.value = deployHistoryStore.getAllRecords()
                 val comparison = deployHistoryStore.compare(id)
@@ -602,7 +612,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                             val baselineResult = configManager.readClientLogContent()
                             if (baselineResult.isSuccess) {
                                 val text = baselineResult.getOrThrow()
-                                com.wuwaconfig.app.config.LogParser.parseLog(text) to text.take(2048)
+                                withContext(Dispatchers.Default) { com.wuwaconfig.app.config.LogParser.parseLog(text) } to text.take(2048)
                             } else {
                                 LogInfo() to ""
                             }

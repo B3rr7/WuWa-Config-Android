@@ -1,3 +1,17 @@
+// The entire ADB key storage path (MasterKey / EncryptedFile / KeyScheme /
+// FileEncryptionScheme from androidx.security:security-crypto 1.1.0) is built
+// on that artifact, which is deprecated in favour of the platform KeyStore /
+// Tink APIs. Migrating it is a planned, separate change (see the
+// TODO(security-crypto) note in gradle/libs.versions.toml) — this is a warning
+// cleanup, not a security refactor.
+//
+// Scoped to this file because the suppression has to cover the *imports* of
+// MasterKey/EncryptedFile too (Kotlin reports DEPRECATION on deprecated import
+// directives, and a class-level @Suppress does not reach them). The upside is
+// that the ~10 warnings it silences cannot mask newly introduced ones
+// anywhere else in the app.
+@file:Suppress("DEPRECATION")
+
 package com.wuwaconfig.app.adb
 
 import android.content.Context
@@ -27,6 +41,8 @@ interface CryptoAdapter {
     fun regenerateKeys(): Result<Unit>
 }
 
+// The whole class is covered by the @file:Suppress("DEPRECATION") at the top
+// of this file; see the comment there for why the migration is deferred.
 class AdbCrypto(private val context: Context) : CryptoAdapter {
     companion object {
         private const val TAG = "AdbCrypto"
@@ -91,12 +107,27 @@ class AdbCrypto(private val context: Context) : CryptoAdapter {
         return try {
             buildEncryptedFile(file).openFileInput().use { it.readBytes() }
         } catch (_: java.io.FileNotFoundException) {
+            // Genuinely absent -> caller is allowed to generate a new key.
             null
+        } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) {
+            // The master key was invalidated (biometric enrollment change / keystore reset).
+            // This is NOT recoverable by regenerating: doing so would silently rotate the
+            // user's authorized ADB identity, and the failure would only surface later as
+            // an unexplained auth rejection.
+            throw IllegalStateException(
+                "ADB key material was permanently invalidated. Clear app storage or use the " +
+                    "Shizuku/Root backend. (${e.message})",
+                e,
+            )
         } catch (e: Exception) {
-            // A transient Keystore hiccup here would silently rotate the ADB
-            // identity and force re-authorization — surface it at least.
-            Log.w(TAG, "Failed to read encrypted ${file.name}: ${e.message}")
-            null
+            // A transient Keystore hiccup here would silently rotate the ADB identity and
+            // force re-authorization. Returning null IS the "generate a new key" signal, so
+            // an unreadable-but-present key must fail loudly instead.
+            Log.e(TAG, "Keystore read failed for ${file.name}; NOT regenerating to protect the ADB identity", e)
+            throw IllegalStateException(
+                "Cannot read existing ADB key material (${file.name}): ${e.message}",
+                e,
+            )
         }
     }
 
@@ -109,10 +140,26 @@ class AdbCrypto(private val context: Context) : CryptoAdapter {
         // (security-crypto 1.1.0), so replace it explicitly. Without this, key
         // regeneration and the plaintext->encrypted migration always throw,
         // which previously crashed Application.onCreate.
-        if (file.exists() && !file.delete()) {
-            throw java.io.IOException("Cannot replace existing key file ${file.name}")
+        // Write to a sibling temp and rename(2) into place.
+        //
+        // This also satisfies the security-crypto 1.1.0 constraint that
+        // openFileOutput() throws if the target already exists: we open the TEMP file,
+        // never the target, so there is nothing to replace up front.
+        //
+        // The previous shape deleted the old (valid) key first, leaving a window with
+        // NO key on disk. If MasterKey creation or the Tink write then threw (disk full,
+        // keystore error, process kill), generateNewKeys() would find a half-written pair
+        // and rotate the ADB identity on the next launch. rename(2) is atomic and
+        // overwrites an existing regular file, so the target is never absent.
+        val tmp = File(file.parentFile, "${file.name}.new")
+        if (tmp.exists() && !tmp.delete()) {
+            throw java.io.IOException("Cannot replace stale temp key file ${tmp.name}")
         }
-        buildEncryptedFile(file).openFileOutput().use { it.write(bytes) }
+        buildEncryptedFile(tmp).openFileOutput().use { it.write(bytes) }
+        if (!tmp.renameTo(file)) {
+            tmp.delete()
+            throw java.io.IOException("Cannot commit key file ${file.name}")
+        }
     }
 
     private fun loadOrGenerateKeys() {
@@ -146,11 +193,14 @@ class AdbCrypto(private val context: Context) : CryptoAdapter {
                 writeEncryptedBytes(pubFile, ptPublic)
                 // Migration complete — the plaintext originals are private-key
                 // material and must not linger in filesDir.
-                val removedPk = pkFile.delete()
-                val removedPub = pubFile.delete()
-                if (!removedPk || !removedPub) {
-                    Log.w(TAG, "Plaintext key cleanup incomplete (pk=$removedPk pub=$removedPub)")
-                }
+                //
+                // Do NOT delete pkFile/pubFile here. writeEncryptedBytes() already
+                // deletes the plaintext target before writing the encrypted bytes,
+                // so the files on disk are now the ENCRYPTED key material. A trailing
+                // delete() therefore removed the fresh encrypted private key, and the
+                // next cold start saw no key at all, called generateNewKeys(), and
+                // rotated the ADB identity — forcing the user to re-accept the RSA
+                // authorization dialog on every launch.
                 Log.d(TAG, "Migrated ADB keys from plaintext to encrypted storage")
                 return
             } catch (e: Exception) {

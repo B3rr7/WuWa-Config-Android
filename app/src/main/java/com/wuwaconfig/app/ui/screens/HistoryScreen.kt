@@ -37,6 +37,36 @@ fun HistoryScreen(
     val backendStatus by viewModel.backendStatus.collectAsStateWithLifecycle()
     val isApplying by viewModel.isApplying.collectAsStateWithLifecycle()
     var showClearAllDialog by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<DeployRecord?>(null) }
+
+    if (pendingDelete != null) {
+        val record = pendingDelete!!
+        val recordDate =
+            remember(record.timestamp) {
+                SimpleDateFormat("MMM d, yyyy HH:mm", Locale.US).format(Date(record.timestamp))
+            }
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Delete this record?") },
+            text = {
+                Text(
+                    "\"${record.presetName.uppercase()} — $recordDate\" and its stored baseline log snippet " +
+                        "will be removed permanently.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteDeployRecord(record.id)
+                        pendingDelete = null
+                    },
+                ) { Text("Delete", color = NeonRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+            },
+        )
+    }
 
     if (showClearAllDialog) {
         AlertDialog(
@@ -109,7 +139,7 @@ fun HistoryScreen(
                         DeployHistoryCard(
                             record = record,
                             isConnected = backendStatus.connected && !isApplying,
-                            onDelete = { viewModel.deleteDeployRecord(record.id) },
+                            onDelete = { pendingDelete = record },
                             onCompare = { viewModel.compareDeployOutcome(record.id) },
                             onRetune = { viewModel.retuneAndDeploy(record.id) },
                         )

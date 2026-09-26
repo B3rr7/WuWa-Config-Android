@@ -1,7 +1,6 @@
 package com.wuwaconfig.app.ui.theme
 
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import android.graphics.Color as AndroidColor
 
@@ -42,17 +41,11 @@ fun neonPaletteOf(factor: Float): NeonPalette {
     )
 }
 
-val LocalNeon = staticCompositionLocalOf { neonPaletteOf(1f) }
-
-private var _neonSaturation = 1f
-
 fun setNeonSaturation(value: Float) {
     val factor = value.coerceIn(0.5f, 1.6f)
-    if (factor == _neonSaturation) return
-    _neonSaturation = factor
-    for (i in neonBases.indices) {
-        neonColors[i] = adjustSaturation(neonBases[i], factor)
-    }
+    val next = neonPaletteOf(factor)
+    if (next == neonState.value) return
+    neonState.value = next
 }
 
 fun adjustSaturation(
@@ -91,16 +84,22 @@ private val neonBases =
         BaseNeonGold,
     )
 
-private val neonColors = mutableStateListOf<Color>().apply { addAll(neonBases) }
+/**
+ * Single state holder for the neon palette. Previously a module-level
+ * `mutableStateListOf` was mutated 8 times for a single user action (one state
+ * write per colour slot), and every one of ~500 call sites read it through
+ * `val NeonCyan: Color get() = neonColors[1]`. One immutable palette behind one
+ * state means one write and one invalidation per action.
+ */
+private val neonState = mutableStateOf(neonPaletteOf(1f))
 
-val NeonPurple: Color get() = neonColors[0]
-val NeonCyan: Color get() = neonColors[1]
-val NeonPink: Color get() = neonColors[2]
-val NeonGreen: Color get() = neonColors[3]
-val NeonRed: Color get() = neonColors[4]
-val NeonAmber: Color get() = neonColors[5]
-val NeonBlue: Color get() = neonColors[6]
-val NeonGold: Color get() = neonColors[7]
-
-val GlassDialogBg = Color(0xCC12122A)
-val GlassDialogBorder = Color(0x28FFFFFF)
+// Public accessor names are load-bearing (~500 call sites across ui/). They read
+// through the single palette state object below.
+val NeonPurple: Color get() = neonState.value.purple
+val NeonCyan: Color get() = neonState.value.cyan
+val NeonPink: Color get() = neonState.value.pink
+val NeonGreen: Color get() = neonState.value.green
+val NeonRed: Color get() = neonState.value.red
+val NeonAmber: Color get() = neonState.value.amber
+val NeonBlue: Color get() = neonState.value.blue
+val NeonGold: Color get() = neonState.value.gold

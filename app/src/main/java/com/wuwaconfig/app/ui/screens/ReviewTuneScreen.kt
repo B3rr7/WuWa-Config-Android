@@ -8,7 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,7 +53,9 @@ import com.wuwaconfig.app.util.DiffResult
 import com.wuwaconfig.app.util.DiffSummary
 import com.wuwaconfig.app.util.Hashing
 import com.wuwaconfig.app.util.LineDiff
+import com.wuwaconfig.app.util.copySensitive
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 private val ReviewMonitoredFiles =
@@ -129,12 +131,25 @@ fun ReviewTuneScreen(
 
     val dirty = newText != originalGenerated
     val deviceTextPresent = deviceText.isNotBlank()
-    val deviceMd5 = remember(deviceText) { if (deviceTextPresent) Hashing.md5Of(deviceText) else "n/a" }
-    val newMd5 = remember(newText) { Hashing.md5Of(newText) }
+
+    // MD5 is a JCA digest over the full UTF-8 encoding. Computing it inside
+    // `remember(newText)` put that on the main thread for every keystroke; the
+    // diff and the generator were already moved off-main and this badge was
+    // missed. "…" until the off-main result lands.
+    val deviceMd5 by produceState(initialValue = "…", deviceText) {
+        value = withContext(Dispatchers.Default) { if (deviceTextPresent) Hashing.md5Of(deviceText) else "n/a" }
+    }
+    val newMd5 by produceState(initialValue = "…", newText) {
+        value = withContext(Dispatchers.Default) { Hashing.md5Of(newText) }
+    }
 
     var diffSnapshot by remember { mutableStateOf(DiffSnapshot("", "", null)) }
+    // Debounced via effect cancellation: this used to run a full O(n*m) diff on
+    // every keystroke. LineDiff also hard-caps the LCS table now, so this is
+    // belt and braces.
     LaunchedEffect(deviceText, newText) {
         if (!deviceTextPresent) return@LaunchedEffect
+        delay(300)
         val current = diffSnapshot
         if (current.result != null && current.deviceText == deviceText && current.newText == newText) {
             return@LaunchedEffect
@@ -194,7 +209,7 @@ fun ReviewTuneScreen(
                     actions = {
                         IconButton(onClick = {
                             val cb = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            cb.setPrimaryClip(ClipData.newPlainText(currentFile, newText))
+                            cb.copySensitive(currentFile, newText)
                             android.widget.Toast.makeText(ctx, "Copied $currentFile", android.widget.Toast.LENGTH_SHORT).show()
                         }) {
                             Icon(Icons.Default.ContentCopy, "Copy", tint = NeonCyan)
@@ -228,7 +243,7 @@ fun ReviewTuneScreen(
                     onDeploy = { showSummary = true },
                 )
             },
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = Color.Transparent,
         ) { padding ->
             Column(
                 modifier =
@@ -252,6 +267,7 @@ fun ReviewTuneScreen(
                     newMd5 = newMd5,
                     summary = diff?.summary,
                     sanitizedCount = diff?.sanitizedLines ?: 0,
+                    truncated = diff?.truncated == true,
                 )
 
                 Box(
@@ -261,7 +277,11 @@ fun ReviewTuneScreen(
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                 ) {
                     if (available.isEmpty()) {
-                        EmptyState(onBack = onBack)
+                        // Consumes the persisted breadcrumb written by
+                        // openReviewTune: if it is set, the payload really was
+                        // lost (process death), it is not a "never generated" case.
+                        val lostConfig = remember { viewModel.consumeReviewTuneLostWarning() }
+                        EmptyState(onBack = onBack, lostConfig = lostConfig)
                     } else if (viewMode == "diff" && diff != null) {
                         DiffPane(
                             diff = diff,
@@ -420,6 +440,7 @@ private fun FileMetaBar(
     newMd5: String,
     summary: com.wuwaconfig.app.util.DiffSummary?,
     sanitizedCount: Int = 0,
+    truncated: Boolean = false,
 ) {
     Column(
         modifier =
@@ -476,6 +497,14 @@ private fun FileMetaBar(
                 DiffBadge(label = "-${summary.removed}", color = NeonPink)
                 DiffBadge(label = "=${summary.unchanged}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+        if (truncated && deviceTextPresent) {
+            Text(
+                "Diff too large to compute line-by-line — showing summary counts and a bounded sample only.",
+                fontSize = 10.sp,
+                color = NeonAmber,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
         if (sanitizedCount > 0) {
             Text(
@@ -600,7 +629,13 @@ private fun DiffPane(
                 .border(width = 1.dp, color = accent.copy(alpha = 0.4f), shape = RoundedCornerShape(8.dp))
                 .padding(8.dp),
     ) {
-        items(diff.lines, key = { "${it.kind}:${it.oldLineNumber ?: "-"}:${it.newLineNumber ?: "-"}" }) { line ->
+        // The index is part of the key: LineDiff's bounded fallback emits
+        // line-number-less CONTEXT markers, which would otherwise collide into a
+        // duplicate-key crash.
+        itemsIndexed(
+            diff.lines,
+            key = { i, line -> "$i:${line.kind}:${line.oldLineNumber ?: "-"}:${line.newLineNumber ?: "-"}" },
+        ) { _, line ->
             DiffRow(line)
         }
     }
@@ -667,7 +702,10 @@ private fun DiffRow(line: DiffLine) {
 }
 
 @Composable
-private fun EmptyState(onBack: () -> Unit) {
+private fun EmptyState(
+    onBack: () -> Unit,
+    lostConfig: Boolean = false,
+) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -675,10 +713,18 @@ private fun EmptyState(onBack: () -> Unit) {
     ) {
         Icon(Icons.Default.Tune, null, tint = NeonCyan, modifier = Modifier.size(64.dp))
         Spacer(Modifier.height(12.dp))
-        Text("No generated configs yet.", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(
+            if (lostConfig) "Generated config was lost" else "No generated configs yet.",
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+        )
         Spacer(Modifier.height(6.dp))
         Text(
-            "Press Generate on the previous screen, then come back here.",
+            if (lostConfig) {
+                "The app was closed while this screen was open, so the in-memory generated files are gone. Generate again to continue."
+            } else {
+                "Press Generate on the previous screen, then come back here."
+            },
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(20.dp))
@@ -706,6 +752,10 @@ private fun ReviewBottomBar(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    // Material3 Scaffold only applies contentWindowInsets to the
+                    // content slot, NOT to a custom bottomBar — without this the
+                    // Deploy chip row sits flush against the gesture pill.
+                    .navigationBarsPadding()
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -756,8 +806,11 @@ private fun DeploySummaryDialog(
 ) {
     var summaries by remember { mutableStateOf<Map<String, DiffSummary?>>(emptyMap()) }
     var ready by remember { mutableStateOf(false) }
+    // Debounced for the same reason as the main diff: this re-diffs all five
+    // files, and it used to do so on every keystroke in the editor behind it.
     LaunchedEffect(available, newFiles, currentDevice) {
         ready = false
+        delay(300)
         summaries =
             withContext(Dispatchers.Default) {
                 available.associateWith { file ->
@@ -772,7 +825,10 @@ private fun DeploySummaryDialog(
         accentColor = NeonGreen,
         title = { Text("Deploy changes?", fontWeight = FontWeight.Bold) },
         text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            // No local verticalScroll here any more: GlassDialogContent now
+            // height-caps and scrolls the dialog body itself (nested same-axis
+            // scroll containers fight over the drag).
+            Column {
                 available.forEach { file ->
                     val summary = summaries[file]
                     Spacer(Modifier.height(6.dp))

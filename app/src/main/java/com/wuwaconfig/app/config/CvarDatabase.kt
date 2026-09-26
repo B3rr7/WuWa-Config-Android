@@ -5,6 +5,7 @@ import com.wuwaconfig.app.model.CvarCategory
 import com.wuwaconfig.app.model.CvarDetail
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,30 +29,62 @@ class CvarDatabase(private val assets: AssetManager) {
     // A single long-lived scope for the async load triggered by ensureLoaded.
     // Previously every cache-miss spawned a fresh CoroutineScope(Dispatchers.IO)
     // that was never cancelled, leaking scopes on a hot path.
-    private val loadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    //
+    // The CoroutineExceptionHandler is load-bearing, not cosmetic: SupervisorJob
+    // isolates *siblings*, not a child's uncaught exception. Without a handler in
+    // this scope's context, an exception from load() (missing asset, APK split that
+    // didn't ship cvars/, I/O error) propagates to the global handler ->
+    // Thread.getDefaultUncaughtExceptionHandler -> PROCESS CRASH. ensureLoaded() is
+    // reachable from isKnown/isMonitored on the generate path, so a missing asset was
+    // a hard crash rather than a degraded config.
+    private val loadScope =
+        CoroutineScope(
+            SupervisorJob() + Dispatchers.IO +
+                CoroutineExceptionHandler { _, throwable ->
+                    LogRepository.add(
+                        "CvarDatabase: load failed (${throwable.javaClass.simpleName}: ${throwable.message}) — " +
+                            "CVarDB optimization and enrichment are unavailable this session",
+                        LogLevel.ERROR,
+                    )
+                },
+        )
+
+    // Guards against ensureLoaded() launching a new coroutine on every access while
+    // the load is still in flight. ensureLoaded() is a hot path: isKnown() is called
+    // once per candidate key in buildEnrichmentCvars and twice per CVar in
+    // SmartBrain.buildReportText, so without this a single generate with a cold
+    // database produced ~8 WARNING log lines and 8 concurrent coroutines.
+    @Volatile
+    private var loadRequested = false
 
     suspend fun load() =
         loadMutex.withLock {
             withContext(Dispatchers.IO) {
+                loadRequested = true
                 if (_allCvars != null) return@withContext
                 LogRepository.add("CvarDatabase: loading from assets")
                 // Build everything locally and publish atomically: getters key off
                 // _allCvars, so no reader can observe a half-populated database.
+                // A failure anywhere below is caught by loadScope's handler when this
+                // runs inside it, and rethrown to the caller when it does not.
                 val all =
-                    assets.open("cvars/libUE4_cvars.txt").bufferedReader().readLines()
-                        .map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
+                    assets.open("cvars/libUE4_cvars.txt").bufferedReader().use { r ->
+                        r.readLines().map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
+                    }
                 val monitored =
-                    assets.open("cvars/config_monitor_cvars.txt").bufferedReader().readLines()
-                        .map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
+                    assets.open("cvars/config_monitor_cvars.txt").bufferedReader().use { r ->
+                        r.readLines().map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
+                    }
                 val defaults =
-                    assets.open("cvars/config_monitor_values.txt").bufferedReader().readLines()
-                        .mapNotNull { line ->
+                    assets.open("cvars/config_monitor_values.txt").bufferedReader().use { r ->
+                        r.readLines().mapNotNull { line ->
                             val trimmed = line.trim()
                             if (trimmed.isBlank()) return@mapNotNull null
                             val eq = trimmed.indexOf('=')
                             if (eq <= 0) return@mapNotNull null
                             trimmed.substring(0, eq).trim().lowercase() to trimmed.substring(eq + 1).trim()
                         }.toMap()
+                    }
                 _monitoredCvars = monitored
                 _defaultValues = defaults
                 _allCvars = all
@@ -64,11 +97,12 @@ class CvarDatabase(private val assets: AssetManager) {
 
     private fun ensureLoaded() {
         if (_allCvars != null) return
+        if (loadRequested) return
+        loadRequested = true
         // Avoid blocking the caller (e.g. the main thread). The async load() invoked at
         // Application.onCreate populates these; the mutex makes concurrent triggers
         // single-flight so assets are never read twice. Until it lands, optimizers skip
         // safely instead of doing a synchronous asset read here.
-        LogRepository.add("CvarDatabase: not loaded yet; triggering async load", LogLevel.WARNING)
         loadScope.launch { load() }
     }
 
@@ -99,6 +133,12 @@ class CvarDatabase(private val assets: AssetManager) {
     fun categorize(key: String): CvarCategory = CvarCategorizer.categorize(key)
 
     fun optimizeIniText(text: String): String {
+        // ensureLoaded() is required here, not optional: reading the @Volatile fields
+        // directly meant that on the generate path (which can run before the
+        // Application.onCreate load lands) this returned `text` UNCHANGED. CVarDB
+        // optimization was therefore a silent no-op on exactly the first-run path
+        // where it matters most, with no signal to the user.
+        ensureLoaded()
         val all = _allCvars ?: return text
         val monitored = _monitoredCvars ?: emptySet()
         val defaults = _defaultValues ?: emptyMap()

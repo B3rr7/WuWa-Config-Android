@@ -12,6 +12,7 @@ import com.wuwaconfig.app.config.GachaHistoryStore
 import com.wuwaconfig.app.config.LogParser
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
+import com.wuwaconfig.app.model.GachaRecord
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +68,7 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
     fun clearGachaHistory() {
         viewModelScope.launch(Dispatchers.IO) { GachaHistoryStore.delete(getApplication()) }
         _gachaHistory.value = null
+        _gachaHistoryRemaining.value = 0L
         addLog("Gacha history cleared")
     }
 
@@ -74,6 +76,32 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         _gachaHistory.value?.let { entry ->
             maxOf((entry.expiresAt - System.currentTimeMillis()) / (60 * 60 * 1000), 0L)
         } ?: 0L
+
+    /**
+     * Snapshot of [gachaHistoryRemainingHours]. Reading `System.currentTimeMillis()`
+     * straight from composition is an impure, non-snapshot read, so the countdown
+     * froze at whatever value it had on the first frame — the UI must collect
+     * this instead and call [refreshGachaHistoryRemainingHours] on a timer.
+     */
+    private val _gachaHistoryRemaining = MutableStateFlow(0L)
+    val gachaHistoryRemainingHours: StateFlow<Long> = _gachaHistoryRemaining.asStateFlow()
+
+    fun refreshGachaHistoryRemainingHours() {
+        _gachaHistoryRemaining.value = gachaHistoryRemainingHours()
+    }
+
+    /**
+     * [GachaData.records] pre-grouped by `cardPoolType`. The screen previously
+     * filtered the whole record list once per pool inside a LazyColumn content
+     * lambda, i.e. O(pools x records) on every structural recomposition.
+     */
+    private val _recordsByPool = MutableStateFlow<Map<String, List<GachaRecord>>>(emptyMap())
+    val recordsByPool: StateFlow<Map<String, List<GachaRecord>>> = _recordsByPool.asStateFlow()
+
+    private fun publishGachaData(data: GachaData?) {
+        _gachaData.value = data
+        _recordsByPool.value = data?.records?.groupBy { it.cardPoolType } ?: emptyMap()
+    }
 
     fun restoreGachaFromHistory() {
         val entry = _gachaHistory.value ?: return
@@ -87,7 +115,7 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
                     }
             // Guard against legacy caches where predictions list was null/absent.
             val safeData = data.copy(predictions = data.predictions ?: emptyList())
-            _gachaData.value = safeData
+            publishGachaData(safeData)
             addLog("Restored history: ${data.totalPulls} pulls")
         } catch (e: Exception) {
             addLog("Failed to restore history: ${e.message}")
@@ -100,7 +128,7 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch {
                 try {
                     _conveneUrl.value = null
-                    _gachaData.value = null
+                    publishGachaData(null)
                     _conveneUrlLoading.value = true
                     _gachaError.value = null
                     var attempt = 1
@@ -182,7 +210,7 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
                 }
             if (result.isSuccess) {
                 val data = result.getOrThrow()
-                _gachaData.value = data
+                publishGachaData(data)
                 withContext(Dispatchers.IO) {
                     _gachaHistory.value = GachaHistoryStore.save(getApplication(), data)
                 }

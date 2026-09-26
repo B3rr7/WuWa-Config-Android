@@ -8,16 +8,30 @@ import com.wuwaconfig.app.PREFS_NAME
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.InputStreamReader
 
 class SafBackend(private val context: Context) : AccessBackend {
+    @Volatile
     private var _treeUri: Uri? = null
+
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val knownRoot = GamePaths.TARGET_DIR
+
+    /**
+     * Guards [resolveOrCreateDocument]: two concurrent pushes into the same not-yet-existing
+     * directory both call `createDirectory` and end up with duplicate sibling directories.
+     * One SafBackend holds one tree, so an instance-level mutex is the "keyed on the tree"
+     * lock.
+     */
+    private val resolveMutex = Mutex()
 
     val treeUri: Uri?
         get() = _treeUri
@@ -36,6 +50,20 @@ class SafBackend(private val context: Context) : AccessBackend {
     }
 
     fun clearTreeUri() {
+        // Releasing first: the platform caps persistable grants at 128/UID, so every
+        // re-pick without a release permanently exhausts them.
+        val old = _treeUri
+        if (old != null) {
+            runCatching {
+                context.contentResolver.releasePersistableUriPermission(
+                    old,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }.onFailure {
+                LogRepository.add("SAF: failed to release old directory grant: ${it.message}", LogLevel.WARNING)
+            }
+        }
         _treeUri = null
         prefs.edit().remove("saf_tree_uri").apply()
     }
@@ -74,6 +102,8 @@ class SafBackend(private val context: Context) : AccessBackend {
                 }
                 LogRepository.add("SAF connected successfully", LogLevel.SUCCESS)
                 Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 clearTreeUri()
                 LogRepository.add("SAF connect failed: ${e.message}", LogLevel.ERROR)
@@ -107,6 +137,8 @@ class SafBackend(private val context: Context) : AccessBackend {
                 writeDocument(targetDoc, bytes)
                 LogRepository.add("SAF push completed: $targetPath", LogLevel.SUCCESS)
                 Result.success("Written to $targetPath")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("SAF push failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -120,6 +152,8 @@ class SafBackend(private val context: Context) : AccessBackend {
                 resolveOrCreateDocument(dirPath, isDirectory = true)
                 LogRepository.add("SAF ensureDir succeeded", LogLevel.SUCCESS)
                 Result.success("")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("SAF ensureDir failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -133,9 +167,17 @@ class SafBackend(private val context: Context) : AccessBackend {
                 val exists = doc != null && doc.exists() && doc.isFile
                 LogRepository.add("SAF fileExists: $path -> $exists")
                 Result.success(exists)
-            } catch (e: Exception) {
-                LogRepository.add("SAF fileExists error: ${e.message}", LogLevel.WARNING)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: FileNotFoundException) {
+                LogRepository.add("SAF fileExists: $path not found", LogLevel.WARNING)
                 Result.success(false)
+            } catch (e: Exception) {
+                // A revoked grant / SecurityException / provider death is NOT "absent":
+                // callers do getOrElse { false } and would then disable or overwrite as if
+                // the file were gone.
+                LogRepository.add("SAF fileExists error: ${e.message}", LogLevel.ERROR)
+                Result.failure(e)
             }
         }
 
@@ -147,6 +189,8 @@ class SafBackend(private val context: Context) : AccessBackend {
                 val files = doc.listFiles().map { it.name ?: it.uri.toString() }
                 LogRepository.add("SAF listDir: found ${files.size} entries", LogLevel.SUCCESS)
                 Result.success(files)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("SAF listDir failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -168,6 +212,8 @@ class SafBackend(private val context: Context) : AccessBackend {
                 writeDocument(backupDoc, bytes)
                 LogRepository.add("SAF backup completed: ${backupDoc.uri}", LogLevel.SUCCESS)
                 Result.success(backupDoc.uri.toString())
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("SAF backup failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -185,6 +231,8 @@ class SafBackend(private val context: Context) : AccessBackend {
                         ?: return@withContext Result.failure(Exception("Cannot open: $path"))
                 LogRepository.add("SAF read completed: ${text.length} chars")
                 Result.success(text)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("SAF read failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -199,6 +247,8 @@ class SafBackend(private val context: Context) : AccessBackend {
                 val bytes = readDocumentBytes(doc)
                 LogRepository.add("SAF readFileBytes completed: ${bytes.size} bytes")
                 Result.success(bytes)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("SAF readFileBytes failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -223,6 +273,8 @@ class SafBackend(private val context: Context) : AccessBackend {
                 writeDocument(targetDoc, bytes)
                 LogRepository.add("SAF copyFile completed: ${bytes.size} bytes", LogLevel.SUCCESS)
                 Result.success(targetPath)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("SAF copyFile failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -247,6 +299,8 @@ class SafBackend(private val context: Context) : AccessBackend {
                     LogRepository.add("SAF delete failed: $path", LogLevel.ERROR)
                     Result.failure(Exception("Failed to delete: $path"))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("SAF delete error: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -259,13 +313,40 @@ class SafBackend(private val context: Context) : AccessBackend {
             ?: throw Exception("Cannot read: ${doc.name}")
     }
 
+    /**
+     * Writes [data] to a `…wuwa_new` sibling and renames it over [doc]. A provider write is
+     * not atomic: truncating [doc] and streaming into it meant an IOException mid-write
+     * left a truncated Engine.ini in the game's config dir with no rollback.
+     */
     private fun writeDocument(
         doc: DocumentFile,
         data: ByteArray,
     ) {
-        context.contentResolver.openOutputStream(doc.uri)
-            ?.use { it.write(data) }
-            ?: throw Exception("Cannot write: ${doc.name}")
+        val parent = doc.parentFile ?: throw Exception("Cannot determine parent of ${doc.name}")
+        val name = doc.name ?: throw Exception("Cannot determine name of ${doc.uri}")
+        val stagingName = "$name$STAGING_SUFFIX"
+        val staging =
+            parent.findFile(stagingName)
+                ?: parent.createFile(doc.type ?: "*/*", stagingName)
+                ?: throw Exception("Cannot create staging file: $stagingName")
+        val stream =
+            context.contentResolver.openOutputStream(staging.uri, "wt")
+                ?: throw Exception("Cannot write: $stagingName")
+        try {
+            stream.use { it.write(data) }
+        } catch (e: Exception) {
+            runCatching { staging.delete() }
+            throw e
+        }
+        val written = staging.length()
+        if (written != data.size.toLong()) {
+            runCatching { staging.delete() }
+            throw Exception("Short write for $name: $written of ${data.size} bytes")
+        }
+        if (doc.delete() && !staging.renameTo(name)) {
+            runCatching { staging.delete() }
+            throw Exception("Cannot replace $name with the staged copy")
+        }
     }
 
     private fun resolveDocument(path: String): DocumentFile? {
@@ -278,7 +359,6 @@ class SafBackend(private val context: Context) : AccessBackend {
             listOf(
                 { stripAndNavigate(path, root, treeRoot) },
                 { stripAndNavigate(path, root, knownRoot) },
-                { stripAndNavigate(path, root, path.substringBeforeLast("/")) },
                 { root.findFile(nameOnly) },
             )
         for (strategy in strategies) {
@@ -328,45 +408,60 @@ class SafBackend(private val context: Context) : AccessBackend {
         return current
     }
 
-    private fun resolveOrCreateDocument(
+    private suspend fun resolveOrCreateDocument(
         path: String,
         isDirectory: Boolean = false,
-    ): DocumentFile {
-        val tree = _treeUri ?: throw Exception("No SAF directory selected")
-        val root = DocumentFile.fromTreeUri(context, tree) ?: throw Exception("Cannot access tree")
-        val nameOnly = path.substringAfterLast('/')
-        val treeRoot = treeDeviceRoot() ?: knownRoot
+    ): DocumentFile =
+        resolveMutex.withLock {
+            val tree = _treeUri ?: throw Exception("No SAF directory selected")
+            val root = DocumentFile.fromTreeUri(context, tree) ?: throw Exception("Cannot access tree")
+            val nameOnly = path.substringAfterLast('/')
+            val treeRoot = treeDeviceRoot() ?: knownRoot
 
-        val strategies =
-            listOf(
-                { stripAndNavigate(path, root, treeRoot) },
-                { stripAndNavigate(path, root, knownRoot) },
-                { stripAndNavigate(path, root, path.substringBeforeLast("/")) },
-                { root.findFile(nameOnly) },
-            )
-        for (strategy in strategies) {
-            val result = strategy()
-            if (result != null) return result
-        }
-
-        // Path doesn't exist yet — create intermediate directories, then the final segment.
-        val parts = path.removePrefix(treeRoot).trimStart('/').split("/").filter { it.isNotBlank() }
-        var current = root
-        for (i in parts.indices) {
-            val part = parts[i]
-            val isLast = i == parts.lastIndex
-            var child = current.findFile(part)
-            if (child == null) {
-                if (isLast && !isDirectory) {
-                    // File target: stop at the parent directory so the caller can createFile().
-                    return current
+            val strategies =
+                listOf(
+                    { stripAndNavigate(path, root, treeRoot) },
+                    { stripAndNavigate(path, root, knownRoot) },
+                    { root.findFile(nameOnly) },
+                )
+            for (strategy in strategies) {
+                // Type-filtered: a strategy may resolve the TREE ROOT (a directory) when the
+                // path has no '/', and the caller would then operate one level too high.
+                val result = strategy()
+                if (result != null && (if (isDirectory) result.isDirectory else !result.isDirectory)) {
+                    return@withLock result
                 }
-                child =
-                    current.createDirectory(part)
-                        ?: throw Exception("Cannot create directory: $part")
             }
-            current = child
+
+            // Path doesn't exist yet — create intermediate directories, then the final segment.
+            // `removePrefix` is a NO-OP when the prefix doesn't match, so without this guard a
+            // non-descendant target (e.g. HashMonitor's Kuro/... pushed into a grant rooted at
+            // .../Config/Android) would build a shadow tree of "storage/emulated/0/..." inside
+            // the user's own folder and report success.
+            if (path != treeRoot && !path.startsWith("$treeRoot/")) {
+                throw Exception("Path $path is outside the granted SAF tree ($treeRoot)")
+            }
+            val parts = path.removePrefix(treeRoot).trimStart('/').split("/").filter { it.isNotBlank() }
+            var current = root
+            for (i in parts.indices) {
+                val part = parts[i]
+                val isLast = i == parts.lastIndex
+                var child = current.findFile(part)
+                if (child == null) {
+                    if (isLast && !isDirectory) {
+                        // File target: stop at the parent directory so the caller can createFile().
+                        return@withLock current
+                    }
+                    child =
+                        current.createDirectory(part)
+                            ?: throw Exception("Cannot create directory: $part")
+                }
+                current = child
+            }
+            current
         }
-        return current
+
+    private companion object {
+        const val STAGING_SUFFIX = ".wuwa_new"
     }
 }

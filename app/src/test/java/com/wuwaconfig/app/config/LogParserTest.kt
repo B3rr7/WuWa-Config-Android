@@ -3,6 +3,7 @@ package com.wuwaconfig.app.config
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.util.Random
 
 class LogParserTest {
     private fun lut(b: Int): Int = if (b % 2 == 0) (b xor 0xEF) else (b xor 0xA5)
@@ -130,5 +131,93 @@ class LogParserTest {
     @Test
     fun `extractConveneUrl returns null when no URL present`() {
         assertNull(LogParser.extractConveneUrl("No URL here"))
+    }
+
+    // ── decryptWithFallback plausibility gate ──
+    // When no strategy produced output containing a UE4 keyword, the fallback used to
+    // `return XorLutStrategy().decrypt(body)` — the SAME transform that had just been
+    // rejected. That could never "succeed" and could only hand back unvalidated noise,
+    // which was then tagged DecodeResult.DECRYPTED. Downstream, verifyDeployedCvars ran on
+    // the garbage and reported EVERY generated CVar as "rejected" after a deploy that had
+    // actually succeeded. The fallback now requires the transform OUTPUT to be plausible
+    // decoded text, and returns null when nothing validates.
+
+    @Test
+    fun `decryptBackupLog rejects a plain text file that only passes the BOM magic gate`() {
+        // EF BB BF is the backup-log magic, but a file that merely STARTS with those three
+        // bytes is not encrypted. It is a plain, unencrypted UTF-8-BOM text file.
+        val plainText = "This is a plain text backup file, never encrypted by the game.\n"
+        val data = backupHeader + plainText.toByteArray(Charsets.UTF_8)
+
+        assertNull("an unencrypted plain-text file must not be reported as decrypted", LogParser.decryptBackupLog(data))
+    }
+
+    @Test
+    fun `decryptBackupLog rejects a plain text INI behind the BOM magic gate`() {
+        val plainText = "[SystemSettings]\nr.ShadowQuality=3\nr.FramePace=60\nplain text here\n"
+        val data = backupHeader + plainText.toByteArray(Charsets.UTF_8)
+
+        assertNull(LogParser.decryptBackupLog(data))
+    }
+
+    @Test
+    fun `decodeLogBytes does not claim DECRYPTED for an unencrypted BOM-prefixed text file`() {
+        val plainText = "just some ordinary ascii words in a row, nothing special at all\n"
+        val data = backupHeader + plainText.toByteArray(Charsets.UTF_8)
+
+        val (_, result) = LogParser.decodeLogBytes(data)
+        assertEquals(
+            "an undecodable payload must fall through to PLAINTEXT, not be tagged DECRYPTED",
+            LogParser.DecodeResult.PLAINTEXT,
+            result,
+        )
+    }
+
+    @Test
+    fun `decryptWithFallback returns null for a high-entropy random byte blob`() {
+        // Deterministic (fixed-seed java.util.Random) so the test can never flake: a
+        // uniform random byte string is exactly the shape that used to be handed back as
+        // "decrypted" noise. Measured: the XOR-LUT output is ~64% printable, below the 92%
+        // plausibility floor, and contains no UE4 keyword under any of the five strategies.
+        val random = Random(20260925L)
+        val blob = ByteArray(512) { random.nextInt(256).toByte() }
+
+        assertNull(LogParser.decryptWithFallback(blob))
+    }
+
+    @Test
+    fun `decodeLogBytes does not claim DECRYPTED for a random byte blob`() {
+        val random = Random(1234567L)
+        val blob = ByteArray(512) { random.nextInt(256).toByte() }
+
+        val (_, result) = LogParser.decodeLogBytes(blob)
+        assertEquals(LogParser.DecodeResult.PLAINTEXT, result)
+    }
+
+    @Test
+    fun `short correctly-encrypted content with no UE4 keyword is still accepted`() {
+        // The other half of the gate: the plausibility fallback must not become a blanket
+        // rejection. "Backup log content" is too short to contain any UE4_KEYWORDS, so it
+        // only survives via looksLikeDecodedText — exactly the path the fix added.
+        val plaintext = "Backup log content\n".toByteArray(Charsets.UTF_8)
+        val encrypted = encryptPlaintext(plaintext, backupHeader)
+
+        val decrypted = LogParser.decryptBackupLog(encrypted)
+        assertEquals(plaintext.toList(), decrypted!!.toList())
+
+        val (text, result) = LogParser.decodeLogBytes(encrypted)
+        assertEquals("Backup log content\n", text)
+        assertEquals(LogParser.DecodeResult.DECRYPTED, result)
+    }
+
+    @Test
+    fun `decryptWithFallback accepts genuinely encrypted UE4 log content`() {
+        val plaintext =
+            "LogInit: Display: Loaded DefaultEngine.ini\nr.ScreenPercentage=100\n"
+                .toByteArray(Charsets.UTF_8)
+        val encrypted = encryptPlaintext(plaintext, wuwaHeader)
+
+        val decrypted = LogParser.decryptWuwaLog(encrypted)
+        assertEquals(plaintext.toList(), decrypted!!.toList())
     }
 }

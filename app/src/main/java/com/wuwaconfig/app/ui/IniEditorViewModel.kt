@@ -7,6 +7,7 @@ import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.config.HashSync
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,20 +56,31 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
     fun readIniFile(fileName: String) {
         ops.setApplying(true)
         ops.launchBackendOp(managesBusyFlag = true) {
-            _iniEditorLoading.value = true
-            _iniEditorError.value = null
-            addLog("INI Editor: reading $fileName from device")
-            configManager.readCurrentConfig(fileName).onSuccess { content ->
-                _editingFileName.value = fileName
-                _iniEditorContent.value = content
-                addLog("INI Editor: $fileName loaded (${content.length} chars)", LogLevel.SUCCESS)
-            }.onFailure { e ->
+            try {
+                _iniEditorLoading.value = true
+                _iniEditorError.value = null
+                addLog("INI Editor: reading $fileName from device")
+                configManager.readCurrentConfig(fileName).onSuccess { content ->
+                    _editingFileName.value = fileName
+                    _iniEditorContent.value = content
+                    addLog("INI Editor: $fileName loaded (${content.length} chars)", LogLevel.SUCCESS)
+                }.onFailure { e ->
+                    _iniEditorContent.value = null
+                    _iniEditorError.value = "Failed to read $fileName: ${e.message}"
+                    addLog("INI Editor: failed to read $fileName: ${e.message}", LogLevel.ERROR)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // DeviceOps only rethrows CancellationException; anything else
+                // escaping here would crash the process from the main thread.
                 _iniEditorContent.value = null
                 _iniEditorError.value = "Failed to read $fileName: ${e.message}"
-                addLog("INI Editor: failed to read $fileName: ${e.message}", LogLevel.ERROR)
+                addLog("INI Editor: crashed reading $fileName: ${e.message}", LogLevel.ERROR)
+            } finally {
+                _iniEditorLoading.value = false
+                ops.setApplying(false)
             }
-            _iniEditorLoading.value = false
-            ops.setApplying(false)
         }
     }
 
@@ -82,27 +94,35 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
         val fileName = _editingFileName.value ?: return
         ops.setApplying(true)
         ops.launchBackendOp(managesBusyFlag = true) {
-            _iniEditorLoading.value = true
-            _iniEditorError.value = null
-            addLog("INI Editor: saving $fileName to device")
-            val preSnapshot = configManager.snapshotHashFile().getOrNull()
-            configManager.pushSingleFile(fileName, content) {}
-                .onSuccess {
-                    _iniEditorContent.value = content
-                    addLog("INI Editor: $fileName pushed, refreshing hashes...", LogLevel.SUCCESS)
-                    configManager.reconcileAfterModify(preSnapshot).onSuccess { hashMsg ->
-                        addLog("$fileName saved. $hashMsg", LogLevel.SUCCESS)
-                        _iniEditorSuccess.value = "$fileName saved successfully"
+            try {
+                _iniEditorLoading.value = true
+                _iniEditorError.value = null
+                addLog("INI Editor: saving $fileName to device")
+                val preSnapshot = configManager.snapshotHashFile().getOrNull()
+                configManager.pushSingleFile(fileName, content, onProgress = {})
+                    .onSuccess {
+                        _iniEditorContent.value = content
+                        addLog("INI Editor: $fileName pushed, refreshing hashes...", LogLevel.SUCCESS)
+                        configManager.reconcileAfterModify(preSnapshot).onSuccess { hashMsg ->
+                            addLog("$fileName saved. $hashMsg", LogLevel.SUCCESS)
+                            _iniEditorSuccess.value = "$fileName saved successfully"
+                        }.onFailure { e ->
+                            addLog("INI Editor: hash refresh warning: ${e.message}", LogLevel.WARNING)
+                            _iniEditorSuccess.value = "$fileName saved (hash refresh: ${e.message})"
+                        }
                     }.onFailure { e ->
-                        addLog("INI Editor: hash refresh warning: ${e.message}", LogLevel.WARNING)
-                        _iniEditorSuccess.value = "$fileName saved (hash refresh: ${e.message})"
+                        _iniEditorError.value = "Failed to save $fileName: ${e.message}"
+                        addLog("INI Editor: failed to save $fileName: ${e.message}", LogLevel.ERROR)
                     }
-                }.onFailure { e ->
-                    _iniEditorError.value = "Failed to save $fileName: ${e.message}"
-                    addLog("INI Editor: failed to save $fileName: ${e.message}", LogLevel.ERROR)
-                }
-            _iniEditorLoading.value = false
-            ops.setApplying(false)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _iniEditorError.value = "Failed to save $fileName: ${e.message}"
+                addLog("INI Editor: crashed saving $fileName: ${e.message}", LogLevel.ERROR)
+            } finally {
+                _iniEditorLoading.value = false
+                ops.setApplying(false)
+            }
         }
     }
 
@@ -111,6 +131,14 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
      * [onResult] receives `true` when hashes were out of sync and a refresh ran.
      */
     fun syncConfigHashes(onResult: (Boolean) -> Unit = {}) {
+        if (ops.isApplying.value) {
+            // launchBackendOp would silently drop this; surface it instead so the
+            // user knows the check did not run rather than seeing a stale badge.
+            addLog("INI Editor: hash sync skipped — another device operation is running", LogLevel.WARNING)
+            _iniEditorError.value = "Another device operation is running — hash sync skipped. Reopen the file to retry."
+            onResult(false)
+            return
+        }
         ops.launchBackendOp(managesBusyFlag = false) {
             try {
                 onResult(hashSync.syncIfNeeded())

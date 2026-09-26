@@ -10,8 +10,17 @@ navigationCompose = "2.9.8"
 coroutines = "1.11.0"
 shizuku = "13.1.5"
 documentfile = "1.0.1"
+# TODO(security-crypto): androidx.security:security-crypto is the deprecated
+# artifact family; Google has steered new work to the platform KeyStore/Tink
+# API. The ADB key storage (adb/AdbCrypto.kt) depends on it today. Planned
+# migration: replace EncryptedFile with a plain Tink AEAD Config backed by an
+# AndroidKeyStore AES-GCM key, then drop this dependency.
 securityCrypto = "1.1.0"
 gson = "2.13.2"
+# TODO(coil): 2.7.0 is a stale major against a 2026.x Compose BOM. Coil 3 is the
+# current line and is a breaking API change, so it is deliberately NOT upgraded
+# in this change set — it requires edits in ui/ that are out of scope. Track it
+# as its own task.
 coil = "2.7.0"
 media3 = "1.7.1"
 junit = "4.13.2"

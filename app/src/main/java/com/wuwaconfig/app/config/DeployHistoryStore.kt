@@ -5,6 +5,8 @@ import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.model.DeployComparison
 import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.LogInfo
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.util.writeAtomic
 import java.io.File
 
@@ -89,7 +91,8 @@ class DeployHistoryStore(private val storeFile: File) {
     private fun saveLocked() {
         try {
             storeFile.writeAtomic(gson.toJson(records))
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            LogRepository.add("DeployHistoryStore: failed to persist ${storeFile.name}: ${e.message}", LogLevel.WARNING)
         }
     }
 

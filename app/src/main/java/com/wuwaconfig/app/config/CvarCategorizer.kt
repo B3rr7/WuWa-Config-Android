@@ -248,23 +248,34 @@ object CvarCategorizer {
     // share that prefix.
     //
     // Safety: groupBy preserves encounter order within each bucket, and every
-    // key maps to exactly one bucket (its first 8 chars), so
+    // key maps to exactly one bucket (its first 8 chars of the FULL name, which
+    // is the same slice the index is built from), so
     // bucket.firstOrNull { k.startsWith(it.prefix) } returns the same rule the
-    // linear scan would — including first-match semantics for overlapping
-    // prefixes such as r.mobile.ssr (REFLECTION, listed before r.mobile.
-    // MOBILE). Verified: all 226 prefixes are unique.
+    // linear scan would. Two caveats keep this honest:
+    //   - Bucket keys are 8-char TRUNCATIONS, so distinct prefixes can share a
+    //     bucket (e.g. r.minscreenradiuspercentage and r.minscreenradiusfor both
+    //     land in "r.minscre"). The linear fallback on the next line is what keeps
+    //     that correct; the bucket only narrows the candidates.
+    //   - The first-match ordering within a bucket is what matters, not full-prefix
+    //     uniqueness. categorize() also intercepts every r.mobile.* key via
+    //     mobileSubExceptions/lightShadowPrefixes BEFORE findSubRule runs, so those
+    //     rules only ever apply to r.mobile.* keys matching no exception.
     private val rSubRulesByPrefix: Map<String, List<CatRule>> =
         rSubRules.groupBy { it.prefix.take(8) }
 
     private fun findSubRule(k: String): CatRule? {
-        // k starts with "r." (guaranteed by the caller); slice the same 8 chars
-        // used to build the index, falling back to the full list for prefixes
-        // longer than 8 chars.
-        val key = k.substring(2, (8).coerceAtMost(k.length))
+        // k starts with "r." (guaranteed by the caller) and is already lowercased,
+        // so the first 8 characters of the FULL name are exactly the index key
+        // ("r.shadow", not "shadow" — the index is built from prefixes that keep
+        // their "r."). Slicing off the "r." here made every bucket lookup miss.
+        val key = k.take(8)
         val bucket = rSubRulesByPrefix[key]
         if (bucket != null) {
             bucket.firstOrNull { k.startsWith(it.prefix) }?.let { return it }
         }
+        // Fallback to the full list so prefixes longer than 8 chars (and any prefix
+        // whose 8-char slice collides with another bucket) still resolve, preserving
+        // first-match-wins semantics for overlapping prefixes.
         return rSubRules.firstOrNull { k.startsWith(it.prefix) }
     }
 
@@ -407,6 +418,16 @@ object CvarCategorizer {
             "r.mobilemsaa" to CvarCategory.MOBILE,
         )
 
+    // Hoisted out of categorize(): this 12-entry list was rebuilt (listOf{}.map{})
+    // on every call, i.e. once per CVar across all 5 generated INIs.
+    private val lightShadowPrefixes =
+        listOf(
+            "ssr", "waterssr", "sceneobjmobilessr", "pixelprojectedreflectionquality",
+            "hbao", "numdynamicpointlights", "enablemovable", "enablekurospotlightsshadow",
+            "enablestaticandcsm", "disablelocallight", "allowmovabledirectional", "ssao",
+        )
+            .map { "r.mobile.$it" }
+
     fun categorize(key: String): CvarCategory {
         val k = key.lowercase().trim()
         if (k.isBlank()) return CvarCategory.UNKNOWN
@@ -425,27 +446,19 @@ object CvarCategorizer {
                     val subRule = findSubRule(k)
                     if (subRule != null) return subRule.category
                 }
-                val lightShadowPrefixes =
-                    listOf(
-                        "ssr", "waterssr", "sceneobjmobilessr", "pixelprojectedreflectionquality",
-                        "hbao", "numdynamicpointlights", "enablemovable", "enablekurospotlightsshadow",
-                        "enablestaticandcsm", "disablelocallight", "allowmovabledirectional", "ssao",
-                    )
-                        .map { "r.mobile.$it" }
                 if (lightShadowPrefixes.any { k.startsWith(it) }) return CvarCategory.LIGHTING_SHADOW
                 if (k.startsWith("r.mobile.outlinescale") || k.startsWith("r.mobile.treerimlight")) return CvarCategory.CHARACTER
                 return CvarCategory.MOBILE
             }
-
-            val topRule = findSubRule(k)
-            if (topRule != null) return topRule.category
 
             val match = knownCategories.entries.firstOrNull { (prefix, _) -> k.startsWith(prefix) }
             if (match != null) return match.value
             return CvarCategory.UNKNOWN
         }
 
-        if (k.startsWith("compat.")) return CvarCategory.SYSTEM
+        // NOTE: no "compat." special case here — topLevelRules already maps
+        // CatRule("compat.", SYSTEM) to the same category, and `overrides` above
+        // takes precedence for compat.usedxt5normalmaps either way.
         if (k.startsWith("cook.")) return CvarCategory.SYSTEM
 
         val topRule = topLevelRules.firstOrNull { k.startsWith(it.prefix) }

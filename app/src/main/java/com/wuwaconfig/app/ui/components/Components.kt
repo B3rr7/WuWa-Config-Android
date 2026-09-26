@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.ui.components
 
+import com.wuwaconfig.app.util.isLocalOnlyImageUri
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.BlurMaskFilter
@@ -25,8 +26,11 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -36,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -52,8 +57,8 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,7 +70,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -73,7 +80,6 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
-import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.LogLevel
@@ -83,6 +89,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.random.Random
 
+/**
+ * Themed card surface.
+ *
+ * Modifier contract: [GlassCard]'s own `fillMaxWidth()` is applied FIRST, then
+ * the caller's [modifier] chain. Callers must therefore pass only decoration
+ * (padding, background, clip, clickable, semantics) — passing another width
+ * constraint such as `weight(1f)` or `width(...)` is redundant and, combined
+ * with the built-in `fillMaxWidth`, produces conflicting width constraints.
+ */
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
@@ -109,7 +124,7 @@ fun GlassCard(
     val borderColor = accentColor.copy(alpha = 0.15f)
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().then(modifier),
         shape = shape,
         colors =
             CardDefaults.cardColors(
@@ -164,7 +179,16 @@ private val NeuDarkShadow = Color(0xFFBAC4D6)
 private val NeuLightShadow = Color(0xFFFFFFFF)
 private val NeuCorner = 22.dp
 
-private val neuPaint = androidx.compose.ui.graphics.Paint()
+// Single shared Paint. This is safe ONLY because Compose runs all drawing on one
+// thread (the UI thread), so the `frame.color` / `frame.maskFilter` mutations
+// below can never interleave with another neumorphic draw. Do not hoist this
+// into a background/parallel draw path without making the paint local.
+//
+// Deliberately an android.graphics.Paint, not a Compose Paint: the draw block
+// talks to the native canvas directly (drawRoundRect + BlurMaskFilter), and
+// `Paint().asFrameworkPaint()` — the Compose-side way to reach that object — is
+// deprecated in favour of using android.graphics.Paint directly.
+private val neuPaint = android.graphics.Paint()
 
 fun Modifier.neumorphic(
     cornerRadius: Dp = NeuCorner,
@@ -178,8 +202,7 @@ fun Modifier.neumorphic(
         val off = elevation.toPx()
         val blur = elevation.toPx() * 1.6f
         drawIntoCanvas { canvas ->
-            val paint = neuPaint
-            val frame = paint.asFrameworkPaint()
+            val frame = neuPaint
             frame.isAntiAlias = true
             frame.maskFilter = BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL)
             frame.color = darkShadow.toArgb()
@@ -202,11 +225,14 @@ private fun NeumorphicCard(
 ) {
     val corner = 22.dp
     val roundShape = RoundedCornerShape(corner)
+    // Insets match the dark GlassCard branch exactly (both draw with no extra
+    // padding) so card padding does not differ by 10dp between themes. Callers
+    // that need breathing room add it themselves — see TerminalLogCard.
     Box(
         modifier =
-            modifier
+            Modifier
                 .fillMaxWidth()
-                .padding(10.dp)
+                .then(modifier)
                 .neumorphic(cornerRadius = corner)
                 .clip(roundShape),
     ) {
@@ -315,6 +341,11 @@ fun GlassTopBar(
     }
 }
 
+// The terminal card keeps its dark palette in BOTH themes on purpose: it is a
+// literal log-console mock (monospace output on a near-black surface) and the
+// same "recent.log" / "status.log" chrome appears in light and dark mode. The
+// 10dp horizontal inset in light theme is the neumorphic-light compensation the
+// dark branch does not need.
 private val TerminalBg = Color(0xFF0C0E14)
 private val TerminalBorder = Color(0xFF1E2530)
 
@@ -332,8 +363,9 @@ fun TerminalLogCard(
     val shape = RoundedCornerShape(10.dp)
     Column(
         modifier =
-            modifier
+            Modifier
                 .fillMaxWidth()
+                .then(modifier)
                 .then(if (isLight) Modifier.padding(horizontal = 10.dp) else Modifier)
                 .clip(shape)
                 .background(TerminalBg)
@@ -454,7 +486,12 @@ fun GlassSwitch(
                     .clip(trackShape)
                     .background(brush = Brush.verticalGradient(listOf(grooveTop, grooveBottom)))
                     .border(1.dp, if (checked) accentColor.copy(alpha = 0.45f) else NeuDarkShadow.copy(alpha = 0.7f), trackShape)
-                    .then(if (enabled) Modifier.clickable { onCheckedChange(!checked) } else Modifier),
+                    .toggleable(
+                        value = checked,
+                        onValueChange = onCheckedChange,
+                        role = Role.Switch,
+                        enabled = enabled,
+                    ),
             contentAlignment = Alignment.CenterStart,
         ) {
             Box(
@@ -492,7 +529,12 @@ fun GlassSwitch(
                     1.dp,
                     if (checked) accentColor.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.22f),
                     trackShape,
-                ).then(if (enabled) Modifier.clickable { onCheckedChange(!checked) } else Modifier),
+                ).toggleable(
+                    value = checked,
+                    onValueChange = onCheckedChange,
+                    role = Role.Switch,
+                    enabled = enabled,
+                ),
         contentAlignment = Alignment.CenterStart,
     ) {
         Box(
@@ -719,8 +761,10 @@ fun BackendStatusCard(
 
 @Composable
 fun MiniLogViewer(modifier: Modifier = Modifier) {
-    val logs by LogRepository.entries.collectAsStateWithLifecycle()
-    if (logs.isEmpty()) return
+    // No second collection of LogRepository.entries here: this used to exist only
+    // to hide the card when empty, while TerminalLogCard collects the identical
+    // flow itself — two subscriptions and two invalidations per log line. The
+    // "no logs yet" placeholder inside TerminalLogCard covers the empty case.
     TerminalLogCard(modifier = modifier, title = "status.log", accentColor = NeonAmber)
 }
 
@@ -790,14 +834,29 @@ fun OrbLoadingCard(
     }
 }
 
+/**
+ * App-scoped background preference holder. Exposed as a CompositionLocal rather
+ * than reaching into the `WuWaConfigApp.instance` global, so [GradientBackground]
+ * has no hidden dependency on `Application.onCreate` having already run (and no
+ * UninitializedPropertyAccessException if a preview or an early composition gets
+ * there first). MainActivity provides the real value.
+ */
+data class BackgroundSettings(
+    val imageUri: String?,
+    val videoUri: String?,
+    val opacity: Float,
+)
+
+val LocalBackgroundSettings = staticCompositionLocalOf { BackgroundSettings(null, null, 1f) }
+
 @Composable
 fun GradientBackground(content: @Composable () -> Unit) {
     val themeBg = MaterialTheme.colorScheme.background
     val surface = MaterialTheme.colorScheme.surface
-    val app = WuWaConfigApp.instance
-    val imageUri by app.backgroundImageUri.collectAsStateWithLifecycle()
-    val videoUri by app.backgroundVideoUri.collectAsStateWithLifecycle()
-    val bgAlpha by app.backgroundOpacity.collectAsStateWithLifecycle()
+    val bg = LocalBackgroundSettings.current
+    val imageUri = bg.imageUri
+    val videoUri = bg.videoUri
+    val bgAlpha = bg.opacity
 
     val hasVideo = videoUri != null
     val hasImage = !hasVideo && imageUri != null
@@ -824,8 +883,11 @@ fun GradientBackground(content: @Composable () -> Unit) {
             val bgImageContext = LocalContext.current
             val imageRequest =
                 remember(imageUri) {
+                    // Fail closed to the error drawable for anything that is not
+                    // local-only, so the bundled Coil HTTP fetcher can never be
+                    // reached by a persisted or injected remote URL.
                     ImageRequest.Builder(bgImageContext)
-                        .data(imageUri)
+                        .data(if (isLocalOnlyImageUri(imageUri, bgImageContext)) imageUri else null)
                         .crossfade(true)
                         .error(android.R.drawable.stat_notify_error)
                         .build()
@@ -866,7 +928,13 @@ fun GradientBackground(content: @Composable () -> Unit) {
 }
 
 @Composable
-@OptIn(androidx.media3.common.util.UnstableApi::class)
+// `UnstableApi` is an `androidx.annotation.RequiresOptIn` marker, NOT a
+// `kotlin.RequiresOptIn` one, so Kotlin's `@OptIn` has no effect on it (and
+// the compiler warned accordingly). The opt-in that actually applies here is
+// `@SuppressLint("UnsafeOptInUsageError")` below — there is no
+// `androidx.annotation.OptIn` class in androidx.annotation 1.9.1, verified with
+// javap — so the Kotlin-side marker is a plain string-keyed @Suppress.
+@Suppress("UnstableApiUsage")
 @SuppressLint("UnsafeOptInUsageError")
 private fun VideoBackground(
     videoUri: String,
@@ -876,8 +944,12 @@ private fun VideoBackground(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val player =
-        remember(videoUri) {
+    // The player is BUILT here, not in composition: creating an ExoPlayer is a
+    // side effect (codec/IO init) and used to happen inside `remember(videoUri)`.
+    // The holder is a state so the AndroidView below can render it once ready.
+    val playerHolder = remember(videoUri) { mutableStateOf<ExoPlayer?>(null) }
+    DisposableEffect(videoUri) {
+        val player =
             try {
                 ExoPlayer.Builder(context)
                     .build()
@@ -892,27 +964,32 @@ private fun VideoBackground(
                 LogRepository.add("ExoPlayer init failed: ${e.message}", LogLevel.WARNING)
                 null
             }
+        playerHolder.value = player
+        if (player != null) {
+            val observer =
+                LifecycleEventObserver { _, event ->
+                    when (event) {
+                        Lifecycle.Event.ON_PAUSE -> player.pause()
+                        Lifecycle.Event.ON_RESUME -> player.play()
+                        else -> {}
+                    }
+                }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+                player.release()
+                playerHolder.value = null
+            }
+        } else {
+            onDispose { playerHolder.value = null }
         }
+    }
+
+    val player = playerHolder.value
 
     if (player == null) {
         Box(modifier = modifier.background(Color.Black))
         return
-    }
-
-    DisposableEffect(videoUri) {
-        val observer =
-            LifecycleEventObserver { _, event ->
-                when (event) {
-                    Lifecycle.Event.ON_PAUSE -> player.pause()
-                    Lifecycle.Event.ON_RESUME -> player.play()
-                    else -> {}
-                }
-            }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            player.release()
-        }
     }
 
     AndroidView(
@@ -952,48 +1029,49 @@ fun GlitchText(
     style: androidx.compose.ui.text.TextStyle? = null,
 ) {
     var currentIndex by remember { mutableStateOf(0) }
-    var displayText by remember { mutableStateOf(names[0]) }
+    var displayText by remember { mutableStateOf(names.getOrElse(0) { "" }) }
     var glitchActive by remember { mutableStateOf(false) }
     var shakeOffsetX by remember { mutableStateOf(0f) }
 
-    val glitchLifecycle = LocalLifecycleOwner.current.lifecycle
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    LaunchedEffect(names) {
+    LaunchedEffect(names, intervalMs) {
         currentIndex = 0
-        displayText = names[0]
-        while (isActive) {
-            while (!glitchLifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-                delay(500)
-                if (!isActive) return@LaunchedEffect
-            }
-            delay(intervalMs)
-            if (names.size < 2) continue
-            val nextIndex = (currentIndex + 1) % names.size
-            glitchActive = true
-            shakeOffsetX = Random.nextFloat() * 4f - 2f
-            val target = names[nextIndex]
+        displayText = names.getOrElse(0) { "" }
+        // repeatOnLifecycle replaces the old 500ms poll of currentState — no
+        // timer wakeups while the screen is stopped, and the effect is torn down
+        // by the framework instead of a hand-rolled isActive loop.
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (isActive) {
+                delay(intervalMs)
+                if (names.size < 2) continue
+                val nextIndex = (currentIndex + 1) % names.size
+                glitchActive = true
+                shakeOffsetX = Random.nextFloat() * 4f - 2f
+                val target = names[nextIndex]
 
-            val len = maxOf(displayText.length, target.length)
-            val scrambleStart = System.currentTimeMillis()
-            while (System.currentTimeMillis() - scrambleStart < 600) {
-                val sb = StringBuilder()
-                for (i in 0 until len) {
-                    when {
-                        i >= target.length -> sb.append('█')
-                        Random.nextFloat() < 0.3f -> {
-                            val chars = "!@#$%^&*{}[]|\\/~`\"':;?><"
-                            sb.append(chars[Random.nextInt(chars.length)])
+                val len = maxOf(displayText.length, target.length)
+                val scrambleStart = System.currentTimeMillis()
+                while (System.currentTimeMillis() - scrambleStart < 600) {
+                    val sb = StringBuilder()
+                    for (i in 0 until len) {
+                        when {
+                            i >= target.length -> sb.append('█')
+                            Random.nextFloat() < 0.3f -> {
+                                val chars = "!@#$%^&*{}[]|\\/~`\"':;?><"
+                                sb.append(chars[Random.nextInt(chars.length)])
+                            }
+                            else -> sb.append(target[i])
                         }
-                        else -> sb.append(target[i])
                     }
+                    displayText = sb.toString()
+                    delay(50 + Random.nextLong(80))
                 }
-                displayText = sb.toString()
-                delay(50 + Random.nextLong(80))
-            }
 
-            displayText = target
-            currentIndex = nextIndex
-            glitchActive = false
+                displayText = target
+                currentIndex = nextIndex
+                glitchActive = false
+            }
         }
     }
 
@@ -1013,6 +1091,29 @@ fun GlitchText(
     }
 }
 
+// Refcounted decorView blur. Previously every dialog independently set AND
+// cleared the blur, so two simultaneously-open dialogs shared one effect and
+// disposing either one cleared the blur for both. The depth counter keeps the
+// effect alive until the last dialog goes away.
+private var dialogBlurDepth = 0
+
+private fun acquireDialogBlur(activity: Activity?) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || activity == null) return
+    if (dialogBlurDepth++ == 0) {
+        activity.window.decorView.setRenderEffect(
+            RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
+        )
+    }
+}
+
+private fun releaseDialogBlur(activity: Activity?) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || activity == null) return
+    if (--dialogBlurDepth <= 0) {
+        dialogBlurDepth = 0
+        activity.window.decorView.setRenderEffect(null)
+    }
+}
+
 @Composable
 fun GlassDialog(
     onDismissRequest: () -> Unit,
@@ -1025,18 +1126,11 @@ fun GlassDialog(
     properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
 ) {
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
-    val view = LocalView.current
-    DisposableEffect(isLight) {
-        if (!isLight && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (view.context as? Activity)?.window?.decorView?.setRenderEffect(
-                RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
-            )
-        }
-        onDispose {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                (view.context as? Activity)?.window?.decorView?.setRenderEffect(null)
-            }
-        }
+    val activity = LocalView.current.context as? Activity
+    DisposableEffect(isLight, activity) {
+        val blurs = !isLight
+        if (blurs) acquireDialogBlur(activity)
+        onDispose { if (blurs) releaseDialogBlur(activity) }
     }
 
     Dialog(
@@ -1141,13 +1235,19 @@ private fun GlassDialogContent(
                 ) { it() }
             }
         }
+        // The body is height-capped and scrollable so tall dialogs (e.g. Backup's
+        // "text field + 5 checkboxes") can never push the button row off-screen on
+        // a small display or in landscape. The buttons stay OUTSIDE the scroll
+        // container so they remain reachable.
         text?.let {
             CompositionLocalProvider(LocalContentColor provides bodyColor) {
                 Box(
                     modifier =
                         Modifier
                             .padding(bottom = 20.dp)
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp)
+                            .verticalScroll(rememberScrollState()),
                 ) { it() }
             }
         }

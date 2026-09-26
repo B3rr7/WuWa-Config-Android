@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Locale
 
 class ConfigGeneratorTest {
     private fun createTestCvarDatabase(): CvarDatabase {
@@ -277,5 +278,85 @@ class ConfigGeneratorTest {
         assertTrue(potato.ini.engine.contains("r.KuroMaterialQualityLevel=0"))
         assertTrue(potato.ini.engine.contains("r.Kuro.Movie.EnableCGMovieRendering=0"))
         assertTrue(potato.ini.gameUserSettings.contains("sg.PostProcessQuality=0"))
+    }
+
+    // ── locale-safe float formatting ──
+    // The float CVars were emitted with a bare "%.2f".format(x), which resolves against the
+    // DEFAULT locale, so on a de-DE device the generator wrote
+    // `foliage.LODDistanceScale=1,00`. UE4's Atof stops at the comma, so the device saw 1 —
+    // and, worse, any locale with a different grouping/decimal symbol silently rewrote the
+    // value. The fix pins String.format(Locale.ROOT, ...).
+
+    private fun generateUnderLocale(
+        preset: String,
+        locale: Locale,
+    ): String {
+        val previous = Locale.getDefault()
+        return try {
+            Locale.setDefault(locale)
+            generator
+                .generateWithCorePaths(
+                    preset = preset,
+                    opts = defaultOpts,
+                    corePaths = emptyList(),
+                    logInfo = LogInfo(),
+                ).ini.engine
+        } finally {
+            // Restore unconditionally: a failed assertion must not leak the locale into
+            // the next test in this JVM.
+            Locale.setDefault(previous)
+        }
+    }
+
+    @Test
+    fun `float CVars use a dot decimal separator under a comma-decimal locale`() {
+        // "competitive" has flod = 1.0, so the emitted line is exactly `...=1.00`.
+        val engine = generateUnderLocale("competitive", Locale.GERMANY)
+        assertTrue(
+            "foliage.LODDistanceScale must use a DOT decimal separator even under de-DE, got:\n" +
+                floatCvarLines(engine),
+            engine.contains("foliage.LODDistanceScale=1."),
+        )
+    }
+
+    /** The `*.LODDistanceScale=` lines, i.e. every CVar emitted through `%.2f`. */
+    private fun floatCvarLines(engine: String): List<String> = engine.lines().filter { it.contains("LODDistanceScale=") }
+
+    @Test
+    fun `no LOD float CVar is emitted with a comma under a comma-decimal locale`() {
+        // Sweep every preset: the potato/endurance/performance path also emits
+        // r.StaticMeshLODDistanceScale and a second foliage.LODDistanceScale, all through
+        // the same format() call.
+        for (name in PRESETS.keys) {
+            val lodLines = floatCvarLines(generateUnderLocale(name, Locale.GERMANY))
+            assertTrue("$name should emit at least one LODDistanceScale line", lodLines.isNotEmpty())
+            for (line in lodLines) {
+                assertFalse("$name emitted a comma-decimal LOD CVar: $line", line.contains(','))
+            }
+        }
+    }
+
+    @Test
+    fun `float CVars are identical under a comma-decimal locale and the root locale`() {
+        // The formatted CVars must be locale-invariant byte-for-byte, not merely comma-free.
+        // Only the float lines are compared: the Engine.ini header carries a
+        // `yyyy.MM.dd @ HH:mm` timestamp, so a whole-file comparison would flake whenever the
+        // two generations straddle a minute boundary.
+        for (name in PRESETS.keys) {
+            val german = generateUnderLocale(name, Locale.GERMANY)
+            val root = generateUnderLocale(name, Locale.ROOT)
+            assertEquals(
+                "$name: formatted LOD CVars must not depend on the default locale",
+                floatCvarLines(root),
+                floatCvarLines(german),
+            )
+        }
+    }
+
+    @Test
+    fun `the default locale is restored after a locale-scoped generate`() {
+        val before = Locale.getDefault()
+        generateUnderLocale("high", Locale.GERMANY)
+        assertEquals(before, Locale.getDefault())
     }
 }

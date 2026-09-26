@@ -2,6 +2,7 @@ package com.wuwaconfig.app.config
 
 import com.wuwaconfig.app.model.LogInfo
 import com.wuwaconfig.app.model.LogRepository
+import java.util.Locale
 
 data class BrainRecommendation(
     val preset: String,
@@ -387,8 +388,8 @@ object SmartBrain {
 
         sb.appendLine("--- PERFORMANCE SIGNALS ---")
         sb.appendLine("FPS cap      : ${info.fpsCap ?: "unknown"}")
-        sb.appendLine("FPS actual   : ${info.fpsActual?.let { "%.1f".format(it) } ?: "unknown"}")
-        sb.appendLine("Render scale : ${info.screenPct?.let { "%.1f%%".format(it) } ?: "unknown"}")
+        sb.appendLine("FPS actual   : ${info.fpsActual?.let { String.format(Locale.ROOT, "%.1f", it) } ?: "unknown"}")
+        sb.appendLine("Render scale : ${info.screenPct?.let { String.format(Locale.ROOT, "%.1f%%", it) } ?: "unknown"}")
         sb.appendLine("Shadow Q     : ${info.shadowQ ?: "unknown"}")
         sb.appendLine("Drop frames  : ${info.dropFrames}")
         sb.appendLine("GPU OOM      : ${info.gpuOom}")

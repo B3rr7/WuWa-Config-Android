@@ -2,6 +2,7 @@ package com.wuwaconfig.app.model
 
 import android.content.Context
 import com.google.gson.Gson
+import com.wuwaconfig.app.util.writeAtomic
 import java.io.File
 
 object BattleStatsStore {
@@ -14,12 +15,19 @@ object BattleStatsStore {
         val timestamp: Long,
     )
 
+    /**
+     * Callers must already be on a background dispatcher — this performs real
+     * file I/O (via writeAtomic's fsync) and is not main-thread safe.
+     */
     fun save(
         context: Context,
         stats: BattleStats,
     ) {
         val cached = CachedBattleStats(stats, System.currentTimeMillis())
-        File(context.filesDir, FILE_NAME).writeText(gson.toJson(cached))
+        // writeAtomic, not writeText: a kill mid-writeText leaves truncated JSON
+        // and the next load() falls into the catch -> null branch, losing the
+        // whole 24h cache.
+        File(context.filesDir, FILE_NAME).writeAtomic(gson.toJson(cached))
     }
 
     fun load(context: Context): BattleStats? {

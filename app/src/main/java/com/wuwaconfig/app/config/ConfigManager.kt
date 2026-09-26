@@ -42,6 +42,28 @@ class ConfigManager(
         // obvious to a reader and easy to tune.
         private const val DEPLOY_INTER_FILE_JITTER_MS = 50L
         private const val DEPLOY_INTER_FILE_JITTER_RANGE_MS = 100L
+
+        // Hoisted: was recompiled on every pushSingleFile call. The pattern alone
+        // still allowed "..", so the guard below additionally rejects any name
+        // containing a parent-directory component.
+        private val SAFE_FILE_NAME_REGEX = Regex("""^[A-Za-z0-9_.\-]+$""")
+    }
+
+    /**
+     * WuWaConfigApp.instance is a lateinit that is uninitialised in a headless
+     * unit-test process, so the restricted-CVar default must survive an
+     * UninitializedPropertyAccessException. Defaults to "strip" (fail closed).
+     */
+    private fun defaultAllowRestrictedCvars(): Boolean =
+        try {
+            WuWaConfigApp.instance.allowRestrictedCvarsEnabled.value
+        } catch (_: UninitializedPropertyAccessException) {
+            false
+        }
+
+    private fun isSafeFileName(fileName: String): Boolean {
+        if (fileName in GamePaths.MONITORED_FILES) return true
+        return SAFE_FILE_NAME_REGEX.matches(fileName) && !fileName.contains("..")
     }
 
     @Volatile
@@ -175,12 +197,16 @@ class ConfigManager(
         fileName: String,
         content: String,
         onProgress: (String) -> Unit,
+        // Driven by the caller that produced `content`, not re-read from the global
+        // pref: when the two disagree the generator's strip decision was silently
+        // overridden here. Defaults to the app pref (fail-closed to "strip").
+        allowRestrictedCvars: Boolean = defaultAllowRestrictedCvars(),
     ): Result<String> =
         withContext(Dispatchers.IO) {
             try {
                 // Guard the privileged file-write API: only allow known monitored
                 // INI names so a ".." component can never escape TARGET_DIR.
-                if (fileName !in GamePaths.MONITORED_FILES && !Regex("""^[A-Za-z0-9_.\-]+$""").matches(fileName)) {
+                if (!isSafeFileName(fileName)) {
                     return@withContext Result.failure(IllegalArgumentException("Invalid file name: $fileName"))
                 }
                 LogRepository.add("ConfigManager: pushing single file $fileName")
@@ -192,15 +218,9 @@ class ConfigManager(
                 // used to bypass the strip here and could deploy r.ScreenPercentage,
                 // r.Streaming.Boost, etc. directly.
                 val safeContent =
-                    try {
-                        if (WuWaConfigApp.instance.allowRestrictedCvarsEnabled.value) {
-                            content
-                        } else {
-                            ForbiddenCvars.stripForbiddenCvars(content)
-                        }
-                    } catch (_: Throwable) {
-                        // WuWaConfigApp.instance is a lateinit; in a headless unit-test
-                        // process it is not initialized, so default to stripping.
+                    if (allowRestrictedCvars) {
+                        content
+                    } else {
                         ForbiddenCvars.stripForbiddenCvars(content)
                     }
 
@@ -334,6 +354,9 @@ class ConfigManager(
                 } finally {
                     tempDir.deleteRecursively()
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Structured-concurrency: never swallow cancellation.
+                throw e
             } catch (e: Exception) {
                 Result.failure(e)
             }

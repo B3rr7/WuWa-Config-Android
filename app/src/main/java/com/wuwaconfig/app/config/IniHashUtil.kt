@@ -1,7 +1,5 @@
 package com.wuwaconfig.app.config
 
-private val iniSectionRegex = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
-
 fun extractHash(
     hashContent: String,
     fileName: String,
@@ -13,7 +11,7 @@ fun extractHash(
             inSection = true
             continue
         }
-        if (inSection && t.matches(iniSectionRegex)) break
+        if (inSection && t.matches(HashMonitor.HASH_SECTION_REGEX)) break
         if (inSection && t.startsWith("Hash=")) return t.removePrefix("Hash=").trim()
     }
     return null

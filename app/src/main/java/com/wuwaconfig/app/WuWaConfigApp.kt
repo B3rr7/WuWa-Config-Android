@@ -27,6 +27,17 @@ import java.io.File
 const val PREFS_NAME = "wuwaconfig"
 
 class WuWaConfigApp : Application() {
+    init {
+        // MUST be the very first thing that runs in this class. Property
+        // initialisers below execute before onCreate(), and LogRepository's
+        // fallbackBaseDir() dereferences WuWaConfigApp.instance — a LogRepository.add()
+        // from any initialiser that lands on that path would otherwise throw
+        // UninitializedPropertyAccessException during Application construction,
+        // which is unrecoverable. Today that path merely tolerates a null
+        // logFile, but that safety is incidental, not designed.
+        instance = this
+    }
+
     private val prefs by lazy { getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
     lateinit var adbCrypto: AdbCrypto
@@ -96,13 +107,13 @@ class WuWaConfigApp : Application() {
     val gameConfigDir = GamePaths.TARGET_DIR
 
     override fun onCreate() {
+        // Idempotent re-assertion of the init {} block; see the comment there.
+        instance = this
         super.onCreate()
         adbCrypto = AdbCrypto(this)
         // RSA key generation + EncryptedFile I/O is heavy; pre-load off the main
         // thread so it never blocks cold start or the first ADB connection.
         appScope.launch(Dispatchers.IO) { adbCrypto.warmUp() }
-        instance = this
-        _backend = null
         LogRepository.init()
         cvarDatabase = CvarDatabase(assets)
         configGenerator = ConfigGenerator(cvarDatabase)
@@ -124,6 +135,32 @@ class WuWaConfigApp : Application() {
         hashMonitorEnabled.value = prefs.getBoolean("hash_monitor_enabled", true)
         allowRestrictedCvarsEnabled.value = prefs.getBoolean("allow_restricted_cvars", true)
         forceCSharpEnv.value = prefs.getBoolean("force_csharp_env", false)
+
+        // Warm the default backend off the main thread. The lazy `backend`
+        // getter otherwise performs construction (and, for SAF, a
+        // SharedPreferences disk read) on whatever thread touches it first,
+        // which can be the main thread via a ViewModel init. This changes no
+        // observable connect semantics: the getter is unchanged and still
+        // creates the backend on demand if this has not landed yet, and
+        // switchTo() can still replace it at any time.
+        appScope.launch(Dispatchers.IO) {
+            val needed =
+                synchronized(backendLock) {
+                    _backend == null && currentMethod == AccessMethod.ADB
+                }
+            if (!needed) return@launch
+            val created = createBackend(AccessMethod.ADB)
+            val discard =
+                synchronized(backendLock) {
+                    if (_backend == null && currentMethod == AccessMethod.ADB) {
+                        _backend = created
+                        false
+                    } else {
+                        true
+                    }
+                }
+            if (discard) created.disconnect()
+        }
     }
 
     fun setBackgroundState(
@@ -198,14 +235,41 @@ class WuWaConfigApp : Application() {
     }
 
     fun switchTo(method: AccessMethod): AccessBackend {
-        synchronized(backendLock) {
-            currentMethod = method
-            _backend?.disconnect()
-            _backend = null
-            val newBackend = createBackend(method)
-            _backend = newBackend
-            return newBackend
+        // Both halves of this method are I/O: disconnect() closes a live ADB
+        // socket / unbinds the Shizuku UserService, and createBackend() for SAF
+        // reads SharedPreferences. Doing either under `backendLock` holds a
+        // global lock across disk/network work that the `backend` getter can
+        // contend with from the main thread — an ANR risk. So: take the old
+        // backend and publish the new method under the lock, then do the slow
+        // work outside it, then swap the reference under the lock again.
+        val previous =
+            synchronized(backendLock) {
+                val old = _backend
+                currentMethod = method
+                // Publish null first so a concurrent `backend` read never
+                // constructs a SECOND backend for the old method.
+                _backend = null
+                old
+            }
+        previous?.disconnect()
+
+        val created = createBackend(method)
+        val active =
+            synchronized(backendLock) {
+                if (_backend == null) {
+                    _backend = created
+                    null
+                } else {
+                    // A concurrent switchTo() won the race; its backend is
+                    // already active, so drop ours rather than leak it.
+                    _backend
+                }
+            }
+        if (active != null) {
+            created.disconnect()
+            return active
         }
+        return created
     }
 
     private fun createBackend(method: AccessMethod): AccessBackend {

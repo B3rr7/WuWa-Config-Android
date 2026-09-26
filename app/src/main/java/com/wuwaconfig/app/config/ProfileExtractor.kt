@@ -12,9 +12,11 @@ import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.model.VerificationReport
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 
 /**
  * Reads and decodes the device Client.log (and backups), and extracts the
@@ -26,6 +28,14 @@ class ProfileExtractor(
     private val backupDir: File,
     private val publicDir: File,
 ) {
+    companion object {
+        private val BACKUP_LOG_NAME_REGEX = Regex("""Client-backup-[A-Za-z0-9._-]+\.log""")
+
+        // Table names differ per database — see the schema note on queryDb().
+        private const val LOCAL_STORAGE_TABLE = "LocalStorage"
+        private const val DEVICE_STORAGE_TABLE = "DeviceStorage"
+    }
+
     suspend fun readClientLogContent(onProgress: (Int) -> Unit = {}): Result<String> =
         withContext(Dispatchers.IO) {
             try {
@@ -51,6 +61,11 @@ class ProfileExtractor(
      * Resolves the most recent backup log path via `ls -t` and validates the
      * filename before it is ever used as shell input. Shared by both backup-log
      * readers so the trust boundary can't drift between them.
+     *
+     * The name comes from remote `ls` output, so it is never trusted as shell input.
+     * The check is anchored (`matches` on the basename, not `containsMatchIn` on the
+     * full path) — an unanchored search would accept
+     * "/tmp/evil/Client-backup-x.log;rm -rf /".
      */
     private suspend fun latestBackupLogPath(): Result<String> =
         withContext(Dispatchers.IO) {
@@ -59,8 +74,7 @@ class ProfileExtractor(
             val logPath =
                 result.getOrNull()?.trim()?.takeIf { it.isNotBlank() }
                     ?: return@withContext Result.failure(Exception("No backup log found"))
-            // The filename comes from remote ls output — never trust it as shell input.
-            if (!Regex("""Client-backup-[A-Za-z0-9._-]+\.log$""").containsMatchIn(logPath)) {
+            if (!BACKUP_LOG_NAME_REGEX.matches(logPath.substringAfterLast("/"))) {
                 return@withContext Result.failure(
                     Exception("Unexpected backup log name: ${logPath.substringAfterLast("/").take(80)}"),
                 )
@@ -111,18 +125,24 @@ class ProfileExtractor(
                 backupDir.mkdirs()
                 val savedFile = File(backupDir, "Client.log")
                 savedFile.writeText(content)
-                // Public copy is best-effort: private persistence is what matters.
-                if (LogRepository.publicBaseDir() != null) {
-                    try {
-                        val publicFile = File(publicDir, "Client.log")
-                        publicFile.writeText(content)
-                        onProgress("Also saved to ${publicFile.absolutePath} (public)")
-                    } catch (e: Exception) {
-                        LogRepository.add("Public Client.log copy skipped: ${e.message}", LogLevel.WARNING)
-                    }
-                } else {
-                    LogRepository.add("Public Client.log copy skipped: missing All-Files-Access", LogLevel.WARNING)
-                }
+                // NO public/shared-storage copy.
+                //
+                // The DECRYPTED Client.log contains the player's UID, device
+                // fingerprint, and — decisively — the Convene/gacha URL whose
+                // fragment carries `record_id`, a bearer-style credential for the
+                // gacha-history endpoint. Writing it to Downloads/WuWaConfig made
+                // it readable by ANY installed app on API 26-29 (READ_EXTERNAL_STORAGE
+                // is a normal, install-time permission there) and by every
+                // All-Files-Access holder on API 30+. The app-private copy in
+                // backupDir serves every in-app consumer, so the public copy bought
+                // nothing except exposure.
+                //
+                // To share a log, use the explicit, user-initiated export in the Logs
+                // screen (LogRepository.saveSnapshot) — and redact before doing so.
+                LogRepository.add(
+                    "ProfileExtractor: Client.log saved to app-private storage (not exported to shared storage)",
+                    LogLevel.INFO,
+                )
                 onProgress("Saved to ${savedFile.absolutePath}")
                 Result.success(savedFile.absolutePath)
             } catch (e: Exception) {
@@ -152,7 +172,10 @@ class ProfileExtractor(
         onProgress: (Int) -> Unit = {},
     ): Result<Pair<String, LogParser.DecodeResult>> {
         val cacheDir = context.cacheDir.absolutePath
-        val localCopy = "$cacheDir/wuwa_log_copy_${System.currentTimeMillis()}"
+        // UUID, not currentTimeMillis(): two concurrent reads landing in the same
+        // millisecond shared a path, and one `finally { delete() }` yanked the file
+        // out from under the other mid-read.
+        val localCopy = "$cacheDir/wuwa_log_copy_${UUID.randomUUID()}"
 
         try {
             onProgress(10)
@@ -198,10 +221,10 @@ class ProfileExtractor(
             val localDb = pullDb("LocalStorage.db")
             val devDb = pullDb("DeviceStorage.db")
             try {
-                val uid = queryDb(localDb, "RecentlyLoginUID")?.filter { it.isDigit() }
-                val langRaw = queryDb(devDb, "UseLanguage_en")
+                val uid = queryDb(localDb, LOCAL_STORAGE_TABLE, "RecentlyLoginUID")?.filter { it.isDigit() }
+                val langRaw = queryDb(devDb, DEVICE_STORAGE_TABLE, "UseLanguage_en")
 
-                val serverLevels = parseServerLevels(queryDb(localDb, "SdkLevelData"))
+                val serverLevels = parseServerLevels(queryDb(localDb, LOCAL_STORAGE_TABLE, "SdkLevelData"))
                 val primaryServer = serverLevels.firstOrNull()
 
                 val uidStr = uid ?: ""
@@ -217,14 +240,14 @@ class ProfileExtractor(
                         server = primaryServer?.first,
                         playerLevel = primaryServer?.second,
                         serverLevels = serverLevels,
-                        lastLoginTime = formatTimestamp(cleanString(queryDb(localDb, "LoginTime_$uidStr"))),
-                        towerFloor = queryDb(localDb, "AdventrueTower_$uidStr")?.toIntOrNull(),
-                        weeklyRogueScore = queryDb(localDb, "AdventrueWeeklyRogue_$uidStr")?.toIntOrNull(),
-                        battlePassPurchased = queryDb(localDb, "BattlePassPayButton_$uidStr")?.contains("1B") == true,
-                        loopTowerSeason = queryDb(localDb, "LoopTowerSeason_$uidStr")?.toIntOrNull(),
-                        gameVersion = cleanString(queryDb(devDb, "Version_Resource")),
-                        patchVersion = cleanString(queryDb(devDb, "PatchVersion")),
-                        launcherVersion = cleanString(queryDb(devDb, "Version_Launcher")),
+                        lastLoginTime = formatTimestamp(cleanString(queryDb(localDb, LOCAL_STORAGE_TABLE, "LoginTime_$uidStr"))),
+                        towerFloor = queryDb(localDb, LOCAL_STORAGE_TABLE, "AdventrueTower_$uidStr")?.toIntOrNull(),
+                        weeklyRogueScore = queryDb(localDb, LOCAL_STORAGE_TABLE, "AdventrueWeeklyRogue_$uidStr")?.toIntOrNull(),
+                        battlePassPurchased = queryDb(localDb, LOCAL_STORAGE_TABLE, "BattlePassPayButton_$uidStr")?.contains("1B") == true,
+                        loopTowerSeason = queryDb(localDb, LOCAL_STORAGE_TABLE, "LoopTowerSeason_$uidStr")?.toIntOrNull(),
+                        gameVersion = cleanString(queryDb(devDb, DEVICE_STORAGE_TABLE, "Version_Resource")),
+                        patchVersion = cleanString(queryDb(devDb, DEVICE_STORAGE_TABLE, "PatchVersion")),
+                        launcherVersion = cleanString(queryDb(devDb, DEVICE_STORAGE_TABLE, "Version_Launcher")),
                         language =
                             when (cleanString(langRaw)) {
                                 "1" -> "en"
@@ -287,21 +310,27 @@ class ProfileExtractor(
                 if (fileSize <= 0L) return@withContext Result.failure(Exception("Client.log is empty"))
 
                 val cacheDir = context.cacheDir.absolutePath
-                val localCopy = "$cacheDir/wuwa_battlestats_${System.currentTimeMillis()}"
+                // UUID, not currentTimeMillis(): two concurrent reads landing in the
+                // same millisecond shared a path and one deleted the other's file.
+                val localCopy = "$cacheDir/wuwa_battlestats_${UUID.randomUUID()}"
 
                 onProgress(10)
-                backend.copyFile(path, localCopy).getOrThrow()
-
-                val localFile = File(localCopy)
-                if (!localFile.exists() || localFile.length() == 0L) {
-                    throw Exception("Failed to copy log file")
-                }
-
-                val rawBytes = localFile.readBytes()
-                try {
-                    localFile.delete()
-                } catch (_: Exception) {
-                }
+                // The copy holds the game's DECRYPTED log, so delete it in a finally on
+                // EVERY path. Deleting eagerly after readBytes() (the old shape) left the
+                // plaintext copy behind in cacheDir whenever readBytes() itself threw or
+                // the coroutine was cancelled. The sibling readRemoteLogToText() already
+                // used the finally shape.
+                val rawBytes =
+                    try {
+                        backend.copyFile(path, localCopy).getOrThrow()
+                        val localFile = File(localCopy)
+                        if (!localFile.exists() || localFile.length() == 0L) {
+                            throw Exception("Failed to copy log file")
+                        }
+                        localFile.readBytes()
+                    } finally {
+                        runCatching { File(localCopy).delete() }
+                    }
 
                 onProgress(50)
                 val (text, _) = LogParser.decodeLogBytes(rawBytes)
@@ -325,7 +354,9 @@ class ProfileExtractor(
         val content = backend.readFile(path).getOrDefault("")
         return content.lines().count { line ->
             val trimmed = line.trimStart()
-            if (trimmed.startsWith(";") || trimmed.startsWith("[")) return@count false
+            // Same skip-set as extractCvarNames / deduplicateIniText / parseCvarEntries:
+            // ";" comments, "#" comments, "//" comments and section headers.
+            if (trimmed.startsWith(";") || trimmed.startsWith("#") || trimmed.startsWith("//") || trimmed.startsWith("[")) return@count false
             val eq = trimmed.indexOf('=')
             if (eq < 0) return@count false
             val afterEq = trimmed.substring(eq + 1).trim()
@@ -350,38 +381,98 @@ class ProfileExtractor(
             val bytes = Base64.decode(raw.trim(), Base64.DEFAULT)
             localFile.writeBytes(bytes)
             SQLiteDatabase.openDatabase(localFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+        } catch (e: CancellationException) {
+            // Structured-concurrency: CancellationException extends IllegalStateException
+            // extends Exception, so the bare catch below would swallow it.
+            throw e
         } catch (_: Exception) {
             null
         }
     }
 
+    /**
+     * SQLite schema notes (the two databases are NOT interchangeable):
+     *  - `LocalStorage.db` (…/Client/LocalStorage/) holds a `LocalStorage` table
+     *    with a (key, value) key/value store: RecentlyLoginUID, SdkLevelData,
+     *    LoginTime_<uid>, AdventrueTower_<uid>, … — i.e. every game-side key.
+     *  - `DeviceStorage.db` (…/Client/DeviceSaved/) holds a `DeviceStorage` table
+     *    with a (key, value) key/value store for launcher/device bookkeeping:
+     *    UseLanguage_en, Version_Resource, PatchVersion, Version_Launcher.
+     * Querying the wrong table name makes SQLite throw, which the old
+     * hard-coded "SELECT … FROM LocalStorage" silently swallowed — language came
+     * back as "—" and all three version fields as null.
+     */
     private fun queryDb(
         db: SQLiteDatabase?,
+        table: String,
         key: String,
     ): String? {
         if (db == null) return null
         return try {
-            db.rawQuery("SELECT value FROM LocalStorage WHERE key=?", arrayOf(key)).use { cursor ->
+            db.rawQuery("SELECT value FROM $table WHERE key=?", arrayOf(key)).use { cursor ->
                 if (cursor.moveToFirst()) cursor.getString(0) else null
             }
+        } catch (e: CancellationException) {
+            // Structured-concurrency: CancellationException extends IllegalStateException
+            // extends Exception, so the bare catch below would swallow it.
+            throw e
         } catch (_: Exception) {
+            LogRepository.add("ProfileExtractor: queryDb($table, $key) failed", LogLevel.WARNING)
             null
         }
     }
 
     private fun parseServerLevels(json: String?): List<Pair<String, Int>> {
-        if (json == null) return emptyList()
+        if (json.isNullOrBlank()) return emptyList()
         val results = mutableListOf<Pair<String, Int>>()
         try {
+            // Step 1 — blank out everything nested deeper than one brace level (same
+            // length preserved, so offsets stay valid). A stray nested "Level" key then
+            // cannot be seen at all.
+            val flat = StringBuilder(json)
+            var depth = 0
+            for (idx in json.indices) {
+                when (json[idx]) {
+                    '{' -> depth++
+                    '}' -> {
+                        if (depth > 0) depth--
+                    }
+                    else -> if (depth > 1) flat.setCharAt(idx, ' ')
+                }
+            }
+            val text = flat.toString()
+
+            // Step 2 — walk the top-level object spans and take the first "Region" and
+            // first "Level" inside each one. The old code built two independent
+            // findAll lists and zipped them by ordinal index, so a single extra "Level"
+            // (or a region object with no level) desynchronised the two lists and
+            // mis-attributed EVERY server — and PlayerProfile.server / playerLevel come
+            // from the first pair. Pairing within the object is also independent of the
+            // key order, which ordinal zipping was not.
             val regionRegex = """"Region"\s*:\s*"([^"]+)"""".toRegex()
             val levelRegex = """"Level"\s*:\s*(\d+)""".toRegex()
-            val regions = regionRegex.findAll(json).toList()
-            val levels = levelRegex.findAll(json).toList()
-            for (i in 0 until minOf(regions.size, levels.size)) {
-                val region = regions[i].groupValues[1]
-                val level = levels[i].groupValues[1].toIntOrNull() ?: continue
-                results.add(region to level)
+            var objDepth = 0
+            var objectStart = -1
+            for (idx in text.indices) {
+                when (text[idx]) {
+                    '{' -> {
+                        if (objDepth == 0) objectStart = idx + 1
+                        objDepth++
+                    }
+                    '}' -> {
+                        if (objDepth > 0) objDepth--
+                        if (objDepth == 0 && objectStart >= 0) {
+                            val body = text.substring(objectStart, idx)
+                            val region = regionRegex.find(body)?.groupValues?.get(1)
+                            val level = levelRegex.find(body)?.groupValues?.get(1)?.toIntOrNull()
+                            if (region != null && level != null) results.add(region to level)
+                            objectStart = -1
+                        }
+                    }
+                }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
         }
         return results

@@ -2,6 +2,10 @@ package com.wuwaconfig.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
+import com.wuwaconfig.app.util.copySensitive
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,9 +21,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,6 +59,31 @@ fun LogsScreen(
 
     val logsFeedback by viewModel.logsFeedback.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showClearAllDialog by remember { mutableStateOf(false) }
+
+    if (showClearAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearAllDialog = false },
+            title = { Text("Clear all logs?") },
+            text = {
+                Text(
+                    "This deletes all ${logs.size} entries in the on-screen log and truncates app.log on disk. " +
+                        "The log is the diagnostic trail for deploy failures and cannot be recovered.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearLogs()
+                        showClearAllDialog = false
+                    },
+                ) { Text("Clear All", color = NeonRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearAllDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
 
     LaunchedEffect(logsFeedback) {
         logsFeedback?.let {
@@ -77,7 +106,19 @@ fun LogsScreen(
 
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboardManager.current
+
+    // The platform ClipboardManager is used directly, NOT Compose's
+    // LocalClipboardManager, because only the former lets us set
+    // ClipDescription.EXTRA_IS_SENSITIVE. Compose's setText(AnnotatedString)
+    // has no sensitivity control, so a copied log line would be eligible for the
+    // system clipboard history and the keyboard paste preview — and Google
+    // Keyboard syncs that history to the signed-in Google account by default,
+    // which is an off-device replication path with no further consent.
+    val context = LocalContext.current
+    val clipboard =
+        remember(context) {
+            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        }
 
     val isNearTop by remember {
         derivedStateOf {
@@ -86,10 +127,18 @@ fun LogsScreen(
         }
     }
 
-    LaunchedEffect(filtered) {
-        if (filterLevel == null && searchQuery.isBlank() && isNearTop) {
-            listState.animateScrollToItem(0)
-        }
+    // Auto-follow the tail. Keying a LaunchedEffect on `filtered` restarted
+    // animateScrollToItem(0) on every log emission (many per second during a
+    // deploy) and cancelled it mid-animation, which read as visible stutter.
+    // snapshotFlow + an instant scrollToItem pins to the newest entry with no
+    // animation to cancel.
+    LaunchedEffect(listState) {
+        snapshotFlow { isNearTop to filtered.size }
+            .collect { (near, size) ->
+                if (near && filterLevel == null && searchQuery.isBlank() && size > 0) {
+                    listState.scrollToItem(0)
+                }
+            }
     }
 
     GradientBackground {
@@ -120,7 +169,7 @@ fun LogsScreen(
                         IconButton(onClick = { viewModel.saveLogs() }) {
                             Icon(Icons.Default.Save, contentDescription = "Save", tint = NeonGreen)
                         }
-                        IconButton(onClick = { viewModel.clearLogs() }) {
+                        IconButton(onClick = { showClearAllDialog = true }) {
                             Icon(Icons.Default.DeleteSweep, contentDescription = "Clear", tint = NeonRed)
                         }
                     },
@@ -255,10 +304,17 @@ fun LogsScreen(
                             Row(
                                 modifier =
                                     Modifier
+                                        // IntrinsicSize.Min gives the Row a real
+                                        // height so the severity strip's
+                                        // fillMaxHeight() resolves against it —
+                                        // with maxHeight = Infinity it fell back
+                                        // to minHeight (0) and drew nothing.
+                                        .height(IntrinsicSize.Min)
                                         .fillMaxWidth()
                                         .clickable {
-                                            clipboard.setText(
-                                                AnnotatedString("[${log.timestamp}] ${log.message}"),
+                                            clipboard.copySensitive(
+                                                "WuWaConfig log",
+                                                "[${log.timestamp}] ${log.message}]",
                                             )
                                             scope.launch {
                                                 snackbarHostState.showSnackbar(
@@ -267,7 +323,7 @@ fun LogsScreen(
                                                 )
                                             }
                                         }.padding(vertical = 3.dp),
-                                verticalAlignment = Alignment.Top,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Box(
                                     Modifier
@@ -307,27 +363,32 @@ private fun buildHighlightedMessage(
     query: String,
     baseColor: Color,
 ): AnnotatedString {
-    if (query.isBlank()) return AnnotatedString(message, SpanStyle(color = baseColor))
+    val base = SpanStyle(color = baseColor)
+    if (query.isBlank()) return AnnotatedString(message, base)
     val lower = message.lowercase()
     val q = query.lowercase()
-    val builder = AnnotatedString.Builder()
-    var start = 0
-    while (start < message.length) {
-        val idx = lower.indexOf(q, start)
-        if (idx < 0) {
-            builder.append(AnnotatedString(message.substring(start), SpanStyle(color = baseColor)))
-            break
+    // pushStyle/append/pop appends in place. The previous version allocated a
+    // full AnnotatedString (each with its own ParagraphStyle/SpanStyle copies)
+    // for every literal run AND every match, inside a LazyColumn of up to 1000
+    // rows. Note: AnnotatedString.Builder exposes `append(CharSequence, start, end)`,
+    // not `addText` — the range overload appends without allocating a substring.
+    return buildAnnotatedString {
+        pushStyle(base)
+        var start = 0
+        while (start < message.length) {
+            val idx = lower.indexOf(q, start)
+            if (idx < 0) {
+                append(message, start, message.length)
+                break
+            }
+            if (idx > start) {
+                append(message, start, idx)
+            }
+            pushStyle(SpanStyle(color = baseColor, background = NeonCyan.copy(alpha = 0.25f)))
+            append(message, idx, (idx + q.length).coerceAtMost(message.length))
+            pop()
+            start = idx + q.length
         }
-        if (idx > start) {
-            builder.append(AnnotatedString(message.substring(start, idx), SpanStyle(color = baseColor)))
-        }
-        builder.append(
-            AnnotatedString(
-                message.substring(idx, (idx + q.length).coerceAtMost(message.length)),
-                SpanStyle(color = baseColor, background = NeonCyan.copy(alpha = 0.25f)),
-            ),
-        )
-        start = idx + q.length
+        pop()
     }
-    return builder.toAnnotatedString()
 }
