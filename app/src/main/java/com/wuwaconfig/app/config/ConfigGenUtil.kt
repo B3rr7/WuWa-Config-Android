@@ -1,6 +1,8 @@
 package com.wuwaconfig.app.config
 
 import com.wuwaconfig.app.model.CvarEntry
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 
 internal val CVAR_PREFIXES =
     listOf(
@@ -113,7 +115,13 @@ fun deduplicateIniText(text: String): String {
     val toRemove = mutableSetOf<Int>()
     for ((i, line) in lines.withIndex()) {
         val trimmed = line.trim()
-        if (trimmed.isEmpty() || trimmed.startsWith(";") || trimmed.startsWith("#") || trimmed.startsWith("//") || trimmed.startsWith("[")) continue
+        if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+            // Keys are scoped to their section: an r.* CVar legitimately emitted
+            // under two different sections must not delete the earlier occurrence.
+            seen.clear()
+            continue
+        }
+        if (trimmed.isEmpty() || trimmed.startsWith(";") || trimmed.startsWith("#") || trimmed.startsWith("//")) continue
         val cvarLine = trimmed.removePrefix("+CVars=").removePrefix("-CVars=").trim()
         if (cvarLine.isEmpty() || cvarLine.startsWith(";") || cvarLine.startsWith("#") || cvarLine.startsWith("//") || cvarLine.startsWith("[")) continue
         val eq = cvarLine.indexOf('=')
@@ -130,6 +138,17 @@ fun deduplicateIniText(text: String): String {
 
 private val RESOLUTION_SPLIT_REGEX = Regex("\\s*[xX*]\\s*")
 
+/**
+ * Removes a leading `+CVars=` / `-CVars=` directive prefix, case-insensitively
+ * (the game's INIs are not consistent about the directive's casing — see
+ * `CvarDatabase.optimizeIniTextImpl`, which matches it with ignoreCase = true).
+ */
+private fun stripCvarsDirective(line: String): String {
+    if (line.startsWith("+CVars=", ignoreCase = true)) return line.substring("+CVars=".length).trim()
+    if (line.startsWith("-CVars=", ignoreCase = true)) return line.substring("-CVars=".length).trim()
+    return line
+}
+
 fun parseResolution(res: String?): Pair<Int, Int>? {
     if (res.isNullOrBlank()) return null
     val parts = res.trim().split(RESOLUTION_SPLIT_REGEX)
@@ -143,12 +162,18 @@ fun parseCvarEntries(engineIni: String): List<CvarEntry> {
     val entries = mutableListOf<CvarEntry>()
     for (line in engineIni.lines()) {
         val trimmed = line.trim()
-        if (trimmed.startsWith("[")) continue
-        if (trimmed.startsWith(";")) continue
-        val eq = trimmed.indexOf('=')
+        // Mirror the skip-set of extractCvarNames/deduplicateIniText: section headers,
+        // all three comment styles, and the +CVars= / -CVars= directive lines. Without
+        // this the parser emitted bogus entries such as CvarEntry(key="# foo", ...) and
+        // CvarEntry(key="-CVars=r.Foo", value="").
+        if (trimmed.isEmpty() || trimmed.startsWith("[") || trimmed.startsWith(";")) continue
+        if (trimmed.startsWith("#") || trimmed.startsWith("//")) continue
+        val body = stripCvarsDirective(trimmed)
+        if (body.isEmpty() || body.startsWith(";") || body.startsWith("#") || body.startsWith("//") || body.startsWith("[")) continue
+        val eq = body.indexOf('=')
         if (eq > 0) {
-            val key = trimmed.substring(0, eq).trim()
-            val value = trimmed.substring(eq + 1).trim()
+            val key = body.substring(0, eq).trim()
+            val value = body.substring(eq + 1).trim()
             if (key.isNotEmpty() && !key.startsWith("+")) {
                 entries.add(CvarEntry(key = key, value = value))
             }
@@ -166,17 +191,25 @@ fun applyCvarOverrides(
     // Every index per key — deduplicateIniText keeps the LAST occurrence, so an
     // override applied only to the first occurrence was silently discarded for
     // any cvar emitted more than once (~20 keys via perf-tweaks/ToA/thermal).
+    // Keys are lowercased on BOTH sides: the generator emits mixed case
+    // (r.Kuro.AutoExposure) while extractCvarNames / deduplicateIniText and the
+    // override keys themselves are lowercase, so a case-sensitive index made
+    // every stored override vanish silently.
     val indicesByKey = mutableMapOf<String, MutableList<Int>>()
     for (i in lines.indices) {
         val trimmed = lines[i].trim()
         val eq = trimmed.indexOf('=')
         if (eq > 0) {
-            val key = trimmed.substring(0, eq).trim()
+            val key = trimmed.substring(0, eq).trim().lowercase()
             indicesByKey.getOrPut(key) { mutableListOf() }.add(i)
         }
     }
     for ((key, newValue) in overrides) {
-        val idxs = indicesByKey[key] ?: continue
+        val idxs = indicesByKey[key.trim().lowercase()]
+        if (idxs == null) {
+            LogRepository.add("ConfigGenUtil: override key '$key' not present in INI — ignored", LogLevel.WARNING)
+            continue
+        }
         for (idx in idxs) {
             val raw = lines[idx]
             val rawEq = raw.indexOf('=')

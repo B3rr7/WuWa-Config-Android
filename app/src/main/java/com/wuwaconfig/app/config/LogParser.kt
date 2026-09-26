@@ -2,6 +2,8 @@ package com.wuwaconfig.app.config
 
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.LogInfo
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import java.nio.charset.Charset
 
 object LogParser {
@@ -69,7 +71,8 @@ object LogParser {
      * Dynamic multi-strategy fallback decryption.
      * Tries each [DecryptStrategy] in order; validates the decrypted output
      * with a 512-byte pre-flight check. Returns the first strategy whose
-     * output passes, or the LUT result as best-effort fallback.
+     * output passes, or `null` if none does — an unvalidated payload is never
+     * returned, because downstream parsing would silently consume noise.
      *
      * @param body the raw payload to decrypt
      * @return the decrypted [ByteArray] if any strategy produces valid UE4 content, else `null`
@@ -81,7 +84,31 @@ object LogParser {
                 return decrypted
             }
         }
-        return XorLutStrategy().decrypt(body)
+        // No strategy produced content containing a known UE4 keyword. The old code
+        // returned XorLutStrategy().decrypt(body) here — the SAME transform that was
+        // just rejected — so it could never "succeed" and could only hand back
+        // unvalidated noise. That noise was tagged DecodeResult.DECRYPTED, so
+        // parseLog ran on garbage and verifyDeployedCvars reported EVERY generated
+        // CVar as "rejected" after a genuinely successful deploy.
+        //
+        // A keyword scan alone is too strict for short or early-file payloads, so
+        // fall back to the first strategy ONLY when its output is plausibly decoded
+        // text. Note the check runs on the TRANSFORM OUTPUT: a plain UTF-8-BOM text
+        // file passes decryptBackupLog's `EF BB BF` magic gate, but XOR-LUT'ing it
+        // produces non-text, so it is rejected here instead of being mislabelled.
+        val firstPass = XorLutStrategy().decrypt(body)
+        if (firstPass != null && looksLikeDecodedText(firstPass)) {
+            LogRepository.add(
+                "LogParser: no UE4 keyword found; accepted payload on text-plausibility alone",
+                LogLevel.INFO,
+            )
+            return firstPass
+        }
+        LogRepository.add(
+            "LogParser: no decrypt strategy validated — treating payload as unreadable",
+            LogLevel.WARNING,
+        )
+        return null
     }
 
     /**
@@ -98,6 +125,75 @@ object LogParser {
         return UE4_KEYWORDS.any { keyword ->
             sampleStr.contains(keyword, ignoreCase = true)
         }
+    }
+
+    /**
+     * Secondary, weaker plausibility check for payloads that are genuinely decrypted
+     * but too short (or too early in the file) to contain any [UE4_KEYWORDS].
+     *
+     * Deliberately applied to the TRANSFORM OUTPUT, never to the input: a plain
+     * UTF-8-BOM text file passed to [decryptBackupLog] passes the `EF BB BF` magic
+     * gate, but XOR-LUT transforming it yields non-text, so this check rejects it.
+     * Real decrypted log content is overwhelmingly printable text, so it passes.
+     */
+    private fun looksLikeDecodedText(decoded: ByteArray): Boolean {
+        val sampleSize = minOf(512, decoded.size)
+        if (sampleSize == 0) return false
+        var asciiOrWhitespace = 0
+        var nuls = 0
+        for (i in 0 until sampleSize) {
+            val b = decoded[i].toInt() and 0xFF
+            when {
+                b == 0x00 -> nuls++
+                b == 0x09 || b == 0x0A || b == 0x0D || (b in 0x20..0x7E) -> asciiOrWhitespace++
+            }
+        }
+        // UTF-16 content is ~50% NUL by construction, so a flat ASCII ratio would
+        // reject it. Detect the UTF-16 shape and accept it explicitly.
+        if (sampleSize >= 2) {
+            val b0 = decoded[0].toInt() and 0xFF
+            val b1 = decoded[1].toInt() and 0xFF
+            if ((b0 == 0xFE && b1 == 0xFF) || (b0 == 0xFF && b1 == 0xFE)) return true
+        }
+        if (nuls * 100 >= sampleSize * 35 && asciiOrWhitespace * 100 >= sampleSize * 40) return true
+        if (asciiOrWhitespace * 100 >= sampleSize * 90) return true
+        // High-byte-dominant: CJK log content. Require it to decode as VALID UTF-8
+        // with no replacement characters, which is what separates real CJK text from
+        // an XOR-LUT'd plain text file or a high-entropy blob. A raw byte-count or
+        // byte-diversity heuristic is not enough here: an all-NUL input transforms to
+        // 512 identical 0xEF bytes, and a random blob has maximal diversity, so both
+        // would sail through a loose "these bytes are >= 0xC2" test.
+        return isValidUtf8(decoded, sampleSize)
+    }
+
+    /** True when the first [sampleSize] bytes of [data] form well-formed UTF-8. */
+    private fun isValidUtf8(
+        data: ByteArray,
+        sampleSize: Int,
+    ): Boolean {
+        // A truncated multi-byte sequence at the sample boundary is not malformed, so
+        // stop rather than fail when fewer than 4 bytes remain.
+        if (sampleSize < 4) return true
+        var i = 0
+        while (i < sampleSize) {
+            val b = data[i].toInt() and 0xFF
+            val extra =
+                when {
+                    b <= 0x7F -> 0
+                    b in 0xC2..0xDF -> 1
+                    b in 0xE0..0xEF -> 2
+                    b in 0xF0..0xF4 -> 3
+                    // 0x80..0xC1 and 0xF5..0xFF are never a valid lead byte.
+                    else -> return false
+                }
+            if (i + extra >= sampleSize) return true
+            for (k in 1..extra) {
+                val cont = data[i + k].toInt() and 0xFF
+                if (cont !in 0x80..0xBF) return false
+            }
+            i += extra + 1
+        }
+        return true
     }
 
     private val UE4_KEYWORDS =
@@ -207,7 +303,7 @@ object LogParser {
         var shadowQ: Int? = null
         var qualityMode: String? = null
         var isLowMem: Boolean? = null
-        var forbiddenCvars: Int? = null
+
         var textureErrors = 0
         var gpuOom = 0
         var dropFrames = 0
@@ -343,9 +439,10 @@ object LogParser {
         }
 
         // ── Count forbidden CVars from extracted activeCvars ──
-        if (forbiddenCvars == null) {
-            forbiddenCvars = activeCvars.keys.count { ForbiddenCvars.isForbidden(it) }
-        }
+        // Computed once after the scan: every key is only discovered mid-loop, so
+        // there is nothing to memoize per-line. Was a `var` + null guard that was
+        // never assigned inside the loop, so the guard could never be false.
+        val forbiddenCvarCount = activeCvars.keys.count { ForbiddenCvars.isForbidden(it) }
 
         // ── Post-loop API resolution (single source of truth) ──
         val explicitApi =
@@ -389,7 +486,7 @@ object LogParser {
             textureErrors = textureErrors,
             gpuOom = gpuOom,
             dropFrames = dropFrames,
-            forbiddenCvars = forbiddenCvars,
+            forbiddenCvars = forbiddenCvarCount,
             thermalEvents = thermalEvents,
             autoAdjustTriggers = autoAdjustTriggers,
             autoAdjustRecoveries = autoAdjustRecoveries,

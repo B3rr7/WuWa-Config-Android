@@ -6,6 +6,7 @@ import com.wuwaconfig.app.model.GamePaths
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -102,6 +103,29 @@ class HashMonitorTest {
         File(System.getProperty("java.io.tmpdir"), "wuwa-hash-test").deleteRecursively()
     }
 
+    /**
+     * Every `Hash=` value written to the file must be a real 32-char MD5. A bare `Hash=`
+     * with an empty value was persisted when computeIniHash failed, and since the drift
+     * detector compares the stored value against the recomputed one, "" != actualHash
+     * marked the file as drifted PERMANENTLY.
+     */
+    private fun assertAllHashesAre32Hex(text: String) {
+        val values = hashValues(text)
+        assertTrue("expected at least one Hash= line, got none in:\n$text", values.isNotEmpty())
+        for (value in values) {
+            assertTrue(
+                "Hash value must be 32 lowercase hex chars, got '$value' in:\n$text",
+                Regex("[0-9a-f]{32}").matches(value),
+            )
+        }
+    }
+
+    private fun hashValues(text: String): List<String> =
+        text.lines().mapNotNull { line ->
+            val trimmed = line.trim()
+            if (trimmed.startsWith("Hash=")) trimmed.removePrefix("Hash=").trim() else null
+        }
+
     @Test
     fun `refreshConfigHashes builds the hash file from scratch on first run`() =
         runBlocking {
@@ -113,6 +137,66 @@ class HashMonitorTest {
                 assertTrue("Hash line for $name missing", out.contains("Hash="))
                 assertTrue("ModifyCount line for $name missing", out.contains("ModifyCount=0"))
             }
+            // Tightened from a bare contains("Hash="): an empty value used to satisfy it.
+            assertAllHashesAre32Hex(out)
+        }
+
+    @Test
+    fun `a failed hash computation aborts the refresh instead of writing an empty Hash`() =
+        runBlocking {
+            // Pre-seed a valid hash file so a partial write would be visible.
+            val seed =
+                """
+                [Engine.ini]
+                Hash=${"a".repeat(32)}
+                ModifyCount=2
+                LastModifiedTime=2024-01-01 00:00:00
+                """.trimIndent() + "\n"
+            backend.setHashFile(seed)
+            backend.readBytesFail = true
+
+            val result = monitor.refreshConfigHashes()
+
+            // The refresh must abort as a FAILURE, not report success and leave a
+            // half-updated file behind.
+            assertFalse("a failed computeIniHash must abort the refresh", result.isSuccess)
+
+            // Nothing may have been pushed: the file on the device is untouched.
+            assertEquals("the hash file must be left untouched after a failure", seed, backend.hashFileContent.toString())
+
+            // And in particular no section may carry a bare `Hash=` with an empty value.
+            for (value in hashValues(backend.hashFileContent.toString())) {
+                assertTrue("a bare 'Hash=' must never be persisted, got '$value'", value.isNotBlank())
+            }
+        }
+
+    @Test
+    fun `a failed hash computation aborts before writing any new section`() =
+        runBlocking {
+            // Same failure, but starting from an empty (absent) hash file. Building from
+            // scratch requires a hash for every monitored file, so the abort must happen
+            // before anything is written.
+            backend.setHashFile("")
+            backend.readBytesFail = true
+
+            val result = monitor.refreshConfigHashes()
+
+            assertFalse(result.isSuccess)
+            assertEquals("nothing may be written when the hash cannot be computed", "", backend.hashFileContent.toString())
+        }
+
+    @Test
+    fun `hash file section counts stay consistent after a failed refresh`() =
+        runBlocking {
+            // The abort happens inside the monitored-file loop, so it must not leave a
+            // partially-populated set of sections behind.
+            backend.setHashFile("[Engine.ini]\nHash=${"b".repeat(32)}\nModifyCount=1\n")
+            backend.readBytesFail = true
+
+            monitor.refreshConfigHashes()
+
+            val out = backend.hashFileContent.toString()
+            assertEquals("only the pre-existing section should remain", 1, Regex("\\[Engine\\.ini\\]").findAll(out).count())
         }
 
     @Test
@@ -134,6 +218,8 @@ class HashMonitorTest {
             assertTrue("ModifyCount should be 4 after increment", out.contains("ModifyCount=4"))
             // Hash is recomputed from the (fake) file content.
             assertTrue("Hash should be refreshed", out.contains("Hash=") && !out.contains("Hash=oldhash"))
+            // Tightened from a bare contains("Hash="): an empty value used to satisfy it.
+            assertAllHashesAre32Hex(out)
         }
 
     @Test

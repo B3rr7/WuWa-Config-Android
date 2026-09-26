@@ -49,6 +49,9 @@ private enum class CustomConfigState {
 
 private val TARGET_NAMES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
 
+/** Shared formatter for deploy-stamp rows; see the `remember` note at the use site. */
+private val DEPLOY_STAMP_FMT = java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.US)
+
 private fun matchTarget(displayName: String): String? {
     val name = displayName.lowercase().replace(" ", "")
     return when {
@@ -86,12 +89,20 @@ fun HomeScreen(
     val customDeploySuccess by deployHistoryViewModel.customDeploySuccess.collectAsStateWithLifecycle()
     val backupFeedback by backupViewModel.backupFeedback.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    // Hoisted out of the LazyColumn item that renders the C# card. Inside the
+    // item, LaunchedEffect(Unit) was torn down and re-fired every time the card
+    // scrolled out of view and back, re-issuing a DEVICE READ each time.
+    val forceCSharpEnv by settingsViewModel.forceCSharpEnv.collectAsStateWithLifecycle()
+    val csharpState by settingsViewModel.csharpEnvState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { settingsViewModel.refreshCSharpEnvState() }
 
+    // Clear the feedback BEFORE showing: showSnackbar suspends for the full
+    // duration, so a second message arriving during that window cancelled this
+    // effect, leaving the first message un-cleared and re-displayed later.
     LaunchedEffect(backupFeedback) {
-        backupFeedback?.let {
-            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
-            backupViewModel.clearBackupFeedback()
-        }
+        val message = backupFeedback ?: return@LaunchedEffect
+        backupViewModel.clearBackupFeedback()
+        snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
     }
 
     var customConfigState by remember { mutableStateOf(CustomConfigState.IDLE) }
@@ -226,7 +237,11 @@ fun HomeScreen(
                             GlassButton(
                                 onClick = { deployHistoryViewModel.connect() },
                                 modifier = Modifier.weight(1f),
-                                enabled = true,
+                                // Same convention as every other device action in
+                                // this file. Note: NOT `connected &&` — this
+                                // button only renders while disconnected, so that
+                                // would disable the only way to connect.
+                                enabled = !isApplying,
                                 accentColor = NeonCyan,
                                 contentColor = Color.White,
                             ) { Text("Connect", fontWeight = FontWeight.Bold) }
@@ -235,7 +250,7 @@ fun HomeScreen(
                                     GlassOutlinedButton(
                                         onClick = { showAdbDialog = true },
                                         modifier = Modifier.weight(1f),
-                                        enabled = true,
+                                        enabled = !isApplying,
                                         accentColor = NeonAmber,
                                     ) {
                                         Icon(Icons.Default.Edit, contentDescription = "Manual", modifier = Modifier.size(18.dp))
@@ -246,7 +261,7 @@ fun HomeScreen(
                                     GlassOutlinedButton(
                                         onClick = { deployHistoryViewModel.requestShizukuPermission() },
                                         modifier = Modifier.weight(1f),
-                                        enabled = true,
+                                        enabled = !isApplying,
                                         accentColor = NeonAmber,
                                     ) {
                                         Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -264,7 +279,7 @@ fun HomeScreen(
                                             safTreeLauncher.launch(initialUri)
                                         },
                                         modifier = Modifier.weight(1f),
-                                        enabled = true,
+                                        enabled = !isApplying,
                                         accentColor = NeonAmber,
                                     ) {
                                         Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -275,7 +290,7 @@ fun HomeScreen(
                                     GlassOutlinedButton(
                                         onClick = { deployHistoryViewModel.connect() },
                                         modifier = Modifier.weight(1f),
-                                        enabled = true,
+                                        enabled = !isApplying,
                                         accentColor = NeonAmber,
                                     ) {
                                         Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -289,14 +304,14 @@ fun HomeScreen(
                             GlassButton(
                                 onClick = { deployHistoryViewModel.connect() },
                                 modifier = Modifier.weight(1f),
-                                enabled = true,
+                                enabled = !isApplying,
                                 accentColor = NeonCyan,
                                 contentColor = Color.White,
                             ) { Text("Reconnect", fontWeight = FontWeight.Bold) }
                             GlassOutlinedButton(
                                 onClick = { deployHistoryViewModel.disconnect() },
                                 modifier = Modifier.weight(1f),
-                                enabled = true,
+                                enabled = !isApplying,
                                 accentColor = NeonRed,
                             ) { Text("Disconnect", fontWeight = FontWeight.Bold) }
                         }
@@ -622,9 +637,6 @@ fun HomeScreen(
                             }
                             // --- C# Optimization quick toggle ---
                             run {
-                                val forceCSharpEnv by settingsViewModel.forceCSharpEnv.collectAsStateWithLifecycle()
-                                val csharpState by settingsViewModel.csharpEnvState.collectAsStateWithLifecycle()
-                                LaunchedEffect(Unit) { settingsViewModel.refreshCSharpEnvState() }
                                 val (accent, subtitle) =
                                     when (csharpState) {
                                         CSharpEnvState.Enabled -> NeonPurple to "C# ON"
@@ -716,13 +728,18 @@ fun HomeScreen(
                                 )
                             }
                             Spacer(Modifier.height(8.dp))
+                            // remember() so the formatter is not constructed (pattern
+                            // parse + Locale/Calendar lookup) on every recomposition of
+                            // this item. The shared instance is safe because Compose
+                            // composes and draws on a single thread.
+                            val latestStamp =
+                                remember(latest.timestamp) {
+                                    DEPLOY_STAMP_FMT.format(java.util.Date(latest.timestamp))
+                                }
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column {
                                     Text(
-                                        "${latest.presetName.uppercase()} — ${java.text.SimpleDateFormat(
-                                            "MMM d, HH:mm",
-                                            java.util.Locale.US,
-                                        ).format(java.util.Date(latest.timestamp))}",
+                                        "${latest.presetName.uppercase()} — $latestStamp",
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Medium,
                                     )
@@ -1023,6 +1040,10 @@ fun HomeScreen(
 
 @Composable
 private fun RecentLogCard(onNavigateToLogs: () -> Unit) {
+    // This collects LogRepository.entries AND TerminalLogCard collects the same
+    // flow again — accepted here because the trailing "${logs.size} entries"
+    // label needs the count. The same pattern was removed from MiniLogViewer,
+    // which had no such need.
     val logs by LogRepository.entries.collectAsStateWithLifecycle()
     TerminalLogCard(
         title = "recent.log",

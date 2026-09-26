@@ -8,9 +8,15 @@ import java.util.concurrent.TimeUnit
 
 class ShellUserService : Binder() {
     companion object {
-        private const val TRANSACTION_DESTROY = IBinder.FIRST_CALL_TRANSACTION
         private const val TRANSACTION_EXEC_COMMAND = IBinder.FIRST_CALL_TRANSACTION + 1
-        private const val MAX_BINDER_OUTPUT = 900 * 1024
+
+        /**
+         * A process has ONE binder buffer of roughly 1 MB shared by the whole transaction
+         * (command + reply), so a 900 KB reply left almost no headroom and pushed
+         * `writeString` into TransactionTooLargeException. 512 KB keeps a wide margin; larger
+         * output must go through a temp file (readViaTemp) instead.
+         */
+        private const val MAX_BINDER_OUTPUT = 512 * 1024
     }
 
     init {
@@ -24,31 +30,42 @@ class ShellUserService : Binder() {
         flags: Int,
     ): Boolean {
         return when (code) {
-            TRANSACTION_DESTROY -> {
-                data.enforceInterface("com.wuwaconfig.app.IShellService")
-                destroy()
-                reply?.writeNoException()
-                true
-            }
             TRANSACTION_EXEC_COMMAND -> {
                 data.enforceInterface("com.wuwaconfig.app.IShellService")
                 val command = data.readString() ?: ""
-                val result = execCommand(command)
-                reply?.writeNoException()
-                reply?.writeString(result)
+                // Never let a failure leave the reply parcel unwritten: the client is blocked
+                // in transact() and a TransactionTooLargeException / DeadObjectException here
+                // would surface as an unexplained "service not connected".
+                val result =
+                    try {
+                        execCommand(command)
+                    } catch (e: Throwable) {
+                        Log.e("ShellUserService", "execCommand failed for: ${command.take(80)}", e)
+                        "ERROR: ${e.message ?: e.javaClass.simpleName}"
+                    }
+                try {
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                } catch (e: Throwable) {
+                    Log.e("ShellUserService", "reply write failed (${result.length} chars)", e)
+                }
                 true
             }
             else -> super.onTransact(code, data, reply, flags)
         }
     }
 
-    fun destroy() {
-        System.exit(0)
-    }
-
     fun execCommand(command: String): String {
         return try {
-            val process = ProcessBuilder("sh", "-c", command).redirectErrorStream(true).start()
+            val process =
+                ProcessBuilder("sh", "-c", command)
+                    .redirectErrorStream(true)
+                    // stdin is inherited by default and nobody ever closes it, so a command
+                    // that reads stdin (`cat` with no args) would block until the watchdog
+                    // killed it. INHERIT hands over the UserService's own stdin, which is
+                    // already at EOF in a Binder-spawned process.
+                    .redirectInput(ProcessBuilder.Redirect.INHERIT)
+                    .start()
             // Watchdog destroys the process at the deadline even if it produces no
             // output (a plain read would block forever on a silent hang).
             val watchdog =
@@ -81,8 +98,8 @@ class ShellUserService : Binder() {
     }
 
     /**
-     * Drains the stream with a hard cap so oversized output cannot blow past the
-     * ~1 MB binder transaction buffer in [onTransact]'s writeString.
+     * Drains the stream with a hard cap so oversized output cannot blow past the binder
+     * transaction buffer in [onTransact]'s writeString.
      * If the output is truncated, the returned string is prefixed with
      * SHIZUKU_TRUNCATED so callers can detect it instead of silently
      * receiving partial data (e.g. a truncated Client.log missing CVars).
@@ -98,16 +115,11 @@ class ShellUserService : Binder() {
             out.write(buf, 0, n)
             total += n
         }
-        val truncated =
-            total >= MAX_BINDER_OUTPUT &&
-                run {
-                    // Check if more data remains beyond the cap.
-                    try {
-                        stream.read() != -1
-                    } catch (_: Exception) {
-                        false
-                    }
-                }
+        // Probe with available(), never read(): a blocking read here waits out the full 60s
+        // watchdog for a command that produced >= MAX_BINDER_OUTPUT and is still alive, and
+        // then discards the output in favour of the timeout message — which made the
+        // SHIZUKU_TRUNCATED prefix unreachable exactly on the path that needs it.
+        val truncated = total >= MAX_BINDER_OUTPUT && runCatching { stream.available() > 0 }.getOrDefault(false)
         val text = out.toString("UTF-8")
         return if (truncated) "SHIZUKU_TRUNCATED\n$text" else text
     }

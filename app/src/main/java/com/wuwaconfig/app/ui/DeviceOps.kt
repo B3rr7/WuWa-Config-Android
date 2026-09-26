@@ -34,6 +34,12 @@ class DeviceOps {
     private val _operationCancelled = MutableStateFlow(false)
     val operationCancelled: StateFlow<Boolean> = _operationCancelled.asStateFlow()
 
+    /**
+     * The job that owns the device lock right now. Only ever assigned when the
+     * launched job is still live, so a busy-path request (which finishes
+     * immediately) can never replace the real operation and make [requestCancel]
+     * cancel a dead job while the device write continues.
+     */
     internal var activeJob: Job? = null
 
     /**
@@ -47,12 +53,15 @@ class DeviceOps {
         block: suspend CoroutineScope.() -> Unit,
     ): Job =
         scope.launch {
-            _operationCancelled.value = false
             if (!mutex.tryLock()) {
+                // NOTE: _operationCancelled is deliberately NOT reset here — a
+                // dropped request must not clear the cancel flag of the operation
+                // that is actually running.
                 LogRepository.add("Busy: another device operation is still running", LogLevel.WARNING)
                 if (managesBusyFlag) _isApplying.value = false
                 return@launch
             }
+            _operationCancelled.value = false
             try {
                 block()
             } catch (e: CancellationException) {
@@ -61,7 +70,7 @@ class DeviceOps {
             } finally {
                 mutex.unlock()
             }
-        }.also { activeJob = it }
+        }.also { if (!it.isCompleted) activeJob = it }
 
     /**
      * Cancels the active job and drops the connection so in-flight shell work

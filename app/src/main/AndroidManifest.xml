@@ -2,10 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- AdbConnectionService holds a PARTIAL_WAKE_LOCK for the lifetime of the
+         wireless-ADB session. A dataSync FGS does NOT exempt the app from
+         Doze/suspend, so without this the socket can die silently while the
+         "ADB connection active" notification is still up. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- TODO(notifications): POST_NOTIFICATIONS is a runtime permission on
+         API 33+ and is never requested anywhere in the app, so the AdbConnection
+         Service foreground notification is silently suppressed and the user has
+         no way to see or stop an active privileged ADB session. The request must
+         live in MainActivity (the only top-of-stack Activity); it cannot be done
+         from the Application class or from a Service. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -13,6 +22,18 @@
         android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Package visibility (API 30+). UpdateManager.openForInstall() calls
+         resolveActivity() on an ACTION_VIEW + package-archive intent; without
+         this element the system installer is invisible and the self-update flow
+         reports the misleading "No package installer found on device" on a
+         device that installs APKs perfectly well. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/vnd.android.package-archive" />
+        </intent>
+    </queries>
 
     <application
         android:name=".WuWaConfigApp"
@@ -35,13 +56,35 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Required by the Shizuku host (reflective instantiate). Do NOT set
+             exported=false.
 
-        <!-- Required by the Shizuku host (reflective instantiate). Do NOT set exported=false. -->
+             android:permission is NOT optional here. ShizukuProvider.call()
+             performs NO caller check of any kind — verified by disassembling
+             dev.rikka.shizuku:provider:13.1.5 (zero checkCallingPermission /
+             enforceCallingPermission / getCallingUid references). Without this
+             attribute, ANY installed app can:
+
+               1. call("getBinder") and walk away with the live Shizuku server
+                  IBinder, and enumerate which packages hold Shizuku;
+               2. call("sendBinder") with an attacker-controlled IShizukuService
+                  while our binder is not yet pushed. bindUserService then hands
+                  ShizukuBackend a ShellServiceProxy over THAT object, so every
+                  shell command, every base64 of the generated INI, and every
+                  Client.log read is delivered to the attacker, while the MD5 /
+                  size "verification" becomes attacker-controlled too.
+
+             INTERACT_ACROSS_USERS_FULL is signature|privileged and held by
+             com.android.shell (uid 2000) but by no normal app, so the Shizuku
+             server can still push the binder while every third-party app is
+             blocked at the platform level. This is the attribute Shizuku's own
+             setup documentation requires. -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"
             android:enabled="true"
             android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"
             android:multiprocess="false" />
 
         <provider

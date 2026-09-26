@@ -5,9 +5,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,39 +77,77 @@ fun ConfigGenScreen(
 
     fun tint(color: Color): Color = if (colorful) color else NeonCyan
 
-    val savedOptions = remember { viewModel.loadGeneratorOptions() }
+    // Gson.fromJson walks the class reflectively; doing it in a remember
+    // initializer put that on the main thread during composition. Load it
+    // off-main and push the values into the individual option states below.
+    val savedOptions by produceState<GeneratorOptions?>(initialValue = null) {
+        value = withContext(Dispatchers.IO) { viewModel.loadGeneratorOptions() }
+    }
 
     var selectedPreset by rememberSaveable { mutableStateOf(brain?.preset ?: "balanced") }
-    var fps by rememberSaveable { mutableStateOf(savedOptions?.fps ?: 60) }
-    var unlock120 by rememberSaveable { mutableStateOf(savedOptions?.unlock120 ?: false) }
-    var unlockUltra by rememberSaveable { mutableStateOf(savedOptions?.unlockUltra ?: true) }
-    var vsync by rememberSaveable { mutableStateOf(savedOptions?.vsync ?: true) }
-    var cooling by rememberSaveable { mutableStateOf(savedOptions?.cool ?: true) }
-    var vulkan by rememberSaveable { mutableStateOf(savedOptions?.vulkan ?: false) }
-    var hzb by rememberSaveable { mutableStateOf(savedOptions?.hzb ?: false) }
-    var fog by rememberSaveable { mutableStateOf(savedOptions?.fog ?: false) }
-    var ca by rememberSaveable { mutableStateOf(savedOptions?.ca ?: true) }
-    var disableOutline by rememberSaveable { mutableStateOf(savedOptions?.disableOutline ?: false) }
-    var disableRadialBlur by rememberSaveable { mutableStateOf(savedOptions?.disableRadialBlur ?: false) }
-    var disableBloom by rememberSaveable { mutableStateOf(savedOptions?.disableBloom ?: false) }
-    var disableAutoExposure by rememberSaveable { mutableStateOf(savedOptions?.disableAutoExposure ?: false) }
-    var disableSSR by rememberSaveable { mutableStateOf(savedOptions?.disableSSR ?: false) }
+    var fps by rememberSaveable { mutableStateOf(60) }
+    var unlock120 by rememberSaveable { mutableStateOf(false) }
+    var unlockUltra by rememberSaveable { mutableStateOf(true) }
+    var vsync by rememberSaveable { mutableStateOf(true) }
+    var cooling by rememberSaveable { mutableStateOf(true) }
+    var vulkan by rememberSaveable { mutableStateOf(false) }
+    var hzb by rememberSaveable { mutableStateOf(false) }
+    var fog by rememberSaveable { mutableStateOf(false) }
+    var ca by rememberSaveable { mutableStateOf(true) }
+    var disableOutline by rememberSaveable { mutableStateOf(false) }
+    var disableRadialBlur by rememberSaveable { mutableStateOf(false) }
+    var disableBloom by rememberSaveable { mutableStateOf(false) }
+    var disableAutoExposure by rememberSaveable { mutableStateOf(false) }
+    var disableSSR by rememberSaveable { mutableStateOf(false) }
     var userChangedPreset by rememberSaveable { mutableStateOf(false) }
 
-    var generateEngine by rememberSaveable { mutableStateOf(savedOptions?.generateEngine ?: true) }
-    var generateDeviceProfiles by rememberSaveable { mutableStateOf(savedOptions?.generateDeviceProfiles ?: true) }
-    var generateGameUserSettings by rememberSaveable { mutableStateOf(savedOptions?.generateGameUserSettings ?: true) }
-    var generateScalability by rememberSaveable { mutableStateOf(savedOptions?.generateScalability ?: false) }
-    var generateHardware by rememberSaveable { mutableStateOf(savedOptions?.generateHardware ?: false) }
+    var generateEngine by rememberSaveable { mutableStateOf(true) }
+    var generateDeviceProfiles by rememberSaveable { mutableStateOf(true) }
+    var generateGameUserSettings by rememberSaveable { mutableStateOf(true) }
+    var generateScalability by rememberSaveable { mutableStateOf(false) }
+    var generateHardware by rememberSaveable { mutableStateOf(false) }
 
-    var allowRestrictedCvars by rememberSaveable { mutableStateOf(savedOptions?.allowRestrictedCvars ?: true) }
-    var useAdvancedGen by rememberSaveable { mutableStateOf(savedOptions?.useAdvancedGen ?: false) }
-    var optimizeWithCvarDb by rememberSaveable { mutableStateOf(savedOptions?.optimizeWithCvarDb ?: true) }
-    var disableAutoAdjust by rememberSaveable { mutableStateOf(savedOptions?.disableAutoAdjust ?: false) }
-    var enableGSR by rememberSaveable { mutableStateOf(savedOptions?.enableGSR ?: false) }
-    var experimentalCvars by rememberSaveable { mutableStateOf(savedOptions?.experimentalCvars ?: false) }
+    var allowRestrictedCvars by rememberSaveable { mutableStateOf(true) }
+    var useAdvancedGen by rememberSaveable { mutableStateOf(false) }
+    var optimizeWithCvarDb by rememberSaveable { mutableStateOf(true) }
+    var disableAutoAdjust by rememberSaveable { mutableStateOf(false) }
+    var enableGSR by rememberSaveable { mutableStateOf(false) }
+    var experimentalCvars by rememberSaveable { mutableStateOf(false) }
 
-    var gameMode by rememberSaveable { mutableStateOf(savedOptions?.mode ?: GameMode.Overworld) }
+    var gameMode by rememberSaveable { mutableStateOf(GameMode.Overworld) }
+    // Apply the persisted options once, as soon as the off-main load resolves.
+    // The individual states keep their rememberSaveable initialisers, so this
+    // effect only re-runs on a fresh entry into the screen.
+    LaunchedEffect(savedOptions) {
+        val o = savedOptions ?: return@LaunchedEffect
+        fps = o.fps
+        unlock120 = o.unlock120
+        unlockUltra = o.unlockUltra
+        vsync = o.vsync
+        cooling = o.cool
+        vulkan = o.vulkan
+        hzb = o.hzb
+        fog = o.fog
+        ca = o.ca
+        disableOutline = o.disableOutline
+        disableRadialBlur = o.disableRadialBlur
+        disableBloom = o.disableBloom
+        disableAutoExposure = o.disableAutoExposure
+        disableSSR = o.disableSSR
+        generateEngine = o.generateEngine
+        generateDeviceProfiles = o.generateDeviceProfiles
+        generateGameUserSettings = o.generateGameUserSettings
+        generateScalability = o.generateScalability
+        generateHardware = o.generateHardware
+        allowRestrictedCvars = o.allowRestrictedCvars
+        useAdvancedGen = o.useAdvancedGen
+        optimizeWithCvarDb = o.optimizeWithCvarDb
+        disableAutoAdjust = o.disableAutoAdjust
+        enableGSR = o.enableGSR
+        experimentalCvars = o.experimentalCvars
+        gameMode = o.mode
+    }
+
     var showDeployDialog by remember { mutableStateOf(false) }
     var deployDialogMessage by remember { mutableStateOf("") }
     var deployHashSyncMessage by remember { mutableStateOf("") }
@@ -523,7 +563,11 @@ private fun GeneratorSwitch(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 46.dp)
-                .clickable { onCheckedChange(!checked) },
+                // Toggling the row (not just the switch) plus merged semantics so
+                // TalkBack announces "Advanced per-device tuning, switch, on"
+                // instead of an unlabelled clickable.
+                .toggleable(value = checked, onValueChange = onCheckedChange, role = Role.Switch)
+                .semantics(mergeDescendants = true) { },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

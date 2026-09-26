@@ -56,13 +56,25 @@ object CvarOptimizer {
         val grasscull: Int,
     )
 
-    fun toPresetProfile(opt: OptimizedProfile): PresetProfile =
-        PresetProfile(
+    // The four fine-grained fields must be derived from the OptimizedProfile, not
+    // left at their PresetProfile defaults (characterDetail=2, postProcess=2,
+    // staticLighting=true, cutsceneQuality=2). On a hard-limited device under
+    // useAdvancedGen that emitted r.AllowStaticLighting=1 and
+    // r.KuroMaterialQualityLevel=2 alongside detail=0 / shadow=0 — the weakest
+    // hardware path contradicted by the most expensive settings.
+    fun toPresetProfile(opt: OptimizedProfile): PresetProfile {
+        val fineDetail = (opt.detail / 2).coerceIn(0, 3)
+        return PresetProfile(
             screen = opt.screen, shadow = opt.shadow, shadowRes = opt.shadowRes,
             ssr = opt.ssr, mipbias = opt.mipbias, streaming = opt.streaming,
             vd = opt.vd, flod = opt.flod, detail = opt.detail,
             lod_bias = opt.lod_bias, grasscull = opt.grasscull,
+            characterDetail = fineDetail,
+            postProcess = fineDetail,
+            cutsceneQuality = fineDetail,
+            staticLighting = opt.shadow >= 2,
         )
+    }
 
     fun optimizeProfile(info: LogInfo): OptimizedProfile {
         val tier = getGPUTier(info.gpu)
@@ -263,6 +275,10 @@ object CvarOptimizer {
             )
         }
 
+        // Reachable, NOT dead: `improved` is stricter than the negation of
+        // (!wasStable && !degraded) — it requires thermalDelta <= 0, not <= 2. An input
+        // like fpsDelta=6, thermalDelta=1 satisfies none of wasStable / oomDelta>0 /
+        // degraded / improved, so the profile is returned unchanged.
         return current
     }
 }

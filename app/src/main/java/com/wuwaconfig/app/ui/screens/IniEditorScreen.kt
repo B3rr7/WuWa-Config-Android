@@ -4,6 +4,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +27,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -81,8 +85,16 @@ fun IniEditorScreen(
     val focusRequester = remember { FocusRequester() }
 
     val vertical = rememberScrollState()
+    // The gutter has its OWN ScrollState; it is deliberately mirrored from
+    // `vertical` below. Attaching one ScrollState to two verticalScroll
+    // containers only worked by accident (last-registered nested-scroll node
+    // won) and desynced on fling.
+    val gutterScroll = rememberLazyListState()
 
-    val lineCount = editorText.count { it == '\n' } + 1
+    // Precomputed newline offsets: line numbers for search matches and the
+    // gutter length are then O(log n) / O(1) instead of a full-string scan.
+    val newlineIdx = remember(editorText) { newlineOffsets(editorText) }
+    val lineCount by remember { derivedStateOf { editorText.count { it == '\n' } + 1 } }
     val matches = remember(query, editorText) { findMatches(editorText, query) }
     val safeMatch = if (matches.isEmpty()) 0 else currentMatch.coerceIn(0, matches.lastIndex)
     val isDirty = editorText != (iniContent ?: "")
@@ -93,10 +105,21 @@ fun IniEditorScreen(
         currentMatch = 0
     }
 
+    // Keyed on the match SET only. `safeMatch` used to be a key, so every
+    // Next/Prev press (and every keystroke, because onQueryChange resets
+    // currentMatch) allocated a new VisualTransformation and re-filtered the
+    // whole document for nothing. The current index is read as snapshot state
+    // inside the lambda, at filter time, so the lambda's identity is stable.
     val iniTransform =
-        remember(matches, safeMatch) {
+        remember(matches) {
             VisualTransformation { annotated ->
-                val highlighted = highlightIni(annotated.text, matches, safeMatch)
+                val current =
+                    if (matches.isEmpty()) {
+                        0
+                    } else {
+                        currentMatch.coerceIn(0, matches.lastIndex)
+                    }
+                val highlighted = highlightIni(annotated.text, matches, current)
                 TransformedText(
                     highlighted,
                     object : OffsetMapping {
@@ -134,11 +157,27 @@ fun IniEditorScreen(
     LaunchedEffect(showSearch) {
         if (showSearch) focusRequester.requestFocus()
     }
-    LaunchedEffect(safeMatch, query) {
+    LaunchedEffect(safeMatch, query, newlineIdx, vertical.maxValue) {
         if (matches.isNotEmpty() && lineCount > 0) {
-            val line = editorText.substring(0, matches[safeMatch].first).count { it == '\n' }
+            // Binary search over the precomputed newline index — no
+            // `substring(0, offset)` copy of the whole document per match change.
+            val line = lineIndexOfOffset(newlineIdx, matches[safeMatch].first)
             val target = ((line.toFloat() / lineCount) * vertical.maxValue).toInt()
             vertical.scrollTo(target.coerceAtMost(vertical.maxValue))
+        }
+    }
+
+    // Keep the gutter glued to the editor while the user types / flings.
+    // The gutter is a LazyColumn (an eager Column in a verticalScroll composed
+    // one Text node per line on every keystroke), so it needs a LazyListState and
+    // the editor's pixel offset must be converted to a line index via the
+    // precomputed newline table rather than mirrored as raw pixels.
+    LaunchedEffect(vertical, newlineIdx) {
+        snapshotFlow { vertical.value }.collect { offset ->
+            val firstLine = if (offset <= 0) 0 else lineIndexOfOffset(newlineIdx, offset)
+            if (firstLine != gutterScroll.firstVisibleItemIndex) {
+                gutterScroll.scrollToItem(firstLine.coerceIn(0, (lineCount - 1).coerceAtLeast(0)))
+            }
         }
     }
 
@@ -207,7 +246,7 @@ fun IniEditorScreen(
                     },
                 )
             },
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = Color.Transparent,
         ) { padding ->
             when {
                 isLoading -> {
@@ -260,16 +299,20 @@ fun IniEditorScreen(
                                     .imePadding(),
                         ) {
                             Row(Modifier.fillMaxSize()) {
-                                Column(
+                                // LazyColumn, not a Column in a verticalScroll: an
+                                // eager gutter composes/measures a Text node per
+                                // line, so a 3000-line file meant 3000 text nodes
+                                // re-laid out on every keystroke.
+                                LazyColumn(
+                                    state = gutterScroll,
                                     modifier =
                                         Modifier
                                             .width(52.dp)
                                             .fillMaxHeight()
                                             .background(GUTTER_BG)
-                                            .verticalScroll(vertical)
                                             .padding(vertical = 8.dp),
                                 ) {
-                                    repeat(lineCount) { i ->
+                                    items(count = lineCount) { i ->
                                         Text(
                                             "${i + 1}",
                                             fontFamily = FontFamily.Monospace,
@@ -303,7 +346,7 @@ fun IniEditorScreen(
                                         keyboardOptions =
                                             KeyboardOptions(
                                                 keyboardType = KeyboardType.Ascii,
-                                                autoCorrect = false,
+                                                autoCorrectEnabled = false,
                                             ),
                                         cursorBrush = SolidColor(NeonAmber),
                                         modifier = Modifier.fillMaxSize().verticalScroll(vertical),
@@ -323,7 +366,7 @@ fun IniEditorScreen(
 
             errorMessage?.let { msg ->
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(padding),
+                    modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
                     contentAlignment = Alignment.BottomCenter,
                 ) {
                     Card(
@@ -345,8 +388,11 @@ fun IniEditorScreen(
 
             successMessage?.let { msg ->
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center,
+                    // Top-aligned + IME-padded so the card is not behind the
+                    // keyboard, and pointer-blocking so taps never fall through
+                    // to the BasicTextField underneath.
+                    modifier = Modifier.fillMaxSize().padding(padding).imePadding().consumeAllPointerInput(),
+                    contentAlignment = Alignment.TopCenter,
                 ) {
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(32.dp),
@@ -431,7 +477,7 @@ private fun IniSearchBar(
                     focusedPlaceholderColor = Color(0xFF8A8AA0),
                     unfocusedPlaceholderColor = Color(0xFF8A8AA0),
                 ),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, autoCorrect = false),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, autoCorrectEnabled = false),
             modifier = Modifier.weight(1f).focusRequester(focusRequester),
         )
         Text(
@@ -636,48 +682,117 @@ private fun findMatches(
     return result
 }
 
+/** Char offsets of every `'\n'` in [text], ascending. Computed once per document. */
+private fun newlineOffsets(text: String): IntArray {
+    var positions = IntArray(64)
+    var n = 0
+    var i = text.indexOf('\n')
+    while (i >= 0) {
+        if (n == positions.size) positions = positions.copyOf(positions.size * 2)
+        positions[n++] = i
+        i = text.indexOf('\n', i + 1)
+    }
+    return if (n == positions.size) positions else positions.copyOf(n)
+}
+
+/** Number of newlines strictly before [offset] — i.e. the 0-based line index. */
+private fun lineIndexOfOffset(
+    offsets: IntArray,
+    offset: Int,
+): Int {
+    var lo = 0
+    var hi = offsets.size
+    while (lo < hi) {
+        val mid = (lo + hi) ushr 1
+        if (offsets[mid] < offset) lo = mid + 1 else hi = mid
+    }
+    return lo
+}
+
+/**
+ * Consumes every pointer event on this node so a full-screen overlay never lets
+ * hit-testing fall through to the editor beneath it. A plain Box has no pointer
+ * input at all, so the user kept typing while a "Saved" card sat on top.
+ */
+private fun Modifier.consumeAllPointerInput(): Modifier =
+    pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+            }
+        }
+    }
+
+/**
+ * INI syntax highlighting + search-match highlighting, used as a
+ * [VisualTransformation]. Called by BasicTextField on EVERY text-layout pass, on
+ * the main thread, on every keystroke — so it must not allocate `text.lines()`
+ * and must not rescan the whole match list per line.
+ *
+ * [matches] come out of [findMatches] in ascending start-offset order (verified
+ * there); a single monotonically advancing cursor consumes them per line.
+ */
 private fun highlightIni(
     text: String,
     matches: List<IntRange>,
     currentMatch: Int,
 ): AnnotatedString =
     buildAnnotatedString {
-        val srcLines = text.lines()
-        val effectiveLines = if (text.endsWith("\n")) srcLines + "" else srcLines
-        var offset = 0
-        effectiveLines.forEachIndexed { i, line ->
-            val lineStart = offset
-            val commentIdx = line.indexOf(';')
-            val codeEnd = if (commentIdx >= 0) commentIdx else line.length
-            if (line.isNotBlank()) {
-                if (line.startsWith("[")) {
-                    addStyle(INI_SECTION, lineStart, lineStart + line.length)
+        val n = text.length
+        var lineStart = 0
+        var mi = 0
+        while (lineStart <= n) {
+            var lineEnd = text.indexOf('\n', lineStart)
+            val hasNewline = lineEnd >= 0
+            if (!hasNewline) lineEnd = n
+            val lineLen = lineEnd - lineStart
+
+            val commentIdx = text.indexOf(';', lineStart).let { if (it >= lineStart && it < lineEnd) it else -1 }
+            val codeEnd = if (commentIdx >= 0) commentIdx - lineStart else lineLen
+
+            var isBlank = true
+            for (i in lineStart until lineEnd) {
+                if (!text[i].isWhitespace()) {
+                    isBlank = false
+                    break
+                }
+            }
+
+            if (!isBlank) {
+                if (text.startsWith("[", lineStart)) {
+                    addStyle(INI_SECTION, lineStart, lineEnd)
                 } else {
-                    val eq = line.indexOf('=')
-                    if (eq > 0 && eq < codeEnd) {
-                        addStyle(INI_KEY, lineStart, lineStart + eq)
-                        addStyle(INI_EQ, lineStart + eq, lineStart + eq + 1)
-                        if (lineStart + eq + 1 < lineStart + codeEnd) {
-                            addStyle(INI_VALUE, lineStart + eq + 1, lineStart + codeEnd)
+                    val eq = text.indexOf('=', lineStart)
+                    if (eq > lineStart && eq < lineStart + codeEnd) {
+                        addStyle(INI_KEY, lineStart, eq)
+                        addStyle(INI_EQ, eq, eq + 1)
+                        if (eq + 1 < lineStart + codeEnd) {
+                            addStyle(INI_VALUE, eq + 1, lineStart + codeEnd)
                         }
                     }
                 }
             }
             if (commentIdx >= 0) {
-                addStyle(INI_COMMENT, lineStart + commentIdx, lineStart + line.length)
+                addStyle(INI_COMMENT, commentIdx, lineEnd)
             }
-            matches.forEachIndexed { mi, m ->
-                if (m.first >= lineStart && m.last < lineStart + line.length) {
-                    val style = if (mi == currentMatch) INI_SEARCH_CURRENT else INI_SEARCH
-                    addStyle(style, m.first, m.last + 1)
-                }
+
+            // Advance past any match that ended on a previous line, then paint
+            // only the matches that fall inside this one.
+            while (mi < matches.size && matches[mi].first < lineStart) mi++
+            var k = mi
+            while (k < matches.size && matches[k].first < lineEnd) {
+                val m = matches[k]
+                val style = if (k == currentMatch) INI_SEARCH_CURRENT else INI_SEARCH
+                val end = (m.last + 1).coerceAtMost(lineEnd)
+                if (end > m.first) addStyle(style, m.first, end)
+                k++
             }
-            append(line)
-            offset += line.length
-            if (i < effectiveLines.lastIndex) {
-                append("\n")
-                offset += 1
-            }
+            if (k > mi) mi = k
+
+            append(text, lineStart, lineEnd)
+            if (!hasNewline) break
+            append("\n")
+            lineStart = lineEnd + 1
         }
     }
 

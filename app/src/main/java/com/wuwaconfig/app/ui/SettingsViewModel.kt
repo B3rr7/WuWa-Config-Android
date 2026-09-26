@@ -1,6 +1,10 @@
 package com.wuwaconfig.app.ui
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.wuwaconfig.app.BuildConfig
@@ -8,10 +12,15 @@ import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.config.ConfigManager
 import com.wuwaconfig.app.update.UpdateManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 sealed interface UpdateState {
@@ -54,6 +63,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val colorSaturation: StateFlow<Float> = app.colorSaturation
     val forceCSharpEnv: StateFlow<Boolean> = app.forceCSharpEnv
 
+    // Read by MainActivity, which feeds them into LocalBackgroundSettings so
+    // GradientBackground no longer has to reach for the app singleton itself.
+    val backgroundImageUri: StateFlow<String?> = app.backgroundImageUri
+    val backgroundVideoUri: StateFlow<String?> = app.backgroundVideoUri
+    val backgroundOpacity: StateFlow<Float> = app.backgroundOpacity
+
     private val configManager: ConfigManager by lazy {
         ConfigManager(getApplication(), { app.backend }, null)
     }
@@ -67,6 +82,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
+
+    private val ops get() = app.deviceOps
+
+    private var csharpEnvJob: Job? = null
 
     fun setThemeMode(mode: String) = app.setThemeMode(mode)
 
@@ -82,18 +101,29 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * refreshed and the preference is reverted so toggle and game state stay in
      * sync (critical for disable path — user must not see OFF while file still
      * exists due to permission/transport error).
+     *
+     * Serialised through [DeviceOps] and guarded by [csharpEnvJob]: two rapid
+     * taps used to race on the filesystem, and a concurrent deploy could
+     * interleave a device write mid-toggle.
      */
     fun setForceCSharpEnv(enabled: Boolean) {
-        app.setForceCSharpEnv(enabled)
-        viewModelScope.launch(Dispatchers.IO) {
-            val result = configManager.syncForceCSharpEnv(enabled)
-            if (result.isFailure) {
-                // Revert preference — file didn't move, don't lie to UI.
-                app.setForceCSharpEnv(!enabled)
+        if (csharpEnvJob?.isActive == true) return
+        csharpEnvJob =
+            ops.launchBackendOp(managesBusyFlag = false) {
+                // The optimistic pref write lives INSIDE the locked block: if the
+                // request is dropped on the busy path, nothing must be written at
+                // all, or the toggle would show ON with the file untouched.
+                app.setForceCSharpEnv(enabled)
+                withContext(Dispatchers.IO) {
+                    val result = configManager.syncForceCSharpEnv(enabled)
+                    if (result.isFailure) {
+                        // Revert preference — file didn't move, don't lie to UI.
+                        app.setForceCSharpEnv(!enabled)
+                    }
+                }
+                // Always refresh live game state after the file operation settles.
+                refreshCSharpEnvState()
             }
-            // Always refresh live game state after the file operation settles.
-            refreshCSharpEnvState()
-        }
     }
 
     /**
@@ -176,9 +206,70 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /**
+     * Emits the system "allow from this source" screen when the per-app install
+     * permission is missing. A ViewModel must not call startActivity, so this is a
+     * one-shot event that MainActivity collects — the same shape as the existing
+     * All-Files-Access flow in MainActivity.requestStoragePermissions().
+     */
+    private val _installPermissionRequest = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val installPermissionRequest: SharedFlow<Unit> = _installPermissionRequest.asSharedFlow()
+
+    /** The update we were trying to install, held while the user grants the permission. */
+    private var pendingInstall: UpdateState.Ready? = null
+
     fun installNow() {
         val ready = (_updateState.value as? UpdateState.Ready) ?: return
-        UpdateManager.openForInstall(getApplication(), ready.file)
-            .onFailure { _updateState.value = UpdateState.Error(it.message ?: "Could not open installer") }
+        openInstaller(ready)
+    }
+
+    /**
+     * Call from MainActivity's activity-result callback. Retries the install if the
+     * grant was granted, and reports it plainly if it was not — otherwise the user is
+     * left tapping a button that silently does nothing.
+     */
+    fun onInstallPermissionResult() {
+        val pending = pendingInstall ?: return
+        pendingInstall = null
+        val context = getApplication<Application>()
+        val stillBlocked =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                !context.packageManager.canRequestPackageInstalls()
+        if (stillBlocked) {
+            _updateState.value = UpdateState.Error("Permission to install apps was not granted")
+            return
+        }
+        _updateState.value = pending
+        openInstaller(pending)
+    }
+
+    private fun openInstaller(ready: UpdateState.Ready) {
+        val context = getApplication<Application>()
+        UpdateManager.openForInstall(context, ready.file).onFailure { error ->
+            val message = error.message
+            if (message == UpdateManager.NEEDS_INSTALL_PERMISSION) {
+                // Route to the per-app "allow from this source" screen rather than
+                // surfacing the internal marker as user-facing error text.
+                val intent =
+                    Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${context.packageName}"),
+                    )
+                // Kiosk / stripped / some Chinese ROMs may ship no Settings handler for
+                // this action — fail with a clear message instead of crashing on
+                // ActivityNotFoundException (same guard as UpdateManager).
+                if (intent.resolveActivity(context.packageManager) == null) {
+                    _updateState.value =
+                        UpdateState.Error("This device has no screen for granting install permission")
+                    return@onFailure
+                }
+                pendingInstall = ready
+                _updateState.value =
+                    UpdateState.Error("Grant permission to install apps, then tap Install again")
+                _installPermissionRequest.tryEmit(Unit)
+            } else {
+                _updateState.value = UpdateState.Error(message ?: "Could not open installer")
+            }
+        }
     }
 }

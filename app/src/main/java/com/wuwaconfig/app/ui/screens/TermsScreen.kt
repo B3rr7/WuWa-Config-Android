@@ -84,7 +84,7 @@ fun TermsScreen(onAccept: () -> Unit) {
                                 "This application is a FAN-MADE tool for modifying game configuration files.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
 
                             Text(
@@ -105,7 +105,7 @@ fun TermsScreen(onAccept: () -> Unit) {
                                 "By installing and using this application, you acknowledge and agree to the following:",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
 
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -126,6 +126,41 @@ fun TermsScreen(onAccept: () -> Unit) {
                                 )
                                 BulletPoint(
                                     "No game assets, code, or copyrighted material from Wuthering Waves is distributed with this app.",
+                                )
+                            }
+
+                            Text(
+                                "Privacy",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NeonCyan,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                BulletPoint(
+                                    "No analytics, advertising, or crash-reporting. Nothing is collected, " +
+                                        "profiled, or sold. There is no account and no login.",
+                                )
+                                BulletPoint(
+                                    "Everything this app saves — your profile, gacha history, deploy history, " +
+                                        "backups and logs — stays in this app's PRIVATE storage, readable by " +
+                                        "no other app. Android device-to-device transfer and cloud backup " +
+                                        "of app data are disabled.",
+                                )
+                                BulletPoint(
+                                    "Network access happens only when you ask for it: a gacha-history lookup " +
+                                        "sends the ID from a gacha URL you paste in to the game's own official " +
+                                        "server, and the update check contacts GitHub. Nothing else is transmitted.",
+                                )
+                                BulletPoint(
+                                    "If you use the Save/Export action on the Logs screen, a copy of the log is " +
+                                        "written to your Downloads folder. The clipboard is marked sensitive so " +
+                                        "keyboards do not keep a copy, and screenshots are blocked.",
+                                )
+                                BulletPoint(
+                                    "This app requests elevated storage and Shizuku/Root access only to reach the " +
+                                        "game's own config directory. Uninstalling removes all of its local data.",
                                 )
                             }
 

@@ -37,13 +37,6 @@ val MonospaceFamily =
         Font(R.font.monospace, FontWeight.Bold),
     )
 
-val DisplayBold =
-    TextStyle(
-        fontFamily = RajdhaniBold,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.5.sp,
-    )
-
 val Typography =
     Typography(
         headlineLarge =

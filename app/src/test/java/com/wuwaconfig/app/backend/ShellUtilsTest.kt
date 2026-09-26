@@ -3,6 +3,7 @@ package com.wuwaconfig.app.backend
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -34,6 +35,50 @@ class ShellUtilsTest {
         // The hostile content is preserved verbatim between the quotes (it is not
         // stripped — the point is it is inert inside single quotes).
         assertEquals("foo; rm -rf /", out.substring(1, out.length - 1))
+    }
+
+    @Test
+    fun `shQuote rejects a value containing a NUL byte`() {
+        // A NUL cannot survive execve: it silently truncates the argument at the syscall
+        // boundary, so "a\0b" reaches the shell as "a" and the rest of the command runs
+        // with a different (or missing) argument. Failing loudly is the only safe option —
+        // the caller can then reject the path instead of shipping a truncated command.
+        var thrown: Throwable? = null
+        try {
+            shQuote("a\u0000b")
+        } catch (e: Throwable) {
+            thrown = e
+        }
+        assertNotNull("shQuote must reject a NUL byte instead of truncating silently", thrown)
+        assertTrue(
+            "the failure should say why, got: $thrown",
+            thrown!!.message?.contains("NUL") == true,
+        )
+    }
+
+    @Test
+    fun `shQuote rejects a NUL byte anywhere in the value`() {
+        for (hostile in listOf("\u0000", "trailing\u0000", "\u0000leading", "a\u0000b\u0000c")) {
+            var thrown: Throwable? = null
+            try {
+                shQuote(hostile)
+            } catch (e: Throwable) {
+                thrown = e
+            }
+            assertNotNull("shQuote must reject NUL in '$hostile'", thrown)
+        }
+    }
+
+    @Test
+    fun `shQuote still accepts ordinary values including spaces and quotes`() {
+        assertEquals("'a b'", shQuote("a b"))
+        assertEquals("''", shQuote(""))
+        // A single quote inside a single-quoted shell word must close the quote, emit an
+        // escaped quote, and reopen: 'it'"'"'s'. The naive "'it's'" is NOT valid shell —
+        // it terminates the word at "it" and then parses `s` as a new token.
+        assertEquals("""'it'"'"'s'""", shQuote("it's"))
+        // A tab is a legal, non-truncating shell character and must not be rejected.
+        assertEquals("'a\tb'", shQuote("a\tb"))
     }
 
     // ── buildPushFilePlan ──

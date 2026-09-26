@@ -1,6 +1,8 @@
 package com.wuwaconfig.app.config
 
 import com.google.gson.Gson
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.util.writeAtomic
 import java.io.File
@@ -21,7 +23,8 @@ class ProfileStore(private val storeFile: File) {
     fun save(profile: PlayerProfile) {
         try {
             storeFile.writeAtomic(gson.toJson(profile))
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            LogRepository.add("ProfileStore: failed to persist ${storeFile.name}: ${e.message}", LogLevel.WARNING)
         }
     }
 }

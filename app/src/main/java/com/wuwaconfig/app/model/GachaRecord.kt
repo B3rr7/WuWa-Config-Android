@@ -30,30 +30,6 @@ enum class GachaPoolType(val type: String, val label: String) {
     }
 }
 
-@Deprecated("Use GachaPoolType enum instead", ReplaceWith("GachaPoolType.fromType(type)?.label ?: type"))
-data class GachaPool(
-    val type: String,
-    val label: String,
-) {
-    companion object {
-        @Deprecated("Use GachaPoolType.ALL instead")
-        val ALL =
-            listOf(
-                GachaPool("1", "Character Event"),
-                GachaPool("2", "Weapon Event"),
-                GachaPool("3", "Standard"),
-                GachaPool("4", "Beginner 1"),
-                GachaPool("5", "Beginner 2"),
-                GachaPool("6", "Weapon 2"),
-                GachaPool("7", "Character 2"),
-                GachaPool("8", "Standard 2"),
-                GachaPool("9", "Weapon 3"),
-                GachaPool("10", "Character 3"),
-                GachaPool("11", "Standard 3"),
-            )
-    }
-}
-
 data class GachaData(
     val records: List<GachaRecord> = emptyList(),
     val poolsWithData: List<String> = emptyList(),

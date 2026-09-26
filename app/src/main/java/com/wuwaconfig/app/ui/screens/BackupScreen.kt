@@ -30,6 +30,9 @@ import com.wuwaconfig.app.ui.theme.*
 
 private val ALL_INI_FILES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
 
+/** Shared formatter for backup rows; see the `remember` note at the use site. */
+private val BACKUP_STAMP_FMT = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupScreen(
@@ -48,11 +51,13 @@ fun BackupScreen(
     val backupFeedback by viewModel.backupFeedback.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Clear the feedback BEFORE showing: showSnackbar suspends for the full
+    // duration, so a second message arriving during that window cancelled this
+    // effect, leaving the first message un-cleared and re-displayed later.
     LaunchedEffect(backupFeedback) {
-        backupFeedback?.let {
-            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
-            viewModel.clearBackupFeedback()
-        }
+        val message = backupFeedback ?: return@LaunchedEffect
+        viewModel.clearBackupFeedback()
+        snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
     }
 
     GradientBackground {
@@ -307,7 +312,10 @@ private fun BackupManageCard(
     val isAuto = backup.type == "auto"
     val accent = if (isAuto) NeonAmber else NeonPurple
     val label = if (isAuto) "Auto" else "Manual"
-    val date = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(backup.timestamp))
+    // remember() so SimpleDateFormat is not constructed (pattern parse +
+    // Locale/Calendar lookup) on every recomposition of this list item. The
+    // shared instance is safe because Compose composes on a single thread.
+    val date = remember(backup.timestamp) { BACKUP_STAMP_FMT.format(java.util.Date(backup.timestamp)) }
 
     GlassCard(accentColor = accent) {
         Row(verticalAlignment = Alignment.CenterVertically) {

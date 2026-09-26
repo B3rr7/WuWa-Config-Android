@@ -1,7 +1,6 @@
 package com.wuwaconfig.app.ui.theme
 
 import android.app.Activity
-import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.LocalTextStyle
@@ -12,7 +11,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -22,7 +21,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Density
-import androidx.core.view.WindowCompat
 
 internal fun fontFamilyForName(name: String): FontFamily =
     when (name) {
@@ -36,6 +34,12 @@ internal fun fontFamilyForName(name: String): FontFamily =
 // ambient LocalTextStyle override leaves the typography styles (body/subtitle)
 // with fontFamily=null, so they keep the system font — wiring it here makes the
 // choice apply to titles, subtitles, body text, and quick-action labels alike.
+//
+// Do NOT "fix" the user-facing Size slider by adding fontSize here: this copy
+// deliberately only overrides fontFamily. Scaling is applied via the
+// LocalDensity override in WuWaConfigTheme (below), which is what actually makes
+// the Size slider affect styles that pin an explicit fontSize. Changing one
+// mechanism without the other will make them disagree.
 private fun typographyWithFont(family: FontFamily): androidx.compose.material3.Typography =
     Typography.copy(
         displayLarge = Typography.displayLarge.copy(fontFamily = family),
@@ -153,14 +157,37 @@ fun WuWaConfigTheme(
             onTertiaryContainer = tune(baseScheme.onTertiaryContainer),
         )
 
+    // Window/system-bar plumbing.
+    //
+    // The previous version ran a SideEffect after EVERY successful
+    // recomposition (i.e. every frame of a settings-slider drag) and called
+    // window.setBackgroundDrawable(), invalidating the window background and
+    // forcing a relayout each time. It also duplicated enableEdgeToEdge()
+    // (MainActivity) and did an UNGUARDED `(view.context as Activity)` cast
+    // that threw if the theme was composed outside an Activity.
+    //
+    // - setDecorFitsSystemWindows(false): dropped, enableEdgeToEdge() owns it.
+    // - setBackgroundDrawable(...): dropped, every screen paints its own
+    //   (transparent) Scaffold container over GradientBackground.
+    // - statusBarColor / navigationBarColor: deprecated no-ops on API 35+, so
+    //   they are only applied below that, and are keyed on the background so a
+    //   slider drag does not re-run them every frame.
     val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            WindowCompat.setDecorFitsSystemWindows(window, false)
+    val activity = view.context as? Activity
+    if (!view.isInEditMode && activity != null && Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+        // statusBarColor / navigationBarColor are deprecated no-ops on API 35+
+        // (the platform forces transparent system bars), but the app still
+        // needs them on API 26-34: enableEdgeToEdge() picks the status-bar icon
+        // polarity from the *system* theme, not the app's, so on a light system
+        // theme with a dark app theme the status bar would stay unreadable
+        // unless we paint it with the app background colour ourselves. Do NOT
+        // delete these — the SDK_INT guard above already makes them no-ops
+        // where they are meaningless. Narrowly suppressed, not migrated.
+        @Suppress("DEPRECATION")
+        LaunchedEffect(colorScheme.background) {
+            val window = activity.window
             window.statusBarColor = colorScheme.background.toArgb()
             window.navigationBarColor = colorScheme.background.toArgb()
-            window.setBackgroundDrawable(ColorDrawable(colorScheme.background.toArgb()))
         }
     }
 
@@ -177,7 +204,6 @@ fun WuWaConfigTheme(
         val scaledDensity = Density(density.density, scale)
         CompositionLocalProvider(
             LocalDensity provides scaledDensity,
-            LocalNeon provides neon,
             LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = family),
         ) {
             content()

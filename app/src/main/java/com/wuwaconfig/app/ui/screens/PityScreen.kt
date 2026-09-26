@@ -24,7 +24,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
-import com.wuwaconfig.app.model.GachaPool
 import com.wuwaconfig.app.model.GachaPoolType
 import com.wuwaconfig.app.model.GachaRecord
 import com.wuwaconfig.app.model.PityPrediction
@@ -37,6 +36,7 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
 import com.wuwaconfig.app.ui.theme.*
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +52,9 @@ fun PityScreen(
     val gachaLoading by viewModel.gachaLoading.collectAsStateWithLifecycle()
     val gachaHistory by viewModel.gachaHistory.collectAsStateWithLifecycle()
     val gachaError by viewModel.gachaError.collectAsStateWithLifecycle()
+    // Pre-grouped in the ViewModel on gachaData; the screen used to filter the
+    // whole record list once per pool inside the LazyColumn content lambda.
+    val recordsByPool by viewModel.recordsByPool.collectAsStateWithLifecycle()
 
     GradientBackground {
         Scaffold(
@@ -175,12 +178,13 @@ fun PityScreen(
                     }
                 }
 
-                if (gachaData != null) {
-                    item { GachaSummary(gachaData!!) }
-                    if (gachaData!!.predictions.isNotEmpty()) {
-                        item { PredictionSection(gachaData!!.predictions) }
+                val data = gachaData
+                if (data != null) {
+                    item { GachaSummary(data) }
+                    if (data.predictions.isNotEmpty()) {
+                        item { PredictionSection(data.predictions) }
                     }
-                    if (gachaData!!.predictions.isEmpty()) {
+                    if (data.predictions.isEmpty()) {
                         item {
                             GlassCard(accentColor = NeonAmber) {
                                 Text(
@@ -201,10 +205,9 @@ fun PityScreen(
                         )
                     }
                     for (poolType in GachaPoolType.ALL) {
-                        val poolRecords = gachaData!!.records.filter { it.cardPoolType == poolType.type }
+                        val poolRecords = recordsByPool[poolType.type].orEmpty()
                         if (poolRecords.isEmpty()) continue
-                        val pool = GachaPool(poolType.type, poolType.label)
-                        item { PoolHistoryHeader(pool, poolRecords) }
+                        item { PoolHistoryHeader(poolType, poolRecords) }
                         items(poolRecords.size, key = { idx -> "${poolType.type}-$idx" }) { idx -> RecordRow(poolRecords[idx]) }
                         item { Spacer(Modifier.height(8.dp)) }
                     }
@@ -312,7 +315,7 @@ private fun GachaSummary(data: GachaData) {
 
 @Composable
 private fun PoolHistoryHeader(
-    pool: GachaPool,
+    pool: GachaPoolType,
     records: List<GachaRecord>,
 ) {
     val totalPulls = records.sumOf { it.count.coerceAtLeast(1) }
@@ -619,12 +622,12 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
     }
 }
 
-@Composable
+// NOT @Composable: these read no composition state, so the annotation only made
+// every call site an (incorrect) composable call.
 private fun formatCost(cost: Long): String {
     return formatNumber(cost) + " Astrites"
 }
 
-@Composable
 private fun formatNumber(number: Long): String {
     return if (number >= 10000) {
         "%.1fK".format(number / 1000.0).replace(".0", "")
@@ -706,7 +709,16 @@ private fun HistoryBanner(
     entry: GachaHistoryEntry,
     viewModel: GachaViewModel,
 ) {
-    val remainingHrs = viewModel.gachaHistoryRemainingHours()
+    // System.currentTimeMillis() must not be read during composition — it is an
+    // impure, non-snapshot read, so the countdown never ticked. Refresh the
+    // ViewModel's StateFlow on a timer instead.
+    LaunchedEffect(entry.expiresAt) {
+        while (true) {
+            viewModel.refreshGachaHistoryRemainingHours()
+            delay(60_000)
+        }
+    }
+    val remainingHrs by viewModel.gachaHistoryRemainingHours.collectAsStateWithLifecycle()
     GlassCard(accentColor = NeonCyan) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.History, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(20.dp))

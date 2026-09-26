@@ -1,6 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <lint>
-    <!-- ShellUserService extends Binder (Shizuku UserService pattern), not Service -->
+    <!-- ShellUserService extends android.os.Binder (the Shizuku UserService
+         pattern), not android.app.Service, so it has no instantiable
+         no-arg-constructor contract and lint's Instantiated check fires on it
+         even though the Shizuku host DOES instantiate it reflectively via
+         ComponentName.
+
+         The ignore path MUST be the manifest, not the Kotlin source. Lint anchors
+         this issue to the `<service>` declaration in AndroidManifest.xml, so a
+         source-scoped ignore silently fails to suppress anything — and because
+         `Instantiatable` is a lint-vital (release) check, that turns into a hard
+         `assembleRelease` failure:
+
+             AndroidManifest.xml:85: Error: ShellUserService must extend
+             android.app.Service [Instantiatable]
+
+         This was verified by building both ways. The scope is therefore broader
+         than ideal (it disables the check for every declared component), but
+         narrowing it is not possible while the report is manifest-anchored. If
+         the service is ever migrated to a real android.app.Service subclass, this
+         suppression should be deleted outright rather than re-scoped. -->
     <issue id="Instantiatable">
         <ignore path="*/AndroidManifest.xml" />
     </issue>

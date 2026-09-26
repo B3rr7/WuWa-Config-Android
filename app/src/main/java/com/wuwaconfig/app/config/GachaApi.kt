@@ -4,7 +4,6 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.wuwaconfig.app.model.GachaApiResponse
 import com.wuwaconfig.app.model.GachaData
-import com.wuwaconfig.app.model.GachaPool
 import com.wuwaconfig.app.model.GachaPoolType
 import com.wuwaconfig.app.model.GachaRecord
 import com.wuwaconfig.app.model.PityPrediction
@@ -150,12 +149,11 @@ object GachaApi {
 
                 val isCharacterBanner = poolType in CHARACTER_POOLS
                 val isWeaponBanner = poolType in WEAPON_POOLS
-                val pool = GachaPool(poolType.type, poolType.label)
                 val pred =
                     if (isCharacterBanner) {
-                        calcCharacterPrediction(poolRecords, pool, standardFiveStars)
+                        calcCharacterPrediction(poolRecords, poolType, standardFiveStars)
                     } else if (isWeaponBanner) {
-                        calcWeaponPrediction(poolRecords, pool)
+                        calcWeaponPrediction(poolRecords, poolType)
                     } else {
                         null
                     }
@@ -222,7 +220,12 @@ object GachaApi {
 
             val code = (map["code"] as? Double)?.toInt() ?: -1
             val message = map["message"] as? String ?: ""
-            val dataRaw = map["data"] as? List<Map<String, Any?>> ?: emptyList()
+            // Checked narrowing: `as? List<Map<String, Any?>>` is an unchecked
+            // (erased) cast, so a malformed/hostile payload of e.g. List<String>
+            // would pass the `as?` and then throw ClassCastException inside the
+            // loop below. Narrow to List<*> first, then keep only real maps, so
+            // bad input still degrades to "no records" instead of crashing.
+            val dataRaw = (map["data"] as? List<*>)?.filterIsInstance<Map<String, Any?>>() ?: emptyList()
 
             val records =
                 dataRaw.mapNotNull { item ->
@@ -361,7 +364,7 @@ object GachaApi {
 
     internal fun calcCharacterPrediction(
         records: List<GachaRecord>,
-        pool: GachaPool,
+        pool: GachaPoolType,
         standardFiveStars: Set<String>,
     ): PityPrediction {
         val HARD_PITY = 80
@@ -500,7 +503,7 @@ object GachaApi {
 
     internal fun calcWeaponPrediction(
         records: List<GachaRecord>,
-        pool: GachaPool,
+        pool: GachaPoolType,
     ): PityPrediction {
         // Empirically, Wuthering Waves uses the same hard pity (80) and soft-pity
         // threshold (66) for *all* banner types — confirmed by the wuwatracker.com

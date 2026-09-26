@@ -242,35 +242,44 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun loadBattleStats() {
-        if (_battleStatsLoading.value || !connected) return
-        ops.launchBackendOp(managesBusyFlag = false) {
-            _battleStats.value = null
-            _battleStatsLoading.value = true
-            _battleStatsProgress.value = 0
-            addLog("Reading Client.log for battle stats...")
-            try {
-                val result = configManager.readBattleStats(onProgress = { _battleStatsProgress.value = it })
-                if (result.isSuccess) {
-                    _battleStats.value = result.getOrThrow()
-                    addLog("Battle stats loaded")
-                } else {
-                    addLog("FAILED: ${result.exceptionOrNull()?.message}")
+        if (_battleStatsLoading.value || !connected || ops.isApplying.value) return
+        // Same shape as analyzeClientLogBytes: raise the global busy flag up
+        // front so Deploy/Clean/Backup cannot be started mid-read.
+        ops.setApplying(true)
+        _battleStats.value = null
+        _battleStatsLoading.value = true
+        _battleStatsProgress.value = 0
+        val job =
+            ops.launchBackendOp(managesBusyFlag = true) {
+                addLog("Reading Client.log for battle stats...")
+                try {
+                    val result = configManager.readBattleStats(onProgress = { _battleStatsProgress.value = it })
+                    if (result.isSuccess) {
+                        _battleStats.value = result.getOrThrow()
+                        addLog("Battle stats loaded")
+                    } else {
+                        addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                    }
+                } catch (e: SecurityException) {
+                    Log.e("LogInsights", "loadBattleStats permission denied", e)
+                    addLog("CRASH: permission denied: ${e.message}")
+                } catch (e: java.io.IOException) {
+                    Log.e("LogInsights", "loadBattleStats I/O error", e)
+                    addLog("CRASH: I/O error: ${e.message}")
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    addLog("CRASH: ${e.message}")
+                    Log.e("LogInsights", "loadBattleStats crashed", e)
                 }
-            } catch (e: SecurityException) {
-                Log.e("LogInsights", "loadBattleStats permission denied", e)
-                addLog("CRASH: permission denied: ${e.message}")
-            } catch (e: java.io.IOException) {
-                Log.e("LogInsights", "loadBattleStats I/O error", e)
-                addLog("CRASH: I/O error: ${e.message}")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                addLog("CRASH: ${e.message}")
-                Log.e("LogInsights", "loadBattleStats crashed", e)
-            } finally {
-                _battleStatsProgress.value = 0
-                _battleStatsLoading.value = false
             }
+        // Toggles live out here (not inside the DeviceOps coroutine) so the
+        // busy-path early return cannot clobber them — invokeOnCompletion runs
+        // for the dropped job too, which is exactly when the reset is needed.
+        job.invokeOnCompletion {
+            _battleStatsProgress.value = 0
+            _battleStatsLoading.value = false
+            ops.setApplying(false)
         }
     }
 }

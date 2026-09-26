@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -24,7 +25,9 @@ fun SetupScreen(
     viewModel: MainViewModel,
     onComplete: () -> Unit,
 ) {
-    var backupDir by remember { mutableStateOf(viewModel.backupStorageDir) }
+    // rememberSaveable so the in-progress path survives process death. The
+    // initialiser now reads an in-memory StateFlow instead of SharedPreferences.
+    var backupDir by rememberSaveable { mutableStateOf(viewModel.backupStorageDir.value) }
 
     GradientBackground {
         Scaffold(

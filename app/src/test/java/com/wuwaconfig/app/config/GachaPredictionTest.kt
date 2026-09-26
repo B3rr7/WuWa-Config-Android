@@ -1,6 +1,5 @@
 package com.wuwaconfig.app.config
 
-import com.wuwaconfig.app.model.GachaPool
 import com.wuwaconfig.app.model.GachaPoolType
 import com.wuwaconfig.app.model.GachaRecord
 import org.junit.Assert.assertEquals
@@ -10,8 +9,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GachaPredictionTest {
-    private val characterPool = GachaPool(GachaPoolType.CHARACTER_EVENT.type, GachaPoolType.CHARACTER_EVENT.label)
-    private val weaponPool = GachaPool(GachaPoolType.WEAPON_EVENT.type, GachaPoolType.WEAPON_EVENT.label)
+    private val characterPool = GachaPoolType.CHARACTER_EVENT
+    private val weaponPool = GachaPoolType.WEAPON_EVENT
     private val standardFives = setOf("Jiyan", "Yinlin")
 
     private fun rec(

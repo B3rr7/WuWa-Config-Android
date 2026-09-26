@@ -206,7 +206,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val timestamp = HEADER_TIME_FMT.format(LocalDateTime.now())
         val device = (logInfo.deviceModel ?: "Generic").take(30).padEnd(30)
         val gpu = (logInfo.gpu ?: "Generic GPU").take(30).padEnd(30)
-        val presetName = preset.uppercase().take(30).padEnd(30)
+        val presetName = preset.uppercase(Locale.ROOT).take(30).padEnd(30)
         return listOf(
             "; ┌───[ P42 TOOLKIT :: PERFORMANCE CONFIG ]──────────────────────────────────┐",
             "; │                                                                          │",
@@ -320,21 +320,29 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         hardware: String,
         allowRestrictedCvars: Boolean,
     ): PostProcessedIni {
-        val finalEngine = if (allowRestrictedCvars) engine else ForbiddenCvars.stripForbiddenCvars(engine)
-        val finalDp = if (allowRestrictedCvars) deviceProfiles else ForbiddenCvars.stripForbiddenCvars(deviceProfiles)
-        val finalGus = if (allowRestrictedCvars) gameUserSettings else ForbiddenCvars.stripForbiddenCvars(gameUserSettings)
-        val finalSc = if (allowRestrictedCvars || scalability.isBlank()) scalability else ForbiddenCvars.stripForbiddenCvars(scalability)
-        val finalHw = if (allowRestrictedCvars || hardware.isBlank()) hardware else ForbiddenCvars.stripForbiddenCvars(hardware)
-        if (!allowRestrictedCvars) {
-            val strippedCount =
-                engine.lines().size - finalEngine.lines().size +
-                    deviceProfiles.lines().size - finalDp.lines().size +
-                    gameUserSettings.lines().size - finalGus.lines().size +
-                    scalability.lines().size - finalSc.lines().size +
-                    hardware.lines().size - finalHw.lines().size
-            if (strippedCount > 0) {
-                LogRepository.add("ConfigGenerator: stripped $strippedCount forbidden CVar(s) (restricted CVars OFF)", LogLevel.WARNING)
-            }
+        val stripped = mutableListOf<String>()
+        fun strip(text: String, restricted: Boolean): String {
+            if (restricted) return text
+            val (out, removed) = ForbiddenCvars.stripForbiddenCvarsWithReport(text)
+            stripped += removed
+            return out
+        }
+        val finalEngine = strip(engine, allowRestrictedCvars)
+        val finalDp = strip(deviceProfiles, allowRestrictedCvars)
+        val finalGus = strip(gameUserSettings, allowRestrictedCvars)
+        val finalSc = strip(scalability, allowRestrictedCvars || scalability.isBlank())
+        val finalHw = strip(hardware, allowRestrictedCvars || hardware.isBlank())
+        if (stripped.isNotEmpty()) {
+            // Count the keys actually removed rather than a line-count delta. The
+            // delta form was wrong twice over: it went negative for small strip
+            // counts, and it conflated ForbiddenCvars removals with any other
+            // line-count change in the pipeline.
+            LogRepository.add(
+                "ConfigGenerator: stripped ${stripped.size} forbidden CVar(s) " +
+                    "(restricted CVars OFF): ${stripped.take(8).joinToString()}" +
+                    if (stripped.size > 8) " … +${stripped.size - 8} more" else "",
+                LogLevel.WARNING,
+            )
         }
         return PostProcessedIni(finalEngine, finalDp, finalGus, finalSc, finalHw)
     }
@@ -811,7 +819,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         lines.add("r.Kuro.Foliage.MobileFarCullDistanceMax=${(grassBase * 3.2).toInt()}")
         lines.add("foliage.DensityScale=${if (dt.isHighEnd && p.q1) 1.5 else if (p.q0) 1.0 else 0.6}")
         lines.add("grass.DensityScale=${if (dt.isHighEnd && p.q1) 1.5 else if (p.q0) 1.0 else 0.6}")
-        lines.add("foliage.LODDistanceScale=${"%.2f".format(foliageLod)}")
+        lines.add("foliage.LODDistanceScale=${String.format(Locale.ROOT, "%.2f", foliageLod)}")
         lines.add("")
         return lines
     }
@@ -1004,11 +1012,11 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             lines.add("r.LandscapeLOD0ScreenSizeScale=3")
             lines.add("r.MinScreenRadiusForLights=0.06")
             lines.add("r.MinScreenRadiusForCSMDepth=0.03")
-            lines.add("r.StaticMeshLODDistanceScale=${"%.2f".format(1.0 + p.lod_bias * 0.1)}")
+            lines.add("r.StaticMeshLODDistanceScale=${String.format(Locale.ROOT, "%.2f", 1.0 + p.lod_bias * 0.1)}")
             lines.add("r.ScreenSizeCullRatioFactor=5.0")
             lines.add("foliage.DensityScale=0.5")
             lines.add("grass.DensityScale=0.4")
-            lines.add("foliage.LODDistanceScale=${"%.2f".format(0.6 + p.lod_bias * 0.1)}")
+            lines.add("foliage.LODDistanceScale=${String.format(Locale.ROOT, "%.2f", 0.6 + p.lod_bias * 0.1)}")
             lines.add("")
             lines.add("; Thermal, bloom, volumetric clouds & misc")
             lines.add("r.Kuro.KuroEnableFFTBloom=0")
@@ -1649,7 +1657,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
             "+CVars=r.Streaming.MipBias=${if (p.mipbias < 0) 0 else p.mipbias}",
             "",
             "; Foliage LOD — preset-tuned value shared with Engine.ini",
-            "+CVars=foliage.LODDistanceScale=${"%.2f".format(p.flod.coerceIn(0.3, 5.0))}",
+            "+CVars=foliage.LODDistanceScale=${String.format(Locale.ROOT, "%.2f", p.flod.coerceIn(0.3, 5.0))}",
         ).joinToString("\n")
     }
 

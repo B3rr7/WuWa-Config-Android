@@ -37,7 +37,11 @@ class HashMonitor(
     // (deploy + INI-edit save) can push the wrong content.
     companion object {
         private val hashMutex = Mutex()
-        private val HASH_SECTION_REGEX = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
+
+        // Single owner of the "[*.ini]" section-header pattern. IniHashUtil.extractHash
+        // used to keep a byte-identical private copy, so a fix to one silently
+        // diverged from the other.
+        internal val HASH_SECTION_REGEX = Regex("^\\[[A-Za-z0-9_\\-]+\\.ini\\]$", RegexOption.IGNORE_CASE)
     }
 
     data class HashFileSnapshot(
@@ -61,23 +65,32 @@ class HashMonitor(
     suspend fun refreshConfigHashes(incrementModifyCount: Boolean = false): Result<String> {
         if (!hashMonitorEnabled()) {
             LogRepository.add("ConfigManager: HashMonitor disabled — skipping hash sync", LogLevel.WARNING)
-            return Result.success("HashMonitor disabled — skipped")
+            // Success, but unambiguous: nothing was written and the drift detector is
+            // OFF, so callers must not read this as "hashes verified in sync".
+            return Result.success("Hash sync NOT performed: HashMonitor is disabled (drift detection is off)")
         }
         if (backend is SafBackend) {
             // SAF cannot run `mv` (no shell), so the hash file is never written here.
-            // Surface it as a warning rather than a silent Result.success: an app that
-            // silently skips hash sync on SAF means the drift detector is off and the
-            // user gets no signal that config changes may go unnoticed.
-            LogRepository.add(
-                "ConfigManager: HashMonitor skipped — SAF backend cannot write the hash file via shell mv",
-                LogLevel.WARNING,
-            )
-            return Result.success("HashMonitor skipped (SAF)")
+            // Report it as a FAILURE, not a success: every caller treats isSuccess as
+            // "hashes are in sync", so returning success here told the deploy pipeline
+            // the drift detector is live when nothing was ever written.
+            val message = "Hash sync unavailable on the SAF backend (no shell `mv` to replace the hash file atomically)"
+            LogRepository.add("ConfigManager: $message", LogLevel.WARNING)
+            return Result.failure(Exception(message))
         }
         return hashMutex.withLock {
             withContext(Dispatchers.IO) {
                 try {
                     LogRepository.add("ConfigManager: refreshing config hashes")
+
+                    // HASH_MONITOR_PATH lives under .../Client/Client/Config/Kuro/, which
+                    // is a DIFFERENT directory from GamePaths.TARGET_DIR (.../Saved/Config/
+                    // Android) — the only directory ConfigManager ever mkdir -p's. On a
+                    // fresh install Config/Kuro/ does not exist, every push fails all
+                    // retries, and the whole hash-monitor feature is silently dead.
+                    val hashDir = GamePaths.HASH_MONITOR_PATH.substringBeforeLast("/", "")
+                    backend.ensureDirectoryExists(hashDir).getOrThrow()
+
                     val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
 
                     val existingHashContent = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
@@ -87,10 +100,18 @@ class HashMonitor(
                     val updates = mutableMapOf<String, Map<String, String>>()
                     for (name in GamePaths.MONITORED_FILES) {
                         val hashResult = computeIniHash(name)
+                        // An empty `Hash=` sentinel would be persisted as a real value
+                        // and permanently mark the file as drifted (every later sync
+                        // compares "" != actualHash). Abort the whole refresh instead.
                         if (hashResult.isFailure) {
-                            LogRepository.add("ConfigManager: hash computation FAILED for $name, using empty hash", LogLevel.ERROR)
+                            LogRepository.add(
+                                "ConfigManager: hash computation FAILED for $name — aborting refresh, hash file left untouched",
+                                LogLevel.ERROR,
+                            )
+                            val cause = hashResult.exceptionOrNull() ?: Exception("hash computation failed for $name")
+                            return@withContext Result.failure(Exception("Config hash refresh aborted: cannot read $name: ${cause.message}"))
                         }
-                        val hash = hashResult.getOrDefault("")
+                        val hash = hashResult.getOrThrow()
 
                         var prevCount: Int? = null
                         var prevTime = ""
@@ -121,6 +142,9 @@ class HashMonitor(
 
                     val patchedLines = mutableListOf<String>()
                     var currentSection = ""
+                    // Keyed by BARE KEY, not by the full "key=value" line: the hash
+                    // file is rewritten by the game and can contain two differing
+                    // `Hash=` lines under the same section, which line-dedup keeps.
                     val seenKeys = mutableSetOf<String>()
 
                     fun flushPendingSection(name: String) {
@@ -128,7 +152,9 @@ class HashMonitor(
                         for (lineKey in listOf("Hash", "ModifyCount", "LastModifiedTime")) {
                             val value = patch[lineKey] ?: continue
                             val newLine = "$lineKey=$value"
-                            if (seenKeys.add(newLine)) patchedLines.add(newLine)
+                            // Bare key, so flushPendingSection and dedupLine share one
+                            // namespace (cleared per section by the header branch).
+                            if (seenKeys.add(lineKey)) patchedLines.add(newLine)
                         }
                     }
 
@@ -137,7 +163,7 @@ class HashMonitor(
                         val eq = trimmed.indexOf('=')
                         if (eq <= 0) return false
                         val key = trimmed.substring(0, eq).trim()
-                        val isDuplicate = key in listOf("Hash", "ModifyCount", "LastModifiedTime") && !seenKeys.add(trimmed)
+                        val isDuplicate = key in listOf("Hash", "ModifyCount", "LastModifiedTime") && !seenKeys.add(key)
                         if (isDuplicate) {
                             LogRepository.add("ConfigManager: dropped duplicate $key in section [$currentSection]", LogLevel.WARNING)
                         }
@@ -162,8 +188,11 @@ class HashMonitor(
                                     val replacement = updates[currentSection]?.get(key)
                                     if (replacement != null) {
                                         val indent = line.takeWhile { it == ' ' || it == '\t' }
-                                        val newLine = "$indent$key=$replacement"
-                                        if (seenKeys.add(newLine)) patchedLines.add(newLine)
+                                        // Same bare-key namespace as dedupLine /
+                                        // flushPendingSection: a rewritten `Hash=` must
+                                        // claim the "Hash" key so a second one in the
+                                        // same section is recognised as a duplicate.
+                                        if (seenKeys.add(key)) patchedLines.add("$indent$key=$replacement")
                                     } else if (!dedupLine(trimmed)) {
                                         patchedLines.add(line)
                                     }
@@ -255,16 +284,23 @@ class HashMonitor(
         }
     }
 
+    // Snapshot / count reads take the SAME app-wide mutex that refreshConfigHashes
+    // holds, so they can never observe the hash file mid-replacement. The mutex is
+    // never held across refreshConfigHashes() itself (reconcileAfterModify does
+    // exactly that) — the unlocked read below always completes before the locked
+    // refresh starts.
     suspend fun snapshotHashFile(): Result<HashFileSnapshot> =
-        withContext(Dispatchers.IO) {
-            val result = backend.readFile(GamePaths.HASH_MONITOR_PATH)
-            if (result.isFailure) {
-                LogRepository.add("ConfigManager: hash snapshot FAILED: ${result.exceptionOrNull()?.message}", LogLevel.ERROR)
-                return@withContext Result.failure(result.exceptionOrNull()!!)
+        hashMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val result = backend.readFile(GamePaths.HASH_MONITOR_PATH)
+                if (result.isFailure) {
+                    LogRepository.add("ConfigManager: hash snapshot FAILED: ${result.exceptionOrNull()?.message}", LogLevel.ERROR)
+                    return@withContext Result.failure(result.exceptionOrNull()!!)
+                }
+                val content = result.getOrThrow()
+                LogRepository.add("ConfigManager: hash snapshot taken (${content.length} chars)")
+                Result.success(HashFileSnapshot(content, System.currentTimeMillis()))
             }
-            val content = result.getOrThrow()
-            LogRepository.add("ConfigManager: hash snapshot taken (${content.length} chars)")
-            Result.success(HashFileSnapshot(content, System.currentTimeMillis()))
         }
 
     suspend fun reconcileAfterModify(snapshot: HashFileSnapshot?): Result<String> {
@@ -290,27 +326,29 @@ class HashMonitor(
     }
 
     suspend fun readConfigModifyCounts(): Result<List<ConfigHashInfo>> =
-        withContext(Dispatchers.IO) {
-            try {
-                val content = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
-                if (content.isBlank()) return@withContext Result.failure(Exception("No hash file on device"))
-                val monitoredNames = GamePaths.MONITORED_FILES.toSet()
-                val results = mutableListOf<ConfigHashInfo>()
-                var currentFile = ""
-                for (line in content.lines()) {
-                    val trimmed = line.trim()
-                    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                        currentFile = trimmed.removePrefix("[").removeSuffix("]")
-                    } else if (trimmed.startsWith("ModifyCount=") && currentFile.isNotEmpty() && currentFile in monitoredNames) {
-                        val count = trimmed.removePrefix("ModifyCount=").toIntOrNull() ?: 0
-                        results.add(ConfigHashInfo(currentFile, count))
+        hashMutex.withLock {
+            withContext(Dispatchers.IO) {
+                try {
+                    val content = backend.readFile(GamePaths.HASH_MONITOR_PATH).getOrDefault("")
+                    if (content.isBlank()) return@withContext Result.failure(Exception("No hash file on device"))
+                    val monitoredNames = GamePaths.MONITORED_FILES.toSet()
+                    val results = mutableListOf<ConfigHashInfo>()
+                    var currentFile = ""
+                    for (line in content.lines()) {
+                        val trimmed = line.trim()
+                        if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                            currentFile = trimmed.removePrefix("[").removeSuffix("]")
+                        } else if (trimmed.startsWith("ModifyCount=") && currentFile.isNotEmpty() && currentFile in monitoredNames) {
+                            val count = trimmed.removePrefix("ModifyCount=").toIntOrNull() ?: 0
+                            results.add(ConfigHashInfo(currentFile, count))
+                        }
                     }
+                    if (results.isEmpty()) return@withContext Result.failure(Exception("No modify counts found"))
+                    Result.success(results)
+                } catch (e: Exception) {
+                    LogRepository.add("ConfigManager: failed to read modify counts: ${e.message}", LogLevel.ERROR)
+                    Result.failure(e)
                 }
-                if (results.isEmpty()) return@withContext Result.failure(Exception("No modify counts found"))
-                Result.success(results)
-            } catch (e: Exception) {
-                LogRepository.add("ConfigManager: failed to read modify counts: ${e.message}", LogLevel.ERROR)
-                Result.failure(e)
             }
         }
 }

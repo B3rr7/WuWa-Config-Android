@@ -1,3 +1,4 @@
+import org.gradle.api.GradleException
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -5,6 +6,70 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ktlint)
 }
+
+// Keys that must ALL be present for a release build to be signable.
+val RELEASE_SIGNING_KEYS = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+val RELEASE_SIGNING_ENV_VARS = listOf("STORE_FILE", "STORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")
+
+val RELEASE_SIGNING_HELP =
+    """
+    |Release signing material is missing — refusing to build a release APK.
+    |
+    |Provide it one of two ways:
+    |  1. Create <root>/keystore.properties (gitignored, never commit it) with all four keys:
+    |       storeFile=<path to your .jks>
+    |       storePassword=...
+    |       keyAlias=...
+    |       keyPassword=...
+    |  2. Export the environment variables instead:
+    |       STORE_FILE, STORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+    |
+    |There is no bundled fallback keystore on purpose: silently signing with a
+    |key checked into the repo directory would produce a release APK that
+    |UpdateManager's certificate check accepts and offers to every user.
+    """.trimMargin()
+
+val keystoreProps =
+    rootProject.file("keystore.properties")
+        .let { f ->
+            if (!f.exists()) {
+                emptyMap()
+            } else {
+                f.readLines().mapNotNull { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.startsWith("#") || trimmed.isEmpty()) {
+                        null
+                    } else {
+                        val eq = trimmed.indexOf('=')
+                        if (eq > 0) {
+                            trimmed.substring(0, eq).trim() to trimmed.substring(eq + 1).trim()
+                        } else {
+                            null
+                        }
+                    }
+                }.toMap()
+            }
+        }
+
+// Exactly two supported mechanisms, in priority order:
+//   1. <root>/keystore.properties with ALL FOUR keys:
+//        storeFile, storePassword, keyAlias, keyPassword
+//   2. Environment variables (all four):
+//        STORE_FILE, STORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+//
+// There is deliberately NO fallback keystore. Previously an absent
+// keystore.properties silently fell back to the root release.jks, so a copy of
+// the repo directory could produce an APK that passes UpdateManager's
+// certificate check and gets offered to every user — the "release needs
+// signing" failure mode never fired.
+val hasReleaseSigningMaterial =
+    RELEASE_SIGNING_KEYS.all { key -> keystoreProps.containsKey(key) } ||
+        RELEASE_SIGNING_ENV_VARS.all { envKey -> !System.getenv(envKey).isNullOrBlank() }
+
+val releaseStorePath = keystoreProps["storeFile"] ?: System.getenv("STORE_FILE")
+val releaseStorePassword = keystoreProps["storePassword"] ?: System.getenv("STORE_PASSWORD")
+val releaseKeyAlias = keystoreProps["keyAlias"] ?: System.getenv("KEY_ALIAS")
+val releaseKeyPassword = keystoreProps["keyPassword"] ?: System.getenv("KEY_PASSWORD")
 
 android {
     namespace = "com.wuwaconfig.app"
@@ -24,38 +89,26 @@ android {
         localeFilters.add("en")
     }
 
-    val keystoreProps =
-        rootProject.file("keystore.properties")
-            .let { f ->
-                if (!f.exists()) {
-                    emptyMap()
-                } else {
-                    f.readLines().mapNotNull { line ->
-                        val trimmed = line.trim()
-                        if (trimmed.startsWith("#") || trimmed.isEmpty()) {
-                            null
-                        } else {
-                            val eq = trimmed.indexOf('=')
-                            if (eq > 0) {
-                                trimmed.substring(0, eq).trim() to trimmed.substring(eq + 1).trim()
-                            } else {
-                                null
-                            }
-                        }
-                    }.toMap()
-                }
-            }
-
     signingConfigs {
         create("release") {
-            storeFile = rootProject.file(keystoreProps.getOrElse("storeFile") { "release.jks" })
-            storePassword = keystoreProps.getOrElse("storePassword") { System.getenv("STORE_PASSWORD") ?: "" }
-            keyAlias = keystoreProps.getOrElse("keyAlias") { System.getenv("KEY_ALIAS") ?: "" }
-            keyPassword = keystoreProps.getOrElse("keyPassword") { System.getenv("KEY_PASSWORD") ?: "" }
+            // Left null when no material is available — the gate below turns
+            // that into a build error, but only for release builds.
+            if (releaseStorePath != null) storeFile = rootProject.file(releaseStorePath)
+            storePassword = releaseStorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
         }
     }
 
     buildTypes {
+        debug {
+            // A locally-built debug APK must not silently replace the installed
+            // release: a distinct applicationId gets its own filesDir and
+            // SharedPreferences, and a debug-signed build is (correctly)
+            // refused by UpdateManager's cert check against a release install,
+            // and vice versa.
+            applicationIdSuffix = ".debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -117,6 +170,28 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 }
+
+// Fail loudly on a release build with no signing material — but ONLY when a
+// release variant is actually part of THIS build, so assembleDebug,
+// testDebugUnitTest, ktlintCheck and IDE sync are all unaffected.
+// whenReady() merely registers a listener (it does not force the graph to be
+// computed), and the graph is empty for tooling/model builds, so registering
+// this at configuration time is free.
+//
+// The explicit org.gradle.api.Action<...TaskExecutionGraph> type is required: the
+// Kotlin DSL otherwise resolves the lambda against Gradle's Groovy Closure
+// overload and fails to compile with a Closure/Function type mismatch. In Gradle 9
+// Action<T> is a `fun interface` whose SAM is a RECEIVER lambda (`T.() -> Unit`),
+// hence `this.allTasks` rather than a named `graph` parameter. The interface moved
+// from org.gradle.execution.plan to org.gradle.api.execution in Gradle 9.
+gradle.taskGraph.whenReady(
+    org.gradle.api.Action<org.gradle.api.execution.TaskExecutionGraph> {
+        val releaseRequested = allTasks.any { it.name.contains("Release", ignoreCase = true) }
+        if (releaseRequested && !hasReleaseSigningMaterial) {
+            throw GradleException(RELEASE_SIGNING_HELP)
+        }
+    },
+)
 
 dependencies {
     val composeBom = platform(libs.compose.bom)

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import android.os.Environment
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -25,7 +26,11 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
@@ -54,6 +59,8 @@ import com.wuwaconfig.app.ui.screens.SettingsScreen
 import com.wuwaconfig.app.ui.screens.SetupScreen
 import com.wuwaconfig.app.ui.screens.TermsScreen
 import com.wuwaconfig.app.ui.screens.UserGuideScreen
+import com.wuwaconfig.app.ui.components.BackgroundSettings
+import com.wuwaconfig.app.ui.components.LocalBackgroundSettings
 import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import com.wuwaconfig.app.ui.theme.setNeonSaturation
 
@@ -63,11 +70,21 @@ class MainActivity : ComponentActivity() {
             initExternalBackupDir()
         }
 
+    // The self-updater needs the per-app "allow from this source" grant on API 26+.
+    // SettingsViewModel cannot call startActivity, so it emits a one-shot event and
+    // retries the install itself once the user comes back from this screen.
+    private val installPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            settingsViewModel.onInstallPermissionResult()
+        }
+
     override fun onDestroy() {
         super.onDestroy()
         if (isFinishing) {
             // Only stop the foreground service here — DeployHistoryViewModel.onCleared
-            // already disconnects the backend (and runs socket close off the main thread).
+            // already disconnects the backend, and that teardown is dispatched onto
+            // its own IO scope (onCleared() itself runs on the main thread, and for
+            // AdbBackend disconnect() is a blocking socket close).
             try {
                 stopService(Intent(this, AdbConnectionService::class.java))
             } catch (_: Exception) {
@@ -78,16 +95,51 @@ class MainActivity : ComponentActivity() {
     private val deployHistoryViewModel: DeployHistoryViewModel by viewModels()
     private val backupViewModel: BackupViewModel by viewModels()
     private val logInsightsViewModel: LogInsightsViewModel by viewModels()
+    private val settingsViewModel: SettingsViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // FLAG_SECURE: block screenshots AND the recents-task thumbnail.
+        //
+        // Without it, SystemUI captures every screen and (on some OEM builds) mirrors
+        // that thumbnail to cloud recents-sync. The screens render a gacha Convene URL
+        // whose fragment carries `record_id` (a bearer credential for the
+        // gacha-history endpoint), the player UID/region/level, shell command strings,
+        // and the wireless-ADB host:port. App-wide rather than per-screen so the
+        // guarantee cannot be forgotten on a new destination.
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        // Seed the neon palette BEFORE the first composition. Doing it from a
+        // LaunchedEffect made the first frame render at the previous process's
+        // saturation and then visibly snap.
+        requestNotificationPermissionIfNeeded()
+        setNeonSaturation(settingsViewModel.colorSaturation.value)
         // Device mutations (deploys, auto-backups) refresh the backup list.
         deployHistoryViewModel.onDeviceMutated = { backupViewModel.refreshBackups() }
 
+        // Route the install-permission request to the system screen. Collected in
+        // lifecycleScope (not the composition) because it is a navigation side effect
+        // that must survive a configuration change without re-firing.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                settingsViewModel.installPermissionRequest.collect {
+                    val intent =
+                        Intent(
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            android.net.Uri.parse("package:$packageName"),
+                        )
+                    if (intent.resolveActivity(packageManager) == null) return@collect
+                    try {
+                        installPermissionLauncher.launch(intent)
+                    } catch (_: Exception) {
+                        // Some ROMs throw despite resolveActivity() succeeding.
+                    }
+                }
+            }
+        }
+
         setContent {
             val mainViewModel: MainViewModel = viewModel()
-            val settingsViewModel: SettingsViewModel = viewModel()
             val gachaViewModel: GachaViewModel = viewModel()
             val profileViewModel: ProfileViewModel = viewModel()
             val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
@@ -97,29 +149,38 @@ class MainActivity : ComponentActivity() {
             val colorSaturation by settingsViewModel.colorSaturation.collectAsStateWithLifecycle()
             var showTerms by rememberSaveable { mutableStateOf(mainViewModel.needsTermsAccept()) }
 
+            // Keeps the palette in step with the saturation slider. The first
+            // value is applied in onCreate() so frame 1 is already correct.
             LaunchedEffect(colorSaturation) {
                 setNeonSaturation(colorSaturation)
             }
-            WuWaConfigTheme(
-                themeMode = themeMode,
-                textOpacity = textOpacity,
-                fontFamilyName = fontFamilyName,
-                fontScale = fontScale,
-                colorSaturation = colorSaturation,
+            val backgroundImageUri by settingsViewModel.backgroundImageUri.collectAsStateWithLifecycle()
+            val backgroundVideoUri by settingsViewModel.backgroundVideoUri.collectAsStateWithLifecycle()
+            val backgroundOpacity by settingsViewModel.backgroundOpacity.collectAsStateWithLifecycle()
+            CompositionLocalProvider(
+                LocalBackgroundSettings provides BackgroundSettings(backgroundImageUri, backgroundVideoUri, backgroundOpacity),
             ) {
-                if (showTerms) {
-                    TermsScreen(
-                        onAccept = {
-                            mainViewModel.acceptTerms()
-                            mainViewModel.postAcceptInit()
-                            backupViewModel.initDownloadBackupDir()
-                            showTerms = false
-                            this@MainActivity.requestStoragePermissions()
-                            this@MainActivity.initExternalBackupDir()
-                        },
-                    )
-                } else {
-                    AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel)
+                WuWaConfigTheme(
+                    themeMode = themeMode,
+                    textOpacity = textOpacity,
+                    fontFamilyName = fontFamilyName,
+                    fontScale = fontScale,
+                    colorSaturation = colorSaturation,
+                ) {
+                    if (showTerms) {
+                        TermsScreen(
+                            onAccept = {
+                                mainViewModel.acceptTerms()
+                                mainViewModel.postAcceptInit()
+                                backupViewModel.initDownloadBackupDir()
+                                showTerms = false
+                                this@MainActivity.requestStoragePermissions()
+                                this@MainActivity.initExternalBackupDir()
+                            },
+                        )
+                    } else {
+                        AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel)
+                    }
                 }
             }
         }
@@ -139,6 +200,29 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
             initExternalBackupDir()
         }
+
+    /**
+     * POST_NOTIFICATIONS is declared but was never requested, so on API 33+ the
+     * foreground-service notification for a live wireless-ADB session was silently
+     * suppressed while a wake lock and a shell-privileged socket were held. Ask for it
+     * once, at startup, and treat refusal as non-fatal.
+     */
+    private val notificationLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* best-effort */ }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        if (granted) return
+        try {
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } catch (_: Exception) {
+            // Some ROMs throw; the app must still work, it just will not show the
+            // ongoing-connection notification.
+        }
+    }
 
     private fun requestStoragePermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -187,7 +271,8 @@ fun AppNavigation(
     profileViewModel: ProfileViewModel,
 ) {
     val navController = rememberNavController()
-    val startDest = if (viewModel.isSetupDone) "home" else "setup"
+    val setupDone by viewModel.isSetupDone.collectAsStateWithLifecycle()
+    val startDest = if (setupDone) "home" else "setup"
 
     val navEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition? = {
         slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
