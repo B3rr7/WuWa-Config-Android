@@ -8,8 +8,8 @@
 [![Issues](https://img.shields.io/github/issues/B3rr7/WuWa-Config-Android?style=flat&logo=github)](https://github.com/B3rr7/WuWa-Config-Android/issues)
 [![License](https://img.shields.io/github/license/B3rr7/WuWa-Config-Android?style=flat)](https://github.com/B3rr7/WuWa-Config-Android/blob/main/LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%208%2B-green)](https://github.com/B3rr7/WuWa-Config-Android)
-[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.24-purple)](https://kotlinlang.org)
-[![Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024.10-blue)](https://developer.android.com/jetpack/compose)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.2.20-purple)](https://kotlinlang.org)
+[![Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202026.04-blue)](https://developer.android.com/jetpack/compose)
 [![Privacy](https://img.shields.io/badge/Privacy-No%20Telemetry-blue)](https://github.com/B3rr7/WuWa-Config-Android)
 
 **Boost FPS · Tune Graphics · Analyze Device · Track Pity · Stay Private**
@@ -22,7 +22,7 @@
 
 ---
 
-> **SEO Summary:** WuWaConfig is a free Android app to boost Wuthering Waves FPS and optimize graphics. Fix FPS drops, thermal throttling, GPU OOM, missing textures, and stuttering with SmartBrain device scoring (0–100). Generates Engine.ini, Scalability.ini, GameUserSettings.ini, DeviceProfiles.ini & Hardware.ini tuned to Snapdragon, Adreno, Dimensity, Mali, Exynos, Tensor, Kirin hardware. 5,885 CVars across 8 presets, 120 FPS unlock, gacha pity tracker, battle stats analyzer, CVar editor, deploy via ADB wireless debugging, Shizuku, Root or SAF. Zero telemetry.
+> **SEO Summary:** WuWaConfig is a free Android app to boost Wuthering Waves FPS and optimize graphics. Fix FPS drops, thermal throttling, GPU OOM, missing textures, and stuttering with SmartBrain device scoring (0–100). Generates Engine.ini, Scalability.ini, GameUserSettings.ini, DeviceProfiles.ini & Hardware.ini tuned to Snapdragon, Adreno, Dimensity, Mali, Exynos, Tensor, Kirin hardware. 5,889 CVars across 8 presets, 120 FPS unlock, gacha pity tracker, battle stats analyzer, CVar editor, deploy via ADB wireless debugging, Shizuku, Root or SAF. Zero telemetry.
 
 > [!WARNING]
 > **DISCLAIMER** — This project is **NOT affiliated with Kuro Games or Wuthering Waves**. Fan-made tool for editing game configuration files. Modifying game files may be subject to the game's Terms of Service. **Use at your own risk.**
@@ -75,7 +75,7 @@
 | 🚀 **True FPS Boost** | Generates 5 tuned INIs — `Engine.ini`, `Scalability.ini`, `GameUserSettings.ini`, `DeviceProfiles.ini`, `Hardware.ini`. `FullscreenMode=0` + `sg.ResolutionQuality` split fixes Android windowed viewport bug |
 | 🧠 **SmartBrain 0–100** | Scores GPU tier, RAM, Vulkan, thermal, OOM, FPS drops — auto-recommends Potato → Cinematic. Fix FPS drops (signal −6/−18), thermal throttling (−5/−20), GPU OOM (−12/−30), low-memory (−15) |
 | 🎚️ **8 Presets, No Dead Fields** | Each tier sets `screen%`, `shadow`, `shadowRes`, `ssr`, `mipbias`, `streaming`, `viewDistance`, `foliage LOD`, `lod_bias`, `grasscull`, `characterDetail`, `postProcess`, `staticLighting`, `cutsceneQuality` |
-| 🔧 **CVarDB 5,885 Entries** | `optimizeIniText()` comments redundant/unknown with `; [CvarDB]`. `ForbiddenCvars` (31) stripping. `CvarCategorizer` 3-level match, 18 categories |
+| 🔧 **CVarDB 5,889 Entries** | `optimizeIniText()` comments redundant/unknown with `; [CvarDB]`. `ForbiddenCvars` (31) stripping. `CvarCategorizer` 3-level match, 18 categories |
 | 🔮 **Pity Tracker 11 Pools** | No 50-pull cap. Soft-pity (pull 66+) from ~394K-sample. `Guaranteed` vs `50/50` per banner |
 | ⚔️ **Battle Stats** | `dd` partition XOR-LUT decrypt (`LUT(b)=b xor 0x4A`), UTF-16/8, 5 cards: Combat / Exploration / Economy / Social / System |
 | 💾 **Safe Deploy** | Per-file backup, hash snapshot+reconcile (`ModifyCount` cap 8, atomic `.new`+`mv`), one-tap restore, `verifyDeployedCvars` |
@@ -120,7 +120,7 @@ cd WuWa-Config-Android
 ./gradlew ktlintCheck          # check
 ./gradlew ktlintFormat         # auto-fix
 
-# Tests (JUnit 4 + Mockito, 14 pure-logic files, no instrumentation)
+# Tests (JUnit 4 + Mockito, 28 pure-logic files, no instrumentation)
 ./gradlew testDebugUnitTest
 ./gradlew testDebugUnitTest --tests "com.wuwaconfig.app.config.CvarCategorizerTest"
 ./gradlew testDebugUnitTest --tests "com.wuwaconfig.app.config.*"
@@ -309,12 +309,12 @@ adb -s 192.168.x.x:5555 usb
 
 ```
 WuWa-Config-Android/
-├── app/                     # :app single-module Kotlin Android app (78 Kotlin files · 21,342 lines · v1.1.5/16)
+├── app/                     # :app single-module Kotlin Android app (80 Kotlin files · 25,791 lines · v1.1.5/16)
 ├── docs/
 │   ├── CONFIG-GENERATOR.md  # Preset tiers, GeneratorOptions, GameMode — source of truth for config logic
 │   └── README.md            # Docs landing mirror
 ├── screenshots/             # screen-01..06.webp (200px, alt-tagged for SEO)
-├── gradle/ & gradlew*       # Gradle 8.6 wrapper (JDK 17, AGP 8.4.2, Kotlin 1.9.24)
+├── gradle/ & gradlew*       # Gradle 9.6.0 wrapper (JDK 17, AGP 9.4.0, Kotlin 2.2.20)
 ├── build.gradle.kts         # Root build
 ├── settings.gradle.kts      # include :app
 ├── gradle.properties        # Gradle props
@@ -332,7 +332,7 @@ WuWa-Config-Android/
 **`app/src/main/java/com/wuwaconfig/app/` — Source Tree**
 
 <details>
-<summary><b>Click to expand full Kotlin source tree (78 files)</b></summary>
+<summary><b>Click to expand full Kotlin source tree (80 files)</b></summary>
 
 ```
 app/src/main/java/com/wuwaconfig/app/
@@ -389,7 +389,7 @@ app/src/main/java/com/wuwaconfig/app/
 └── assets/cvars/              # libUE4_cvars.txt (5,889) + config_monitor_* + *_categorized.txt mirrors
 ```
 
-*Other paths:* `app/src/test/java/com/wuwaconfig/app/` (14 JUnit4+Mockito tests: `config/` 10, `backend/`2, `update/`1, `util/`1), `app/src/main/res/` (layouts, themes), `app/src/main/AndroidManifest.xml` (`allowBackup=false`, `network_security_config` cleartext only to `127.0.0.1`/`localhost`, `ShizukuProvider exported=true` intentional).
+*Other paths:* `app/src/test/java/com/wuwaconfig/app/` (28 JUnit4+Mockito tests: `config/` 17, `adb/` 3, `backend/` 2, `update/` 1, `util/` 2, `model/` 1), `app/src/main/res/` (layouts, themes), `app/src/main/AndroidManifest.xml` (`allowBackup=false`, `network_security_config` cleartext only to `127.0.0.1`/`localhost`, `ShizukuProvider exported=true` intentional).
 
 </details>
 
@@ -435,18 +435,18 @@ MainActivity (single Activity, 13 composable NavHost)
 
 | Area | Choice | Version / Notes |
 |------|--------|-----------------|
-| **Language** | Kotlin | 1.9.24, JDK 17, AGP 8.4.2 |
-| **UI** | Jetpack Compose + Material 3 | BOM 2024.10.00, Compiler 1.5.14 (via `libs.versions.composeCompiler`) |
+| **Language** | Kotlin | 2.2.20, JDK 17, AGP 9.4.0 |
+| **UI** | Jetpack Compose + Material 3 | BOM 2026.04.01, Compiler plugin 2.2.20 (built-in) |
 | **Architecture** | MVVM | ViewModel + StateFlow + `collectAsStateWithLifecycle()` (zero plain `collectAsState`) |
-| **Navigation** | Navigation Compose | 2.8.1, 13 routes, `AnimatedContentTransition` |
-| **Coroutines** | kotlinx-coroutines-android | 1.8.1, `Dispatchers.IO`, `Mutex`, `Semaphore` |
-| **Image / Video** | Coil 2.7.0 + Media3 ExoPlayer 1.4.1 | `rememberAsyncImagePainter` memoized, `VideoBackground` `DisposableEffect(videoUri)` |
+| **Navigation** | Navigation Compose | 2.9.8, 13 routes, `AnimatedContentTransition` |
+| **Coroutines** | kotlinx-coroutines-android | 1.11.0, `Dispatchers.IO`, `Mutex`, `Semaphore` |
+| **Image / Video** | Coil 2.7.0 + Media3 ExoPlayer 1.7.1 | `rememberAsyncImagePainter` memoized, `VideoBackground` `DisposableEffect(videoUri)` |
 | **Backends** | ADB (wire) / Shizuku 13.1.5 / Root / SAF | Shizuku `api`+`provider`, DocumentFile 1.0.1 |
-| **Security** | AndroidX Security Crypto 1.1.0-alpha06 | `EncryptedFile` + `AndroidKeyStore` |
-| **Serialization** | Gson 2.10.1 | JSON stores |
+| **Security** | AndroidX Security Crypto 1.1.0 | `EncryptedFile` + `AndroidKeyStore` |
+| **Serialization** | Gson 2.13.2 | JSON stores |
 | **Lint / Tests** | ktlint 12.1.0 + JUnit 4.13.2 + Mockito 5.11.0 | `.editorconfig` 250 max line, 4-space indent |
-| **SDK** | min 26 / target 34 / compile 34 | `allowBackup=false`, `networkSecurityConfig` |
-| **Size** | 78 Kotlin files · ~21,342 lines | v1.1.5 (16) |
+| **SDK** | min 26 / target 36 / compile 36 | `allowBackup=false`, `networkSecurityConfig` |
+| **Size** | 80 Kotlin files · ~25,791 lines | v1.1.5 (16) |
 
 ---
 
@@ -455,7 +455,7 @@ MainActivity (single Activity, 13 composable NavHost)
 ```bash
 ./gradlew ktlintCheck          # style is load-bearing — CI gates, not just compile
 ./gradlew ktlintFormat
-./gradlew testDebugUnitTest    # 14 pure-logic tests (config 10: ConfigGenerator, CvarCategorizer, CvarDatabaseOptimize, CvarOptimizer, ForbiddenCvars, HashMonitor, LogParser... + backend 2, update 1, util 1)
+./gradlew testDebugUnitTest    # 28 pure-logic tests (config 17: ConfigGenerator, CvarCategorizer, CvarDatabaseOptimize, CvarOptimizer, ForbiddenCvars, HashMonitor, LogParser... + adb 3, backend 2, update 1, util 2, model 1)
 ./gradlew assembleDebug        # offline; release needs network once for lint-gradle:31.4.2
 ```
 
