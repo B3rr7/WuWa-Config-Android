@@ -433,11 +433,20 @@ class ProfileExtractor(
                             },
                     )
 
+                // Same root cause as verifyDeployedCvars: the game rotates Client.log
+                // at ~20 MB, so the current file is often just a post-rotation tail
+                // (here: 90 KB) with no engine-startup lines at all. GPU / RAM /
+                // Android version / FPS are all logged at startup, so reading only
+                // the current log left the DEVICE and PERFORMANCE sections empty
+                // even though the data existed in the newest backup.
                 val deviceInfo =
                     runCatching {
                         onProgress(10)
-                        val decoded = readRemoteLogToText("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}", onProgress).getOrThrow()
-                        LogParser.parseLog(decoded.first)
+                        val merged = readMergedClientLog().getOrThrow()
+                        LogRepository.add("readProfile: ${merged.second.summary()}", LogLevel.INFO)
+                        LogParser.parseLog(merged.first)
+                    }.onFailure {
+                        LogRepository.add("readProfile: device/performance log unavailable (${it.message})", LogLevel.WARNING)
                     }.getOrNull()
 
                 val profile =
