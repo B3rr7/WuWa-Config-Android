@@ -253,6 +253,14 @@ private fun NeumorphicCard(
     }
 }
 
+/**
+ * Opacity of the scrim behind [GlassTopBar].
+ *
+ * High enough to hide scrolled content passing underneath the bar and the status-bar
+ * inset, low enough that the gradient background still reads through as "glass".
+ */
+private const val SCRIM_ALPHA = 0.94f
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GlassTopBar(
@@ -285,6 +293,10 @@ fun GlassTopBar(
             modifier =
                 modifier
                     .fillMaxWidth()
+                    // Scrim, drawn UNDER the accent gradient. Without it the bar is
+                    // fully transparent and scrolled content renders straight through
+                    // the title and the status bar.
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = SCRIM_ALPHA))
                     .neumorphic(cornerRadius = 0.dp, elevation = 5.dp),
         ) {
             Box(
@@ -307,6 +319,11 @@ fun GlassTopBar(
         modifier =
             modifier
                 .fillMaxWidth()
+                // See the light branch above. Scaffold's contentPadding only offsets
+                // the list at rest; once scrolled, items pass under the bar, so the
+                // bar itself has to occlude them. 0.94 still reads as glass against
+                // the gradient background while hiding text behind it.
+                .background(MaterialTheme.colorScheme.background.copy(alpha = SCRIM_ALPHA))
                 .background(
                     brush =
                         Brush.verticalGradient(
