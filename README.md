@@ -274,10 +274,10 @@ adb -s 192.168.x.x:5555 usb
 
 | Method | Shell | File Push | Log Reading | Config Gen |
 |:------:|:-----:|:---------:|:-----------:|:----------:|
-| **ADB** |  |
-| **Shizuku** |  |
-| **Root** |  |
-| **SAF** |  |
+| **ADB** | Yes | Yes | Yes | Yes |
+| **Shizuku** | Yes | Yes | Yes | Yes |
+| **Root** | Yes | Yes | Yes | Yes |
+| **SAF** | No | Yes | Limited | No |
 
 ---
 
