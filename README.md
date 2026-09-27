@@ -490,9 +490,7 @@ MainActivity (single Activity, 13 composable NavHost)
 
 ---
 
-##  Troubleshooting Keywords — Quick Reference
-
-> Copy-paste these long-tail terms for SEO, issue reports, or when searching for a specific fix:
+## Troubleshooting Keywords — Quick Reference
 
 **FPS & Performance:** `wuthering waves fps drop fix` `android fps fix` `fps drop fix mobile` `120 fps unlock not working` `frame pacing fix` `stuttering fix wuthering waves` `wuwa performance optimizer` `low end gaming boost`
 
@@ -502,9 +500,7 @@ MainActivity (single Activity, 13 composable NavHost)
 
 **Config & INI:** `engine.ini generator` `scalability.ini tune` `gameusersettings.ini fix` `deviceprofiles.ini setup` `hardware.ini config` `resolution scale fix` `vulkan robust buffer access fix` `hzb occlusion enable` `frame pace maxfps set` `r.Streaming.MipBias tune` `r.FoliageLODDistanceScale adjust` `r.MaxAnisotropy set` `r.HZBOcclusion enable` `r.ForwardShading fix` `r.SkinCache.CompileShaders` `r.RayTracing.LimitDevice off` `post process quality low` `bloom value reduce` `auto exposure disable` `volumetric fog disable` `reflection environment zero` `dynamic lights off` `texture pool size reduce` `shadow max resolution lower` `mobile shadow quality low`
 
-**Deploy & Access:** `adb wireless debugging setup` `adb tcpip 5555` `adb connect device` `shizuku deploy fix` `root config deploy` `saf storage access setup` `chinese rom permission denied fix` `xiaomi hyperos adb fix` `adb usb debug security` `permission denied fix` `run as game package` `android data scoped` `scoped storage deny` `shell user blocked` `saf picker initial uri` `tree device root derive` `persistable tree uri` `access method switch` `backend status check`
-
-**App & Build:** `wuwa config generator apk` `wuwa config optimizer` `wuwa engine ini editor` `wuwa gacha tracker app` `wuwa battle stats analyzer` `wuwa client log parser` `wuwa cvar database editor` `wuwa pity calculator android` `wuwa player profile viewer` `wuwa backup restore tool` `wuwa hash monitor deploy` `wuwa ini editor tool` `wuwa log viewer` `wuwa deploy history` `wuwa verify deployed cvars` `wuwa forbidden cvars strip` `wuwa cvar categorizer` `wuwa smart brain scoring` `wuwa preset potato cinematic` `wuwa vulkan optimization` `wuwa force opengl mobile` `wuwa fullscreen mode fix` `wuwa resolution quality split` `wuwa windowed viewport bug` `wuwa kuro render quality` `wuwa scalability sections` `wuwa hardware.ini chipset` `wuwa game mode overworld` `wuwa tower of adversity` `wuwa 11 pool gacha` `wuwa soft pity 66` `wuwa guaranteed 50 50` `wuwa pull history` `wuwa result history`
+**Deploy & Access:** `adb wireless debugging setup` `adb tcpip 5555` `adb connect device` `shizuku deploy fix` `root config deploy` `saf storage access setup` `chinese rom permission denied fix` `xiaomi hyperos adb fix` `adb usb debug security` `permission denied fix` `run as game package` `android data scoped` `scoped storage deny` `shell user blocked` `saf picker initial uri` `access method switch` `backend status check`
 
 ---
 
