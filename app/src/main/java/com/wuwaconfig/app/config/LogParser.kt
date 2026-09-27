@@ -387,6 +387,11 @@ object LogParser {
         var hasDirectX = false
         var hasMetal = false
 
+        // Sticky: once the log states Vulkan is unavailable, a later bare mention
+        // of the word (e.g. `Setting CVar [[r.Vulkan.DisableSubpassDeferred:1]]`)
+        // must not flip [hasVulkan] back on. See FLAG_RE below.
+        var vulkanUnavailable = false
+
         for (line in text.lineSequence()) {
             // ── Counting (single pass) ──
             // NOTE: UI dynamic-atlas format warnings ("LogDynamicAtlas ... Error pixel
@@ -407,16 +412,42 @@ object LogParser {
             LOW_MEM_RE.find(line)?.let { m ->
                 isLowMem = m.groupValues[1].lowercase() == "true"
             }
+
+            // Authoritative Vulkan availability, checked BEFORE the substring flags
+            // below. The game names Vulkan even when it fails to initialise it —
+            // on this device it logged "Vulkan library detected", "Failed to init
+            // Vulkan because of current driver version 0x801f6000 less than ...",
+            // "Vulkan driver NOT available." and "VulkanAvailable: false", then ran
+            // on OpenGL ES. The bare-substring flag below saw those and reported
+            // Vulkan. These two lines are the ones that actually decide.
+            VULKAN_AVAILABLE_RE.find(line)?.let { m ->
+                if (m.groupValues[1].equals("true", ignoreCase = true)) {
+                    hasVulkan = true
+                } else {
+                    vulkanUnavailable = true
+                    hasVulkan = false
+                    hasVulkanRhi = false
+                }
+            }
+            if (VULKAN_FAILED_RE.containsMatchIn(line)) {
+                vulkanUnavailable = true
+                hasVulkan = false
+                hasVulkanRhi = false
+            }
+            if (OPENGL_ES_USED_RE.containsMatchIn(line)) {
+                hasOpenGl = true
+            }
+
             FLAG_RE.findAll(line).forEach { m ->
                 val g = m.groupValues
-                if (g[1].isNotEmpty()) hasVulkanRhi = true
+                if (g[1].isNotEmpty() && !vulkanUnavailable) hasVulkanRhi = true
                 if (g[2].isNotEmpty() || g[3].isNotEmpty()) hasOpenGl = true
-                if (g[4].isNotEmpty()) hasVulkan = true
+                if (g[4].isNotEmpty() && !vulkanUnavailable) hasVulkan = true
                 if (g[5].isNotEmpty()) hasDirectX = true
                 if (g[6].isNotEmpty()) hasMetal = true
             }
             // "vulkanrhi" contains "vulkan", so mirror the original substring behaviour.
-            if (hasVulkanRhi) hasVulkan = true
+            if (hasVulkanRhi && !vulkanUnavailable) hasVulkan = true
 
             // ── Field extraction (first match wins) ──
             if (gpu == null) {
@@ -444,12 +475,22 @@ object LogParser {
                         ramMb = (it.groupValues[1].toFloatOrNull()?.times(1024))?.toInt()
                     }
                 }
+                if (ramMb == null) {
+                    RAM_PHYSICAL_RE.find(line)?.let {
+                        ramMb = it.groupValues[1].toFloatOrNull()?.toInt()
+                    }
+                }
             }
             if (androidVersion == null) {
                 OS_RE.find(line)?.let { androidVersion = it.groupValues[1] }
             }
             if (resolution == null) {
                 RES_RE.find(line)?.let {
+                    resolution = "${it.groupValues[1]}x${it.groupValues[2]}"
+                }
+            }
+            if (resolution == null) {
+                LOGIC_RES_RE.find(line)?.let {
                     resolution = "${it.groupValues[1]}x${it.groupValues[2]}"
                 }
             }
@@ -526,6 +567,9 @@ object LogParser {
                 "OpenGL ES" -> "not_available"
                 else ->
                     when {
+                        // An explicit "VulkanAvailable: false" is an answer even when
+                        // the log never goes on to name the API that was used.
+                        vulkanUnavailable -> "not_available"
                         hasVulkanRhi -> "available"
                         hasOpenGl -> "not_available"
                         else -> null
@@ -688,6 +732,21 @@ object LogParser {
     private val FLAG_RE =
         Regex("""(vulkanrhi)|(opengl es)|(opengl)|(vulkan)|(directx)|(metal)""", RegexOption.IGNORE_CASE)
 
+    /** `LogAndroid:   VulkanAvailable: false` — the authoritative answer. */
+    private val VULKAN_AVAILABLE_RE =
+        Regex("""VulkanAvailable\s*:\s*(true|false)\b""", RegexOption.IGNORE_CASE)
+
+    /** The engine's own words for a failed Vulkan init. */
+    private val VULKAN_FAILED_RE =
+        Regex(
+            """Vulkan driver NOT available|Failed to init Vulkan|Vulkan is not supported""",
+            RegexOption.IGNORE_CASE,
+        )
+
+    /** `LogAndroid: OpenGL ES will be used.` */
+    private val OPENGL_ES_USED_RE =
+        Regex("""OpenGL ES will be used|packaged for OpenGL ES""", RegexOption.IGNORE_CASE)
+
     private val GPU_RE = Regex("""K#GPUFamily\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE)
     private val GPU_LOGINIT_RE = Regex("""LogInit.*GPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE)
     private val GPU_GENERIC_RE =
@@ -703,11 +762,37 @@ object LogParser {
     private val RAM_RE = Regex("""PhysicalMemoryMB:\s*(\d+)""", RegexOption.IGNORE_CASE)
     private val RAM_GB_RE =
         Regex("""Platform has ~\s*([\d.]+)\s*GB""", RegexOption.IGNORE_CASE)
+
+    /**
+     * The wording this game actually emits. Neither [RAM_RE] nor [RAM_GB_RE]
+     * matched it, so total RAM was always null on this device:
+     * `LogInit: Memory total: Physical=5642.29MB (6GB approx) Available=...`
+     */
+    private val RAM_PHYSICAL_RE =
+        Regex("""Physical=([\d.]+)\s*MB""", RegexOption.IGNORE_CASE)
     private val OS_RE = Regex("""LogInit.*OS:\s*Android\s*\((\d+)\)""", RegexOption.IGNORE_CASE)
     private val RES_RE =
         Regex("""Resolution\s+(\d+)\s*[,xX×]?\s*(\d+)""", RegexOption.IGNORE_CASE)
     private val VIEWPORT_RE =
         Regex("""ViewportSize\s+([\d.]+),\s*([\d.]+)""", RegexOption.IGNORE_CASE)
+
+    /**
+     * The panel size, as this game reports it:
+     * `Setting Android Resolution, logic resolution Width=2456 and Height=1080,
+     *  final Width=1632 and Height=720 (requested scale = 1.000000, ...)`
+     *
+     * [RES_RE] needed the digits right after the word "Resolution" and
+     * [VIEWPORT_RE] needed a literal "ViewportSize" — neither occurs, so
+     * resolution was always null. Deliberately matches the *logic* (panel)
+     * values, which are identical on every one of these lines, rather than
+     * "final Width=", which differs between the engine's first guess and its
+     * settled value. That keeps the result independent of which line is seen
+     * first. "final" is deliberately NOT used: it is 1632x720 on the first
+     * line and 2456x1080 on the last, so a first-match-wins scan would report
+     * a scaled-down buffer instead of the display's real resolution.
+     */
+    private val LOGIC_RES_RE =
+        Regex("""logic resolution Width=(\d+) and Height=(\d+)""", RegexOption.IGNORE_CASE)
     private val DEV_PROFILE_RE =
         Regex("""Selected Device Profile:\s*\[([^\]]+)\]""", RegexOption.IGNORE_CASE)
     private val FRAME_PACE_RE =

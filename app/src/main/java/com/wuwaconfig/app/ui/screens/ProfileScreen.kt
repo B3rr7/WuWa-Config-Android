@@ -325,7 +325,7 @@ private fun DeviceSection(profile: PlayerProfile) {
         Spacer(Modifier.height(10.dp))
         if (!hasData) {
             Text(
-                "No device data yet — run Config Generator analysis or collect Client.log first.",
+                "No device data in the game log. Play the game once, then tap Refresh — startup GPU/RAM details are only written when the game boots.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
@@ -372,7 +372,7 @@ private fun PerformanceSection(profile: PlayerProfile) {
         Spacer(Modifier.height(10.dp))
         if (!hasData) {
             Text(
-                "No performance data yet — run Config Generator analysis or collect Client.log first.",
+                "No performance data in the game log. Play the game once, then tap Refresh — FPS and frame stats are only written while it runs.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
