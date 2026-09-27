@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎮 WuWaConfig — Wuthering Waves Config Toolkit & FPS Booster for Android
+# <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="4"/><path d="M6 10v4M4 12h4"/><circle cx="16" cy="10" r="1"/><circle cx="18" cy="14" r="1"/></svg> WuWaConfig — Wuthering Waves Config Toolkit & FPS Booster for Android
 
 [![Release](https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
 [![Stars](https://img.shields.io/github/stars/B3rr7/WuWa-Config-Android?style=flat&logo=github)](https://github.com/B3rr7/WuWa-Config-Android/stargazers)
@@ -16,7 +16,7 @@
 
 *The free, open-source Android toolkit to optimize Wuthering Waves (UE4) — generate Engine.ini, Scalability.ini, GameUserSettings.ini, DeviceProfiles.ini & Hardware.ini tuned to your Snapdragon / Dimensity / Exynos / Tensor hardware. Works without root via ADB, Shizuku, or SAF.*
 
-[📥 Download APK](https://github.com/B3rr7/WuWa-Config-Android/releases) · [🌐 Website](https://b3rr7.github.io/WuWa-Config-Android/) · [💬 Discord](https://discord.gg/5WP9nN2e2s) · [📹 YouTube](https://www.youtube.com/@Player42_g)
+[<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download APK](https://github.com/B3rr7/WuWa-Config-Android/releases) · [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Website](https://b3rr7.github.io/WuWa-Config-Android/) · [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> Discord](https://discord.gg/5WP9nN2e2s) · [<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-1.92 29 29 0 0 0 .46-5.33 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg> YouTube](https://www.youtube.com/@Player42_g)
 
 </div>
 
@@ -30,21 +30,21 @@
 > [!NOTE]
 > **PLATFORM** — Android 8.0+ (API 26) only. Not available for iPhone/iPad. Windows/macOS/Linux require an Android device or emulator.
 
-> **🔧 Troubleshooting Keywords:** wuthering waves fps drop fix, thermal throttling fix android, gpu oom fix mobile, texture error fix wuwa, 120 fps unlock not working, exynos mali performance fix, low end phone fps boost, frame pacing fix, post processing artifacts, stuttering fix wuthering waves, render scale optimization, shadow quality optimization, foliage density fix, anisotropic filter fix, mip bias fix, texture streaming fix, adb deploy permission denied, scoped storage fix android, ue4 config optimizer, engine.ini generator, scalability.ini tune, gameusersettings.ini fix, deviceprofiles.ini setup, hardware.ini config, resolution scale fix, vulkan robust buffer access fix, hzb occlusion enable, frame pace maxfps set, r.Streaming.MipBias tune, r.FoliageLODDistanceScale adjust, r.MaxAnisotropy set, r.HZBOcclusion enable, r.ForwardShading fix, r.SkinCache.CompileShaders, r.RayTracing.LimitDevice off, post process quality low, bloom value reduce, auto exposure disable, volumetric fog disable, reflection environment zero, dynamic lights off, texture pool size reduce, anisotropic filter reduce, shadow max resolution lower, mobile shadow quality low, fps cap unlock 120, wireless debugging setup, shizuku deploy fix, root config deploy, saf storage access setup, chinese rom permission denied fix, xiaomi hyperos adb fix, kuro games config tool, wuwa performance optimizer, mobile gaming optimization, snapdragon adreno tuning, dimensity mali config, tensor gpu optimization, low end gaming boost, android fps booster, wuthering waves graphics settings, wuwa engine ini editor, wuwa config generator apk, wuthering waves pity tracker, wuwa battle stats analyzer, wuwa client log parser, wuwa cvar database editor, wuwa gacha tracker app, wuwa player profile viewer, wuwa backup restore tool, wuwa hash monitor deploy, wuwa ini editor tool, wuwa log viewer, wuwa deploy history, wuwa verify deployed cvars, wuwa forbidden cvars strip, wuwa cvar categorizer, wuwa smart brain scoring, wuwa preset potato cinematic, wuwa vulkan optimization, wuwa force opengl mobile, wuwa fullscreen mode fix, wuwa resolution quality split, wuwa windowed viewport bug, wuwa kuro render quality, wuwa scalability sections, wuwa hardware.ini chipset, wuwa game mode overworld, wuwa tower of adversity, wuwa 11 pool gacha, wuwa soft pity 66, wuwa guaranteed 50 50, wuwa pull history, wuwa result history, wuwa char card, wuwa weapon card, wuwa banner tracker, wuwa pity calculator android, wuwa gacha history store, wuwa convene url parse, wuwa battle stats dd decrypt, wuwa xor lut decrypt, wuwa client log read, wuwa player profile uid, wuwa game progress tower, wuwa weekly rogue, wuwa battle pass, wuwa config generator presets, wuwa generator options, wuwa game paths, wuwa config hash, wuwa verification report, wuwa atomic file write, wuwa deploy retry, wuwa port scanner adb, wuwa adb crypto rsa, wuwa shell utils shquote, wuwa adb protocol wire, wuwa port scan fix, wuwa adb connection service, wuwa shell user service, wuwa adb backend run as, wuwa shizuku backend deploy, wuwa root backend su, wuwa saf backend documentfile, wuwa tree device root, wuwa persistable tree uri, wuwa access method switch, wuwa backend status check, wuwa adb wireless debugging, wuwa adb tcpip 5555, wuwa adb connect device, wuwa adb disconnect, wuwa adb multi device, wuwa adb usb debug security, wuwa permission denied fix, wuwa run as game package, wuwa android data scoped, wuwa chinese rom hyperos, wuwa xiaomi adb fix, wuwa shizuku permission permit, wuwa shizuku user service, wuwa rikka shizuku keep, wuwa shizuku provider exported, wuwa root magisk kernel su, wuwa apatch root, wuwa saf picker initial uri, wuwa document file path, wuwa tree device root derive, wuwa scoped storage deny, wuwa shell user blocked, wuwa run as fallback, wuwa cp based copy, wuwa push retry count, wuwa max arg str len, wuwa base64 chunk push, wuwa md5 verify push, wuwa adb port scan, wuwa adb so timeout fix, wuwa drain trailing write, wuwa pipe race fix, wuwa adb keepalive heartbeat, wuwa adb generation guard, wuwa tx mutex contention, wuwa coroutine scope churn, wuwa semaphore port scan, wuwa limited parallelism, wuwa async collect state, wuwa collect as state lifecycle, wuwa remember async painter, wuwa disposable effect lifecycle, wuwa video background exoplayer, wuwa neon saturation launched effect, wuwa color neon cyan, wuwa theme material dark light, wuwa compose compiler version, wuwa kotlin compiler extension, wuwa gradle catalog version, wuwa ktlint check format, wuwa unit test debug, wuwa assemble debug apk, wuwa assemble release signing, wuwa keystore properties, wuwa release jks fallback, wuwa proguard keep rules, wuwa allow backup false, wuwa network security config, wuwa encrypted file android keystore, wuwa local broadcast manager, wuwa gacha network cleartext, wuwa no telemetry privacy, wuwa security privacy android, wuwa gitignore keystore, wuwa build quirks release, wuwa off cache gradle lint, wuwa offline debug build, wuwa clean assemble debug, wuwa gradle 8.6 jdk 17, wuwa agp 8.4.2, wuwa kotlin 1.9.24, wuwa compose bom 2024.10, wuwa min sdk 26 target 34, wuwa app module single, wuwa 78 kotlin files, wuwa 21342 lines code, wuwa version 1.1.5 code 16, wuwa mvvm architecture, wuwa viewmodel stateflow, wuwa nav compose routes, wuwa main activity single, wuwa wu wac config app, wu wa config application, wuwa config generator preset, wuwa cvar database load, wuwa cvar categorize android, wuwa forbidden cvars strip, wuwa config optimizer smart brain, wuwa log parser decrypt, wuwa profile extractor parallel, wuwa hash monitor atomic, wuwa backup store restore, wuwa deploy history store, wuwa gacha history store, wuwa profile store, wuwa log repository fan, wuwa battle stats store, wuwa log analysis store, wuwa benchmark tuner, wuwa chipset detector, wuwa config manager facade, wuwa config gen util, wuwa ini hash util, wuwa hash sync, wuwa line diff compute, wuwa atomic file write, wuwa shell utils compute md5, wuwa access backend interface, wuwa backend access method, wuwa backend status data, wuwa adb protocol header, wuwa adb client tcp auth, wuwa adb crypto rsa encrypt, wuwa port scanner batch, wuwa adb connection foreground, wuwa shell user binder, wuwa adb backend push, wuwa shizuku backend user service, wuwa root backend su c, wuwa saf backend document file, wuwa shell utils sh quote, wuwa config generator generate, wuwa cvar database optimize, wuwa cvar categorizer match, wuwa forbidden cvars list, wuwa cvar optimizer tier, wuwa smart brain score, wuwa config gen util dedupe, wuwa log parser parse, wuwa profile extractor read, wuwa hash monitor refresh, wuwa backup store create, wuwa deploy history add, wuwa gacha history fetch, wuwa profile store save, wuwa log repository add, wuwa battle stats plus, wuwa log analysis cache, wuwa benchmark tuner state, wuwa chipset detect chip, wuwa config manager deploy, wuwa config gen util override, wuwa ini hash util md5, wuwa hash sync snapshot, wuwa line diff diff, wuwa atomic file commit, wuwa shell utils max push, wuwa access backend switch, wuwa adb protocol encode, wuwa adb client drain, wuwa adb crypto key, wuwa port scanner ip cache, wuwa adb connection bind, wuwa shell user start, wuwa adb backend verify, wuwa shizuku backend script, wuwa root backend timeout, wuwa saf backend tree, wuwa shell utils retry
+> **<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Troubleshooting Keywords:** wuthering waves fps drop fix, thermal throttling fix android, gpu oom fix mobile, texture error fix wuwa, 120 fps unlock not working, exynos mali performance fix, low end phone fps boost, frame pacing fix, post processing artifacts, stuttering fix wuthering waves, render scale optimization, shadow quality optimization, foliage density fix, anisotropic filter fix, mip bias fix, texture streaming fix, adb deploy permission denied, scoped storage fix android, ue4 config optimizer, engine.ini generator, scalability.ini tune, gameusersettings.ini fix, deviceprofiles.ini setup, hardware.ini config, resolution scale fix, vulkan robust buffer access fix, hzb occlusion enable, frame pace maxfps set, r.Streaming.MipBias tune, r.FoliageLODDistanceScale adjust, r.MaxAnisotropy set, r.HZBOcclusion enable, r.ForwardShading fix, r.SkinCache.CompileShaders, r.RayTracing.LimitDevice off, post process quality low, bloom value reduce, auto exposure disable, volumetric fog disable, reflection environment zero, dynamic lights off, texture pool size reduce, anisotropic filter reduce, shadow max resolution lower, mobile shadow quality low, fps cap unlock 120, wireless debugging setup, shizuku deploy fix, root config deploy, saf storage access setup, chinese rom permission denied fix, xiaomi hyperos adb fix, kuro games config tool, wuwa performance optimizer, mobile gaming optimization, snapdragon adreno tuning, dimensity mali config, tensor gpu optimization, low end gaming boost, android fps booster, wuthering waves graphics settings, wuwa engine ini editor, wuwa config generator apk, wuthering waves pity tracker, wuwa battle stats analyzer, wuwa client log parser, wuwa cvar database editor, wuwa gacha tracker app, wuwa player profile viewer, wuwa backup restore tool, wuwa hash monitor deploy, wuwa ini editor tool, wuwa log viewer, wuwa deploy history, wuwa verify deployed cvars, wuwa forbidden cvars strip, wuwa cvar categorizer, wuwa smart brain scoring, wuwa preset potato cinematic, wuwa vulkan optimization, wuwa force opengl mobile, wuwa fullscreen mode fix, wuwa resolution quality split, wuwa windowed viewport bug, wuwa kuro render quality, wuwa scalability sections, wuwa hardware.ini chipset, wuwa game mode overworld, wuwa tower of adversity, wuwa 11 pool gacha, wuwa soft pity 66, wuwa guaranteed 50 50, wuwa pull history, wuwa result history, wuwa char card, wuwa weapon card, wuwa banner tracker, wuwa pity calculator android, wuwa gacha history store, wuwa convene url parse, wuwa battle stats dd decrypt, wuwa xor lut decrypt, wuwa client log read, wuwa player profile uid, wuwa game progress tower, wuwa weekly rogue, wuwa battle pass, wuwa config generator presets, wuwa generator options, wuwa game paths, wuwa config hash, wuwa verification report, wuwa atomic file write, wuwa deploy retry, wuwa port scanner adb, wuwa adb crypto rsa, wuwa shell utils shquote, wuwa adb protocol wire, wuwa port scan fix, wuwa adb connection service, wuwa shell user service, wuwa adb backend run as, wuwa shizuku backend deploy, wuwa root backend su, wuwa saf backend documentfile, wuwa tree device root, wuwa persistable tree uri, wuwa access method switch, wuwa backend status check, wuwa adb wireless debugging, wuwa adb tcpip 5555, wuwa adb connect device, wuwa adb disconnect, wuwa adb multi device, wuwa adb usb debug security, wuwa permission denied fix, wuwa run as game package, wuwa android data scoped, wuwa chinese rom hyperos, wuwa xiaomi adb fix, wuwa shizuku permission permit, wuwa shizuku user service, wuwa rikka shizuku keep, wuwa shizuku provider exported, wuwa root magisk kernel su, wuwa apatch root, wuwa saf picker initial uri, wuwa document file path, wuwa tree device root derive, wuwa scoped storage deny, wuwa shell user blocked, wuwa run as fallback, wuwa cp based copy, wuwa push retry count, wuwa max arg str len, wuwa base64 chunk push, wuwa md5 verify push, wuwa adb port scan, wuwa adb so timeout fix, wuwa drain trailing write, wuwa pipe race fix, wuwa adb keepalive heartbeat, wuwa adb generation guard, wuwa tx mutex contention, wuwa coroutine scope churn, wuwa semaphore port scan, wuwa limited parallelism, wuwa async collect state, wuwa collect as state lifecycle, wuwa remember async painter, wuwa disposable effect lifecycle, wuwa video background exoplayer, wuwa neon saturation launched effect, wuwa color neon cyan, wuwa theme material dark light, wuwa compose compiler version, wuwa kotlin compiler extension, wuwa gradle catalog version, wuwa ktlint check format, wuwa unit test debug, wuwa assemble debug apk, wuwa assemble release signing, wuwa keystore properties, wuwa release jks fallback, wuwa proguard keep rules, wuwa allow backup false, wuwa network security config, wuwa encrypted file android keystore, wuwa local broadcast manager, wuwa gacha network cleartext, wuwa no telemetry privacy, wuwa security privacy android, wuwa gitignore keystore, wuwa build quirks release, wuwa off cache gradle lint, wuwa offline debug build, wuwa clean assemble debug, wuwa gradle 8.6 jdk 17, wuwa agp 8.4.2, wuwa kotlin 1.9.24, wuwa compose bom 2024.10, wuwa min sdk 26 target 34, wuwa app module single, wuwa 78 kotlin files, wuwa 21342 lines code, wuwa version 1.1.5 code 16, wuwa mvvm architecture, wuwa viewmodel stateflow, wuwa nav compose routes, wuwa main activity single, wuwa wu wac config app, wu wa config application, wuwa config generator preset, wuwa cvar database load, wuwa cvar categorize android, wuwa forbidden cvars strip, wuwa config optimizer smart brain, wuwa log parser decrypt, wuwa profile extractor parallel, wuwa hash monitor atomic, wuwa backup store restore, wuwa deploy history store, wuwa gacha history store, wuwa profile store, wuwa log repository fan, wuwa battle stats store, wuwa log analysis store, wuwa benchmark tuner, wuwa chipset detector, wuwa config manager facade, wuwa config gen util, wuwa ini hash util, wuwa hash sync, wuwa line diff compute, wuwa atomic file write, wuwa shell utils compute md5, wuwa access backend interface, wuwa backend access method, wuwa backend status data, wuwa adb protocol header, wuwa adb client tcp auth, wuwa adb crypto rsa encrypt, wuwa port scanner batch, wuwa adb connection foreground, wuwa shell user binder, wuwa adb backend push, wuwa shizuku backend user service, wuwa root backend su c, wuwa saf backend document file, wuwa shell utils sh quote, wuwa config generator generate, wuwa cvar database optimize, wuwa cvar categorizer match, wuwa forbidden cvars list, wuwa cvar optimizer tier, wuwa smart brain score, wuwa config gen util dedupe, wuwa log parser parse, wuwa profile extractor read, wuwa hash monitor refresh, wuwa backup store create, wuwa deploy history add, wuwa gacha history fetch, wuwa profile store save, wuwa log repository add, wuwa battle stats plus, wuwa log analysis cache, wuwa benchmark tuner state, wuwa chipset detect chip, wuwa config manager deploy, wuwa config gen util override, wuwa ini hash util md5, wuwa hash sync snapshot, wuwa line diff diff, wuwa atomic file commit, wuwa shell utils max push, wuwa access backend switch, wuwa adb protocol encode, wuwa adb client drain, wuwa adb crypto key, wuwa port scanner ip cache, wuwa adb connection bind, wuwa shell user start, wuwa adb backend verify, wuwa shizuku backend script, wuwa root backend timeout, wuwa saf backend tree, wuwa shell utils retry
 
 ---
 
-## 📚 Interactive Table of Contents
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Interactive Table of Contents
 
 <details open>
 <summary><b>Click to expand / collapse</b></summary>
 
-1. [✨ Why WuWaConfig?](#-why-wuwaconfig)
-2. [⚡ Quick Start](#-quick-start)
+1. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> Why WuWaConfig?](#-why-wuwaconfig)
+2. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Quick Start](#-quick-start)
    - [For Players (Install APK)](#for-players-install-apk)
    - [For Developers (Build from Source)](#for-developers-build-from-source)
    - [One-Line Verification](#one-line-verification)
-3. [✨ Feature Breakdown](#-feature-breakdown)
+3. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> Feature Breakdown](#-feature-breakdown)
    - [FPS Booster & Config Generator](#1-fps-booster--config-generator-8-presets--smartbrain)
    - [SmartBrain Device Scoring (0–100)](#2-smartbrain-device-scoring-0100)
    - [CVar Database & Optimizer](#3-cvar-database--optimizer-5889-entries)
@@ -53,35 +53,35 @@
    - [Player Profile](#6-player-profile-read-only)
    - [Backup, Restore & Hash Monitor](#7-backup-restore--hash-monitor)
    - [INI Editor & Log Tools](#8-ini-editor--log-tools)
-4. [🔌 Access Methods](#-access-methods-how-to-connect)
-5. [🖥️ Screens Walkthrough](#️-screens-walkthrough)
-6. [🗂️ Folder Map — Repository Structure](#️-folder-map--repository-structure)
-7. [🏗️ Architecture (MVVM)](#️-architecture-mvvm)
-8. [🛠️ Tech Stack](#️-tech-stack)
-9. [🧪 Testing & Code Quality](#-testing--code-quality)
-10. [🔒 Privacy & Security](#-privacy--security)
-11. [🤝 Community & Contributing](#-community--contributing)
-12. [🔑 Keywords & SEO](#-keywords--seo)
-13. [📄 License](#-license)
+4. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg> Access Methods](#-access-methods-how-to-connect)
+5. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Screens Walkthrough](#️-screens-walkthrough)
+6. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Folder Map — Repository Structure](#️-folder-map--repository-structure)
+7. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg> Architecture (MVVM)](#️-architecture-mvvm)
+8. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Tech Stack](#️-tech-stack)
+9. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6"/><path d="M10 3v6.34L4.62 18.1A2 2 0 0 0 6.4 21h11.2a2 2 0 0 0 1.78-2.9L14 9.34V3"/><path d="M7 15h10"/></svg> Testing & Code Quality](#-testing--code-quality)
+10. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Privacy & Security](#-privacy--security)
+11. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Community & Contributing](#-community--contributing)
+12. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> Keywords & SEO](#-keywords--seo)
+13. [<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> License](#-license)
 
 </details>
 
 ---
 
-## 🌟 Why WuWaConfig?
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> Why WuWaConfig?
 
 | | |
 |---|---|
-| 🚀 **True FPS Boost** | Generates 5 tuned INIs — `Engine.ini`, `Scalability.ini`, `GameUserSettings.ini`, `DeviceProfiles.ini`, `Hardware.ini`. `FullscreenMode=0` + `sg.ResolutionQuality` split fixes Android windowed viewport bug |
-| 🧠 **SmartBrain 0–100** | Scores GPU tier, RAM, Vulkan, thermal, OOM, FPS drops — auto-recommends Potato → Cinematic. Fix FPS drops (signal −6/−18), thermal throttling (−5/−20), GPU OOM (−12/−30), low-memory (−15) |
-| 🎚️ **8 Presets, No Dead Fields** | Each tier sets `screen%`, `shadow`, `shadowRes`, `ssr`, `mipbias`, `streaming`, `viewDistance`, `foliage LOD`, `lod_bias`, `grasscull`, `characterDetail`, `postProcess`, `staticLighting`, `cutsceneQuality` |
-| 🔧 **CVarDB 5,889 Entries** | `optimizeIniText()` comments redundant/unknown with `; [CvarDB]`. `ForbiddenCvars` (31) stripping. `CvarCategorizer` 3-level match, 18 categories |
-| 🔮 **Pity Tracker 11 Pools** | No 50-pull cap. Soft-pity (pull 66+) from ~394K-sample. `Guaranteed` vs `50/50` per banner |
-| ⚔️ **Battle Stats** | `dd` partition XOR-LUT decrypt (`LUT(b)=b xor 0x4A`), UTF-16/8, 5 cards: Combat / Exploration / Economy / Social / System |
-| 💾 **Safe Deploy** | Per-file backup, hash snapshot+reconcile (`ModifyCount` cap 8, atomic `.new`+`mv`), one-tap restore, `verifyDeployedCvars` |
-| 🔒 **Private** | Zero telemetry. `allowBackup=false`. ADB keys `EncryptedFile`+`AndroidKeyStore`. `LocalBroadcastManager` for gacha. `network_security_config` cleartext only to `127.0.0.1` |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> **True FPS Boost** | Generates 5 tuned INIs — `Engine.ini`, `Scalability.ini`, `GameUserSettings.ini`, `DeviceProfiles.ini`, `Hardware.ini`. `FullscreenMode=0` + `sg.ResolutionQuality` split fixes Android windowed viewport bug |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.5 2A5.5 5.5 0 0 0 4 7.5c0 1.5.5 2.5 1.5 3.5L12 17l6.5-6c1-1 1.5-2 1.5-3.5A5.5 5.5 0 0 0 14.5 2c-1.5 0-2.5 1-2.5 1s-1-1-2.5-1z"/></svg> **SmartBrain 0–100** | Scores GPU tier, RAM, Vulkan, thermal, OOM, FPS drops — auto-recommends Potato → Cinematic. Fix FPS drops (signal −6/−18), thermal throttling (−5/−20), GPU OOM (−12/−30), low-memory (−15) |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg> **8 Presets, No Dead Fields** | Each tier sets `screen%`, `shadow`, `shadowRes`, `ssr`, `mipbias`, `streaming`, `viewDistance`, `foliage LOD`, `lod_bias`, `grasscull`, `characterDetail`, `postProcess`, `staticLighting`, `cutsceneQuality` |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> **CVarDB 5,889 Entries** | `optimizeIniText()` comments redundant/unknown with `; [CvarDB]`. `ForbiddenCvars` (31) stripping. `CvarCategorizer` 3-level match, 18 categories |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> **Pity Tracker 11 Pools** | No 50-pull cap. Soft-pity (pull 66+) from ~394K-sample. `Guaranteed` vs `50/50` per banner |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg> **Battle Stats** | `dd` partition XOR-LUT decrypt (`LUT(LUT(b))=b xor 0x4A`), UTF-16/8, 5 cards: Combat / Exploration / Economy / Social / System |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> **Safe Deploy** | Per-file backup, hash snapshot+reconcile (`ModifyCount` cap 8, atomic `.new`+`mv`), one-tap restore, `verifyDeployedCvars` |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> **Private** | Zero telemetry. `allowBackup=false`. ADB keys `EncryptedFile`+`AndroidKeyStore`. `LocalBroadcastManager` for gacha. `network_security_config` cleartext only to `127.0.0.1` |
 
-### 🔧 Quick Troubleshooting Reference
+### <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Quick Troubleshooting Reference
 
 | Symptom | Fix | Preset |
 |---|---|---|
@@ -97,7 +97,7 @@
 
 ---
 
-## ⚡ Quick Start
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Quick Start
 
 ### For Players (Install APK)
 
@@ -112,7 +112,7 @@ open https://github.com/B3rr7/WuWa-Config-Android/releases
 ### For Developers (Build from Source)
 
 ```bash
-# Prerequisites: JDK 17, Android SDK 34, Git
+# Prerequisites: JDK 17, Android SDK 36, Git
 git clone https://github.com/B3rr7/WuWa-Config-Android.git
 cd WuWa-Config-Android
 
@@ -146,7 +146,7 @@ adb install -r app/build/outputs/apk/debug/WuWaConfig-debug.apk
 
 ---
 
-## ✨ Feature Breakdown
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> Feature Breakdown
 
 ### 1. FPS Booster & Config Generator (8 Presets + SmartBrain)
 
@@ -234,7 +234,7 @@ adb install -r app/build/outputs/apk/debug/WuWaConfig-debug.apk
 
 ---
 
-## 🔌 Access Methods (How to Connect)
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg> Access Methods (How to Connect)
 
 App reads/writes `Android/data/com.kurogame.wutheringwaves.global/` — 4 backends via `backend/AccessBackend` (10 suspend ops) + `ShellUtils` (`shQuote` fan-in 44, `computeMd5`, `PUSH_RETRY_COUNT=2`, `MAX_ARG_STRLEN=4096`):
 
@@ -274,14 +274,14 @@ adb -s 192.168.x.x:5555 usb
 
 | Method | Shell | File Push | Log Reading | Config Gen |
 |:------:|:-----:|:---------:|:-----------:|:----------:|
-| **ADB** | ✅ | ✅ | ✅ | ✅ |
-| **Shizuku** | ✅ | ✅ | ✅ | ✅ |
-| **Root** | ✅ | ✅ | ✅ | ✅ |
-| **SAF** | ❌ | ✅ | Limited | ❌ |
+| **ADB** | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> |
+| **Shizuku** | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> |
+| **Root** | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> |
+| **SAF** | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> | Limited | <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> |
 
 ---
 
-## 🖥️ Screens Walkthrough
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Screens Walkthrough
 
 <p align="center">
   <img src="screenshots/screen-01.webp" width="200" alt="WuWaConfig Home - backend status and quick actions">
@@ -303,7 +303,7 @@ adb -s 192.168.x.x:5555 usb
 
 ---
 
-## 🗂️ Folder Map — Repository Structure
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Folder Map — Repository Structure
 
 **Top-level (44 entries)**
 
@@ -321,7 +321,7 @@ WuWa-Config-Android/
 ├── .editorconfig            # 4-space indent, 250 max line, wildcard imports allowed, property-naming disabled
 ├── .gitignore / .github/    # CI, hooks, lint
 ├── LICENSE                  # MIT © 2026 Player42
-├── CODE_OF_CONDUCT.md / CONTRIBUTING.md / SECURITY.md / PITY_REVIEW.md / PROMO.md
+├── CODE_OF_CONDUCT.md / CONTRIBUTING.md / SECURITY.md
 ├── index.html / styles.css / sitemap.xml / robots.txt / manifest.json # GitHub Pages landing (b3rr7.github.io)
 ├── og-image.png / favicon.* / app_icon.webp / taoqi.webp
 ├── analyze_cvars.py / decrypt_log.py / apk_extract/ / logs/ / mall/ # Tooling, not loaded at runtime
@@ -408,7 +408,7 @@ app/src/main/java/com/wuwaconfig/app/
 
 ---
 
-## 🏗️ Architecture (MVVM)
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg> Architecture (MVVM)
 
 ```
 WuWaConfigApp (Application)
@@ -431,7 +431,7 @@ MainActivity (single Activity, 13 composable NavHost)
 
 ---
 
-## 🛠️ Tech Stack
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Tech Stack
 
 | Area | Choice | Version / Notes |
 |------|--------|-----------------|
@@ -450,7 +450,7 @@ MainActivity (single Activity, 13 composable NavHost)
 
 ---
 
-## 🧪 Testing & Code Quality
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6"/><path d="M10 3v6.34L4.62 18.1A2 2 0 0 0 6.4 21h11.2a2 2 0 0 0 1.78-2.9L14 9.34V3"/><path d="M7 15h10"/></svg> Testing & Code Quality
 
 ```bash
 ./gradlew ktlintCheck          # style is load-bearing — CI gates, not just compile
@@ -464,7 +464,7 @@ MainActivity (single Activity, 13 composable NavHost)
 
 ---
 
-## 🔒 Privacy & Security
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Privacy & Security
 
 - **No telemetry** — `WuWaConfig` sends nothing to third parties. Only `127.0.0.1` ADB + user-initiated `gmserver-api.aki-game2.com/net` (gacha) via `LocalBroadcastManager` (in-process only).
 - **At rest:** ADB RSA keys `EncryptedFile` + `AndroidKeyStore` (AES-256-GCM); `allowBackup="false"`; `network_security_config.xml` cleartext only to `127.0.0.1`/`localhost`.
@@ -473,7 +473,7 @@ MainActivity (single Activity, 13 composable NavHost)
 
 ---
 
-## 🤝 Community & Contributing
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Community & Contributing
 
 - **Links:** [GitHub](https://github.com/B3rr7/WuWa-Config-Android) · [YouTube @Player42_g](https://www.youtube.com/@Player42_g) · [Telegram](https://t.me/Yt_Player42) · [Discord](https://discord.gg/5WP9nN2e2s) · [Website](https://b3rr7.github.io/WuWa-Config-Android/)
 - **Download History:** [![Downloads](https://img.shields.io/github/downloads/B3rr7/WuWa-Config-Android/total?style=flat&logo=github&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
@@ -482,7 +482,7 @@ MainActivity (single Activity, 13 composable NavHost)
 
 ---
 
-## 🔑 Keywords & SEO
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> Keywords & SEO
 
 `wuthering waves fps boost` `wuthering waves fps drop fix` `thermal throttling fix android` `gpu oom fix mobile` `texture error fix wuwa` `engine.ini generator` `config optimizer android` `120 fps unlock` `wuwa config` `android fps fix` `low end booster` `vulkan optimization` `adb wireless debugging` `shizuku deploy` `root config tool` `saf storage access` `smartbrain scoring` `cvar editor` `pity tracker` `gacha tracker` `battle stats analyzer` `client log parser` `50/50 soft pity` `exynos mali tuning` `snapdragon adreno` `dimensity` `tensor gpu` `resolution scale fix` `shadow quality fix` `post process fix` `foliage density fix` `anisotropic filter` `mip bias` `hzb occlusion` `frame pace fix` `post processing artifacts` `deploy permission denied` `scoped storage fix` `chinese rom adb` `zero telemetry` `wuwaconfig` `kuro games config` `mobile gaming optimization` `ue4 mobile config` `android 8+ config tool` `no root config` `fps booster android` `graphics tuning` `gaming tool` `wuwa performance` `wuthering waves optimization`
 
@@ -490,7 +490,7 @@ MainActivity (single Activity, 13 composable NavHost)
 
 ---
 
-## 🔧 Troubleshooting Keywords — Quick Reference
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Troubleshooting Keywords — Quick Reference
 
 > Copy-paste these long-tail terms for SEO, issue reports, or when searching for a specific fix:
 
@@ -508,7 +508,7 @@ MainActivity (single Activity, 13 composable NavHost)
 
 ---
 
-## 📄 License
+## <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> License
 
 [MIT](LICENSE) · Copyright (c) 2026 Player42 · Not affiliated with Kuro Games.
 
@@ -517,8 +517,8 @@ MainActivity (single Activity, 13 composable NavHost)
 <div align="center">
 
 **Made for Rovers — by Rovers.**  
-*Star ⭐ the repo if WuWaConfig boosted your FPS!*
+*Star the repo if WuWaConfig boosted your FPS!*
 
-[⬆ Back to top](#-wuwaconfig--wuthering-waves-config-toolkit--fps-booster-for-android)
+[<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Back to top](#-wuwaconfig--wuthering-waves-config-toolkit--fps-booster-for-android)
 
 </div>
