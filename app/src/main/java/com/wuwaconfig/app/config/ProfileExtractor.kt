@@ -34,9 +34,16 @@ class ProfileExtractor(
         /** Matches the `YYYY.MM.DD-HH.MM.SS` stamps the game embeds in backup names. */
         private val BACKUP_STAMP_REGEX = Regex("""(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2})""")
 
-        // Table names differ per database — see the schema note on queryDb().
-        private const val LOCAL_STORAGE_TABLE = "LocalStorage"
-        private const val DEVICE_STORAGE_TABLE = "DeviceStorage"
+        // BOTH databases name their table "LocalStorage". Verified on-device:
+        //   Saved/LocalStorage/LocalStorage.db -> table "LocalStorage"
+        //   Saved/DeviceSaved/DeviceStorage.db -> table "LocalStorage"  (12 KB, 1 table)
+        // Parameterising this per database and naming the second one "DeviceStorage"
+        // (after the FILE) made every DeviceStorage query throw "no such table", the
+        // bare catch swallowed it, and language + all three version fields silently
+        // came back null. The file name and the table name are unrelated here.
+        internal const val LOCAL_STORAGE_TABLE = "LocalStorage"
+        internal const val DEVICE_STORAGE_TABLE = "LocalStorage"
+
     }
 
     suspend fun readClientLogContent(onProgress: (Int) -> Unit = {}): Result<String> =
@@ -590,61 +597,6 @@ class ProfileExtractor(
         }
     }
 
-    private fun parseServerLevels(json: String?): List<Pair<String, Int>> {
-        if (json.isNullOrBlank()) return emptyList()
-        val results = mutableListOf<Pair<String, Int>>()
-        try {
-            // Step 1 — blank out everything nested deeper than one brace level (same
-            // length preserved, so offsets stay valid). A stray nested "Level" key then
-            // cannot be seen at all.
-            val flat = StringBuilder(json)
-            var depth = 0
-            for (idx in json.indices) {
-                when (json[idx]) {
-                    '{' -> depth++
-                    '}' -> {
-                        if (depth > 0) depth--
-                    }
-                    else -> if (depth > 1) flat.setCharAt(idx, ' ')
-                }
-            }
-            val text = flat.toString()
-
-            // Step 2 — walk the top-level object spans and take the first "Region" and
-            // first "Level" inside each one. The old code built two independent
-            // findAll lists and zipped them by ordinal index, so a single extra "Level"
-            // (or a region object with no level) desynchronised the two lists and
-            // mis-attributed EVERY server — and PlayerProfile.server / playerLevel come
-            // from the first pair. Pairing within the object is also independent of the
-            // key order, which ordinal zipping was not.
-            val regionRegex = """"Region"\s*:\s*"([^"]+)"""".toRegex()
-            val levelRegex = """"Level"\s*:\s*(\d+)""".toRegex()
-            var objDepth = 0
-            var objectStart = -1
-            for (idx in text.indices) {
-                when (text[idx]) {
-                    '{' -> {
-                        if (objDepth == 0) objectStart = idx + 1
-                        objDepth++
-                    }
-                    '}' -> {
-                        if (objDepth > 0) objDepth--
-                        if (objDepth == 0 && objectStart >= 0) {
-                            val body = text.substring(objectStart, idx)
-                            val region = regionRegex.find(body)?.groupValues?.get(1)
-                            val level = levelRegex.find(body)?.groupValues?.get(1)?.toIntOrNull()
-                            if (region != null && level != null) results.add(region to level)
-                            objectStart = -1
-                        }
-                    }
-                }
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-        }
-        return results
-    }
 
     private fun formatTimestamp(ts: String?): String? {
         if (ts == null) return null
@@ -659,4 +611,66 @@ class ProfileExtractor(
         }
         return ts.take(19)
     }
+}
+
+/**
+ * Extracts (region, level) pairs from the game's `SdkLevelData` blob.
+ *
+ * The real payload is a UE Map serialisation, verified on-device:
+ *
+ *   {"___MetaType___":"___Map___","Content":[["504796016",[{"Region":"Asia","Level":80}]]]}
+ *
+ * A previous version blanked out every character nested deeper than one brace
+ * level to defend against a stray "Level" key desynchronising an ordinal zip. It
+ * ignored `[` / `]` entirely, so the server object inside the Content ARRAY went
+ * to brace-depth 2 and its "Region" and "Level" were blanked out — the function
+ * returned an empty list for every real profile, taking PlayerProfile.server and
+ * playerLevel with it (both come from the first pair).
+ *
+ * Pairing on adjacency instead of depth fixes that and is strictly safer than the
+ * ordinal zip it replaced: a "Level" that belongs to some other object simply has
+ * no adjacent "Region" and is ignored, rather than shifting every later pair.
+ */
+internal fun parseServerLevels(json: String?): List<Pair<String, Int>> {
+    if (json.isNullOrBlank()) return emptyList()
+    val results = mutableListOf<Pair<String, Int>>()
+    try {
+        // Both key orders, whitespace-tolerant. The separators are restricted to
+        // "structural" characters (brace, bracket, comma, whitespace) so a Region
+        // and a Level from DIFFERENT objects cannot be paired just because some
+        // other text happened to sit between them.
+        val region = """"Region"\s*:\s*"([^"]*)"""".toRegex()
+        val level = """"Level"\s*:\s*(\d+)""".toRegex()
+        val regionFirst =
+            Regex(""""Region"\s*:\s*"([^"]*)"[\s,\]]{0,8}"Level"\s*:\s*(\d+)""")
+        val levelFirst =
+            Regex(""""Level"\s*:\s*(\d+)[\s,\]]{0,8}"Region"\s*:\s*"([^"]*)"""")
+
+        var consumedTo = -1
+        for (m in regionFirst.findAll(json)) {
+            val r = m.groupValues[1]
+            val l = m.groupValues[2].toIntOrNull() ?: continue
+            if (r.isBlank()) continue
+            results.add(r to l)
+            consumedTo = maxOf(consumedTo, m.range.last)
+        }
+        for (m in levelFirst.findAll(json)) {
+            if (m.range.first <= consumedTo) continue
+            val l = m.groupValues[1].toIntOrNull() ?: continue
+            val r = m.groupValues[2]
+            if (r.isBlank()) continue
+            results.add(r to l)
+        }
+        // Documented fallbacks: kept so an unexpected shape still yields something
+        // rather than silently nothing.
+        if (results.isEmpty()) {
+            val regions = region.findAll(json).map { it.groupValues[1] }.filter { it.isNotBlank() }.toList()
+            val levels = level.findAll(json).mapNotNull { it.groupValues[1].toIntOrNull() }.toList()
+            val n = minOf(regions.size, levels.size)
+            for (i in 0 until n) results.add(regions[i] to levels[i])
+        }
+    } catch (_: Exception) {
+        return emptyList()
+    }
+    return results
 }
