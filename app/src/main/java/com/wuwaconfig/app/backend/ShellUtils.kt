@@ -98,6 +98,21 @@ fun isPermissionDenied(message: String?): Boolean {
 fun isNotDebuggable(message: String?): Boolean = message?.contains("not debuggable", ignoreCase = true) == true
 
 /**
+ * True when the failure is "there is no shell service bound", rather than a
+ * command that ran and failed.
+ *
+ * This is not a retryable condition: the caller has no UserService to send
+ * anything to, so every subsequent attempt fails identically. Retry loops that
+ * cannot tell the two apart burn their whole backoff budget on a fault that
+ * only a reconnect can clear.
+ */
+fun isServiceNotConnected(message: String?): Boolean =
+    message?.contains("service not connected", ignoreCase = true) == true ||
+        // Exact literal thrown by Shizuku.requireService() (dev.rikka.shizuku:api
+        // 13.1.5) when bindUserService is called before the binder arrives.
+        message?.contains("binder haven't been received", ignoreCase = true) == true
+
+/**
  * Single shared "retry on Permission denied" wrapper used by AdbBackend, AdbClient and
  * ShizukuBackend.
  *
