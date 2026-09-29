@@ -155,12 +155,26 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                 if (attempt < BIND_ATTEMPTS) delay(BIND_RETRY_DELAY_MS * attempt)
             }
         }
+        val cause = lastError?.message ?: "no callback"
+        // A rejected ComponentName is a different fault entirely from a service
+        // that never came up, and it deserves a different instruction. Telling
+        // someone to open autostart settings when the real problem is that the
+        // component names a package that is not installed is the kind of advice
+        // that sends someone down an hour-long dead end.
+        val guidance =
+            if (cause.contains("unable to find package", ignoreCase = true)) {
+                "Shizuku could not resolve this app's own package " +
+                    "(${context.packageName}), so it refused to start the shell " +
+                    "service. Reinstalling the app usually clears it."
+            } else {
+                "On Xiaomi/vivo/OPPO/OnePlus this is usually the ROM blocking the " +
+                    "service process: set WuWaConfig to No restrictions, allow " +
+                    "Autostart, and lock the app in Recents. If it persists, use " +
+                    "the Root or SAF access method instead."
+            }
         throw Exception(
             "Shizuku could not start its shell service after $BIND_ATTEMPTS attempts " +
-                "(${lastError?.message ?: "no callback"}). On Xiaomi/vivo/OPPO/OnePlus " +
-                "this is usually the ROM blocking the service process: set WuWaConfig to " +
-                "No restrictions, allow Autostart, and lock the app in Recents. " +
-                "If it persists, use the Root or SAF access method instead.",
+                "($cause). $guidance",
             lastError,
         )
     }
@@ -261,7 +275,15 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
     private fun userServiceArgs(): Shizuku.UserServiceArgs =
         Shizuku.UserServiceArgs(
             ComponentName(
-                "com.wuwaconfig.app",
+                // context.packageName, never a hardcoded string. Shizuku resolves
+                // this component through the package manager before it spawns
+                // anything, so a mismatch is not a degraded UserService, it is an
+                // outright "unable to find package com.wuwaconfig.app" refusal.
+                // Debug builds install as com.wuwaconfig.app.debug
+                // (applicationIdSuffix), so a hardcoded release package name fails
+                // on every debug install — which is every install during
+                // development, and the one place anyone looks for it.
+                context.packageName,
                 ShellUserService::class.java.name,
             ),
         )
