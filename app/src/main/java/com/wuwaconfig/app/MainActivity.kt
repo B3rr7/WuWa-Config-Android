@@ -8,7 +8,12 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import android.os.Environment
-import android.provider.Settings
+// Aliased, not shadowed: the nav destination is named after the screen, and
+// every other destination in Destinations.kt is a bare domain noun. Renaming it
+// to SettingsRoute would make it the odd one out for no benefit, so the
+// platform class yields instead — it is an unrelated name collision, and
+// android.provider.Settings is only needed for two intent actions.
+import android.provider.Settings as AndroidSettings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -37,6 +42,20 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.wuwaconfig.app.nav.Backups
+import com.wuwaconfig.app.nav.BattleStats
+import com.wuwaconfig.app.nav.ConfigGen
+import com.wuwaconfig.app.nav.History
+import com.wuwaconfig.app.nav.Home
+import com.wuwaconfig.app.nav.IniEditor
+import com.wuwaconfig.app.nav.Logs
+import com.wuwaconfig.app.nav.Pity
+import com.wuwaconfig.app.nav.Profile
+import com.wuwaconfig.app.nav.ReviewTune
+import com.wuwaconfig.app.nav.Settings
+import com.wuwaconfig.app.nav.Setup
+import com.wuwaconfig.app.nav.UserGuide
+import com.wuwaconfig.app.nav.startDestination
 import com.wuwaconfig.app.service.AdbConnectionService
 import com.wuwaconfig.app.ui.BackupViewModel
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
@@ -128,7 +147,7 @@ class MainActivity : ComponentActivity() {
                 settingsViewModel.installPermissionRequest.collect {
                     val intent =
                         Intent(
-                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            AndroidSettings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                             android.net.Uri.parse("package:$packageName"),
                         )
                     if (intent.resolveActivity(packageManager) == null) return@collect
@@ -230,7 +249,7 @@ class MainActivity : ComponentActivity() {
     private fun requestStoragePermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                val intent = Intent(AndroidSettings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                 intent.data = android.net.Uri.parse("package:$packageName")
                 // Kiosk / stripped / some Chinese ROMs may ship no Settings
                 // handler for this action — fail silently instead of crashing
@@ -275,7 +294,7 @@ fun AppNavigation(
 ) {
     val navController = rememberNavController()
     val setupDone by viewModel.isSetupDone.collectAsStateWithLifecycle()
-    val startDest = if (setupDone) "home" else "setup"
+    val startDest = startDestination(setupDone)
 
     val navEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition? = {
         slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
@@ -296,11 +315,15 @@ fun AppNavigation(
 
     NavHost(
         navController = navController,
-        startDestination = startDest,
+        // The string overload is deliberate. startDestination() is typed Any so
+        // DestinationsTest can exercise the setupDone branch without depending on
+        // a NavKey type, and Navigation2 has no NavHost(startDestination: T)
+        // overload that would infer a key type from that. The name is the
+        // serialName, so this is exactly what the graph registers.
+        startDestination = startDest.toString(),
         modifier = Modifier,
     ) {
-        composable(
-            "setup",
+        composable<Setup>(
             enterTransition = { fadeIn(animationSpec = tween(400)) },
             exitTransition = { fadeOut(animationSpec = tween(300)) },
             popEnterTransition = { fadeIn(animationSpec = tween(300)) },
@@ -309,14 +332,13 @@ fun AppNavigation(
             SetupScreen(
                 viewModel = viewModel,
                 onComplete = {
-                    navController.navigate("home") {
-                        popUpTo("setup") { inclusive = true }
+                    navController.navigate(Home) {
+                        popUpTo<Setup> { inclusive = true }
                     }
                 },
             )
         }
-        composable(
-            "home",
+        composable<Home>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -327,19 +349,18 @@ fun AppNavigation(
                 deployHistoryViewModel = deployHistoryViewModel,
                 backupViewModel = backupViewModel,
                 settingsViewModel = settingsViewModel,
-                onNavigateToBackups = { navController.navigate("backups") },
-                onNavigateToSettings = { navController.navigate("settings") },
-                onNavigateToConfigGen = { navController.navigate("configgen") },
-                onNavigateToPity = { navController.navigate("pity") },
-                onNavigateToProfile = { navController.navigate("profile") },
-                onNavigateToBattleStats = { navController.navigate("battlestats") },
-                onNavigateToLogs = { navController.navigate("logs") },
-                onNavigateToHistory = { navController.navigate("history") },
-                onNavigateToIniEditor = { navController.navigate("inieditor") },
+                onNavigateToBackups = { navController.navigate(Backups) },
+                onNavigateToSettings = { navController.navigate(Settings) },
+                onNavigateToConfigGen = { navController.navigate(ConfigGen) },
+                onNavigateToPity = { navController.navigate(Pity) },
+                onNavigateToProfile = { navController.navigate(Profile) },
+                onNavigateToBattleStats = { navController.navigate(BattleStats) },
+                onNavigateToLogs = { navController.navigate(Logs) },
+                onNavigateToHistory = { navController.navigate(History) },
+                onNavigateToIniEditor = { navController.navigate(IniEditor) },
             )
         }
-        composable(
-            "backups",
+        composable<Backups>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -351,8 +372,7 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(
-            "configgen",
+        composable<ConfigGen>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -364,12 +384,11 @@ fun AppNavigation(
                 insightsViewModel = insightsViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToReviewTune = {
-                    navController.navigate("reviewtune")
+                    navController.navigate(ReviewTune)
                 },
             )
         }
-        composable(
-            "reviewtune",
+        composable<ReviewTune>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -387,8 +406,7 @@ fun AppNavigation(
                 },
             )
         }
-        composable(
-            "settings",
+        composable<Settings>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -400,7 +418,7 @@ fun AppNavigation(
             SettingsScreen(
                 viewModel = settingsViewModel,
                 onBack = { navController.popBackStack() },
-                onNavigateToUserGuide = { navController.navigate("userguide") },
+                onNavigateToUserGuide = { navController.navigate(UserGuide) },
                 backendStatus = backendStatus,
                 chipsetInfo = chipsetInfo,
                 gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR,
@@ -408,8 +426,7 @@ fun AppNavigation(
                 onChangeBackupDir = { newDir -> backupViewModel.changeBackupDir(newDir) },
             )
         }
-        composable(
-            "userguide",
+        composable<UserGuide>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -419,8 +436,7 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(
-            "pity",
+        composable<Pity>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -435,8 +451,7 @@ fun AppNavigation(
                 isApplying = isApplying,
             )
         }
-        composable(
-            "profile",
+        composable<Profile>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -449,8 +464,7 @@ fun AppNavigation(
                 backendStatus = backendStatus,
             )
         }
-        composable(
-            "battlestats",
+        composable<BattleStats>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -461,8 +475,7 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(
-            "logs",
+        composable<Logs>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -473,8 +486,7 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(
-            "history",
+        composable<History>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,
@@ -485,8 +497,7 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(
-            "inieditor",
+        composable<IniEditor>(
             enterTransition = navEnter,
             exitTransition = navExit,
             popEnterTransition = popEnter,

@@ -8,6 +8,9 @@ plugins {
     // Required by androidx.appfunctions:appfunctions-compiler, which generates
     // the AppFunctionService subclass and the assets schema XML at compile time.
     alias(libs.plugins.ksp)
+    // Generates the @Serializable serializers the type-safe navigation route
+    // keys need. See the libs.plugins.serialization note.
+    alias(libs.plugins.serialization)
 }
 
 // Keys that must ALL be present for a release build to be signable.

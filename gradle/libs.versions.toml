@@ -72,3 +72,11 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+# Required for the type-safe navigation route keys (nav/Destinations.kt): the
+# @Serializable annotation is only generated when this plugin is applied, and
+# Navigation2's composable<T>/navigate<T) match routes by the key's serial
+# name. Version pinned to `kotlin` rather than left unset because Gradle
+# requires a version to resolve a plugin from the repositories block, and this
+# matches the compose compiler plugin - the other Kotlin-compiler plugin
+# already applying successfully against AGP 9's built-in Kotlin.
+serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
