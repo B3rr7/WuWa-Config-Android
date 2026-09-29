@@ -101,22 +101,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // FLAG_SECURE: block screenshots AND the recents-task thumbnail.
-        //
-        // Without it, SystemUI captures every screen and (on some OEM builds) mirrors
-        // that thumbnail to cloud recents-sync. The screens render a gacha Convene URL
-        // whose fragment carries `record_id` (a bearer credential for the
-        // gacha-history endpoint), the player UID/region/level, shell command strings,
-        // and the wireless-ADB host:port. App-wide rather than per-screen so the
-        // guarantee cannot be forgotten on a new destination.
+        // FLAG_SECURE blocks screenshots AND the recents-task thumbnail, and is off
+        // by default: capturing a config screen is a normal thing to want to do.
+        // It remains a build-time switch because a build that leaves it on is no
+        // longer compatible with the release one — opt in with
+        // `./gradlew assembleRelease -PsecureScreenshots=true`. App-wide rather than
+        // per-screen so the guarantee cannot be forgotten on a new destination.
         if (BuildConfig.SECURE_SCREENSHOTS) {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         } else {
-            // Screenshot-enabled build (./gradlew -PsecureScreenshots=false). The flag
-            // blocks `adb shell screencap` as well as user screenshots, which makes UI
-            // work impossible, so it is a build-time switch rather than a hardcoded
-            // always-on. Release builds default to protected.
-            Log.w("MainActivity", "FLAG_SECURE disabled for this build (secureScreenshots=false)")
+            Log.i("MainActivity", "FLAG_SECURE off: screenshots and screencap are allowed in this build")
         }
         // Seed the neon palette BEFORE the first composition. Doing it from a
         // LaunchedEffect made the first frame render at the previous process's

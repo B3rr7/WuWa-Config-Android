@@ -17,11 +17,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import rikka.shizuku.Shizuku
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 class ShizukuBackend(private val context: android.content.Context) : AccessBackend {
     // Written from the main thread (onServiceConnected) and read from IO workers.
@@ -39,6 +39,16 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
 
     /** Serializes [connect]: two concurrent binds would cross-assign [serviceConnection]. */
     private val connectMutex = Mutex()
+
+    /**
+     * Generation counter for in-flight binds. Bumped before every new bind, on
+     * every abandonment, and on [disconnect]; a ServiceConnection whose captured
+     * token is stale ignores its own callback. Without it, a connection that was
+     * already abandoned (or a binder that arrives just after the deadline) can
+     * still install a live [shellService] that nothing holds a handle to, and
+     * `isConnected` then reports true while [disconnect] cannot unbind it.
+     */
+    private val bindToken = java.util.concurrent.atomic.AtomicLong(0)
 
     interface IShellService {
         fun execCommand(command: String): String
@@ -114,26 +124,66 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
             }
         }
 
-    private fun bindUserService() {
-        val latch = CountDownLatch(1)
-        val args =
-            Shizuku.UserServiceArgs(
-                ComponentName(
-                    "com.wuwaconfig.app",
-                    ShellUserService::class.java.name,
-                ),
-            )
-                .daemon(false)
-                .processNameSuffix("shell")
-                .debuggable(false)
-                .version(1)
+    /**
+     * Binds the UserService, retrying the whole transaction.
+     *
+     * The wait is a hard deadline with nothing behind it: if the remote process
+     * never reports back, [onServiceConnected] simply never fires and the client
+     * is left guessing. Two things make that much more likely on Chinese ROMs
+     * (Xiaomi/HyperOS, vivo/OriginOS, OPPO/ColorOS):
+     *
+     *  1. The spawn is a fresh `app_process` that has to load this APK's dex and
+     *     run `WuWaConfigApp.onCreate()` in it. That is seconds of cold work on a
+     *     throttled device, so [BIND_TIMEOUT_MS] is generous on purpose — the old
+     *     15s gave up while the service was still legitimately starting.
+     *  2. The ROM can kill or refuse the spawn outright (app-launch manager,
+     *     autostart off, battery optimisation). A single attempt cannot tell that
+     *     apart from slowness, so the bind is retried before it is reported as a
+     *     failure the user cannot act on.
+     */
+    private suspend fun bindUserService() {
+        var lastError: Exception? = null
+        for (attempt in 1..BIND_ATTEMPTS) {
+            try {
+                bindUserServiceOnce()
+                return
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
+                LogRepository.add("Shizuku bind attempt $attempt/$BIND_ATTEMPTS failed: ${e.message}", LogLevel.WARNING)
+                if (attempt < BIND_ATTEMPTS) delay(BIND_RETRY_DELAY_MS * attempt)
+            }
+        }
+        throw Exception(
+            "Shizuku could not start its shell service after $BIND_ATTEMPTS attempts " +
+                "(${lastError?.message ?: "no callback"}). On Xiaomi/vivo/OPPO/OnePlus " +
+                "this is usually the ROM blocking the service process: set WuWaConfig to " +
+                "No restrictions, allow Autostart, and lock the app in Recents. " +
+                "If it persists, use the Root or SAF access method instead.",
+            lastError,
+        )
+    }
 
-        serviceConnection =
+    private suspend fun bindUserServiceOnce() {
+        val latch = CountDownLatch(1)
+        val args = userServiceArgs()
+
+        // A callback from an earlier attempt can land after this one has started.
+        // Shizuku delivers on the main thread and the server may take arbitrarily
+        // long, so without this an abandoned connection can still install a live
+        // proxy that disconnect() has no handle to unbind.
+        val token = bindToken.incrementAndGet()
+        val connection =
             object : ServiceConnection {
                 override fun onServiceConnected(
                     name: ComponentName?,
                     binder: IBinder?,
                 ) {
+                    if (bindToken.get() != token) {
+                        latch.countDown()
+                        return
+                    }
                     if (binder != null && binder.pingBinder()) {
                         try {
                             boundBinder?.let { old ->
@@ -143,6 +193,7 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                         }
                         val recipient =
                             IBinder.DeathRecipient {
+                                if (bindToken.get() != token) return@DeathRecipient
                                 shellService = null
                                 serviceConnection = null
                                 boundBinder = null
@@ -163,35 +214,61 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                 }
 
                 override fun onServiceDisconnected(name: ComponentName?) {
-                    try {
-                        boundBinder?.let { b ->
-                            deathRecipient?.let { b.unlinkToDeath(it, 0) }
+                    if (bindToken.get() == token) {
+                        try {
+                            boundBinder?.let { b ->
+                                deathRecipient?.let { b.unlinkToDeath(it, 0) }
+                            }
+                        } catch (_: Exception) {
                         }
-                    } catch (_: Exception) {
+                        boundBinder = null
+                        deathRecipient = null
+                        shellService = null
                     }
-                    boundBinder = null
-                    deathRecipient = null
-                    shellService = null
                     latch.countDown()
                 }
             }
+        serviceConnection = connection
 
-        Shizuku.bindUserService(args, serviceConnection!!)
-        if (!latch.await(15, TimeUnit.SECONDS)) {
-            // Unbind so a late onServiceConnected doesn't leave a bound UserService
-            // with no tracked cleanup.
+        try {
+            Shizuku.bindUserService(args, connection)
+        } catch (e: Exception) {
+            serviceConnection = null
+            throw Exception("Shizuku rejected the UserService request: ${e.message ?: e.javaClass.simpleName}", e)
+        }
+        // Suspending await, not latch.await: a cancelled connect() must not sit out
+        // the full deadline holding a thread.
+        if (withTimeoutOrNull(BIND_TIMEOUT_MS) { latch.await() } == null) {
+            // Abandon this attempt. Bumping the token is what makes a late
+            // onServiceConnected a no-op instead of a half-installed service.
+            bindToken.incrementAndGet()
             try {
-                Shizuku.unbindUserService(args, serviceConnection!!, true)
+                Shizuku.unbindUserService(args, connection, true)
             } catch (_: Exception) {
             }
-            serviceConnection = null
+            if (serviceConnection === connection) serviceConnection = null
             shellService = null
-            throw Exception("UserService bind timed out")
+            throw Exception("UserService bind timed out after ${BIND_TIMEOUT_MS / 1000}s")
         }
         if (shellService == null) {
-            throw Exception("Failed to bind UserService")
+            bindToken.incrementAndGet()
+            serviceConnection = null
+            throw Exception("Shizuku reported the UserService bound but sent no live binder")
         }
+        LogRepository.add("Shizuku UserService bound", LogLevel.SUCCESS)
     }
+
+    private fun userServiceArgs(): Shizuku.UserServiceArgs =
+        Shizuku.UserServiceArgs(
+            ComponentName(
+                "com.wuwaconfig.app",
+                ShellUserService::class.java.name,
+            ),
+        )
+            .daemon(false)
+            .processNameSuffix(ShellUserService.PROCESS_NAME_SUFFIX)
+            .debuggable(false)
+            .version(1)
 
     override fun disconnect() {
         LogRepository.add("Shizuku disconnect")
@@ -203,20 +280,12 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
         }
         boundBinder = null
         deathRecipient = null
+        // Invalidate any in-flight / late callback before unbinding, so a binder
+        // that arrives after this point cannot resurrect a dead shellService.
+        bindToken.incrementAndGet()
         serviceConnection?.let {
             try {
-                val args =
-                    Shizuku.UserServiceArgs(
-                        ComponentName(
-                            "com.wuwaconfig.app",
-                            ShellUserService::class.java.name,
-                        ),
-                    )
-                        .daemon(false)
-                        .processNameSuffix("shell")
-                        .debuggable(false)
-                        .version(1)
-                Shizuku.unbindUserService(args, it, true)
+                Shizuku.unbindUserService(userServiceArgs(), it, true)
             } catch (_: Exception) {
             }
         }
@@ -634,6 +703,23 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
         // returns its result string before the coroutine is cancelled (binder transact is not
         // interruptible, so an early client timeout would leak the in-flight transaction).
         private const val SHIZUKU_CALL_TIMEOUT_MS = 75_000L
+
+        /**
+         * Deadline for one `bindUserService` round trip. Generous because the round
+         * trip is not a binder call — it is a cold `app_process` spawn that loads
+         * this APK and runs WuWaConfigApp.onCreate() in the new process before it
+         * can answer at all. 15s (the previous value) was not enough on mid-range
+         * Chinese ROMs, where the process launch is additionally delayed by the
+         * ROM's app-launch manager, and the extra wait is free when the bind is
+         * healthy: the callback ends the wait, it does not wait it out.
+         */
+        private const val BIND_TIMEOUT_MS = 45_000L
+
+        /** One retry after the first failure, so a throttled spawn gets a second chance. */
+        private const val BIND_ATTEMPTS = 2
+
+        /** Linear backoff between bind attempts. */
+        private const val BIND_RETRY_DELAY_MS = 1_500L
 
         /** Marker for the inner command's status inside [readViaTemp]'s compound command. */
         private const val STATUS_PREFIX = "DONE="
