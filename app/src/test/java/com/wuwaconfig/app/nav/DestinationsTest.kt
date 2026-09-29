@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.nav
 
+import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.KSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -9,22 +10,22 @@ import org.junit.Test
  * rule.
  *
  * Why the serial name and not "the graph has 13 entries": a pure JVM test
- * cannot see inside a `NavHost`, so any assertion about the graph itself would
- * be self-referential. The serial name is the thing that actually has to stay
- * stable across versions, and it is testable — Navigation2 persists the back
- * stack to saved instance state, and an app update that renames a key turns a
- * restored back stack into a graph lookup that misses, which surfaces as the
- * user landing on an unexpected screen after an update. Renaming a destination
+ * cannot see inside the entryProvider, so any assertion about the set of
+ * registered destinations would be self-referential. The serial name is the
+ * thing that actually has to stay stable across versions, and it is testable —
+ * `rememberNavBackStack` persists the stack through saved state, so renaming a
+ * key in an app update turns a restored back stack into an entry lookup that
+ * misses, and the user lands on an unexpected screen. Renaming a destination
  * is therefore a saved-state format change, and this test is what makes that
  * visible in review rather than in bug reports.
  *
  * Deliberately reads `descriptor.serialName` rather than round-tripping
  * through `Json`: the descriptor is where the name is *registered*, it needs no
  * kotlinx-serialization-json on the test classpath, and it is the same string
- * Navigation2 matches graph entries against.
+ * the saved back stack is keyed on.
  */
 class DestinationsTest {
-    private fun serialName(key: Any): String {
+    private fun serialName(key: NavKey): String {
         // The generated `serializer()` is an instance method on the object (the
         // compiler puts it in the object's class, not a separate `$$serializer`
         // class), so it must be invoked on `key` rather than on a null receiver.
