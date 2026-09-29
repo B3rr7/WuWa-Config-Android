@@ -83,14 +83,15 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        // FLAG_SECURE blocks `adb shell screencap` as well as user screenshots, which
-        // makes UI iteration impossible. Build-time switch instead of hardcoded
-        // always-on: release is protected by default; produce a capture-enabled build
-        // with `./gradlew assembleRelease -PsecureScreenshots=false`.
+        // Screenshots are allowed by default for every variant. FLAG_SECURE also
+        // blocks `adb shell screencap` and blanks the recents-task thumbnail, which
+        // is a poor trade for an app whose value is showing the user their config:
+        // this one is a plain utility screen, not a banking or messaging surface.
+        // Opt back in with `./gradlew assembleRelease -PsecureScreenshots=true`.
         buildConfigField(
             "boolean",
             "SECURE_SCREENSHOTS",
-            if ((project.findProperty("secureScreenshots") as String?) == "false") "false" else "true",
+            if ((project.findProperty("secureScreenshots") as String?) == "true") "true" else "false",
         )
 
         applicationId = "com.wuwaconfig.app"

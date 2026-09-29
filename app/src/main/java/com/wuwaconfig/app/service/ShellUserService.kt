@@ -8,6 +8,18 @@ import java.util.concurrent.TimeUnit
 
 class ShellUserService : Binder() {
     companion object {
+        /**
+         * Process name suffix of the UserService process, i.e. the final process
+         * name is `com.wuwaconfig.app:shell`. Single source of truth: the value is
+         * passed to `Shizuku.UserServiceArgs.processNameSuffix()` by ShizukuBackend
+         * AND used by WuWaConfigApp to recognise that it is being constructed inside
+         * that process (see WuWaConfigApp.isUserServiceProcess). If the two ever
+         * drifted, the app would run its full bootstrap in a uid-2000 process and
+         * crash it on startup — which is indistinguishable, from the client, from
+         * a bind timeout.
+         */
+        const val PROCESS_NAME_SUFFIX = "shell"
+
         private const val TRANSACTION_EXEC_COMMAND = IBinder.FIRST_CALL_TRANSACTION + 1
 
         /**

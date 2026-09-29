@@ -82,6 +82,17 @@ fun HomeScreen(
     onNavigateToIniEditor: () -> Unit = {},
 ) {
     val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
+    // Shizuku's UserService is a background process this app spawns, so the
+    // second button below is a Fix action whenever the permission is already
+    // granted: the remaining failure mode on Chinese ROMs is the ROM killing that
+    // process, and the fix lives in a system screen, not in this app.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val shizukuGranted =
+        remember {
+            runCatching {
+                rikka.shizuku.Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED
+            }.getOrDefault(false)
+        }
     val backups by backupViewModel.backups.collectAsStateWithLifecycle()
     val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
     val deployRecords by deployHistoryViewModel.deployRecords.collectAsStateWithLifecycle()
@@ -259,14 +270,24 @@ fun HomeScreen(
                                     }
                                 AccessMethod.SHIZUKU ->
                                     GlassOutlinedButton(
-                                        onClick = { deployHistoryViewModel.requestShizukuPermission() },
+                                        onClick = {
+                                            if (shizukuGranted) {
+                                                com.wuwaconfig.app.util.RomBackgroundSettings.open(context)
+                                            } else {
+                                                deployHistoryViewModel.requestShizukuPermission()
+                                            }
+                                        },
                                         modifier = Modifier.weight(1f),
                                         enabled = !isApplying,
                                         accentColor = NeonAmber,
                                     ) {
-                                        Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Icon(
+                                            if (shizukuGranted) Icons.Default.Settings else Icons.Default.Security,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                        )
                                         Spacer(Modifier.width(6.dp))
-                                        Text("Permit")
+                                        Text(if (shizukuGranted) "Fix" else "Permit")
                                     }
                                 AccessMethod.SAF ->
                                     GlassOutlinedButton(

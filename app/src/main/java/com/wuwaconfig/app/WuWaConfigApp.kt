@@ -2,6 +2,7 @@ package com.wuwaconfig.app
 
 import android.app.Application
 import android.content.Context
+import android.os.Build
 import com.wuwaconfig.app.adb.AdbCrypto
 import com.wuwaconfig.app.backend.AccessBackend
 import com.wuwaconfig.app.backend.AccessMethod
@@ -16,6 +17,7 @@ import com.wuwaconfig.app.config.DeployHistoryStore
 import com.wuwaconfig.app.config.ProfileStore
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogRepository
+import com.wuwaconfig.app.service.ShellUserService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -110,6 +112,11 @@ class WuWaConfigApp : Application() {
         // Idempotent re-assertion of the init {} block; see the comment there.
         instance = this
         super.onCreate()
+        // Everything below assumes this is a real app process: SharedPreferences,
+        // filesDir, the asset manager, Dispatchers.Main work. None of that holds
+        // in the Shizuku UserService process, which runs as uid 2000 with no
+        // reachable app data dir. See isUserServiceProcess().
+        if (isUserServiceProcess()) return
         adbCrypto = AdbCrypto(this)
         // RSA key generation + EncryptedFile I/O is heavy; pre-load off the main
         // thread so it never blocks cold start or the first ADB connection.
@@ -161,6 +168,39 @@ class WuWaConfigApp : Application() {
                 }
             if (discard) created.disconnect()
         }
+    }
+
+    /**
+     * True when this process hosts [com.wuwaconfig.app.service.ShellUserService]
+     * rather than the app UI.
+     *
+     * Shizuku does not start a normal Android component. It spawns a bare
+     * `app_process` whose main() calls `LoadedApk.makeApplication()` and then
+     * `Looper.loop()`, so *this class* is constructed a second time in a process
+     * named `com.wuwaconfig.app:shell`, running as uid 2000 (shell) or 0 (root).
+     * None of the app's private storage is reachable there, `getContentResolver()`
+     * is documented-broken, and any throw out of onCreate() makes Shizuku's
+     * `UserService.create()` return null — after which the process calls
+     * `System.exit(1)` and never sends its binder. From the client's side that is
+     * indistinguishable from a bind timeout ("UserService bind timed out"), which
+     * is the single most reported Shizuku failure on Chinese ROMs.
+     *
+     * `/proc/self/cmdline` is authoritative and framework-free: ServiceStarter
+     * launches `app_process --nice-name=<pkg>:<suffix>`, so argv[0] carries the
+     * suffix. `Application.getProcessName()` is only a cross-check, never the
+     * primary signal — several Chinese ROMs patch `makeApplicationInner()` to read
+     * it, so it is precisely on those devices that it can come back null.
+     */
+    private fun isUserServiceProcess(): Boolean {
+        val expected = "$packageName:${ShellUserService.PROCESS_NAME_SUFFIX}"
+        val argv0 =
+            runCatching {
+                val raw = File("/proc/self/cmdline").readBytes()
+                val end = raw.indexOf(0.toByte())
+                String(raw, 0, if (end < 0) raw.size else end, Charsets.UTF_8)
+            }.getOrNull()
+        if (argv0 == expected) return true
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && Application.getProcessName() == expected
     }
 
     fun setBackgroundState(
