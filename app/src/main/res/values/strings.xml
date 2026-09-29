@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WuWaConfig</string>
+    <!-- Shown to system agents as the app-level "what can this do" summary. -->
+    <string name="app_functions_description">Generates and analyses Wuthering Waves graphics configurations. Every function here is read-only or in-memory: nothing is written to the game, and no device connection is required.</string>
 </resources>

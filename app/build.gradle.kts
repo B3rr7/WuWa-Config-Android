@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ktlint)
+    // Required by androidx.appfunctions:appfunctions-compiler, which generates
+    // the AppFunctionService subclass and the assets schema XML at compile time.
+    alias(libs.plugins.ksp)
 }
 
 // Keys that must ALL be present for a release build to be signable.
@@ -73,7 +76,11 @@ val releaseKeyPassword = keystoreProps["keyPassword"] ?: System.getenv("KEY_PASS
 
 android {
     namespace = "com.wuwaconfig.app"
-    compileSdk = 36
+    // 37 is a hard floor, not a preference: the AppFunctions platform API
+    // (android.app.appfunctions) is only in android-37's android.jar, and the
+    // androidx.appfunctions compiler needs it on the compile classpath to
+    // generate the service + schema XML. targetSdk stays 36.
+    compileSdk = 37
 
     defaultConfig {
         // FLAG_SECURE blocks `adb shell screencap` as well as user screenshots, which
@@ -233,9 +240,27 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
 
+    // AppFunctions: system-agent callable surface. `appfunctions` is the
+    // runtime/back-compat shim (it re-exports the platform API down to API 36);
+    // `appfunctions-compiler` is the KSP processor that emits
+    // BaseWuWaAppFunctionService's concrete subclass + the assets schema XML.
+    // The processor must run on the same KSP version as the Kotlin plugin.
+    implementation(libs.androidx.appfunctions)
+    ksp(libs.androidx.appfunctions.compiler)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)
+}
+
+// The KSP processor options cannot be passed through the `ksp(...)` dependency
+// block: under Gradle 9 the trailing lambda resolves to a Groovy Closure
+// overload, so `arg` is not in scope. Configuring the extension directly is the
+// supported route and avoids the same Action<T> SAM trap described above.
+// aggregateAppFunctions merges the schema of every @AppFunctionServiceEntryPoint
+// into one inventory so the system discovers the app's functions as a unit.
+extensions.configure<com.google.devtools.ksp.gradle.KspExtension>("ksp") {
+    arg("appfunctions:aggregateAppFunctions", "true")
 }

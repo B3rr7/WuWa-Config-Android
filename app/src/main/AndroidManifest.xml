@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -106,6 +107,42 @@
         <service
             android:name=".service.ShellUserService"
             android:exported="false" />
+
+        <!-- AppFunctions: the system-agent callable surface. The class named here is the one
+             KSP generates from @AppFunctionServiceEntryPoint on BaseWuWaAppFunctionService,
+             together with the assets schema XML named in the `v2` property. Both must be
+             declared by hand; the annotation only produces them.
+
+             android:permission is load-bearing and NOT optional, for the same reason
+             ShizukuProvider's is above: BIND_APP_FUNCTION_SERVICE is what stops an
+             arbitrary installed app from executing this app's functions. Every function
+             exposed here is read-only or in-memory (see BaseWuWaAppFunctionService), so the
+             blast radius of a leak is the user's cached profile, deploy history and the app's
+             config generator — the account identifier in battle statistics and the
+             redacted-config internals are withheld, but that is defence in depth, not the
+             control. Do not set exported="false": the system is the caller. -->
+        <service
+            android:name="com.wuwaconfig.app.appfunctions.WuWaConfigAppFunctionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_APP_FUNCTION_SERVICE"
+            tools:targetApi="36">
+            <property
+                android:name="android.app.appfunctions.schema"
+                android:value="app_functions_schema.xsd" />
+            <property
+                android:name="android.app.appfunctions.v2"
+                android:value="wuwaconfig_app_function_service.xml" />
+            <intent-filter>
+                <action android:name="android.app.appfunctions.AppFunctionService" />
+            </intent-filter>
+        </service>
+
+        <!-- App-wide description the system agent reads alongside the per-function
+             metadata. Cross-function sequencing and constraints only; per-function
+             behaviour lives in the KDoc that KSP lifts into the generated schema. -->
+        <property
+            android:name="android.app.appfunctions.app_metadata"
+            android:resource="@xml/app_metadata" />
 
     </application>
 
