@@ -514,6 +514,13 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
      * status always 0, so the permission-denied branch below was unreachable and only the
      * empty-file heuristic was left. stderr is captured to a side file and folded into the
      * thrown message for the same reason.
+     *
+     * The three attempts are for transport faults and permission faults, both of
+     * which can clear on their own. A *disconnected service* is neither: the
+     * retry loop used to burn all three attempts plus ~3s of backoff on a
+     * failure that cannot possibly succeed, which is why a background hash sync
+     * racing a disconnect filled the log with identical warnings every few
+     * seconds forever.
      */
     private suspend fun <T> readViaTemp(
         path: String,
@@ -581,6 +588,10 @@ class ShizukuBackend(private val context: android.content.Context) : AccessBacke
                         LogLevel.WARNING,
                     )
                 }
+                // Nothing to retry: the UserService is gone, so every later
+                // attempt would fail identically. Break out rather than spend
+                // two more rounds of backoff proving it.
+                if (shellService == null || isServiceNotConnected(e.message)) break
             } finally {
                 // Best-effort: both the stage and its stderr sidecar must go.
                 runCatching { execOrThrow("rm -f $tmpQuote $errQuote") }

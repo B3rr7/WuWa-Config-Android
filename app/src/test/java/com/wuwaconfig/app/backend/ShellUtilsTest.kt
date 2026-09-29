@@ -184,4 +184,27 @@ class ShellUtilsTest {
             assertFalse(r.isSuccess)
             assertEquals(1, calls)
         }
+
+    // ── isServiceNotConnected ──
+
+    @Test
+    fun `isServiceNotConnected matches the no-binder condition`() {
+        // The string execOrThrow throws when shellService is null. A retry loop
+        // that cannot recognise it spends its whole backoff budget on a fault
+        // only a reconnect can clear.
+        assertTrue(isServiceNotConnected("Shizuku service not connected"))
+        assertTrue(isServiceNotConnected("shizuku SERVICE NOT CONNECTED"))
+        assertTrue(isServiceNotConnected("binder haven't been received"))
+    }
+
+    @Test
+    fun `isServiceNotConnected does not match command failures`() {
+        // A command that ran and failed IS worth retrying, and permission
+        // failures are the case readViaTemp exists to re-try via run-as.
+        assertFalse(isServiceNotConnected(null))
+        assertFalse(isServiceNotConnected(""))
+        assertFalse(isServiceNotConnected("cat: /sdcard/x: Permission denied"))
+        assertFalse(isServiceNotConnected("SHIZUKU_EXIT=1\nsh: not found"))
+        assertFalse(isServiceNotConnected("UserService bind timed out after 45s"))
+    }
 }
