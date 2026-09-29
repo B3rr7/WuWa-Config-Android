@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.nav
 
+import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
 /**
@@ -17,51 +18,49 @@ import kotlinx.serialization.Serializable
  * as a constructor property on a `data class` here; do not add a query
  * parameter to the string.
  *
- * This is `@Serializable` and is matched by Navigation2 by the key's serial
- * name, which is why the serial names are pinned in DestinationsTest. The keys
- * do NOT yet implement nav3's `NavKey` interface: keeping that out means this
- * file has no dependency on navigation3, so the type-safe-routes change stands
- * on its own and is not entangled with a Nav2 -> Nav3 swap. The interface is
- * added in that change, not this one.
+ * Each key is `@Serializable` (the annotation is what gives the key a stable
+ * serial name for the saved back stack, pinned in DestinationsTest) and
+ * implements navigation3's `NavKey`, which is the type `rememberNavBackStack`
+ * and `entry<T>` are keyed on.
  */
 @Serializable
-data object Setup
+data object Setup : NavKey
 
 @Serializable
-data object Home
+data object Home : NavKey
 
 @Serializable
-data object Backups
+data object Backups : NavKey
 
 @Serializable
-data object ConfigGen
+data object ConfigGen : NavKey
 
 @Serializable
-data object ReviewTune
+data object ReviewTune : NavKey
 
 @Serializable
-data object Settings
+data object Settings : NavKey
 
 @Serializable
-data object UserGuide
+data object UserGuide : NavKey
 
 @Serializable
-data object Pity
+data object Pity : NavKey
 
 @Serializable
-data object Profile
+data object Profile : NavKey
 
 @Serializable
-data object BattleStats
+data object BattleStats : NavKey
 
 @Serializable
-data object Logs
+data object Logs : NavKey
 
 @Serializable
-data object History
+data object History : NavKey
 
 @Serializable
-data object IniEditor
+data object IniEditor : NavKey
 
 /**
  * The full destination set, in declaration order.
@@ -73,7 +72,7 @@ data object IniEditor
  * format* of each key (see DestinationsTest), which is the property that makes
  * a saved back stack survive both a process death and an app update.
  */
-val ALL_DESTINATIONS: List<Any> = listOf(
+val ALL_DESTINATIONS: List<NavKey> = listOf(
     Setup,
     Home,
     Backups,
@@ -97,4 +96,4 @@ val ALL_DESTINATIONS: List<Any> = listOf(
  * flipping the branches compiles fine and ships an onboarding loop to users who
  * already finished it.
  */
-fun startDestination(setupDone: Boolean): Any = if (setupDone) Home else Setup
+fun startDestination(setupDone: Boolean): NavKey = if (setupDone) Home else Setup

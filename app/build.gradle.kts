@@ -230,7 +230,10 @@ dependencies {
 
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.androidx.navigation.compose)
+    // Nav3. -runtime supplies NavKey/entryProvider/rememberNavBackStack, -ui
+    // supplies NavDisplay. This replaced navigation-compose 2.9.8.
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
 
     implementation(libs.kotlinx.coroutines.android)
 

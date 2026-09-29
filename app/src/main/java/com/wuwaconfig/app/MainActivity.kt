@@ -20,14 +20,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -38,10 +38,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavBackStackEntry
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.scene.Scene
+import androidx.navigation3.ui.NavDisplay
 import com.wuwaconfig.app.nav.Backups
 import com.wuwaconfig.app.nav.BattleStats
 import com.wuwaconfig.app.nav.ConfigGen
@@ -49,13 +49,16 @@ import com.wuwaconfig.app.nav.History
 import com.wuwaconfig.app.nav.Home
 import com.wuwaconfig.app.nav.IniEditor
 import com.wuwaconfig.app.nav.Logs
+import com.wuwaconfig.app.nav.Navigator
 import com.wuwaconfig.app.nav.Pity
 import com.wuwaconfig.app.nav.Profile
 import com.wuwaconfig.app.nav.ReviewTune
 import com.wuwaconfig.app.nav.Settings
 import com.wuwaconfig.app.nav.Setup
 import com.wuwaconfig.app.nav.UserGuide
+import com.wuwaconfig.app.nav.rememberNavigationState
 import com.wuwaconfig.app.nav.startDestination
+import com.wuwaconfig.app.nav.toEntries
 import com.wuwaconfig.app.service.AdbConnectionService
 import com.wuwaconfig.app.ui.BackupViewModel
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
@@ -116,6 +119,7 @@ class MainActivity : ComponentActivity() {
     private val backupViewModel: BackupViewModel by viewModels()
     private val logInsightsViewModel: LogInsightsViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
+    private val iniEditorViewModel: IniEditorViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -201,7 +205,7 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     } else {
-                        AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel)
+                        AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel, iniEditorViewModel)
                     }
                 }
             }
@@ -291,223 +295,191 @@ fun AppNavigation(
     settingsViewModel: SettingsViewModel,
     gachaViewModel: GachaViewModel,
     profileViewModel: ProfileViewModel,
+    iniEditorViewModel: IniEditorViewModel,
 ) {
-    val navController = rememberNavController()
     val setupDone by viewModel.isSetupDone.collectAsStateWithLifecycle()
-    val startDest = startDestination(setupDone)
+    val navigationState = rememberNavigationState(startDestination(setupDone))
+    val navigator = remember(navigationState) { Navigator(navigationState) }
 
-    val navEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition? = {
-        slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
-            fadeIn(animationSpec = tween(300))
+    // Navigation 3 types transitions as one ContentTransform (enter togetherWith
+    // exit) against a Scene receiver, where Navigation 2 had separate
+    // EnterTransition?/ExitTransition? properties against a NavBackStackEntry
+    // receiver. The values below are unchanged; only the pairing is different.
+    val pushTransition: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
+        (slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+            fadeIn(animationSpec = tween(300)))
+            .togetherWith(
+                slideOutHorizontally(targetOffsetX = { -it / 3 }, animationSpec = tween(250)) +
+                    fadeOut(animationSpec = tween(250)),
+            )
     }
-    val navExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition? = {
-        slideOutHorizontally(targetOffsetX = { -it / 3 }, animationSpec = tween(250)) +
-            fadeOut(animationSpec = tween(250))
+    val popTransition: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
+        (slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+            fadeIn(animationSpec = tween(300)))
+            .togetherWith(
+                slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(250)) +
+                    fadeOut(animationSpec = tween(250)),
+            )
     }
-    val popEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition? = {
-        slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
-            fadeIn(animationSpec = tween(300))
-    }
-    val popExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition? = {
-        slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(250)) +
-            fadeOut(animationSpec = tween(250))
+    // Setup was the one destination with cross-fades instead of slides. Nav3's
+    // entry() DSL has no per-entry transition parameters in 1.1.7 (transitions
+    // travel as an untyped metadata map), so the override is selected at the
+    // display level by inspecting the two scenes instead. Keyed on the scene
+    // rather than on "is this the first composition" so it also applies when
+    // Setup is popped back to.
+    //
+    // Both halves are named at each call site rather than each branch picking
+    // the other's fallback: writing the push site as "else popTransition()"
+    // compiles perfectly and silently slides every normal push backwards.
+    fun setupAware(
+        normal: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform,
+        setup: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform,
+    ): AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
+        if (involvesSetup()) setup() else normal()
     }
 
-    NavHost(
-        navController = navController,
-        // The string overload is deliberate. startDestination() is typed Any so
-        // DestinationsTest can exercise the setupDone branch without depending on
-        // a NavKey type, and Navigation2 has no NavHost(startDestination: T)
-        // overload that would infer a key type from that. The name is the
-        // serialName, so this is exactly what the graph registers.
-        startDestination = startDest.toString(),
+    val pushTransitionSpec =
+        setupAware(
+            normal = pushTransition,
+            setup = { fadeIn(animationSpec = tween(400)).togetherWith(fadeOut(animationSpec = tween(300))) },
+        )
+    val popTransitionSpec =
+        setupAware(
+            normal = popTransition,
+            setup = { fadeIn(animationSpec = tween(300)).togetherWith(fadeOut(animationSpec = tween(300))) },
+        )
+
+    val entryProvider =
+        entryProvider<NavKey> {
+            entry<Setup> {
+                SetupScreen(
+                    viewModel = viewModel,
+                    onComplete = { navigator.replaceAllWith(Home) },
+                )
+            }
+            entry<Home> {
+                HomeScreen(
+                    viewModel = viewModel,
+                    deployHistoryViewModel = deployHistoryViewModel,
+                    backupViewModel = backupViewModel,
+                    settingsViewModel = settingsViewModel,
+                    onNavigateToBackups = { navigator.navigate(Backups) },
+                    onNavigateToSettings = { navigator.navigate(Settings) },
+                    onNavigateToConfigGen = { navigator.navigate(ConfigGen) },
+                    onNavigateToPity = { navigator.navigate(Pity) },
+                    onNavigateToProfile = { navigator.navigate(Profile) },
+                    onNavigateToBattleStats = { navigator.navigate(BattleStats) },
+                    onNavigateToLogs = { navigator.navigate(Logs) },
+                    onNavigateToHistory = { navigator.navigate(History) },
+                    onNavigateToIniEditor = { navigator.navigate(IniEditor) },
+                )
+            }
+            entry<Backups> {
+                BackupScreen(
+                    viewModel = backupViewModel,
+                    deployHistoryViewModel = deployHistoryViewModel,
+                    onBack = { navigator.goBack() },
+                )
+            }
+            entry<ConfigGen> {
+                ConfigGenScreen(
+                    viewModel = viewModel,
+                    deployHistoryViewModel = deployHistoryViewModel,
+                    insightsViewModel = insightsViewModel,
+                    onBack = { navigator.goBack() },
+                    onNavigateToReviewTune = {
+                        navigator.navigate(ReviewTune)
+                    },
+                )
+            }
+            entry<ReviewTune> {
+                val opts by viewModel.reviewTuneOptions.collectAsStateWithLifecycle()
+                ReviewTuneScreen(
+                    viewModel = viewModel,
+                    deployHistoryViewModel = deployHistoryViewModel,
+                    generatorOptions = opts,
+                    onBack = { navigator.goBack() },
+                    onDeploy = { ini, deployOpts ->
+                        val accepted = deployHistoryViewModel.deployGeneratedConfigs(ini, deployOpts)
+                        if (accepted) navigator.goBack()
+                    },
+                )
+            }
+            entry<Settings> {
+                // detect() reads Build.* — remember so it runs once, not per recomposition.
+                val chipsetInfo = remember { com.wuwaconfig.app.config.ChipsetDetector.detect() }
+                val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
+                SettingsScreen(
+                    viewModel = settingsViewModel,
+                    onBack = { navigator.goBack() },
+                    onNavigateToUserGuide = { navigator.navigate(UserGuide) },
+                    backendStatus = backendStatus,
+                    chipsetInfo = chipsetInfo,
+                    gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR,
+                    backupStorageDir = backupViewModel.backupStorageDir,
+                    onChangeBackupDir = { newDir -> backupViewModel.changeBackupDir(newDir) },
+                )
+            }
+            entry<UserGuide> {
+                UserGuideScreen(
+                    onBack = { navigator.goBack() },
+                )
+            }
+            entry<Pity> {
+                val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
+                val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
+                PityScreen(
+                    viewModel = gachaViewModel,
+                    onBack = { navigator.goBack() },
+                    backendStatus = backendStatus,
+                    isApplying = isApplying,
+                )
+            }
+            entry<Profile> {
+                val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
+                ProfileScreen(
+                    viewModel = profileViewModel,
+                    onBack = { navigator.goBack() },
+                    backendStatus = backendStatus,
+                )
+            }
+            entry<BattleStats> {
+                BattleStatsScreen(
+                    viewModel = insightsViewModel,
+                    onBack = { navigator.goBack() },
+                )
+            }
+            entry<Logs> {
+                LogsScreen(
+                    viewModel = deployHistoryViewModel,
+                    onBack = { navigator.goBack() },
+                )
+            }
+            entry<History> {
+                HistoryScreen(
+                    viewModel = deployHistoryViewModel,
+                    onBack = { navigator.goBack() },
+                )
+            }
+            entry<IniEditor> {
+                IniEditorScreen(
+                    viewModel = iniEditorViewModel,
+                    onBack = { navigator.goBack() },
+                )
+            }
+        }
+
+    NavDisplay(
+        entries = navigationState.toEntries(entryProvider),
+        // NavDisplay owns predictive back; this is what it calls once a back
+        // gesture commits, replacing NavController.popBackStack().
+        onBack = { navigator.goBack() },
+        transitionSpec = pushTransitionSpec,
+        popTransitionSpec = popTransitionSpec,
         modifier = Modifier,
-    ) {
-        composable<Setup>(
-            enterTransition = { fadeIn(animationSpec = tween(400)) },
-            exitTransition = { fadeOut(animationSpec = tween(300)) },
-            popEnterTransition = { fadeIn(animationSpec = tween(300)) },
-            popExitTransition = { fadeOut(animationSpec = tween(300)) },
-        ) {
-            SetupScreen(
-                viewModel = viewModel,
-                onComplete = {
-                    navController.navigate(Home) {
-                        popUpTo<Setup> { inclusive = true }
-                    }
-                },
-            )
-        }
-        composable<Home>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            HomeScreen(
-                viewModel = viewModel,
-                deployHistoryViewModel = deployHistoryViewModel,
-                backupViewModel = backupViewModel,
-                settingsViewModel = settingsViewModel,
-                onNavigateToBackups = { navController.navigate(Backups) },
-                onNavigateToSettings = { navController.navigate(Settings) },
-                onNavigateToConfigGen = { navController.navigate(ConfigGen) },
-                onNavigateToPity = { navController.navigate(Pity) },
-                onNavigateToProfile = { navController.navigate(Profile) },
-                onNavigateToBattleStats = { navController.navigate(BattleStats) },
-                onNavigateToLogs = { navController.navigate(Logs) },
-                onNavigateToHistory = { navController.navigate(History) },
-                onNavigateToIniEditor = { navController.navigate(IniEditor) },
-            )
-        }
-        composable<Backups>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            BackupScreen(
-                viewModel = backupViewModel,
-                deployHistoryViewModel = deployHistoryViewModel,
-                onBack = { navController.popBackStack() },
-            )
-        }
-        composable<ConfigGen>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            ConfigGenScreen(
-                viewModel = viewModel,
-                deployHistoryViewModel = deployHistoryViewModel,
-                insightsViewModel = insightsViewModel,
-                onBack = { navController.popBackStack() },
-                onNavigateToReviewTune = {
-                    navController.navigate(ReviewTune)
-                },
-            )
-        }
-        composable<ReviewTune>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            val opts by viewModel.reviewTuneOptions.collectAsStateWithLifecycle()
-            ReviewTuneScreen(
-                viewModel = viewModel,
-                deployHistoryViewModel = deployHistoryViewModel,
-                generatorOptions = opts,
-                onBack = { navController.popBackStack() },
-                onDeploy = { ini, deployOpts ->
-                    val accepted = deployHistoryViewModel.deployGeneratedConfigs(ini, deployOpts)
-                    if (accepted) navController.popBackStack()
-                },
-            )
-        }
-        composable<Settings>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            // detect() reads Build.* — remember so it runs once, not per recomposition.
-            val chipsetInfo = remember { com.wuwaconfig.app.config.ChipsetDetector.detect() }
-            val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
-            SettingsScreen(
-                viewModel = settingsViewModel,
-                onBack = { navController.popBackStack() },
-                onNavigateToUserGuide = { navController.navigate(UserGuide) },
-                backendStatus = backendStatus,
-                chipsetInfo = chipsetInfo,
-                gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR,
-                backupStorageDir = backupViewModel.backupStorageDir,
-                onChangeBackupDir = { newDir -> backupViewModel.changeBackupDir(newDir) },
-            )
-        }
-        composable<UserGuide>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            UserGuideScreen(
-                onBack = { navController.popBackStack() },
-            )
-        }
-        composable<Pity>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
-            val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
-            PityScreen(
-                viewModel = gachaViewModel,
-                onBack = { navController.popBackStack() },
-                backendStatus = backendStatus,
-                isApplying = isApplying,
-            )
-        }
-        composable<Profile>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
-            ProfileScreen(
-                viewModel = profileViewModel,
-                onBack = { navController.popBackStack() },
-                backendStatus = backendStatus,
-            )
-        }
-        composable<BattleStats>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            BattleStatsScreen(
-                viewModel = insightsViewModel,
-                onBack = { navController.popBackStack() },
-            )
-        }
-        composable<Logs>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            LogsScreen(
-                viewModel = deployHistoryViewModel,
-                onBack = { navController.popBackStack() },
-            )
-        }
-        composable<History>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            HistoryScreen(
-                viewModel = deployHistoryViewModel,
-                onBack = { navController.popBackStack() },
-            )
-        }
-        composable<IniEditor>(
-            enterTransition = navEnter,
-            exitTransition = navExit,
-            popEnterTransition = popEnter,
-            popExitTransition = popExit,
-        ) {
-            val iniEditorViewModel: IniEditorViewModel = viewModel()
-            IniEditorScreen(
-                viewModel = iniEditorViewModel,
-                onBack = { navController.popBackStack() },
-            )
-        }
-    }
+    )
 }
+
+/** True when either side of the transition is the Setup destination. */
+private fun AnimatedContentTransitionScope<Scene<NavKey>>.involvesSetup(): Boolean =
+    (initialState as? Scene<*>)?.key is Setup || (targetState as? Scene<*>)?.key is Setup
