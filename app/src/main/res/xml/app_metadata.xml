@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  App-wide description handed to the system agent alongside the per-function
+  metadata. It states cross-function sequencing and boundaries only; per-function
+  behaviour lives in the KDoc that KSP lifts into the generated schema, so
+  nothing here is repeated.
+-->
+<AppFunctionAppMetadata xmlns:appfn="http://schemas.android.com/apk/androidx.appfunctions"
+    appfn:description="Wuthering Waves graphics configuration generator and log analyser. Produces proposed engine configuration text, and diagnostics about the device GPU, memory, frame rate and stability.
+
+Operational Patterns:
+- 'generateConfig' covers most requests alone: it picks the preset and applies every generator option in one call.
+- For a vague optimisation request, pair 'recommendPreset' with 'listPresets' rather than guessing a preset name. 'recommendPreset' returns a preset identifier, and 'listPresets' explains what each one trades away.
+- 'analyzeGameLog' analyses a log the user supplies. It is the only function that needs input from the user, and the only one that reports frame drops, thermal events and GPU out-of-memory counts.
+- 'getDeployHistory' is the only record of whether a configuration actually improved frame rate; prefer it over inferring an outcome from 'getCachedLogAnalysis'.
+
+Constraints:
+- No function writes to the game or to device storage. Configuration is returned as text for the user to review.
+- 'analyzeGameLog' analyses only a log the user provides; this app holds no device connection and cannot read the game's own log on demand.
+- 'getCachedLogAnalysis' and 'getCachedBattleStats' return empty when no analysis has been run, or when the cache is older than 24 hours.
+- Generated configuration text is long. Request it once and quote from the result rather than calling 'generateConfig' repeatedly for comparison." appfn:displayDescription="@string/app_functions_description" />
