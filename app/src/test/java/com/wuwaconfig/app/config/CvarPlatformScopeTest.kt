@@ -214,4 +214,71 @@ class CvarPlatformScopeTest {
                 ?: throw AssertionError("libUE4_cvars.txt not found from ${System.getProperty("user.dir")}")
         return file.readLines().map { it.trim() }.filter { it.isNotEmpty() }
     }
+
+    // ── engine generation ──
+
+    @Test
+    fun `banner UE4 maps to UE4 and UE5 to UE5`() {
+        assertEquals(EngineGeneration.UE4, EngineGeneration.fromBanner("UE4+Release-4.27-CL-1234"))
+        assertEquals(EngineGeneration.UE5, EngineGeneration.fromBanner("UE5+5.3-0"))
+    }
+
+    @Test
+    fun `an absent or unrecognisable banner is UNKNOWN`() {
+        // UNKNOWN is the common case: the banner appears once at startup, so any
+        // rotated or tail-truncated log lacks it.
+        assertEquals(EngineGeneration.UNKNOWN, EngineGeneration.fromBanner(null))
+        assertEquals(EngineGeneration.UNKNOWN, EngineGeneration.fromBanner(""))
+        assertEquals(EngineGeneration.UNKNOWN, EngineGeneration.fromBanner("Release-4.27"))
+        assertEquals(EngineGeneration.UNKNOWN, EngineGeneration.fromBanner("UE3+Release"))
+    }
+
+    @Test
+    fun `detectEngineGeneration reads LogInfo and survives a null`() {
+        assertEquals(
+            EngineGeneration.UE4,
+            detectEngineGeneration(LogInfo(engineVersion = "UE4+Release-4.27-CL-1")),
+        )
+        assertEquals(EngineGeneration.UNKNOWN, detectEngineGeneration(LogInfo()))
+    }
+
+    @Test
+    fun `UE5-only CVars are alive when the log reports UE5`() {
+        for (name in listOf("r.temporalaa.upsampling", "r.temporalaa.algorithm", "r.temporalaacatmullrom")) {
+            assertEquals(
+                "$name must not be marked dead on a UE5 build",
+                CvarVerdict.Alive,
+                classifyCvar(name, TargetPlatform.ANDROID_VULKAN, EngineGeneration.UE5),
+            )
+        }
+    }
+
+    @Test
+    fun `UE5-only CVars stay dead on a UE4 build`() {
+        assertTrue(
+            classifyCvar("r.temporalaa.upsampling", TargetPlatform.ANDROID_VULKAN, EngineGeneration.UE4)
+                is CvarVerdict.Dead,
+        )
+    }
+
+    @Test
+    fun `an UNKNOWN engine keeps the pre-existing UE4 assumption`() {
+        // The default must not silently flip: marking these alive on an
+        // unrecognised banner would resurrect three inert CVars.
+        assertTrue(
+            classifyCvar("r.temporalaa.upsampling", TargetPlatform.ANDROID_VULKAN, EngineGeneration.UNKNOWN)
+                is CvarVerdict.Dead,
+        )
+    }
+
+    @Test
+    fun `the engine axis does not affect platform-scoped CVars`() {
+        // Engine detection must not become a way to un-dead a PC-only CVar.
+        for (engine in EngineGeneration.entries) {
+            assertTrue(
+                "r.Metal.OptLevel must stay dead under $engine",
+                classifyCvar("r.Metal.OptLevel", TargetPlatform.ANDROID_GLES, engine) is CvarVerdict.Dead,
+            )
+        }
+    }
 }

@@ -13,6 +13,15 @@ data class LogInfo(
     val api: String? = null,
     val vulkanStatus: String? = null,
     val deviceProfile: String? = null,
+    /**
+     * Engine build string as reported by `LogInit: Build:` — e.g.
+     * `++UE4+Release-4.27-CL-12345678`. Null when the log did not carry the line,
+     * which is the common case: it appears once, at startup.
+     *
+     * Added for CvarPlatformScope's UE5-only gating; every other consumer
+     * ignores it, so a null here is normal and not an error.
+     */
+    val engineVersion: String? = null,
     val fpsCap: Int? = null,
     val fpsActual: Float? = null,
     val screenPct: Float? = null,

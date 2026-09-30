@@ -371,6 +371,7 @@ object LogParser {
         var androidVersion: String? = null
         var resolution: String? = null
         var deviceProfile: String? = null
+        var engineVersion: String? = null
         var fpsCap: Int? = null
         var fpsActual: Float? = null
         var screenPct: Float? = null
@@ -510,6 +511,14 @@ object LogParser {
             if (deviceProfile == null) {
                 DEV_PROFILE_RE.find(line)?.let { deviceProfile = it.groupValues[1] }
             }
+            if (engineVersion == null) {
+                ENGINE_BUILD_RE.find(line)?.let { m ->
+                    // Reassemble the banner token itself; LogInfo carries the
+                    // version string, not a bare generation number, so the
+                    // CVar gate can report what it actually saw.
+                    engineVersion = "${m.groupValues[1]}+${m.groupValues[2]}"
+                }
+            }
             if (fpsCap == null) {
                 FRAME_PACE_RE.find(line)?.let {
                     fpsCap = it.groupValues[1].toIntOrNull()
@@ -595,6 +604,7 @@ object LogParser {
             api = api,
             vulkanStatus = vulkanStatus,
             deviceProfile = deviceProfile,
+            engineVersion = engineVersion,
             fpsCap = fpsCap,
             fpsActual = fpsActual,
             screenPct = screenPct,
@@ -801,6 +811,18 @@ object LogParser {
         Regex("""logic resolution Width=(\d+) and Height=(\d+)""", RegexOption.IGNORE_CASE)
     private val DEV_PROFILE_RE =
         Regex("""Selected Device Profile:\s*\[([^\]]+)\]""", RegexOption.IGNORE_CASE)
+
+    /**
+     * Engine build string from the `LogInit: Build:` banner, e.g.
+     * `++UE4+Release-4.27-CL-12345678` or `++UE5+5.3-...`.
+     *
+     * Anchored on `++UE` rather than on `Build:` because this log format emits a
+     * `Build:` line for other subsystems too, and only the bracketed token
+     * identifies the engine generation. Capture stops at whitespace so the CL
+     * number and any trailing flags do not end up in the value.
+     */
+    private val ENGINE_BUILD_RE =
+        Regex("""\+\+(UE\d)\+(\S*)""")
     private val FRAME_PACE_RE =
         Regex(
             """r\.FramePace\s*:\s*(?:requesting\s+\d+,\s*)?set\s*(?:as\s+)?(\d+)""",

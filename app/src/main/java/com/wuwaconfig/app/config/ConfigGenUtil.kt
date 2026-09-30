@@ -187,6 +187,7 @@ fun markPlatformDeadCvars(
     fileLabel: String,
     accumulator: MutableMap<String, Int> = mutableMapOf(),
     reasonSink: MutableSet<String> = mutableSetOf(),
+    engine: EngineGeneration = EngineGeneration.UE4,
 ): String {
     // Nothing to judge: fail safe rather than guess.
     if (platform == TargetPlatform.UNKNOWN) return iniText
@@ -205,7 +206,7 @@ fun markPlatformDeadCvars(
         val keyLower = key.lowercase()
         if (!CVAR_PREFIXES.any { keyLower.startsWith(it) }) continue
 
-        val verdict = classifyCvar(key, platform)
+        val verdict = classifyCvar(key, platform, engine)
         if (verdict !is CvarVerdict.Dead) continue
 
         val indent = raw.substring(0, raw.length - raw.trimStart().length)

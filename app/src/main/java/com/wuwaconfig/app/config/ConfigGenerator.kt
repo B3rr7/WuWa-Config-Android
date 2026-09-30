@@ -297,13 +297,14 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         // (it ignores `;`-comments), and running it before deduplicateIniText would
         // let a marked line's key still collide with a live duplicate.
         val platform = detectPlatform(logInfo)
+        val engineGeneration = detectEngineGeneration(logInfo)
         val counts = mutableMapOf<String, Int>()
         val reasons = mutableSetOf<String>()
 
         fun mark(
             text: String,
             label: String,
-        ) = markPlatformDeadCvars(text, platform, label, counts, reasons)
+        ) = markPlatformDeadCvars(text, platform, label, counts, reasons, engineGeneration)
         val finalEngine =
             PostProcessedIni(
                 mark(stripped.engine, "Engine.ini"),
