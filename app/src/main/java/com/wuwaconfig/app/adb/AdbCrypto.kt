@@ -1,15 +1,20 @@
-// The entire ADB key storage path (MasterKey / EncryptedFile / KeyScheme /
-// FileEncryptionScheme from androidx.security:security-crypto 1.1.0) is built
-// on that artifact, which is deprecated in favour of the platform KeyStore /
-// Tink APIs. Migrating it is a planned, separate change (see the
-// TODO(security-crypto) note in gradle/libs.versions.toml) — this is a warning
-// cleanup, not a security refactor.
+// Key material is written with adb/AdbKeyVault.kt: a platform AndroidKeyStore
+// AES-256-GCM key, which is what Google steered androidx.security towards when
+// it deprecated MasterKey / EncryptedFile.
 //
-// Scoped to this file because the suppression has to cover the *imports* of
-// MasterKey/EncryptedFile too (Kotlin reports DEPRECATION on deprecated import
-// directives, and a class-level @Suppress does not reach them). The upside is
-// that the ~10 warnings it silences cannot mask newly introduced ones
-// anywhere else in the app.
+// androidx.security:security-crypto 1.1.0 is still a dependency for ONE reason:
+// the Tink StreamingAead blobs written by earlier releases have to stay
+// readable, or upgrading the app would rotate every user's ADB identity and
+// force a re-accept of the RSA authorization dialog. It is used only by the
+// legacy branch of readKeyFile() and is written to exactly one place. Once no
+// supported release still writes that format, delete the import, the
+// `ktlint`-clean EncryptedFile.Builder helper, the masterKey field, the
+// dependency, and the -dontwarn if one is needed.
+//
+// So the @file:Suppress below covers the *imports* of MasterKey/EncryptedFile
+// too (Kotlin reports DEPRECATION on a deprecated import directive, and a
+// class-level @Suppress does not reach them). Scoping it to this file means the
+// warnings it silences cannot mask newly introduced ones anywhere else.
 @file:Suppress("DEPRECATION")
 
 package com.wuwaconfig.app.adb
@@ -117,66 +122,88 @@ class AdbCrypto(private val context: Context) : CryptoAdapter {
         ).build()
     }
 
-    private fun readEncryptedBytes(file: File): ByteArray? {
-        return try {
-            buildEncryptedFile(file).openFileInput().use { it.readBytes() }
-        } catch (_: java.io.FileNotFoundException) {
-            // Genuinely absent -> caller is allowed to generate a new key.
-            null
-        } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) {
-            // The master key itself was invalidated. Regenerating would silently rotate
-            // the user's authorized ADB identity, so fail with something actionable
-            // instead of a bare "auth rejected" much later.
-            throw IllegalStateException(
-                "ADB key material was permanently invalidated. Clear app storage or use the " +
-                    "Shizuku/Root backend. (${e.message})",
-                e,
-            )
-        } catch (e: Exception) {
-            // The ciphertext exists but cannot be decrypted — "No matching key found
-            // for the ciphertext in the stream". That happens when the Tink keyset
-            // outlives the Keystore master key (app data cleared, keystore entry
-            // recreated, restore onto a new device).
-            //
-            // Returning null IS the "generate a new identity" signal, and here that is
-            // the ONLY correct outcome: a key we cannot read is a key we can never
-            // authenticate with, so the user is already forced to re-authorize.
-            // Throwing instead crashed the app at startup, which is strictly worse
-            // than rotating a key that was already worthless.
-            Log.w(
-                TAG,
-                "Encrypted ${file.name} is undecryptable (${e.message}); " +
-                    "the old ADB identity is unusable, generating a new one",
-            )
-            null
+    /**
+     * Result of reading one key file: the plaintext, and whether the bytes on
+     * disk were in the legacy Tink format and so need rewriting.
+     *
+     * The two are not separable by return value alone — a caller that ignored
+     * [needsRewrite] would silently leave the file unreadable to any future
+     * build that has dropped the Tink reader, so the signal is explicit.
+     */
+    private data class ReadResult(
+        val plaintext: ByteArray,
+        val needsRewrite: Boolean,
+    )
+
+    private fun readKeyFile(file: File): ReadResult? {
+        // New format first: it is a plain file read plus a Keystore decrypt,
+        // and it must not be attempted through EncryptedFile at all, because
+        // Tink would report a perfectly good blob as undecryptable.
+        val raw =
+            try {
+                file.readBytes()
+            } catch (_: java.io.FileNotFoundException) {
+                // Genuinely absent -> caller is allowed to generate a new key.
+                return null
+            }
+
+        if (AdbKeyVault.isVaultFormat(raw)) {
+            return ReadResult(AdbKeyVault.decrypt(raw), needsRewrite = false)
         }
+
+        // Legacy Tink StreamingAead. Reading it needs androidx.security, which is
+        // deprecated; the dependency exists only to get here. Everything that
+        // follows this comment is the migration path and can be deleted once no
+        // installed build still writes that format.
+        val legacy =
+            try {
+                buildEncryptedFile(file).openFileInput().use { it.readBytes() }
+            } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) {
+                // The master key itself was invalidated. Regenerating would silently rotate
+                // the user's authorized ADB identity, so fail with something actionable
+                // instead of a bare "auth rejected" much later.
+                throw IllegalStateException(
+                    "ADB key material was permanently invalidated. Clear app storage or use the " +
+                        "Shizuku/Root backend. (${e.message})",
+                    e,
+                )
+            } catch (e: Exception) {
+                // The ciphertext exists but cannot be decrypted — "No matching key found
+                // for the ciphertext in the stream". That happens when the Tink keyset
+                // outlives the Keystore master key (app data cleared, keystore entry
+                // recreated, restore onto a new device).
+                //
+                // Returning null IS the "generate a new identity" signal, and here that is
+                // the ONLY correct outcome: a key we cannot read is a key we can never
+                // authenticate with, so the user is already forced to re-authorize.
+                // Throwing instead crashed the app at startup, which is strictly worse
+                // than rotating a key that was already worthless.
+                Log.w(
+                    TAG,
+                    "Encrypted ${file.name} is undecryptable (${e.message}); " +
+                        "the old ADB identity is unusable, generating a new one",
+                )
+                return null
+            }
+        return ReadResult(legacy, needsRewrite = true)
     }
+
+    private fun readEncryptedBytes(file: File): ByteArray? = readKeyFile(file)?.plaintext
 
     private fun writeEncryptedBytes(
         file: File,
         bytes: ByteArray,
     ) {
         file.parentFile?.mkdirs()
-        // EncryptedFile.openFileOutput() throws if the target already exists
-        // (security-crypto 1.1.0), so replace it explicitly. Without this, key
-        // regeneration and the plaintext->encrypted migration always throw,
-        // which previously crashed Application.onCreate.
-        // Write to a sibling temp and rename(2) into place.
-        //
-        // This also satisfies the security-crypto 1.1.0 constraint that
-        // openFileOutput() throws if the target already exists: we open the TEMP file,
-        // never the target, so there is nothing to replace up front.
-        //
-        // The previous shape deleted the old (valid) key first, leaving a window with
-        // NO key on disk. If MasterKey creation or the Tink write then threw (disk full,
-        // keystore error, process kill), generateNewKeys() would find a half-written pair
-        // and rotate the ADB identity on the next launch. rename(2) is atomic and
-        // overwrites an existing regular file, so the target is never absent.
+        // Write to a sibling temp and rename(2) into place, so the target is never
+        // absent even if the process dies mid-write. The previous shape deleted
+        // the old (valid) key first, leaving a window with NO key on disk; if the
+        // write then threw, the next launch would rotate the ADB identity.
         val tmp = File(file.parentFile, "${file.name}.new")
         if (tmp.exists() && !tmp.delete()) {
             throw java.io.IOException("Cannot replace stale temp key file ${tmp.name}")
         }
-        buildEncryptedFile(tmp).openFileOutput().use { it.write(bytes) }
+        tmp.writeBytes(AdbKeyVault.encrypt(bytes))
         if (!tmp.renameTo(file)) {
             tmp.delete()
             throw java.io.IOException("Cannot commit key file ${file.name}")
@@ -187,14 +214,15 @@ class AdbCrypto(private val context: Context) : CryptoAdapter {
         val pkFile = privateKeyFile
         val pubFile = publicKeyFile
 
-        val privateBytes = readEncryptedBytes(pkFile)
-        val publicBytes = readEncryptedBytes(pubFile)
-        if (privateBytes != null && publicBytes != null) {
+        val privateRead = readKeyFile(pkFile)
+        val publicRead = readKeyFile(pubFile)
+        if (privateRead != null && publicRead != null) {
             try {
                 val keyFactory = KeyFactory.getInstance("RSA")
-                val privateKey = keyFactory.generatePrivate(PKCS8EncodedKeySpec(privateBytes))
-                val publicKey = keyFactory.generatePublic(X509EncodedKeySpec(publicBytes))
+                val privateKey = keyFactory.generatePrivate(PKCS8EncodedKeySpec(privateRead.plaintext))
+                val publicKey = keyFactory.generatePublic(X509EncodedKeySpec(publicRead.plaintext))
                 keyPair = KeyPair(publicKey, privateKey)
+                migrateIfNeeded(privateRead, publicRead, pkFile, pubFile)
                 return
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load encrypted keys", e)
@@ -232,6 +260,38 @@ class AdbCrypto(private val context: Context) : CryptoAdapter {
         generateNewKeys()
     }
 
+    /**
+     * Rewrites key files that were read from the legacy Tink format into the
+     * AndroidKeyStore format, preserving the exact key bytes.
+     *
+     * This is the step that lets androidx.security eventually be dropped: once a
+     * build has rewritten its files, no later build needs to read Tink again.
+     *
+     * Failures are logged and swallowed rather than propagated. The key pair in
+     * memory is already correct, and the files on disk are still valid Tink —
+     * so the worst case is that migration is retried on the next launch, which
+     * is strictly better than throwing here and leaving the caller to
+     * regenerate and silently rotate the user's ADB identity.
+     */
+    private fun migrateIfNeeded(
+        privateRead: ReadResult,
+        publicRead: ReadResult,
+        pkFile: File,
+        pubFile: File,
+    ) {
+        if (!privateRead.needsRewrite && !publicRead.needsRewrite) return
+        try {
+            // Each file is rewritten independently: if only one was legacy, the
+            // other is already current and rewriting it again is harmless but
+            // pointless, so skip it.
+            if (privateRead.needsRewrite) writeEncryptedBytes(pkFile, privateRead.plaintext)
+            if (publicRead.needsRewrite) writeEncryptedBytes(pubFile, publicRead.plaintext)
+            Log.d(TAG, "Migrated ADB keys from EncryptedFile/Tink to AndroidKeyStore AES-GCM")
+        } catch (e: Exception) {
+            Log.w(TAG, "ADB key format migration failed; will retry next launch", e)
+        }
+    }
+
     private fun generateNewKeys() {
         Log.d(TAG, "Generating new 2048-bit RSA key pair")
         val generator = KeyPairGenerator.getInstance("RSA")
@@ -253,7 +313,7 @@ class AdbCrypto(private val context: Context) : CryptoAdapter {
         writeMpInt(bos, rsaPubKey.publicExponent.toByteArray())
         writeMpInt(bos, rsaPubKey.modulus.toByteArray())
         val b64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP)
-        return "$b64 wuwaconfig@android\u0000".toByteArray()
+        return "$b64 wuwaconfig@android ".toByteArray()
     }
 
     private fun writeUint32(

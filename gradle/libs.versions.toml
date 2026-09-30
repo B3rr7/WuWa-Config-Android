@@ -12,11 +12,17 @@ nav3 = "1.1.7"
 coroutines = "1.11.0"
 shizuku = "13.1.5"
 documentfile = "1.0.1"
-# TODO(security-crypto): androidx.security:security-crypto is the deprecated
-# artifact family; Google has steered new work to the platform KeyStore/Tink
-# API. The ADB key storage (adb/AdbCrypto.kt) depends on it today. Planned
-# migration: replace EncryptedFile with a plain Tink AEAD Config backed by an
-# AndroidKeyStore AES-GCM key, then drop this dependency.
+# androidx.security:security-crypto is the deprecated artifact family; Google
+# steered new work to the platform KeyStore API, and adb/AdbKeyVault.kt now does
+# exactly that (AndroidKeyStore AES-256-GCM) for all key writes.
+#
+# It is still here for ONE reason: the Tink StreamingAead blobs written by
+# earlier releases must stay readable, because an unreadable key silently
+# rotates the user's ADB identity and forces a re-accept of the RSA
+# authorization dialog. It is referenced from exactly one place — the legacy
+# branch of AdbCrypto.readKeyFile(). Delete it, along with the EncryptedFile
+# import, the buildEncryptedFile helper, the masterKey field and this comment,
+# once no supported release still writes that format.
 securityCrypto = "1.1.0"
 gson = "2.13.2"
 # Coil 3. Resolves TODO(coil): 2.7.0 was a stale major against a 2026.x Compose BOM.
