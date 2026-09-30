@@ -176,6 +176,13 @@ fun LogsScreen(
                 )
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
+            // safeDrawing (not the default systemBars) so the IME is part of the
+            // Scaffold's own insets. That is what keeps the search field visible
+            // above the keyboard AND lifts the scroll-to-latest FAB out from
+            // behind it, in one place. Do NOT follow this with an imePadding()
+            // on the content Column — safeDrawing already contains WindowInsets.ime
+            // and the two would stack.
+            contentWindowInsets = WindowInsets.safeDrawing,
             floatingActionButton = {
                 if (filtered.isNotEmpty() && !isNearTop) {
                     FloatingActionButton(

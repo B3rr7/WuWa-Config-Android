@@ -114,11 +114,21 @@ fun BackupScreen(
                     }
                 }
             } else {
-                Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                Box(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
+                        // Scaffold insets go HERE, not on the parent Box: padding the
+                        // parent would clip the list so it can never scroll under the
+                        // status/navigation bars. 96.dp bottom keeps the last card clear
+                        // of the floating "Create Backup" button pinned below.
+                        contentPadding =
+                            PaddingValues(
+                                start = 0.dp,
+                                end = 0.dp,
+                                top = padding.calculateTopPadding() + 16.dp,
+                                bottom = 96.dp + padding.calculateBottomPadding(),
+                            ),
                     ) {
                         item {
                             Text(
