@@ -1,6 +1,9 @@
 package com.wuwaconfig.app.adb
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -64,5 +67,50 @@ class PortScannerTest {
     @Test
     fun `no response is rejected`() {
         assertFalse(PortScanner.isAuthChallenge(null))
+    }
+
+    // describeBanner decides whether an unauthenticated CNXN is worth telling the
+    // user about. Getting this wrong is user-visible in both directions: a missed
+    // device means "ADB port not found" again, and a false one sends the user to a
+    // port that is not a phone.
+    private val motoBanner =
+        (
+            "device::ro.product.name=hanoip_retail;ro.product.model=moto g(60);" +
+                "ro.product.device=hanoip;features=shell_v2,cmd"
+        ).toByteArray()
+
+    @Test
+    fun `a real device banner is named by its model`() {
+        assertEquals("device moto g(60)", PortScanner.describeBanner(motoBanner))
+    }
+
+    @Test
+    fun `a device banner without a model is still a device`() {
+        assertEquals(
+            "an unnamed device",
+            PortScanner.describeBanner("device::ro.product.name=x;features=cmd".toByteArray()),
+        )
+    }
+
+    @Test
+    fun `a host banner is not evidence of a device`() {
+        // Observed on-device: a transient listener inside the 37000..44000 sweep
+        // answered with this and would otherwise have been reported as the phone.
+        assertNull(PortScanner.describeBanner("host::".toByteArray()))
+    }
+
+    @Test
+    fun `an empty or unrelated banner is not evidence of a device`() {
+        assertNull(PortScanner.describeBanner(ByteArray(0)))
+        assertNull(PortScanner.describeBanner("nonsense".toByteArray()))
+    }
+
+    @Test
+    fun `loopback is the only address an unauthenticated banner may be trusted on`() {
+        // The property the whole Local ADB path rests on: an unauthenticated
+        // device:: banner is acceptable over loopback because no LAN peer can
+        // bind that address, and unacceptable anywhere else.
+        assertEquals("127.0.0.1", PortScanner.LOOPBACK)
+        assertNotEquals(PortScanner.LOOPBACK, "10.237.87.112")
     }
 }

@@ -2,15 +2,25 @@ package com.wuwaconfig.app.backend
 
 import android.util.Base64
 import com.wuwaconfig.app.adb.AdbClient
-import com.wuwaconfig.app.adb.AdbCrypto
+import com.wuwaconfig.app.adb.CryptoAdapter
 import com.wuwaconfig.app.adb.PortScanner
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import java.io.File
 
-class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
-    private val client = AdbClient(crypto)
+/**
+ * Takes a [CryptoAdapter] rather than the concrete [AdbCrypto].
+ *
+ * The backend only ever hands it to [AdbClient] and never reaches for key material
+ * itself, so depending on the narrow interface costs nothing and keeps the backend
+ * constructible in a pure JVM test — which is the only way the loopback invariant in
+ * [LocalAdbBackend] can be asserted without a device.
+ */
+open class AdbBackend(crypto: CryptoAdapter) : AccessBackend {
+    // internal, not private: LocalAdbBackend reuses the same client so the two
+    // backends cannot drift on the wire format.
+    internal val client = AdbClient(crypto)
     override val isConnected: Boolean get() = client.isConnected
 
     companion object {
@@ -22,8 +32,24 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         LogRepository.add("ADB connect: scanning for ADB port...")
         val scan = PortScanner.scanForAdb()
         if (scan == null) {
+            // The scanner can distinguish "nothing there" from "something there
+            // that will not prove it is adbd". Reporting the second case as the
+            // first is what made rooted and custom-ROM users conclude the app was
+            // broken, when all they had to do was type the port in.
+            val hint = PortScanner.unauthenticatedAdbHint
+            if (hint != null) {
+                LogRepository.add("ADB: $hint", LogLevel.WARNING)
+                return Result.failure(Exception(hint))
+            }
             LogRepository.add("ADB connect failed: port not found", LogLevel.ERROR)
-            return Result.failure(Exception("ADB port not found. Enable Wireless Debugging and tap Connect, or enter IP:port manually."))
+            return Result.failure(
+                Exception(
+                    "ADB port not found. Enable Wireless debugging and tap Manual to enter " +
+                        "IP:port plus your pairing code, or run 'adb tcpip 5555' over USB. " +
+                        "Nothing left to try on a rooted ROM that has no password is " +
+                        "127.0.0.1, which is checked first.",
+                ),
+            )
         }
         // The LAN IP is masked. Host+port together are exactly what a third party on
         // the same Wi-Fi needs to open a wireless-ADB session to this phone, and the
@@ -43,11 +69,49 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         return first
     }
 
+    /**
+     * Authorises this device's key with the phone (Android 11+ wireless pairing).
+     *
+     * This is LADB's mechanism, and it is what makes ADB reachable without USB at all:
+     * with Wireless debugging on, adbd serves a short-lived pairing port on every
+     * interface including 127.0.0.1, and completing the handshake authorises the stored
+     * public key for good. After that the transport port answers an ordinary AUTH
+     * exchange with no code, which is what [PortScanner] probes for on the next scan.
+     *
+     * Without pairing a stock phone rejects the connection outright and — unlike a USB
+     * attach — shows no dialog, so the user gets no clue why.
+     */
+    suspend fun pair(
+        host: String,
+        port: Int,
+        pairingCode: String,
+    ): Result<Unit> {
+        LogRepository.add("ADB pair: $port on ${maskHost(host)}")
+        return client.pair(host, port, pairingCode).fold(
+            onSuccess = {
+                LogRepository.add("Paired", LogLevel.SUCCESS)
+                Result.success(Unit)
+            },
+            onFailure = {
+                LogRepository.add("Pairing failed: ${it.message}", LogLevel.ERROR)
+                Result.failure(it)
+            },
+        )
+    }
+
     suspend fun connectTo(
         host: String,
         port: Int,
+        pairingCode: String = "",
     ): Result<Unit> {
         LogRepository.add("ADB connectTo: ${maskHost(host)}:$port")
+        // Pairing first, when a code was supplied. Order matters: a transport port
+        // refuses an unauthorised key silently, so connecting first and pairing
+        // after would report a failure the pairing then fixes.
+        if (pairingCode.isNotBlank()) {
+            val paired = pair(host, port, pairingCode)
+            if (paired.isFailure) return paired
+        }
         val first = client.connect(port, host)
         if (first.isSuccess) {
             LogRepository.add("ADB connected to ${maskHost(host)}:$port", LogLevel.SUCCESS)

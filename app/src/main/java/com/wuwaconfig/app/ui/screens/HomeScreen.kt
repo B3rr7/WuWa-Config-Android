@@ -120,6 +120,7 @@ fun HomeScreen(
     var pickedFiles by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
     var showCleanDialog by remember { mutableStateOf(false) }
     var showAdbDialog by remember { mutableStateOf(false) }
+    var adbPairCode by remember { mutableStateOf("") }
     var showBackupScopeDialog by remember { mutableStateOf(false) }
     var pendingApply by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
     var adbHost by remember { mutableStateOf("127.0.0.1") }
@@ -815,7 +816,10 @@ fun HomeScreen(
             text = {
                 Column {
                     Text(
-                        "Enter the IP:port from Developer Options > Wireless Debugging.",
+                        "Enter the IP:port from Developer Options > Wireless Debugging. " +
+                            "If you have not paired this app yet, also paste the code from " +
+                            "\"Pair device with pairing code\" — that port is different, and " +
+                            "pairing is what authorises the connection.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -845,13 +849,29 @@ fun HomeScreen(
                                 focusedLabelColor = NeonCyan,
                             ),
                     )
+                    Spacer(Modifier.height(8.dp))
+                    // Optional, and deliberately in the same dialog rather than a
+                    // second one: pairing is just the first half of connecting, and
+                    // splitting it taught users that they needed a separate feature.
+                    OutlinedTextField(
+                        value = adbPairCode,
+                        onValueChange = { adbPairCode = it.filter(Char::isDigit).take(6) },
+                        label = { Text("Pairing code (only if pairing)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonCyan,
+                                focusedLabelColor = NeonCyan,
+                            ),
+                    )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         showAdbDialog = false
-                        deployHistoryViewModel.connectAdbManual(adbHost, adbPort)
+                        deployHistoryViewModel.connectAdbManual(adbHost, adbPort, adbPairCode)
                     },
                     colors =
                         ButtonDefaults.buttonColors(

@@ -1,364 +1,474 @@
 <div align="center">
 
-# WuWaConfig — Wuthering Waves Config Toolkit for Android
+<img src="app_icon.png" width="120" alt="WuWaConfig logo">
+
+# WuWaConfig
+
+### Boost FPS · Tune Graphics · Analyze Device · Track Pity · Stay Private
 
 [![Release](https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
 [![Stars](https://img.shields.io/github/stars/B3rr7/WuWa-Config-Android?style=flat&logo=github)](https://github.com/B3rr7/WuWa-Config-Android/stargazers)
-[![License](https://img.shields.io/github/license/B3rr7/WuWa-Config-Android?style=flat)](https://github.com/B3rr7/WuWa-Config-Android/blob/main/LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Android%208%2B-green)](https://github.com/B3rr7/WuWa-Config-Android)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.2.20-purple)](https://kotlinlang.org)
-[![Privacy](https://img.shields.io/badge/Privacy-No%20Telemetry-blue)](https://github.com/B3rr7/WuWa-Config-Android)
+[![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.2.20-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![No telemetry](https://img.shields.io/badge/telemetry-none-4CAF50)](https://github.com/B3rr7/WuWa-Config-Android)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**Boost FPS · Tune Graphics · Analyze Device · Track Pity · Stay Private**
+A free, open-source Android toolkit that generates, optimizes and deploys
+Unreal Engine INI configs for Wuthering Waves — no root, no PC, no telemetry.
 
-Free, open-source Android toolkit that generates optimized Unreal Engine 4 INI configs for Wuthering Waves. Works without root via ADB, Shizuku, or SAF. Includes a gacha pity tracker, battle stats analyzer, and a full CVar editor — all with zero telemetry.
-
-[YouTube](https://www.youtube.com/@Player42_g)
+[Features](#features) • [Quick start](#quick-start) • [Backends](#backends) • [Presets](#presets) • [Build](#building-from-source) • [Architecture](#architecture)
 
 </div>
 
 ---
 
 > [!WARNING]
-> **Disclaimer** — This project is **not affiliated with Kuro Games or Wuthering Waves**. It is a fan-made tool for educational and research purposes. Modifying game configuration files may be subject to the game's Terms of Service. **Use at your own risk.**
+> **Disclaimer** — WuWaConfig is **not affiliated with or endorsed by Kuro Games or
+> Wuthering Waves**. It is a fan-made tool for educational and research purposes.
+> It edits local configuration files only: no code injection, no memory patching, no
+> network protocol changes. Modifying game files may still fall under the game's
+> Terms of Service. **Use at your own risk.**
 
 > [!NOTE]
-> **Platform** — Android 8.0+ (API 26) only. Not available for iPhone/iPad. Windows/macOS/Linux require an Android device or emulator.
-
----
-
-## Table of Contents
-
-<details open>
-<summary><b>Click to expand / collapse</b></summary>
-
-1. [Features](#features)
-2. [Quick Start](#quick-start)
-3. [Connection Methods](#connection-methods)
-4. [Presets & Settings](#presets--settings)
-5. [Troubleshooting](#troubleshooting)
-6. [FAQ](#faq)
-7. [Screenshots](#screenshots)
-8. [Privacy & Security](#privacy--security)
-9. [For Developers](#for-developers)
-10. [Community](#community)
-11. [License](#license)
-
-</details>
+> **Android 8.0 (API 26) and newer only.** There is no iOS build, and a PC, Mac or
+> Linux machine is not required — the app implements the ADB wire protocol itself.
 
 ---
 
 ## Features
 
-- **FPS Booster & Config Generator** — Generates 5 tuned INI files (`Engine.ini`, `Scalability.ini`, `GameUserSettings.ini`, `DeviceProfiles.ini`, `Hardware.ini`) optimized for Snapdragon, Dimensity, Exynos, and Tensor GPUs. Fixes the Android windowed viewport bug with `FullscreenMode=0`.
-- **SmartBrain Device Scoring (0–100)** — Analyzes GPU tier, RAM, Vulkan support, thermal behavior, and frame drops to automatically recommend the best preset for your device.
-- **8 Quality Presets** — From Potato (maximum FPS) to Cinematic (maximum visuals), each tier adjusts screen percentage, shadow resolution, SSR, mip bias, streaming multiplier, view distance, foliage LOD, and more.
-- **CVar Database (5,889 entries)** — Automatically comments out redundant or unknown CVars. Strips 31 forbidden CVars when restricted mode is enabled. 18 categories with 3-level matching.
-- **Gacha Pity Tracker (11 pools)** — No pull cap. Tracks soft-pity from pull 66, hard pity at 80. Shows Guaranteed vs 50/50 status per banner. Based on a ~394K-sample dataset.
-- **Battle Stats Analyzer** — Decrypts and parses the `dd` partition from `Client.log`. Displays combat, dodge, movement, and echo skill stats across 5 cards.
-- **Player Profile** — Read-only extraction of UID, server, level, tower progress, and game info. Zero write footprint.
-- **Backup, Restore & Hash Monitor** — Per-file backups, auto-backup before every write, hash snapshot with reconcile to guard concurrent game writes, one-tap restore.
-- **INI Editor & Log Tools** — Full-screen monospace editor with line diff, search, and hash verification. Color-coded log viewer with 5MB rotation.
-- **120 FPS Unlock** — Toggle available on supported flagships with thermal headroom.
+- **Config generator** — Writes five INI files (`Engine.ini`, `Scalability.ini`,
+  `GameUserSettings.ini`, `DeviceProfiles.ini`, `Hardware.ini`) tuned to your chipset
+  across Snapdragon, Dimensity, Exynos and Tensor. Sets `FullscreenMode=0` to dodge the
+  Android windowed-viewport bug.
+- **SmartBrain device scoring** — A 0–100 score derived from GPU tier, RAM, resolution,
+  Vulkan support, thermal behaviour and logged frame drops, mapped to a recommended preset.
+- **8 quality presets** — `potato` → `cinematic`, each on its own detail rank. Every tier
+  actually differs in screen percentage, shadow resolution, SSR, mip bias, streaming
+  multiplier, view distance, foliage LOD, LOD bias and grass culling.
+- **CVar database** — 5,889 engine CVars plus 735 monitored keys. Redundant, unknown and
+  platform-dead CVars are commented out with a `; [CVarDB] <reason>` marker. A restricted
+  mode strips 31 CVars known to destabilise this build.
+- **Engine generation detection** — Reads the `++UE4+…` / `++UE5+…` banner out of
+  `Client.log` and suppresses UE5-only CVars that are inert on a UE4 build.
+- **Gacha pity tracker** — All 11 convene pools, no cap on tracked pulls, with
+  guaranteed/50-50 state per banner and next-5★ prediction.
+- **Battle stats & player profile** — Decrypts and parses `Client.log` for combat,
+  dodge, movement and echo-skill figures, plus a read-only UID, server and tower readout.
+- **Backup, restore & hash monitor** — Automatic pre-write backup, MD5 snapshot/reconcile
+  to survive the game rewriting files under you, and one-tap restore.
+- **INI editor & log viewer** — Monospace editor with line diff, search and pre-deploy
+  hash verification; colour-coded log view with 5 MB rotation.
+- **System agent surface** — 9 read-only [AppFunctions](#appfunctions) so an on-device
+  assistant can query presets, analyse logs and read deploy history.
+
+<p align="center">
+  <img src="screenshots/screen-01.webp" width="180" alt="Home screen with backend connection status and quick actions">
+  <img src="screenshots/screen-02.webp" width="180" alt="Config generator with SmartBrain device analysis and preset selection">
+  <img src="screenshots/screen-03.webp" width="180" alt="Gacha pity tracker with pull history and next 5-star prediction">
+  <img src="screenshots/screen-04.webp" width="180" alt="Player profile with UID, server and tower progress">
+  <img src="screenshots/screen-05.webp" width="180" alt="Battle stats analyzer with combat and exploration cards">
+  <img src="screenshots/screen-06.webp" width="180" alt="Settings with theme options and backup directory">
+</p>
 
 ---
 
-## Quick Start
+## Quick start
 
-### For Players
+1. Install the latest APK from [Releases](https://github.com/B3rr7/WuWa-Config-Android/releases)
+   (Android 8.0+; allow *Install unknown apps* if prompted).
+2. Open the app, accept the terms, and grant the storage permission it asks for.
+3. Connect with one of the [backends](#backends) below.
+4. Go to **Config Generator** → review the SmartBrain score → pick a preset → **Generate**.
+5. **Review & Tune** shows the diff against the live files. Edit anything you want, then
+   **Deploy**.
 
-1. Download the latest APK from [Releases](https://github.com/B3rr7/WuWa-Config-Android/releases).
-2. Install on Android 8.0+ (allow "Install unknown apps" if prompted).
-3. Open the app → Accept Terms → Grant Storage permission.
-4. Connect using one of the [Connection Methods](#connection-methods) below.
-5. Tap **Analyze Device** → review SmartBrain score → select a preset → **Generate** → **Deploy**.
-
-### For Developers
-
-See [For Developers](#for-developers) below.
+> [!TIP]
+> Always deploy with the game closed. The hash monitor reconciles the game's own writes
+> to the config directory, but a running client will simply overwrite parts of what you
+> just pushed.
 
 ---
 
-## Connection Methods
+## Backends
 
-The app reads and writes to `Android/data/com.kurogame.wutheringwaves.global/`. Choose the method that fits your setup:
+The app reads and writes
+`Android/data/com.kurogame.wutheringwaves.global/files/UE4Game/Client/Client/Saved/Config/Android`.
+Pick the backend that fits your device:
 
-| Method | Shell Access | File Push | Log Reading | Config Gen | Best For |
-|:------:|:------------:|:---------:|:-----------:|:----------:|----------|
-| **ADB** | Yes | Yes | Yes | Yes | Non-rooted users, no PC needed |
-| **Shizuku** | Yes | Yes | Yes | Yes | Non-rooted users with Shizuku installed |
-| **Root** | Yes | Yes | Yes | Yes | Magisk/KernelSU/APatch users |
-| **SAF** | No | Yes | Limited | No | Quick one-off edits without shell |
+| Backend | Shell | File push | Log reading | Config gen | Needs | Best for |
+|:--|:--:|:--:|:--:|:--:|:--|--|
+| **ADB** | Yes | Yes | Yes | Yes | Wireless debugging | Non-rooted, no PC |
+| **Shizuku** | Yes | Yes | Yes | Yes | Shizuku service | Non-rooted with Shizuku |
+| **Root** | Yes | Yes | Yes | Yes | `su` | Magisk / KernelSU / APatch |
+| **SAF** | No | Yes | Limited | No | A folder grant | One-off edits, nothing else |
 
-### ADB — Wireless Debugging (No Root, No PC)
+### ADB — wireless debugging, no PC
 
-The app implements the ADB wire protocol directly — no PC daemon required.
+The ADB wire protocol is implemented in-process (`adb/AdbProtocol.kt`, 24-byte header,
+RSA-2048 auth), so there is no `adb` binary and no PC in the loop.
 
-**Auto-connect (no PC):**
-1. Enable **Wireless Debugging** in Developer Options.
-2. Tap **Connect** in the app (auto-scans ports 37000–44000).
-3. Accept the RSA fingerprint prompt.
+1. Enable **Wireless debugging** in Developer options.
+2. Tap **Connect** — the port scanner sweeps 37 000–44 000 plus 5555.
+3. Accept the RSA fingerprint prompt on the device.
 
-**With PC (USB Debugging ON):**
+If you do have a PC, the classic route still works:
 
 ```bash
 adb tcpip 5555
-adb connect 192.168.x.x:5555
-# Disable:
-adb disconnect 192.168.x.x:5555
+adb connect 192.168.1.42:5555
+# tear it down when you're done
+adb disconnect 192.168.1.42:5555
 adb usb
 ```
 
-> **Android 11+ / Chinese ROMs (Xiaomi/HyperOS):** If deploy fails with `Permission denied`, the app retries via `run-as`. If the game is not debuggable, switch to **SAF** or **Root**.
+> [!IMPORTANT]
+> **Android 11+ and Chinese ROMs (Xiaomi/HyperOS, vivo, OPPO)** deny the `shell` user
+> writes into `Android/data/`. A `Permission denied` triggers an automatic `run-as` retry.
+> If the game is not debuggable, the retry cannot work — switch to **SAF** or **Root**.
 
 ### Shizuku — Binder IPC
 
-1. Install [Shizuku](https://shizuku.rikka.app/) and start the service.
-2. Select **Shizuku** in the app → **Permit** → **Connect**.
+Install [Shizuku](https://shizuku.rikka.app/), start the service, then select **Shizuku →
+Permit → Connect**. The app talks to a `ShellUserService` over Shizuku's UserService API,
+with a script-file fallback for payloads over 4096 characters.
 
-> **Chinese ROMs:** If deploy fails, enable both **USB debugging** and **USB debugging (Security settings)** in Developer Options, then re-authorize Shizuku.
+> [!TIP]
+> If Shizuku reports a bind timeout, enable **USB debugging (Security settings)** alongside
+> regular USB debugging and re-authorize it. Several ROMs patch Shizuku's
+> `makeApplicationInner()`; `RomBackgroundSettings` in-app walks you through the fix.
 
 ### Root — `su -c`
 
-1. Select **Root** → **Test Root** → grant permission → **Connect**.
+Select **Root → Test Root**, grant the prompt, then **Connect**. Root is the only backend
+that is fully reliable inside `Android/data/` on Android 11+.
 
 ### SAF — Storage Access Framework
 
-1. Select **SAF** → **Pick Dir**.
-2. Navigate to `Android/data/com.kurogame.wutheringwaves.global/files/UE4Game/Client/Client/Saved/Config/Android`.
-3. Tap **Allow**.
+Select **SAF → Pick Dir** and grant the game's tree. The picker opens pre-targeted at
+`Android/data/com.kurogame.wutheringwaves.global`, which Android 11+ otherwise hides.
 
-> SAF has no shell access — log reading and the config generator are unavailable. Use ADB, Shizuku, or Root for full functionality.
+> [!NOTE]
+> SAF is file-level only — there is no shell. Log reading and the config generator are
+> unavailable on this backend by design; it exists for direct, hand-made edits.
 
 ---
 
-## Presets & Settings
+## Presets
 
-| Preset | Detail | Screen% | Shadow | ShadowRes | SSR | MipBias | Streaming | ViewDist | Foliage LOD | LOD Bias | GrassCull |
-|--------|--------|---------|--------|-----------|-----|---------|-----------|----------|-------------|----------|-----------|
-| **POTATO** | 0 | 60% | 0 | 128 | 0 | 3 | 0.3× | 0.3 | 0.4 | 5 | 1,500 |
-| **ENDURANCE** | 1 | 70% | 0 | 128 | 0 | 3 | 0.4× | 0.4 | 0.5 | 4 | 2,500 |
-| **PERFORMANCE** | 2 | 60% | 0 | 256 | 0 | 3 | 0.5× | 0.5 | 0.6 | 3 | 4,500 |
-| **COMPETITIVE** | 3 | 100% | 2 | 256 | 0 | 1 | 1.0× | 2.0 | 1.0 | 1 | 2,000 |
-| **BALANCED** | 4 | 80% | 2 | 1,024 | 1 | 0 | 2.0× | 1.5 | 2.0 | 0 | 15,000 |
-| **HIGH** | 5 | 100% | 4 | 2,048 | 2 | 0 | 3.0× | 2.0 | 2.5 | 0 | 20,000 |
-| **ULTRA** | 6 | 100% | 5 | 2,048 | 4 | -1 | 4.0× | 3.0 | 3.0 | -1 | 30,000 |
-| **CINEMATIC** | 7 | 100% | 5 | 4,096 | 4 | -2 | 6.0× | 4.0 | 4.0 | -2 | 40,000 |
+Each preset sits on a distinct detail rank, so no two tiers emit identical output.
 
-**Additional options:** 120 FPS unlock, Ultra quality unlock, VSync, Auto cooling, Force Vulkan, HZB occlusion, Disable fog/CA/outlines/blur/bloom/auto-exposure/SSR, Hardware.ini via ChipsetDetector, GameMode (Overworld / Tower of Adversity).
+| Preset | Detail | Screen % | Shadow | Shadow res | SSR | Mip bias | Streaming | View dist | Foliage LOD | LOD bias | Grass cull |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| **potato** | 0 | 60% | 0 | 128 | 0 | 3 | 0.3× | 0.3 | 0.4 | 5 | 1 500 |
+| **endurance** | 1 | 70% | 0 | 128 | 0 | 3 | 0.4× | 0.4 | 0.5 | 4 | 2 500 |
+| **performance** | 2 | 60% | 0 | 256 | 0 | 3 | 0.5× | 0.5 | 0.6 | 3 | 4 500 |
+| **competitive** | 3 | 100% | 2 | 256 | 0 | 1 | 1.0× | 2.0 | 1.0 | 1 | 2 000 |
+| **balanced** | 4 | 80% | 2 | 1 024 | 1 | 0 | 2.0× | 1.5 | 2.0 | 0 | 15 000 |
+| **high** | 5 | 100% | 4 | 2 048 | 2 | 0 | 3.0× | 2.0 | 2.5 | 0 | 20 000 |
+| **ultra** | 6 | 100% | 5 | 2 048 | 4 | −1 | 4.0× | 3.0 | 3.0 | −1 | 30 000 |
+| **cinematic** | 7 | 100% | 5 | 4 096 | 4 | −2 | 6.0× | 4.0 | 4.0 | −2 | 40 000 |
+
+**Toggles:** 120 FPS unlock, ultra-quality unlock, VSync, auto-cooling, forced Vulkan,
+HZB occlusion, per-feature disables (fog, chromatic aberration, outlines, motion blur,
+bloom, auto-exposure, SSR), `Hardware.ini` generation from the detected chipset, and
+GameMode (Overworld / Tower of Adversity).
+
+The full option surface is documented in
+[docs/CONFIG-GENERATOR.md](docs/CONFIG-GENERATOR.md).
 
 ---
 
 ## Troubleshooting
 
 | Symptom | Fix |
-|---------|-----|
-| FPS drops below target | Lower Screen% to 60–80%, set Shadow to 0–2, check `r.FramePace.MaxFPS` |
-| Phone overheats and throttles | Set `ReflectionEnvironment=0`, disable all dynamic lights, disable volumetric fog, enable Auto Cool |
-| Game crashes with GPU out of memory | Set Shadow MaxResolution to 1024, Anisotropy to 4, PoolSize to 512, disable HD texture packs |
-| Missing or broken textures | Enable `r.HZBOcclusion=1`, set MipMapLodBias to 0–1, raise PoolSize, verify DeviceProfile |
-| Stuttering or uneven frame pacing | Lower render scale if CPU-bound, disable VSync, enable RHICmd bypass, set MaxFPS to 60 or 120 |
-| Exynos or Mali GPU underperforming | Start one tier below the Snapdragon equivalent, lower shadow and streaming quality |
-| 120 FPS not unlocking | Enable 120 FPS toggle, verify `r.FramePace.MaxFPS=120`, ensure thermal headroom |
-| Post-processing artifacts or visual glitches | Set PostProcessQuality to 0–2, Bloom to 0–1, disable auto-exposure, reduce radial blur |
-| Deploy fails with Permission denied | Use run-as fallback (Shizuku/ADB), switch to SAF for scoped storage, or use Root |
-| Wireless debugging won't connect | Ensure phone and PC are on same network, re-enable Wireless Debugging, check firewall |
-| Shizuku permission denied on Chinese ROM | Enable USB debugging (Security settings) in Developer Options, re-authorize Shizuku |
+|---|---|
+| FPS below target | Drop screen % to 60–80%, shadows to 0–2, check `r.FramePace.MaxFPS` |
+| Phone throttling | Set `ReflectionEnvironment=0`, cut dynamic lights and volumetric fog, enable auto-cooling |
+| GPU out of memory crash | Shadow `MaxResolution` 1024, anisotropy 4, `PoolSize` 512, no HD texture packs |
+| Missing or broken textures | Enable `r.HZBOcclusion=1`, mip bias 0–1, raise `PoolSize`, verify DeviceProfiles |
+| Stutter / uneven pacing | Lower render scale if CPU-bound, disable VSync, cap MaxFPS to 60 or 120 |
+| Exynos or Mali underperforming | Start one tier below the Snapdragon equivalent; lower shadow and streaming quality |
+| 120 FPS will not unlock | Enable the toggle, verify `r.FramePace.MaxFPS=120`, ensure thermal headroom |
+| Post-process artefacts | Post-process 0–2, bloom 0–1, disable auto-exposure, reduce radial blur |
+| `Permission denied` on deploy | Use the `run-as` fallback, or switch to **SAF** / **Root** |
+| Wireless debugging won't connect | Same network as the target, re-enable wireless debugging, check the firewall |
+| Shizuku denied on a Chinese ROM | Enable *USB debugging (Security settings)*, re-authorize Shizuku |
 
 ---
 
-## FAQ
+## Building from source
 
-**Is WuWaConfig free?**
-Yes. It is free and open-source under the MIT license.
-
-**Does WuWaConfig work without root?**
-Yes. You can use ADB wireless debugging, Shizuku, or SAF — no root required for most features.
-
-**Will this get me banned?**
-The app modifies local configuration files only. It does not inject code, modify memory, or interact with the game's network protocol. However, modifying game files may be subject to the game's Terms of Service. Use at your own risk.
-
-**Which Snapdragon/Dimensity/Exynos/Tensor phones are supported?**
-Any Android 8.0+ device. SmartBrain detects your chipset and recommends the appropriate preset tier.
-
-**How does the gacha pity tracker work?**
-It reads the Convene URL from `Client.log` (you must open Convene History in-game first) and fetches your pull history from the game's API. No cap on pulls tracked.
-
-**Can I edit the generated INI files?**
-Yes. The built-in INI Editor supports full editing with line diff, search, and hash verification before deploy.
-
-**Does the app collect any data?**
-No. Zero telemetry. No Firebase, Crashlytics, or Sentry. ADB keys are encrypted at rest. Gacha data stays in-process via LocalBroadcastManager.
-
-**Why does SAF not support log reading?**
-SAF (Storage Access Framework) provides file-level access only — no shell. Log reading and the config generator require shell access via ADB, Shizuku, or Root.
-
----
-
-## Screenshots
-
-<p align="center">
-  <img src="screenshots/screen-01.webp" width="200" alt="WuWaConfig home screen showing backend connection status and quick action buttons">
-  <img src="screenshots/screen-02.webp" width="200" alt="Config Generator screen with SmartBrain device analysis and preset selection">
-  <img src="screenshots/screen-03.webp" width="200" alt="Gacha pity tracker showing pull history and next 5-star prediction">
-  <img src="screenshots/screen-04.webp" width="200" alt="Player profile screen with UID, tower progress, and game info">
-  <img src="screenshots/screen-05.webp" width="200" alt="Battle stats analyzer with combat and exploration cards">
-  <img src="screenshots/screen-06.webp" width="200" alt="Settings screen with theme options and backup directory">
-</p>
-
----
-
-## Privacy & Security
-
-- **No telemetry** — WuWaConfig sends nothing to third parties. No Firebase, Crashlytics, or Sentry.
-- **Local only** — ADB communication stays on-device (127.0.0.1). Gacha data uses `LocalBroadcastManager` (in-process only).
-- **Encrypted at rest** — ADB RSA keys stored via `EncryptedFile` + `AndroidKeyStore` (AES-256-GCM).
-- **No backup** — `allowBackup="false"` prevents Android backup extraction.
-- **Network security** — `network_security_config.xml` allows cleartext only to `127.0.0.1`/`localhost`. The gacha endpoint is user-initiated.
-- **ProGuard** — Release builds strip `Log.d`/`Log.v`. Keep rules preserve `com.wuwaconfig.app.**` and `rikka.shizuku.**`.
-
----
-
-## For Developers
-
-### Build
-
-Prerequisites: JDK 17, Android SDK 36, Git.
+**Requirements:** JDK 17, Android SDK with **platform 37** installed. Gradle itself is
+provided by the wrapper (9.6.0).
 
 ```bash
 git clone https://github.com/B3rr7/WuWa-Config-Android.git
 cd WuWa-Config-Android
 
-./gradlew ktlintCheck          # lint (style is load-bearing — CI gates on ktlint)
-./gradlew ktlintFormat         # auto-fix style violations
-
-./gradlew testDebugUnitTest    # all unit tests (JUnit 4 + Mockito)
-
-./gradlew assembleDebug        # debug APK (fully offline)
-./gradlew assembleRelease      # release APK (needs keystore.properties + network once)
-
-adb install -r app/build/outputs/apk/debug/WuWaConfig-debug.apk
+./gradlew ktlintCheck        # style gate (CI enforces this)
+./gradlew lint               # Android Lint
+./gradlew testDebugUnitTest  # 30 pure-logic test classes
+./gradlew assembleDebug      # app/build/outputs/apk/debug/WuWaConfig-debug.apk
 ```
 
-One-line verification:
+Run the four in that order before opening a PR — that is the same order CI uses.
 
-```bash
-./gradlew ktlintCheck && ./gradlew testDebugUnitTest && ./gradlew assembleDebug
+> [!IMPORTANT]
+> **Release signing has no fallback keystore, on purpose.** `assembleRelease` fails with an
+> explicit `GradleException` unless *all four* of `storeFile`, `storePassword`, `keyAlias`
+> and `keyPassword` are present — via `keystore.properties` at the repo root (gitignored)
+> or the `STORE_FILE` / `STORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD` environment
+> variables. A silently-signed APK would pass UpdateManager's certificate check and get
+> offered to every user.
+
+Debug builds use the `applicationIdSuffix = ".debug"`, so they get their own storage and
+preferences and are correctly refused by UpdateManager against a release install — and the
+other way around.
+
+> [!NOTE]
+> `compileSdk` **37 is a hard floor**, not a preference: `android.app.appfunctions` exists
+> only in android-37's `android.jar`, and dropping back to 36 breaks `kspDebugKotlin`.
+> `targetSdk` stays 36. After changing any version in `gradle/libs.versions.toml`, refresh
+> the dependency pin file:
+>
+> ```bash
+> ./gradlew --write-verification-metadata sha256 help
+> ```
+>
+> `gradle/verification-metadata.xml` is committed and mandatory; without it the build fails.
+
+### Tech stack
+
+| Area | Choice |
+|---|---|
+| Language | Kotlin 2.2.20, JDK 17, AGP 9.4.0, KSP 2.3.12 |
+| UI | Jetpack Compose, Material 3, BOM 2026.04.01 |
+| Navigation | Navigation 3 (`navigation3-runtime` / `-ui` 1.1.7), type-safe `@Serializable` route keys |
+| Architecture | MVVM — 8 `AndroidViewModel`s + `StateFlow`, service-locator `Application` |
+| Async | kotlinx-coroutines 1.11.0 |
+| Media | Coil 3.3.0, Media3 ExoPlayer 1.7.1 |
+| Security | Platform `AndroidKeyStore` (AES-256-GCM), Shizuku UserService, DocumentFile |
+| Serialization | Gson 2.13.2, kotlinx-serialization (nav keys) |
+| Agents | `androidx.appfunctions` 1.0.0-alpha11 |
+| SDK | min 26 · target 36 · compile 37 |
+| Quality | ktlint 12.1.0 · Android Lint · JUnit 4.13.2 · Mockito 5.11.0 |
+
+---
+
+## Architecture
+
 ```
+WuWaConfigApp (Application)  — service locator, no DI framework
+├── AccessBackend ──┬── AdbBackend      wire protocol, base64 chunked push, run-as fallback
+│                   ├── ShizukuBackend  ShellUserService Binder IPC, script-file fallback
+│                   ├── RootBackend     su -c
+│                   └── SafBackend      DocumentFile, persistable tree URI
+├── CvarDatabase    5,889 CVars, async-loaded from assets
+├── ConfigGenerator 8 presets → 5 INIs
+└── LogRepository   ring buffer, 1 000 entries
 
-### Architecture
-
+MainActivity — single Activity, Navigation 3
+├── 14 type-safe destinations (nav/Destinations.kt)
+└── 8 ViewModels (all Activity-scoped)
+    └── Screens → Components → Theme
 ```
-WuWaConfigApp (Application)
-  ├─ AccessBackend ─┬─ AdbBackend (wire protocol, PortScanner, AdbCrypto)
-  │                 ├─ ShizukuBackend (ShellUserService Binder)
-  │                 ├─ RootBackend (su -c)
-  │                 └─ SafBackend (DocumentFile)
-  ├─ CvarDatabase (async load, 5,889 entries)
-  ├─ ConfigGenerator (8 presets, 5 INI builders)
-  └─ LogRepository (global, 1000 entries)
-
-MainActivity (single Activity, 13 composable routes)
-  └─ ViewModels (8): MainViewModel + DeployHistory + Backup + Gacha
-       + Profile + LogInsights + IniEditor + Settings
-       └─ Screens → Components → Theme (Material 3)
-```
-
-### Tech Stack
-
-| Area | Choice | Version / Notes |
-|------|--------|-----------------|
-| **Language** | Kotlin | 2.2.20, JDK 17, AGP 9.4.0 |
-| **UI** | Jetpack Compose + Material 3 | BOM 2026.04.01 |
-| **Architecture** | MVVM | ViewModel + StateFlow |
-| **Navigation** | Navigation Compose | 2.9.8, 13 routes |
-| **Coroutines** | kotlinx-coroutines-android | 1.11.0 |
-| **Image / Video** | Coil 2.7.0 + Media3 ExoPlayer 1.7.1 | VideoBackground support |
-| **Backends** | ADB (wire) / Shizuku 13.1.5 / Root / SAF | 4 access methods |
-| **Security** | AndroidX Security Crypto 1.1.0 | EncryptedFile + AndroidKeyStore |
-| **Serialization** | Gson 2.13.2 | JSON stores |
-| **Lint / Tests** | ktlint 12.1.0 + JUnit 4.13.2 + Mockito 5.11.0 | 30 pure-logic test files |
-| **SDK** | min 26 / target 36 / compile 36 | allowBackup=false |
-
-### Source Tree
 
 <details>
-<summary><b>Click to expand source tree</b></summary>
+<summary><b>Source tree — all 87 Kotlin files</b></summary>
 
 ```
 app/src/main/java/com/wuwaconfig/app/
-├── MainActivity.kt              # Single Activity, 13 composable routes
-├── WuWaConfigApp.kt             # Application — backend, CvarDatabase, ConfigGenerator
-├── adb/                         # ADB wire protocol (in-app, no PC daemon)
-│   ├── AdbProtocol.kt           # 24-byte header, CRC32, message encode/decode
-│   ├── AdbClient.kt             # TCP, RSA auth, 15s keepalive, drainTrailingWrite
-│   ├── AdbCrypto.kt             # RSA-2048, EncryptedFile + AndroidKeyStore
-│   └── PortScanner.kt           # 37000–44000 + 5555, 30s IP cache
-├── backend/                     # 4 access methods
-│   ├── AccessBackend.kt         # interface + AccessMethod enum
-│   ├── AdbBackend.kt            # base64 chunked push, run-as fallback
-│   ├── ShizukuBackend.kt        # UserService API, 60s timeout
-│   ├── RootBackend.kt           # su -c, 10s timeout
-│   ├── SafBackend.kt            # DocumentFile, persistable tree URI
-│   └── ShellUtils.kt            # shQuote, computeMd5, PUSH_RETRY_COUNT=2
-├── config/                      # Config generation & analysis
-│   ├── ConfigGenerator.kt       # 8 presets, generateWithCorePaths → 5 INIs
-│   ├── CvarDatabase.kt          # 5,889 entries, optimizeIniText
-│   ├── CvarCategorizer.kt       # 3-level match, 18 categories
-│   ├── ForbiddenCvars.kt        # 31 restricted entries
-│   ├── CvarOptimizer.kt         # GPU-tier regex → tuned profile
-│   ├── SmartBrain.kt            # 0–100 scoring → recommendPreset()
-│   ├── ConfigGenUtil.kt        # deduplicate, parse, apply overrides
-│   ├── LogParser.kt             # XOR-LUT decrypt, UTF-16/8, battle stats
-│   ├── ConfigManager.kt         # deploy/restore/clean facade
-│   ├── BackupStore.kt           # backup CRUD, Client.log persistence
-│   ├── ProfileExtractor.kt      # log read/decode, verifyDeployedCvars
-│   ├── HashMonitor.kt           # MD5 sync, snapshot/reconcile
-│   ├── GachaApi.kt              # HTTP POST, 11 pools, pity calc
-│   ├── DeployHistoryStore.kt    # deploy_history.json (20 records)
-│   ├── GachaHistoryStore.kt     # gacha_history.json (12h TTL)
-│   ├── ProfileStore.kt          # player_profile.json
-│   ├── BattleStatsStore.kt      # cached_battle_stats.json (24h TTL)
-│   ├── ChipsetDetector.kt       # Snapdragon/Mediatek/Exynos/Tensor
-│   └── BenchmarkTuner.kt        # benchmark_tuner_state.json
-├── model/                       # Data classes & store models
+│
+├── MainActivity.kt               the single Activity; NavDisplay, entryProvider, transitions
+├── WuWaConfigApp.kt              Application — service locator, backend, CvarDatabase, generator
+│
+├── adb/                          the ADB wire protocol, implemented in-process (no PC daemon)
+│   ├── AdbProtocol.kt            24-byte header, CRC32, frame encode/decode, typed failures
+│   ├── AdbClient.kt              TCP transport, RSA auth handshake, 15s heartbeat, run-as wrapper
+│   ├── AdbCrypto.kt              RSA-2048 keypair generation and the adb public/private key files
+│   ├── AdbKeyVault.kt            AES-256-GCM at rest, keyed by the platform AndroidKeyStore
+│   └── PortScanner.kt            sweeps 37 000–44 000 + 5555, banner sniffing, 30s IP cache
+│
+├── backend/                      the four ways to reach the game's files
+│   ├── AccessBackend.kt          AccessMethod enum, BackendStatus, the interface itself
+│   ├── AdbBackend.kt             base64-chunked push over AdbClient, run-as fallback on denial
+│   ├── ShizukuBackend.kt         Shizuku UserService IPC, 60s timeout, script-file fallback
+│   ├── RootBackend.kt            su -c, 10s timeout
+│   ├── SafBackend.kt             DocumentFile over a persistable tree URI — no shell
+│   └── ShellUtils.kt             shQuote, computeMd5, runAsCommand, PUSH_RETRY_COUNT
+│
+├── config/                       generation, analysis, persistence
+│   ├── ConfigGenerator.kt        PresetProfile, the 8 PRESETS, the 5 INI builders
+│   ├── ConfigGenUtil.kt          dedupe, entry parsing, CVar overrides, dead-CVar marking
+│   ├── ConfigManager.kt          facade over BackupStore / ProfileExtractor / HashMonitor
+│   ├── CvarDatabase.kt           5,889 CVars from assets, optimizeIniText rewriter
+│   ├── CvarCategorizer.kt        3-level prefix/substring matching → 19 categories
+│   ├── CvarOptimizer.kt          GPU-tier regex → tuned profile for the current device
+│   ├── CvarPlatformScope.kt      OS × API-level × engine-generation CVar applicability
+│   ├── ForbiddenCvars.kt         31 unstable CVars, stripped in restricted mode
+│   ├── SmartBrain.kt             0–100 device score → recommendPreset()
+│   ├── LogParser.kt              XOR-LUT decrypt, UTF-16/8 detect, battle stats, gacha URLs
+│   ├── ProfileExtractor.kt       reads/decodes Client.log, verifies deployed CVars
+│   ├── HashMonitor.kt            KuroConfigMonitor MD5s, atomic patch, concurrent-write detect
+│   ├── HashSync.kt               one shared device hash-sync check for deploy + editor
+│   ├── IniHashUtil.kt            extractHash() — pulls one file's hash out of the monitor file
+│   ├── BackupStore.kt            backup CRUD, backup/public dirs, Client.log persistence
+│   ├── GachaApi.kt               convene history fetch, 11 pools, pity computation
+│   ├── GachaHistoryStore.kt      gacha_history.json, 12h TTL
+│   ├── DeployHistoryStore.kt     deploy_history.json, 20 records
+│   ├── ProfileStore.kt           player_profile.json
+│   └── ChipsetDetector.kt        Snapdragon / MediaTek / Exynos / Tensor identification
+│
+├── model/                        data classes, stores and the log buffer
+│   ├── PresetModels.kt           GameMode, CvarEntry, GeneratorOptions (29 fields), GeneratedIni
+│   ├── GamePaths.kt              every on-device path the app touches, in one place
+│   ├── LogInfo.kt                device facts parsed out of the log banner
+│   ├── LogEntry.kt               LogLevel, LogEntry
+│   ├── LogRepository.kt          1 000-entry ring buffer + credential redaction
+│   ├── LogAnalysisStore.kt       cached_log_analysis.json, 24h TTL
+│   ├── PlayerProfile.kt          read-only UID, server, level, tower
+│   ├── BattleStats.kt            combat, dodge, movement, echo-skill figures
+│   ├── BattleStatsStore.kt       cached_battle_stats.json, 24h TTL
+│   ├── ConfigHashInfo.kt         per-file MD5 snapshot
+│   ├── ConfigPreset.kt           ConfigFile, ConfigBackup
+│   ├── DeployRecord.kt           DeployRecord, DeployComparison
+│   ├── GachaRecord.kt            GachaPoolType (11 pools), GachaData, pity state
+│   └── VerificationReport.kt     CvarCategory (19), CvarDetail, VerificationReport
+│
+├── nav/                          Navigation 3
+│   ├── Destinations.kt           14 @Serializable NavKey objects, ALL_DESTINATIONS, startDestination
+│   ├── NavigationState.kt        wraps a single rememberNavBackStack
+│   └── Navigator.kt              the only code allowed to mutate the back stack
+│
 ├── service/
-│   ├── AdbConnectionService.kt  # Foreground service for ADB
-│   └── ShellUserService.kt      # Binder shell for Shizuku
+│   ├── AdbConnectionService.kt   dataSync foreground service holding the ADB socket
+│   └── ShellUserService.kt       Binder hosted by Shizuku's UserService process
+│
+├── appfunctions/                 system-agent surface
+│   ├── BaseWuWaAppFunctionService.kt   9 @AppFunction entry points
+│   └── AppFunctionModels.kt            the deliberately reduced @AppFunctionSerializable DTOs
+│
 ├── ui/
-│   ├── MainViewModel.kt         # Primary shared state holder
-│   ├── DeployHistoryViewModel.kt
-│   ├── BackupViewModel.kt / GachaViewModel.kt / ProfileViewModel.kt
-│   ├── LogInsightsViewModel.kt / IniEditorViewModel.kt / SettingsViewModel.kt
-│   ├── components/Components.kt # GlassCard, GradientBackground, GlitchText
-│   ├── screens/ (13)            # Home, ConfigGen, ReviewTune, Pity, Profile, etc.
-│   └── theme/                   # Color.kt, Theme.kt, Type.kt
+│   ├── MainViewModel.kt          primary shared state holder
+│   ├── DeployHistoryViewModel.kt deploy + verify coordination
+│   ├── BackupViewModel.kt        backup CRUD and directory prefs
+│   ├── GachaViewModel.kt         pity tracker
+│   ├── ProfileViewModel.kt       player profile
+│   ├── LogInsightsViewModel.kt   log analysis, SmartBrain, battle stats
+│   ├── IniEditorViewModel.kt     editor document, search, diff
+│   ├── SettingsViewModel.kt      theme, prefs, update state, C# env probe
+│   ├── DeviceOps.kt              app-scoped mutex serializing every device-touching operation
+│   ├── components/Components.kt  GlassCard, GlassButton, GradientBackground, GlitchText, LogViewer
+│   ├── theme/
+│   │   ├── Color.kt              single immutable neon palette behind one state holder
+│   │   ├── Theme.kt              Material 3 schemes, edge-to-edge, dynamic colour
+│   │   └── Type.kt               Rajdhani, serif and monospace families + Typography
+│   └── screens/                  14 screens
+│       ├── SetupScreen.kt            onboarding
+│       ├── TermsScreen.kt            terms of use
+│       ├── UserGuideScreen.kt        local HTML guide in a WebView
+│       ├── HomeScreen.kt             connection status, quick actions, SAF picker
+│       ├── ConfigGenScreen.kt        preset selection and generation
+│       ├── ReviewTuneScreen.kt        diff, inline edit, deploy
+│       ├── IniEditorScreen.kt         full-screen monospace editor with search
+│       ├── BackupScreen.kt           backups and restore
+│       ├── HistoryScreen.kt          deploy history
+│       ├── PityScreen.kt             gacha pity tracker
+│       ├── ProfileScreen.kt          player profile
+│       ├── BattleStatsScreen.kt      battle stats
+│       ├── LogsScreen.kt             colour-coded log viewer
+│       └── SettingsScreen.kt         preferences, theme, updates
+│
 ├── util/
-│   ├── LineDiff.kt              # LineDiff.compute, md5Of
-│   └── AtomicFile.kt            # Atomic write helpers
-├── update/UpdateManager.kt      # Update checks
-└── assets/cvars/                # libUE4_cvars.txt (5,889) + config_monitor_* (735 each)
+│   ├── LineDiff.kt           DiffLine/DiffResult, LineDiff.compute, Hashing.md5Of
+│   ├── AtomicFile.kt         temp + fsync + rename(2), so a crash can't truncate a store
+│   ├── LocalOnlyImage.kt     asserts a Coil URI is a content:// the user picked
+│   ├── SensitiveClipboard.kt clipboard copies marked EXTRA_IS_SENSITIVE
+│   └── RomBackgroundSettings.kt  deep-links the ROM's background-process settings
+│
+├── update/UpdateManager.kt   GitHub release check; refuses an APK whose cert differs
+│
+└── assets/cvars/              libUE4_cvars.txt (5,889) + config_monitor_{cvars,values}.txt (735 each)
 ```
 
 </details>
+
+### Notable design decisions
+
+- **Navigation 3 over Navigation 2.** The former string routes are now `@Serializable`
+  `NavKey` objects, so a typo in `navigate()` is a compile error rather than a silent no-op.
+  `DestinationsTest` pins each key's serial name: `rememberNavBackStack` persists the stack
+  through saved state, so renaming a key would break back-stack restore across an update.
+- **All 8 ViewModels are hoisted to `MainActivity`.** `navigation3-runtime` ships no
+  per-entry `ViewModelStoreOwner` decorator, so `viewModel()` inside an `entry` would
+  silently fall through to the Activity anyway — this makes the scope explicit.
+- **A separate Shizuku `UserService` process.** `WuWaConfigApp.onCreate()` therefore runs
+  twice: once in the app, once as uid 2000 with none of the app's storage reachable. An
+  `isUserServiceProcess()` guard returns before any bootstrap; anything thrown above that
+  guard makes Shizuku's binder bind time out with no diagnostic.
+- **The CVar optimizer is a rewriter, not a validator.** Every line it touches is left in
+  place with a `; [CVarDB] <reason>` comment, so a deploy is always inspectable and
+  reversible rather than silently lossy.
+
+### AppFunctions
+
+`BaseWuWaAppFunctionService` exposes nine read-only functions to system agents —
+`listPresets`, `generateConfig`, `getDeviceProfile`, `recommendPreset`, `analyzeGameLog`,
+`getCachedLogAnalysis`, `getCachedBattleStats`, `getDeployHistory`, `getDeployOutcome`.
+KSP generates the service subclass and its assets schema at compile time.
+
+Inspect the surface on a connected device:
+
+```bash
+adb shell cmd app_function list-app-functions
+
+adb shell cmd app_function execute-app-function \
+  --package com.wuwaconfig.app.debug \
+  --function 'com.wuwaconfig.app.appfunctions.BaseWuWaAppFunctionService#listPresets'
+```
+
+> [!NOTE]
+> The service is `exported="true"` by necessity — the system is the caller — and gated by
+> `android:permission="BIND_APP_FUNCTION_SERVICE"`. Device-mutating operations are
+> deliberately *not* exposed: they need a live backend session, and several would destroy
+> unrecoverable state. The account identifier in battle stats and the bearer token in
+> gacha history are withheld from the DTOs.
+
+---
+
+## Privacy & security
+
+- **No telemetry.** No Firebase, Crashlytics or Sentry. The app never contacts a server
+  you did not initiate a request to.
+- **Local-only network.** `network_security_config.xml` permits cleartext to
+  `127.0.0.1` / `localhost` only. Gacha history is broadcast in-process via
+  `LocalBroadcastManager`.
+- **Keys encrypted at rest.** ADB key material is written through an
+  `AndroidKeyStore` AES-256-GCM key (`AdbKeyVault`). The deprecated
+  `androidx.security:security-crypto` dependency survives only so that Tink blobs written
+  by older releases stay readable — an unreadable key would silently rotate the user's ADB
+  identity and force a fresh RSA authorisation.
+- **Backups disabled.** `allowBackup="false"`, so nothing is extractable through Android
+  backup.
+- **Permission-gated providers.** `ShizukuProvider` is locked behind
+  `INTERACT_ACROSS_USERS_FULL`. This is a Shizuku requirement, not an oversight:
+  `ShizukuProvider.call()` performs no caller check of its own, and without the attribute
+  any installed app could walk away with the live Shizuku binder.
+- **Hardened release build.** R8 with `isShrinkResources`; `Log.d` / `Log.v` are stripped
+  and the keep rules are narrowed to what reflection actually needs.
 
 ---
 
 ## Community
 
-- [GitHub](https://github.com/B3rr7/WuWa-Config-Android)
-- [YouTube — Player42](https://www.youtube.com/@Player42_g)
-- [Telegram](https://t.me/Yt_Player42)
-- [Discord](https://discord.gg/5WP9nN2e2s)
+- [GitHub](https://github.com/B3rr7/WuWa-Config-Android) — issues and releases
 - [Website](https://b3rr7.github.io/WuWa-Config-Android/)
+- [YouTube — Player42](https://www.youtube.com/@Player42_g)
+- [Telegram](https://t.me/Yt_Player42) · [Discord](https://discord.gg/5WP9nN2e2s)
 
-Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Run `ktlintCheck` before submitting a PR.
-
----
-
-## License
-
-[MIT](LICENSE) · Copyright (c) 2026 Player42 · Not affiliated with Kuro Games.
+Issues and bug reports are the most useful contribution — device model, ROM, backend in
+use, and the exact error text go a long way.
 
 ---
 
@@ -366,7 +476,6 @@ Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CO
 
 **Made for Rovers — by Rovers.**
 
-[Back to top](#wuwaconfig--wuthering-waves-config-toolkit-for-android)
+[Back to top](#wuwaconfig)
 
 </div>
-

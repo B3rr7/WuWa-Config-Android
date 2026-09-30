@@ -161,7 +161,9 @@ fun SettingsScreen(
                         // wrong about their device requirements.
                         when (backendStatus.method) {
                             AccessMethod.ADB ->
-                                "ADB: Needs Wireless Debugging enabled in Developer Options. No root required."
+                                "ADB: No root required. Tries 127.0.0.1 first, then your Wi-Fi address. " +
+                                    "Enable Wireless debugging and pair once, or run 'adb tcpip 5555' over USB. " +
+                                    "Rooted ROMs that use no ADB password are found automatically on 127.0.0.1."
                             AccessMethod.SHIZUKU ->
                                 "SHIZUKU: Uses the Shizuku service (ADB-driven). No root required — install Shizuku and grant its permission once per boot."
                             AccessMethod.ROOT ->
