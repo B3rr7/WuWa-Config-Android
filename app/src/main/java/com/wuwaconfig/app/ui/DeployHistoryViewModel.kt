@@ -152,7 +152,13 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
             val backend = app.backend
             val result = backend.connect()
-            val ip = if (method == AccessMethod.ADB) withContext(Dispatchers.IO) { PortScanner.getDeviceIp() } else ""
+            val ip =
+                when (method) {
+                    // The LAN address is the address actually scanned, so reporting
+                    // anything else here would make the log disagree with the socket.
+                    AccessMethod.ADB -> withContext(Dispatchers.IO) { PortScanner.getDeviceIp() }
+                    else -> ""
+                }
             val port =
                 com.wuwaconfig.app.adb.PortScanner.lastAdbPort?.let {
                         p ->
@@ -260,6 +266,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     fun connectAdbManual(
         host: String,
         portText: String,
+        pairingCode: String = "",
     ) {
         val port = portText.toIntOrNull()
         if (port == null || port !in 1..65535) {
@@ -280,7 +287,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
             addLog("Connecting to $host:$port...")
             val backend = app.backend
             if (backend is AdbBackend) {
-                val result = backend.connectTo(host, port)
+                val result = backend.connectTo(host, port, pairingCode)
                 if (result.isSuccess) {
                     app.setBackendStatus(BackendStatus(method = AccessMethod.ADB, connected = true, host = host, port = port))
                     addLog("Connected to $host:$port!")

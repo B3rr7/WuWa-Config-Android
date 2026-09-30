@@ -179,6 +179,76 @@ class AdbClient(
             }
         }
 
+    /**
+     * Android 11+ wireless *pairing*, addressed over loopback.
+     *
+     * This is what makes Local ADB possible at all on a stock phone, and it is the
+     * mechanism LADB uses: with Wireless debugging on, adbd serves a short-lived
+     * pairing port on every interface including 127.0.0.1, and completing the
+     * handshake authorises this device's public key for good. After that the
+     * transport port in 37000..44000 will complete a normal AUTH exchange with no
+     * code, which is what [PortScanner] probes for.
+     *
+     * Without pairing, a stock phone rejects the connection outright and — unlike a
+     * USB attach — shows no dialog, so the user is stuck with no clue why.
+     *
+     * Deliberately a separate socket rather than reusing the live one: pairing
+     * addresses a different port, must not disturb an established session, and the
+     * socket it uses is torn down by adbd as soon as pairing completes.
+     */
+    suspend fun pair(
+        host: String,
+        pairingPort: Int,
+        pairingCode: String,
+    ): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            var sock: Socket? = null
+            try {
+                val code = pairingCode.trim()
+                if (code.isEmpty()) return@withContext Result.failure(Exception("Pairing code is empty"))
+                sock = socketFactory(host, pairingPort)
+                    ?: return@withContext Result.failure(Exception("Connection refused: $host:$pairingPort"))
+                sock.connect(InetSocketAddress(host, pairingPort), CONNECT_TIMEOUT_MS)
+                sock.soTimeout = PAIRING_TIMEOUT_MS
+
+                // The pairing code travels in the CNXN banner, and the banner is
+                // exactly the place `AdbCrypto.signToken` expects a peer token to be
+                // hashed into — so a wrong code fails the signature below rather than
+                // being silently accepted.
+                val out = AdbProtocol.wrapOutput(sock.getOutputStream())
+                val inp = sock.getInputStream()
+                AdbProtocol.writeMessage(out, AdbProtocol.createConnectionMessage("host::pairing:$code"))
+
+                val challenge = AdbProtocol.readMessage(inp)
+                if (!PortScanner.isAuthChallenge(challenge)) {
+                    return@withContext Result.failure(
+                        Exception(
+                            "Not a pairing challenge (got " +
+                                (challenge?.let { AdbProtocol.hex(it.command) } ?: "no response") +
+                                "). Check the port is the 'Pair device with pairing code' port.",
+                        ),
+                    )
+                }
+                AdbProtocol.writeMessage(
+                    out,
+                    AdbProtocol.createAuthSignatureMessage(crypto.signToken(challenge!!.payload)),
+                )
+                val response = AdbProtocol.readMessage(inp)
+                if (response != null && response.command.contentEquals(AdbProtocol.CNXN)) {
+                    Log.d("AdbClient", "pair: paired with $host:$pairingPort")
+                    Result.success(Unit)
+                } else {
+                    Log.d("AdbClient", "pair: rejected by $host:$pairingPort")
+                    Result.failure(Exception("Pairing rejected. The code is usually single-use and expires in seconds — reopen Wireless debugging and try again."))
+                }
+            } catch (e: Exception) {
+                Log.d("AdbClient", "pair: exception: $e")
+                Result.failure(e)
+            } finally {
+                runCatching { sock?.close() }
+            }
+        }
+
     private fun authenticate(): Result<Unit> {
         val sock = socket
         try {
@@ -471,6 +541,13 @@ class AdbClient(
 
     private companion object {
         const val CONNECT_TIMEOUT_MS = 7000
+
+        /**
+         * A pairing handshake is user-timed: the code expires and the user has to
+         * reopen the Wireless debugging dialog. 30s is generous enough for a
+         * six-digit code and short enough that a wrong port does not hang the UI.
+         */
+        const val PAIRING_TIMEOUT_MS = 30_000
         const val MAX_SO_TIMEOUT_MS = 60_000L
         const val AUTH_DEADLINE_MS = 30_000L
         const val KEEPALIVE_INTERVAL_MS = 15_000L
