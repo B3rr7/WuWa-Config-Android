@@ -45,6 +45,7 @@ object LogRepository {
     private var diskWriteWarned = false
 
     private const val MAX_ENTRIES = 1000
+
     /** Rotated generations. Single source of truth so clear() cannot drift from rotate(). */
     private const val ROTATED_1 = "app.1.log"
     private const val ROTATED_2 = "app.2.log"
@@ -341,5 +342,6 @@ internal fun redactCredentials(text: String): String =
         .replace(Regex("(?i)(\"recordId\"\\s*:\\s*\")[^\"]*(\")"), "$1<redacted>$2")
         .replace(Regex("(?i)(\"playerId\"\\s*:\\s*\")[^\"]*(\")"), "$1<redacted>$2")
         .replace(Regex("SetUserId \\[playerId:[^\\]]*\\]"), "SetUserId [playerId:<redacted>]")
+
 /** Test-only alias so the redactor is reachable without going through a file write. */
 internal fun redactCredentialsForTest(text: String): String = redactCredentials(text)

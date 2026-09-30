@@ -1,7 +1,3 @@
-package com.wuwaconfig.app.appfunctions
-
-import androidx.appfunctions.AppFunctionSerializable
-
 /**
  * Wire types for the AppFunctions surface. Deliberately separate from the app's own
  * models: [com.wuwaconfig.app.config.PresetProfile] exposes every tuning knob as a
@@ -17,6 +13,9 @@ import androidx.appfunctions.AppFunctionSerializable
  * (see [com.wuwaconfig.app.model.LogRepository]); the `@param` tags below are the
  * documented exception, required here for the agent-facing contract.
  */
+package com.wuwaconfig.app.appfunctions
+
+import androidx.appfunctions.AppFunctionSerializable
 
 /** One entry from the generator's preset table, with the trade-off spelled out. */
 @AppFunctionSerializable(isDescribedByKDoc = true)

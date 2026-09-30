@@ -218,10 +218,11 @@ fun ConfigGenScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(
-                    top = 8.dp + padding.calculateTopPadding(),
-                    bottom = 80.dp + padding.calculateBottomPadding(),
-                ),
+                contentPadding =
+                    PaddingValues(
+                        top = 8.dp + padding.calculateTopPadding(),
+                        bottom = 80.dp + padding.calculateBottomPadding(),
+                    ),
             ) {
                 item(key = "analysis") {
                     AnalysisPanel(

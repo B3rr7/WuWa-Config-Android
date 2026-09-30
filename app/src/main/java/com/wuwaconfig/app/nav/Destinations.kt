@@ -72,21 +72,22 @@ data object IniEditor : NavKey
  * format* of each key (see DestinationsTest), which is the property that makes
  * a saved back stack survive both a process death and an app update.
  */
-val ALL_DESTINATIONS: List<NavKey> = listOf(
-    Setup,
-    Home,
-    Backups,
-    ConfigGen,
-    ReviewTune,
-    Settings,
-    UserGuide,
-    Pity,
-    Profile,
-    BattleStats,
-    Logs,
-    History,
-    IniEditor,
-)
+val ALL_DESTINATIONS: List<NavKey> =
+    listOf(
+        Setup,
+        Home,
+        Backups,
+        ConfigGen,
+        ReviewTune,
+        Settings,
+        UserGuide,
+        Pity,
+        Profile,
+        BattleStats,
+        Logs,
+        History,
+        IniEditor,
+    )
 
 /**
  * The destination the app launches into.

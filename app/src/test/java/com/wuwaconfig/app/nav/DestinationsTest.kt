@@ -87,4 +87,3 @@ class DestinationsTest {
         assertEquals(Setup, startDestination(setupDone = false))
     }
 }
-

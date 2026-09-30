@@ -84,86 +84,93 @@ private data class CvarScopeRule(
 private val SCOPE_RULES =
     listOf(
         // ── Desktop / Windows ──
+        // 3: r.ForceOpaqueInPreZ_PC, r.Kuro.GlobalLightQuality_PC, r.Kuro.GlobalLightShadowQuality_PC
         CvarScopeRule(
             "_pc",
             TokenMatch.SUFFIX,
             PlatformScope.PC,
             "PC-only variant",
-        ), // 3: r.ForceOpaqueInPreZ_PC, r.Kuro.GlobalLightQuality_PC, r.Kuro.GlobalLightShadowQuality_PC
+        ),
+        // 4
         CvarScopeRule(
             "r.d3d",
             TokenMatch.PREFIX,
             PlatformScope.PC,
             "DirectX-only",
-        ), // 4
+        ),
+        // 0 in corpus today; present for forward-compat
         CvarScopeRule(
             "r.shadermodel",
             TokenMatch.PREFIX,
             PlatformScope.PC,
             "shader-model specific",
-        ), // 0 in corpus today; present for forward-compat
-
+        ),
         // ── Apple ──
+        // 8 (r.Metal.* and r.metal.*)
         CvarScopeRule(
             "r.metal",
             TokenMatch.PREFIX,
             PlatformScope.APPLE,
             "Metal-only",
-        ), // 8 (r.Metal.* and r.metal.*)
-
+        ),
         // ── Console ──
+        // 1: r.PS4MixedModeShaderDebugInfo
         CvarScopeRule(
             "r.ps4",
             TokenMatch.PREFIX,
             PlatformScope.CONSOLE,
             "PlayStation 4 only",
-        ), // 1: r.PS4MixedModeShaderDebugInfo
+        ),
+        // 0 today
         CvarScopeRule(
             "r.ps5",
             TokenMatch.PREFIX,
             PlatformScope.CONSOLE,
             "PlayStation 5 only",
-        ), // 0 today
+        ),
+        // 0 today
         CvarScopeRule(
             "r.xsx",
             TokenMatch.PREFIX,
             PlatformScope.CONSOLE,
             "Xbox Series only",
-        ), // 0 today
-
+        ),
         // ── Graphics API ──
+        // 84
         CvarScopeRule(
             "r.vulkan",
             TokenMatch.PREFIX,
             PlatformScope.VULKAN,
             "Vulkan-only (device is not on Vulkan)",
-        ), // 84
+        ),
+        // 32
         CvarScopeRule(
             "r.opengl",
             TokenMatch.PREFIX,
             PlatformScope.OPENGL,
             "OpenGL-only (device is not on OpenGL)",
-        ), // 32
+        ),
         CvarScopeRule(
             "r.metal.",
             TokenMatch.PREFIX,
             PlatformScope.APPLE,
             "Metal-only",
         ),
-
         // ── Explicit ANY anchors, listed to document what must NOT be flagged ──
+        // 19+ — collides with the PlayStation rules above, and is valid on Android
         CvarScopeRule(
             "r.pso",
             TokenMatch.PREFIX,
             PlatformScope.ANY,
             "Pipeline State Object (API-agnostic)",
-        ), // 19+ — collides with the PlayStation rules above, and is valid on Android
+        ),
+        // 250 — the single largest family, and the one most at risk from a loose rule
         CvarScopeRule(
             "r.mobile",
             TokenMatch.PREFIX,
             PlatformScope.ANY,
             "Mobile renderer",
-        ), // 250 — the single largest family, and the one most at risk from a loose rule
+        ),
     )
 
 /**

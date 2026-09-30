@@ -203,10 +203,11 @@ fun HomeScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(
-                    top = padding.calculateTopPadding(),
-                    bottom = 80.dp + padding.calculateBottomPadding(),
-                ),
+                contentPadding =
+                    PaddingValues(
+                        top = padding.calculateTopPadding(),
+                        bottom = 80.dp + padding.calculateBottomPadding(),
+                    ),
             ) {
                 item { Spacer(Modifier.height(8.dp)) }
 

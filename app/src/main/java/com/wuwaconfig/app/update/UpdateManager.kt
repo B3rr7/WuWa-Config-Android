@@ -56,16 +56,6 @@ object UpdateManager {
         val apkUrl: String,
     )
 
-    /**
-     * Parses a version string like "v1.2.0" or "1.11.0" into comparable ints.
-     *
-     * A pre-release suffix is preserved as a LOW-ORDER tiebreaker, appended
-     * after the release number: `0` for a final release, `1` for anything with
-     * a `-suffix`. So a final release always sorts above its own pre-releases,
-     * and `1.1.5-1` (an Android build suffix) sorts below `1.1.5` instead of
-     * above it. Pre-releases additionally carry a small alphabetical rank of
-     * their tag (`beta` < `rc`) at an even lower order.
-     */
     // Ordering sentinels appended to the numeric release vector so a suffix can only
     // ever be a low-order tiebreaker. The order is:
     //   BUILD_SUFFIX (-1) < PRE_RELEASE (0) < FINAL_RELEASE (1)
@@ -93,6 +83,16 @@ object UpdateManager {
             "preview" to 3,
         )
 
+    /**
+     * Parses a version string like "v1.2.0" or "1.11.0" into comparable ints.
+     *
+     * A pre-release suffix is preserved as a LOW-ORDER tiebreaker, appended
+     * after the release number: `0` for a final release, `1` for anything with
+     * a `-suffix`. So a final release always sorts above its own pre-releases,
+     * and `1.1.5-1` (an Android build suffix) sorts below `1.1.5` instead of
+     * above it. Pre-releases additionally carry a small alphabetical rank of
+     * their tag (`beta` < `rc`) at an even lower order.
+     */
     fun parseVersion(raw: String): List<Int> {
         val parts = raw.trim().lowercase().removePrefix("v").split("-", limit = 2)
         val release = parts[0].split(".").mapNotNull { it.filter { c -> c.isDigit() }.toIntOrNull() }

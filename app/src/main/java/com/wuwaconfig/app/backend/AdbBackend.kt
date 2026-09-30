@@ -121,7 +121,7 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
                 }
             if (mkdirResult.isFailure) {
                 return Result.failure(
-                    Exception("Cannot create directory ${parent}: ${mkdirResult.exceptionOrNull()?.message}"),
+                    Exception("Cannot create directory $parent: ${mkdirResult.exceptionOrNull()?.message}"),
                 )
             }
             // Nonzero exit tolerated: `rm -f` fails only when the staging path is
@@ -268,8 +268,9 @@ class AdbBackend(private val crypto: AdbCrypto) : AccessBackend {
         sourcePath: String,
         targetPath: String,
     ): Result<String> {
-        val parent = File(targetPath).parent
-            ?: return Result.failure(Exception("Invalid target path: $targetPath"))
+        val parent =
+            File(targetPath).parent
+                ?: return Result.failure(Exception("Invalid target path: $targetPath"))
         val mkdirCmd = "mkdir -p ${shQuote(parent)}"
         val mkdirResult = withRunAsFallback(mkdirCmd, GAME_PKG) { client.executeShellCommand(it) }
         if (mkdirResult.isFailure) return mkdirResult

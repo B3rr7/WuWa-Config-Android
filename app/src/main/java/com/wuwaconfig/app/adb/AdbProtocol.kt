@@ -56,13 +56,11 @@ object AdbProtocol {
             return result
         }
 
-        override fun toString(): String =
-            "AdbMessage(cmd=${hex(command)}, arg0=$arg0, arg1=$arg1, dataLength=$dataLength)"
+        override fun toString(): String = "AdbMessage(cmd=${hex(command)}, arg0=$arg0, arg1=$arg1, dataLength=$dataLength)"
     }
 
     /** Renders a 4-byte wire command as hex — `String(bytes)` is mostly replacement chars. */
-    fun hex(bytes: ByteArray): String =
-        bytes.joinToString("") { byte -> "%02x".format(byte.toInt() and 0xFF) }
+    fun hex(bytes: ByteArray): String = bytes.joinToString("") { byte -> "%02x".format(byte.toInt() and 0xFF) }
 
     /**
      * Reads one frame, returning null on any protocol/EOF error. Kept for callers that

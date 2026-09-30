@@ -2,7 +2,6 @@ package com.wuwaconfig.app.config
 
 import com.wuwaconfig.app.model.LogInfo
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -70,13 +69,15 @@ class CvarPlatformScopeTest {
         // r.PSO.* is Pipeline State Objects, which works on Vulkan. The generator
         // really does emit two of these (r.PSO.CompilationMode, r.PSO.CacheEvictScheme).
         // A loose `r.PS` prefix rule would have marked them dead.
-        for (name in
-            listOf(
-                "r.PSO.CompilationMode",
-                "r.PSO.CacheEvictScheme",
-                "r.PSO.FixPSOCrash1",
-                "r.PSO.BackgroundPreompilingRTPSO",
-            )) {
+        for (
+        name in
+        listOf(
+            "r.PSO.CompilationMode",
+            "r.PSO.CacheEvictScheme",
+            "r.PSO.FixPSOCrash1",
+            "r.PSO.BackgroundPreompilingRTPSO",
+        )
+        ) {
             assertEquals("$name must stay alive", CvarVerdict.Alive, classifyCvar(name, TargetPlatform.ANDROID_GLES))
             assertEquals("$name must stay alive on Vulkan", CvarVerdict.Alive, classifyCvar(name, TargetPlatform.ANDROID_VULKAN))
         }
@@ -131,8 +132,10 @@ class CvarPlatformScopeTest {
 
     @Test
     fun `the three UE5-only TAA CVars are marked dead`() {
-        for (name in
-            listOf("r.TemporalAA.Algorithm", "r.TemporalAA.Upsampling", "r.TemporalAACatmullRom")) {
+        for (
+        name in
+        listOf("r.TemporalAA.Algorithm", "r.TemporalAA.Upsampling", "r.TemporalAACatmullRom")
+        ) {
             assertTrue("$name should be dead", classifyCvar(name, TargetPlatform.ANDROID_GLES) is CvarVerdict.Dead)
         }
     }
@@ -141,15 +144,17 @@ class CvarPlatformScopeTest {
     fun `legitimate UE4 TAA CVars stay alive`() {
         // Guards against prefix-matching the whole r.TemporalAA. family: these are
         // real UE4 CVars and marking them would have cost ~9 working lines.
-        for (name in
-            listOf(
-                "r.TemporalAA.Sharpness",
-                "r.TemporalAA.MobileFrameWeight",
-                "r.TemporalAA.MobileStaticFrameWeight",
-                "r.TemporalAAPauseCorrect",
-                "r.TemporalAAFilterSize",
-                "r.TemporalAACurrentFrameWeight",
-            )) {
+        for (
+        name in
+        listOf(
+            "r.TemporalAA.Sharpness",
+            "r.TemporalAA.MobileFrameWeight",
+            "r.TemporalAA.MobileStaticFrameWeight",
+            "r.TemporalAAPauseCorrect",
+            "r.TemporalAAFilterSize",
+            "r.TemporalAACurrentFrameWeight",
+        )
+        ) {
             assertEquals("$name must stay alive", CvarVerdict.Alive, classifyCvar(name, TargetPlatform.ANDROID_GLES))
         }
     }
@@ -204,8 +209,9 @@ class CvarPlatformScopeTest {
                 "src/main/assets/cvars/libUE4_cvars.txt",
                 "app/src/main/assets/cvars/libUE4_cvars.txt",
             )
-        val file = candidates.map { java.io.File(it) }.firstOrNull { it.isFile }
-            ?: throw AssertionError("libUE4_cvars.txt not found from ${System.getProperty("user.dir")}")
+        val file =
+            candidates.map { java.io.File(it) }.firstOrNull { it.isFile }
+                ?: throw AssertionError("libUE4_cvars.txt not found from ${System.getProperty("user.dir")}")
         return file.readLines().map { it.trim() }.filter { it.isNotEmpty() }
     }
 }

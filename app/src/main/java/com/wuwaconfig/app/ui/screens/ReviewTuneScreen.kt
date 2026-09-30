@@ -1,6 +1,5 @@
 package com.wuwaconfig.app.ui.screens
 
-import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.background
@@ -157,9 +156,10 @@ fun ReviewTuneScreen(
         val result = withContext(Dispatchers.Default) { LineDiff.compute(deviceText, newText) }
         diffSnapshot = DiffSnapshot(deviceText, newText, result)
     }
-    val diff = diffSnapshot.result?.takeIf {
-        diffSnapshot.deviceText == deviceText && diffSnapshot.newText == newText
-    }
+    val diff =
+        diffSnapshot.result?.takeIf {
+            diffSnapshot.deviceText == deviceText && diffSnapshot.newText == newText
+        }
 
     LaunchedEffect(currentFile) {
         val key = currentFile

@@ -38,7 +38,6 @@ data class DiffResult(
 )
 
 object LineDiff {
-
     /** Char code for DEL (0x7F) — a non-printable control character that can
      * confuse text layout engines alongside null bytes. */
     private const val DEL = 0x7F

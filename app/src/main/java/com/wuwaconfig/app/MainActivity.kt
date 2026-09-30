@@ -1,19 +1,13 @@
 package com.wuwaconfig.app
 
-import android.util.Log
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.view.WindowManager
 import android.os.Environment
-// Aliased, not shadowed: the nav destination is named after the screen, and
-// every other destination in Destinations.kt is a bare domain noun. Renaming it
-// to SettingsRoute would make it the odd one out for no benefit, so the
-// platform class yields instead — it is an unrelated name collision, and
-// android.provider.Settings is only needed for two intent actions.
-import android.provider.Settings as AndroidSettings
+import android.util.Log
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -36,7 +30,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -68,6 +61,8 @@ import com.wuwaconfig.app.ui.LogInsightsViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.ProfileViewModel
 import com.wuwaconfig.app.ui.SettingsViewModel
+import com.wuwaconfig.app.ui.components.BackgroundSettings
+import com.wuwaconfig.app.ui.components.LocalBackgroundSettings
 import com.wuwaconfig.app.ui.screens.BackupScreen
 import com.wuwaconfig.app.ui.screens.BattleStatsScreen
 import com.wuwaconfig.app.ui.screens.ConfigGenScreen
@@ -82,10 +77,10 @@ import com.wuwaconfig.app.ui.screens.SettingsScreen
 import com.wuwaconfig.app.ui.screens.SetupScreen
 import com.wuwaconfig.app.ui.screens.TermsScreen
 import com.wuwaconfig.app.ui.screens.UserGuideScreen
-import com.wuwaconfig.app.ui.components.BackgroundSettings
-import com.wuwaconfig.app.ui.components.LocalBackgroundSettings
 import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import com.wuwaconfig.app.ui.theme.setNeonSaturation
+import kotlinx.coroutines.launch
+import android.provider.Settings as AndroidSettings
 
 class MainActivity : ComponentActivity() {
     private val manageStorageLauncher =
@@ -253,6 +248,12 @@ class MainActivity : ComponentActivity() {
     private fun requestStoragePermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
+                // Aliased, not shadowed: `android.provider.Settings` collides with the
+                // nav destination named after this screen, and every destination in
+                // nav/Destinations.kt is a bare domain noun, so renaming that one to
+                // SettingsRoute would make it the odd one out for no benefit. The
+                // platform class yields instead; it is an unrelated name collision
+                // and is needed here for exactly two intent actions.
                 val intent = Intent(AndroidSettings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                 intent.data = android.net.Uri.parse("package:$packageName")
                 // Kiosk / stripped / some Chinese ROMs may ship no Settings
@@ -306,21 +307,26 @@ fun AppNavigation(
     // EnterTransition?/ExitTransition? properties against a NavBackStackEntry
     // receiver. The values below are unchanged; only the pairing is different.
     val pushTransition: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
-        (slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
-            fadeIn(animationSpec = tween(300)))
+        (
+            slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+                fadeIn(animationSpec = tween(300))
+        )
             .togetherWith(
                 slideOutHorizontally(targetOffsetX = { -it / 3 }, animationSpec = tween(250)) +
                     fadeOut(animationSpec = tween(250)),
             )
     }
     val popTransition: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
-        (slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
-            fadeIn(animationSpec = tween(300)))
+        (
+            slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+                fadeIn(animationSpec = tween(300))
+        )
             .togetherWith(
                 slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(250)) +
                     fadeOut(animationSpec = tween(250)),
             )
     }
+
     // Setup was the one destination with cross-fades instead of slides. Nav3's
     // entry() DSL has no per-entry transition parameters in 1.1.7 (transitions
     // travel as an untyped metadata map), so the override is selected at the
@@ -334,9 +340,10 @@ fun AppNavigation(
     fun setupAware(
         normal: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform,
         setup: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform,
-    ): AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
-        if (involvesSetup()) setup() else normal()
-    }
+    ): AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform =
+        {
+            if (involvesSetup()) setup() else normal()
+        }
 
     val pushTransitionSpec =
         setupAware(
@@ -481,5 +488,4 @@ fun AppNavigation(
 }
 
 /** True when either side of the transition is the Setup destination. */
-private fun AnimatedContentTransitionScope<Scene<NavKey>>.involvesSetup(): Boolean =
-    (initialState as? Scene<*>)?.key is Setup || (targetState as? Scene<*>)?.key is Setup
+private fun AnimatedContentTransitionScope<Scene<NavKey>>.involvesSetup(): Boolean = (initialState as? Scene<*>)?.key is Setup || (targetState as? Scene<*>)?.key is Setup
