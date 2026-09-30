@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
@@ -77,8 +78,10 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
+import coil3.asImage
+import coil3.compose.rememberAsyncImagePainter
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.LogLevel
@@ -898,15 +901,26 @@ fun GradientBackground(content: @Composable () -> Unit) {
             )
         } else if (hasImage) {
             val bgImageContext = LocalContext.current
+            // LocalResources, not LocalContext: reading a resource through the
+            // Context does not invalidate this composition when the Configuration
+            // changes, so a locale or density change would leave a stale drawable.
+            val bgImageResources = LocalResources.current
             val imageRequest =
                 remember(imageUri) {
                     // Fail closed to the error drawable for anything that is not
-                    // local-only, so the bundled Coil HTTP fetcher can never be
-                    // reached by a persisted or injected remote URL.
+                    // local-only, so a persisted or injected remote URL can never
+                    // become an image request.
                     ImageRequest.Builder(bgImageContext)
                         .data(if (isLocalOnlyImageUri(imageUri, bgImageContext)) imageUri else null)
                         .crossfade(true)
-                        .error(android.R.drawable.stat_notify_error)
+                        .error(
+                            requireNotNull(
+                                bgImageResources.getDrawable(
+                                    android.R.drawable.stat_notify_error,
+                                    bgImageContext.theme,
+                                ),
+                            ).asImage(),
+                        )
                         .build()
                 }
             val painter = rememberAsyncImagePainter(imageRequest)
