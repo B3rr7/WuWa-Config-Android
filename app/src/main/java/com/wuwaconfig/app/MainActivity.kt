@@ -298,6 +298,20 @@ fun AppNavigation(
     profileViewModel: ProfileViewModel,
     iniEditorViewModel: IniEditorViewModel,
 ) {
+    // Every ViewModel is passed in rather than obtained inside its entry, and
+    // that is load-bearing under Navigation 3. navigation3-runtime ships no
+    // ViewModelStoreOwner decorator - only SaveableStateHolderNavEntryDecorator -
+    // so `viewModel()` called inside an `entry` resolves to whatever owner is in
+    // scope, which here is the Activity. Navigation 2's LocalOwnersProvider DID
+    // provide one per entry, so leaving IniEditorViewModel where it was would
+    // have silently changed it from entry-scoped to Activity-scoped.
+    //
+    // The alternative, androidx.lifecycle:lifecycle-viewmodel-navigation3, is
+    // published only against lifecycle 2.11.0 and would force this project off
+    // 2.9.4. Hoisting costs nothing here: IniEditorViewModel takes no navigation
+    // argument (readIniFile(fileName) is called on demand from the screen), so
+    // entry scoping bought nothing, and it is now consistent with its seven
+    // siblings.
     val setupDone by viewModel.isSetupDone.collectAsStateWithLifecycle()
     val navigationState = rememberNavigationState(startDestination(setupDone))
     val navigator = remember(navigationState) { Navigator(navigationState) }
@@ -336,7 +350,8 @@ fun AppNavigation(
     //
     // Both halves are named at each call site rather than each branch picking
     // the other's fallback: writing the push site as "else popTransition()"
-    // compiles perfectly and silently slides every normal push backwards.
+    // compiles perfectly and silently slides every normal push backwards. That
+    // inversion was in the first draft of this migration.
     fun setupAware(
         normal: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform,
         setup: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform,
@@ -477,6 +492,10 @@ fun AppNavigation(
         }
 
     NavDisplay(
+        // `entries`, not `backStack`. Every recipe in the official Navigation 3
+        // migration guide passes `backStack = backStack` to NavDisplay; there is no
+        // such parameter in 1.1.7, and the guide's sample does not compile. Check
+        // the artifact rather than the guide before copying a snippet.
         entries = navigationState.toEntries(entryProvider),
         // NavDisplay owns predictive back; this is what it calls once a back
         // gesture commits, replacing NavController.popBackStack().
