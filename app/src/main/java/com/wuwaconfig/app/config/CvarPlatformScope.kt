@@ -174,21 +174,55 @@ private val SCOPE_RULES =
     )
 
 /**
- * Engine-generation-gated CVars.
+ * Engine generation, detected from the log's `LogInit: Build: ++UE4+…` banner.
  *
- * Wuthering Waves ships a UE4 build (the on-device path is `.../UE4Game/...`, visible
- * in the device log), so UE5-only CVars are inert. There is no engine-version signal
- * in [LogInfo] today, so this is a hardcoded fact about the target rather than a
- * detected condition.
- *
- * TODO(engine-detect): parse the engine version out of the client log
- * (`LogInit: Build: ++UE4+...`) and gate this on it instead of assuming UE4.
+ * [UNKNOWN] means the banner was absent. It is the normal case for a truncated
+ * or rotated log, and it is why [classifyCvar] defaults to [UE4]: that is the
+ * engine this game actually ships, and it is the behaviour the app had before
+ * the detection existed. A default of [UE5] would instead mark three
+ * `r.temporalaa.*` CVars alive that the engine does not recognise.
+ */
+enum class EngineGeneration {
+    UNKNOWN,
+    UE4,
+    UE5,
+    ;
+
+    companion object {
+        /**
+         * Matches the generation digit out of an engine build token.
+         *
+         * Reads `UE4` / `UE5` wherever it appears rather than anchoring the whole
+         * string, because the same token arrives in two shapes: LogParser stores
+         * the reassembled `UE4+Release-4.27-CL-1`, while the raw banner line has
+         * the `++` prefix. Hoisted so a log scan does not recompile it per line.
+         */
+        private val GENERATION_RE = Regex("""UE(\d)""")
+
+        /** Parses a banner token such as `UE4+Release-4.27-CL-1`, or [UNKNOWN]. */
+        fun fromBanner(banner: String?): EngineGeneration {
+            val token = banner?.trim().orEmpty()
+            if (token.isEmpty()) return UNKNOWN
+            return when (GENERATION_RE.find(token)?.groupValues?.get(1)) {
+                "4" -> UE4
+                "5" -> UE5
+                else -> UNKNOWN
+            }
+        }
+    }
+}
+
+/** Engine generation implied by a parsed client log, or [EngineGeneration.UNKNOWN]. */
+fun detectEngineGeneration(info: LogInfo): EngineGeneration = EngineGeneration.fromBanner(info.engineVersion)
+
+/**
+ * UE5-only CVars, inert on this game's UE4 build.
  *
  * The list is deliberately per-CVar and NOT a `r.temporalaa.` prefix: that family is
  * mostly legitimate UE4 (`r.TemporalAA.Sharpness`, `.MobileFrameWeight`,
  * `.PauseCorrect`, `.FilterSize`) and prefix-matching would have marked ~9 working
- * CVars dead. All three entries below appear in the engine's own
- * "not recognised" list.
+ * CVars dead. All three entries below appear in the engine's own "not recognised"
+ * list.
  */
 private val UE5_ONLY_CVARS =
     setOf(
@@ -243,16 +277,26 @@ private fun scopeExcluded(
  * Fails safe in two directions: an [TargetPlatform.UNKNOWN] target, and any name no
  * rule matches, both come back [CvarVerdict.Alive]. A CVar is only ever called dead
  * when a rule's scope *provably* excludes the detected platform.
+ *
+ * [engine] defaults to [EngineGeneration.UE4] because that is what the app
+ * assumed unconditionally before detection existed, and because a log without
+ * the startup banner is the common case. Callers holding a parsed [LogInfo]
+ * should pass [detectEngineGeneration]'s result.
  */
 fun classifyCvar(
     name: String,
     target: TargetPlatform,
+    engine: EngineGeneration = EngineGeneration.UE4,
 ): CvarVerdict {
     if (target == TargetPlatform.UNKNOWN) return CvarVerdict.Alive
     val lower = name.trim().lowercase()
 
-    if (lower in UE5_ONLY_CVARS) {
-        return CvarVerdict.Dead(PlatformScope.PC, "UE5-only CVar; this is a UE4 build")
+    // Only a positively detected UE5 lifts the gate. UNKNOWN and UE4 behave
+    // identically, which is what the default of UE4 means and what the app did
+    // before detection existed: a log with no banner still marks these dead
+    // rather than resurrecting three inert CVars.
+    if (lower in UE5_ONLY_CVARS && engine != EngineGeneration.UE5) {
+        return CvarVerdict.Dead(PlatformScope.PC, "UE5-only CVar; the log reports a UE4 build")
     }
 
     // Longest token wins so `r.metal.` (specific) beats a hypothetical `r.met`.
