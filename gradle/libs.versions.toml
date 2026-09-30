@@ -19,11 +19,12 @@ documentfile = "1.0.1"
 # AndroidKeyStore AES-GCM key, then drop this dependency.
 securityCrypto = "1.1.0"
 gson = "2.13.2"
-# TODO(coil): 2.7.0 is a stale major against a 2026.x Compose BOM. Coil 3 is the
-# current line and is a breaking API change, so it is deliberately NOT upgraded
-# in this change set — it requires edits in ui/ that are out of scope. Track it
-# as its own task.
-coil = "2.7.0"
+# Coil 3. Resolves TODO(coil): 2.7.0 was a stale major against a 2026.x Compose BOM.
+# Beyond the package rename (coil.* -> coil3.*), the win is that network fetching is a
+# separate opt-in artifact, so coil-compose no longer drags okhttp + okio + an HTTP
+# fetcher in for an app that only ever loads local content URIs. See
+# util/LocalOnlyImage.kt, which existed to work around exactly that in 2.x.
+coil = "3.3.0"
 media3 = "1.7.1"
 junit = "4.13.2"
 mockito = "5.11.0"
@@ -53,7 +54,7 @@ shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

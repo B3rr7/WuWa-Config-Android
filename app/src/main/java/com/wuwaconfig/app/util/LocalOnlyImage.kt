@@ -10,17 +10,22 @@ import android.net.Uri
  * form is a `content://` URI. That is checked here so the invariant is enforced
  * rather than assumed.
  *
- * Why it matters: coil-compose 2.x depends on coil-base, which bundles
- * okhttp3 + okio + coil.fetch.HttpUriFetcher and registers that fetcher in the
- * DEFAULT ImageLoader component set. So the release APK ships a complete HTTP/TLS
- * image loader (verified in app/build/outputs/mapping/release/mapping.txt:
- * `coil.fetch.HttpUriFetcher`, 136 okhttp + 114 okio classes) even though no code
- * path can currently reach it. `ImageRequest.data()` accepts a String, so any future
- * code that persisted a remote URL into `bg_image_uri` — or any injected value —
- * would silently activate network egress plus an on-disk HTTP cache. Failing closed
- * here removes that dormant capability. The full fix is the Coil 3 migration
- * (`io.coil-kt.coil3`), where network fetching is a separate opt-in artifact;
- * see the TODO in gradle/libs.versions.toml.
+ * Why the check is still here even though Coil 3 removed the hazard it was written
+ * for: on Coil 2, `coil-compose` depended on `coil-base`, which bundled okhttp3 +
+ * okio + `coil.fetch.HttpUriFetcher` and registered that fetcher in the DEFAULT
+ * ImageLoader component set. The release APK shipped a complete HTTP/TLS image
+ * loader (136 okhttp + 114 okio classes) that no code path could reach, and
+ * `ImageRequest.data()` accepts a String — so any future code that persisted a
+ * remote URL into `bg_image_uri`, or any injected value, would have silently
+ * activated network egress plus an on-disk HTTP cache.
+ *
+ * Coil 3 makes network fetching a separate opt-in artifact, so the capability is
+ * gone from the binary rather than merely unused: after the migration the release
+ * mapping file contains zero okhttp, okio or `HttpUriFetcher` classes. The guard
+ * stays anyway. It costs one `Uri.parse`, and the failure mode it protects against
+ * - someone adding `coil-network` later, or a fetcher that reaches a remote URI by
+ * some other route - is silent network egress. Belt and braces on the one
+ * invariant in this app that is a privacy property rather than a preference.
  */
 fun isLocalOnlyImageUri(
     uri: String?,
