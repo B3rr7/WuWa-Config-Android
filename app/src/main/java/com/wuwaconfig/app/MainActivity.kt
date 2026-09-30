@@ -119,6 +119,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // enableEdgeToEdge() (the ComponentActivity overload, not WindowCompat's) turns
+        // isNavigationBarContrastEnforced ON, which paints a translucent grey scrim behind
+        // 3-button navigation on API 29+. That scrim reads as a rendering bug here: every
+        // screen draws its own GradientBackground all the way to the bottom edge, and
+        // ReviewBottomBar/LogsScreen's FAB sit flush against the gesture pill. Disabling
+        // it lets the app's own bottom-edge colour run to the system bar.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
         // FLAG_SECURE blocks screenshots AND the recents-task thumbnail, and is off
         // by default: capturing a config screen is a normal thing to want to do.
         // It remains a build-time switch because a build that leaves it on is no

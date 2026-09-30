@@ -40,7 +40,19 @@ fun SetupScreen(
             containerColor = Color.Transparent,
         ) { padding ->
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
+                // imePadding BEFORE verticalScroll (the ordering is load-bearing: the
+                // reverse would let the scroll container consume the keyboard inset
+                // while the field is still off-screen). This screen's OutlinedTextField
+                // is the last thing above the Confirm button, so without it the field
+                // sits under the keyboard on API 30+ where adjustResize is inert
+                // because enableEdgeToEdge() has turned off decor fitting.
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .imePadding()
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text(

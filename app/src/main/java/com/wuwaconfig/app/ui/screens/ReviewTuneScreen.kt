@@ -747,6 +747,12 @@ private fun ReviewBottomBar(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
         tonalElevation = 4.dp,
         shadowElevation = 8.dp,
+        // imePadding, not just navigationBarsPadding: this screen's BasicTextField
+        // (EditorPane) is the primary input, so the bar has to ride above the
+        // keyboard too — otherwise the Deploy chip row is unreachable while typing.
+        // imePadding is 0 when no keyboard is up, so the gesture-pill gap still comes
+        // from the navigationBarsPadding() below.
+        modifier = Modifier.imePadding(),
     ) {
         Row(
             modifier =
