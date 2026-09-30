@@ -125,7 +125,7 @@ adb usb
 > [!IMPORTANT]
 > **Android 11+ and Chinese ROMs (Xiaomi/HyperOS, vivo, OPPO)** deny the `shell` user
 > writes into `Android/data/`. A `Permission denied` triggers an automatic `run-as` retry.
-> If the game is not debuggable, the retry cannot work — switch to **SAF** or **Root**.
+> If the game is not debuggable, the retry cannot work — switch to **?** or **Root**.
 
 ### Shizuku — Binder IPC
 
