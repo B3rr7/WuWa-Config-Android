@@ -18,7 +18,7 @@ documentfile = "1.0.1"
 # migration: replace EncryptedFile with a plain Tink AEAD Config backed by an
 # AndroidKeyStore AES-GCM key, then drop this dependency.
 securityCrypto = "1.1.0"
-gson = "2.13.2"
+gson = "2.14.0"
 # Coil 3. Resolves TODO(coil): 2.7.0 was a stale major against a 2026.x Compose BOM.
 # Beyond the package rename (coil.* -> coil3.*), the win is that network fetching is a
 # separate opt-in artifact, so coil-compose no longer drags okhttp + okio + an HTTP
