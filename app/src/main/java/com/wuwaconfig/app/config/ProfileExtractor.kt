@@ -43,7 +43,6 @@ class ProfileExtractor(
         // came back null. The file name and the table name are unrelated here.
         internal const val LOCAL_STORAGE_TABLE = "LocalStorage"
         internal const val DEVICE_STORAGE_TABLE = "LocalStorage"
-
     }
 
     suspend fun readClientLogContent(onProgress: (Int) -> Unit = {}): Result<String> =
@@ -605,7 +604,6 @@ class ProfileExtractor(
             null
         }
     }
-
 
     private fun formatTimestamp(ts: String?): String? {
         if (ts == null) return null

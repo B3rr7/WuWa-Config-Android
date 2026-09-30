@@ -903,4 +903,3 @@ private fun PityLoadingAnimation(text: String) {
         }
     }
 }
-

@@ -299,6 +299,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val platform = detectPlatform(logInfo)
         val counts = mutableMapOf<String, Int>()
         val reasons = mutableSetOf<String>()
+
         fun mark(
             text: String,
             label: String,
@@ -348,7 +349,11 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         allowRestrictedCvars: Boolean,
     ): PostProcessedIni {
         val stripped = mutableListOf<String>()
-        fun strip(text: String, restricted: Boolean): String {
+
+        fun strip(
+            text: String,
+            restricted: Boolean,
+        ): String {
             if (restricted) return text
             val (out, removed) = ForbiddenCvars.stripForbiddenCvarsWithReport(text)
             stripped += removed

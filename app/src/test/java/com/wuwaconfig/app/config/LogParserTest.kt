@@ -244,11 +244,12 @@ class LogParserTest {
         // Deliberately avoids every UE4_KEYWORDS entry so verifyDecryption() cannot
         // pass this — it is accepted only by the new log-shape gate, which is exactly
         // the path under test.
-        val text = buildString {
-            repeat(12) { i ->
-                append("[2026.09.26-22.19.44:Warning] verbose: texture streaming budget exceeded ($i)\n")
+        val text =
+            buildString {
+                repeat(12) { i ->
+                    append("[2026.09.26-22.19.44:Warning] verbose: texture streaming budget exceeded ($i)\n")
+                }
             }
-        }
         val encrypted = encryptPlaintext(text.toByteArray(Charsets.UTF_8), wuwaHeader)
         assertEquals(
             text,

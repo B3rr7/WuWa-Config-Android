@@ -477,7 +477,11 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
         ): LogInfo {
             val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             val memoryInfo = ActivityManager.MemoryInfo().also { activityManager.getMemoryInfo(it) }
-            val metrics = DisplayMetrics().also { @Suppress("DEPRECATION") context.resources.displayMetrics }
+            val metrics =
+                DisplayMetrics().also {
+                    @Suppress("DEPRECATION")
+                    context.resources.displayMetrics
+                }
             return LogInfo(
                 gpu = socName,
                 deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",

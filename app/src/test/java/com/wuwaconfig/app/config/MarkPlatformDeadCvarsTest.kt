@@ -199,14 +199,16 @@ class MarkPlatformDeadCvarsTest {
         val out = markPlatformDeadCvars(ini, platform, "Engine.ini", counts, reasons)
 
         // The five the engine rejected are now inert.
-        for (dead in
-            listOf(
-                "r.Kuro.GlobalLightQuality_PC",
-                "r.Kuro.GlobalLightShadowQuality_PC",
-                "r.TemporalAA.Algorithm",
-                "r.TemporalAA.Upsampling",
-                "r.TemporalAACatmullRom",
-            )) {
+        for (
+        dead in
+        listOf(
+            "r.Kuro.GlobalLightQuality_PC",
+            "r.Kuro.GlobalLightShadowQuality_PC",
+            "r.TemporalAA.Algorithm",
+            "r.TemporalAA.Upsampling",
+            "r.TemporalAACatmullRom",
+        )
+        ) {
             val line = out.lines().first { it.contains(dead) }
             assertTrue("$dead must be commented out: $line", line.trimStart().startsWith(";"))
         }
@@ -214,14 +216,16 @@ class MarkPlatformDeadCvarsTest {
         assertTrue(out.lines().first { it.contains("r.Vulkan.SSR") }.trimStart().startsWith(";"))
 
         // Verified-good neighbours untouched.
-        for (live in
-            listOf(
-                "r.TemporalAA.Sharpness",
-                "r.PSO.CompilationMode",
-                "r.PSO.CacheEvictScheme",
-                "r.Mobile.AllowHZBOcclusion",
-                "r.ShadowQuality",
-            )) {
+        for (
+        live in
+        listOf(
+            "r.TemporalAA.Sharpness",
+            "r.PSO.CompilationMode",
+            "r.PSO.CacheEvictScheme",
+            "r.Mobile.AllowHZBOcclusion",
+            "r.ShadowQuality",
+        )
+        ) {
             val line = out.lines().first { it.contains(live) }
             assertFalse("$live must stay live: $line", line.trimStart().startsWith(";"))
         }

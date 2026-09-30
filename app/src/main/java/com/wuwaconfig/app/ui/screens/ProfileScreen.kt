@@ -607,4 +607,3 @@ private fun ProfileLoadingAnimation(
         }
     }
 }
-

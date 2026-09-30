@@ -10,12 +10,14 @@
          Doze/suspend, so without this the socket can die silently while the
          "ADB connection active" notification is still up. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- TODO(notifications): POST_NOTIFICATIONS is a runtime permission on
-         API 33+ and is never requested anywhere in the app, so the AdbConnection
-         Service foreground notification is silently suppressed and the user has
-         no way to see or stop an active privileged ADB session. The request must
-         live in MainActivity (the only top-of-stack Activity); it cannot be done
-         from the Application class or from a Service. -->
+<!-- POST_NOTIFICATIONS is a runtime permission on API 33+, requested by
+         MainActivity.requestNotificationPermissionIfNeeded() from onCreate().
+         It is declared here and requested there; that is the whole story, and
+         the request must stay in MainActivity because it is the only
+         top-of-stack Activity — it cannot live in the Application class or in
+         a Service. Without it the AdbConnectionService foreground notification
+         is silently suppressed and the user has no way to stop an active
+         privileged ADB session. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />

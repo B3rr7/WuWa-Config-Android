@@ -112,10 +112,19 @@ object LogParser {
     }
 
     /**
-     * 512-byte pre-flight verification checker.
-     * Screens the first min(512, decrypted.size) bytes for Unreal Engine keywords
-     * like "LogInit", "LogRHI", "Core.System", "GameUserSettings", etc.
-     * Returns true if the decrypted content looks like a valid UE4 log.
+     * Pre-flight verification that a decrypted payload really is a UE4 log.
+     *
+     * Screens the first min(16 KB, decrypted.size) bytes for engine keywords like
+     * "LogInit", "LogRHI", "Core.System", "GameUserSettings", and returns true if
+     * the decrypted content looks like a valid UE4 log.
+     *
+     * This is the strong check. There is also a weaker [looksLikeEngineLogText]
+     * for payloads that decrypted cleanly but are too short, or start too early
+     * in the file, to contain any of these markers. The strong check is applied
+     * to the TRANSFORM OUTPUT, never to the input: a plain UTF-8-BOM text file
+     * passed to [decryptBackupLog] clears the `EF BB BF` magic gate, but
+     * XOR-LUT transforming it yields non-text, so this check rejects it. Real
+     * decrypted log content is overwhelmingly printable text, so it passes.
      */
     private fun verifyDecryption(decrypted: ByteArray): Boolean {
         // 16 KB, not 512 B. Measured on a real device log: this game opens with a long
@@ -133,15 +142,6 @@ object LogParser {
         }
     }
 
-    /**
-     * Secondary, weaker plausibility check for payloads that are genuinely decrypted
-     * but too short (or too early in the file) to contain any [UE4_KEYWORDS].
-     *
-     * Deliberately applied to the TRANSFORM OUTPUT, never to the input: a plain
-     * UTF-8-BOM text file passed to [decryptBackupLog] passes the `EF BB BF` magic
-     * gate, but XOR-LUT transforming it yields non-text, so this check rejects it.
-     * Real decrypted log content is overwhelmingly printable text, so it passes.
-     */
     /**
      * True when [text] carries at least one engine-log marker.
      *
@@ -266,7 +266,13 @@ object LogParser {
             // Multi-character markers only. A single "[" was in this list and is a
             // no-op: at the 4-16 KB sample sizes used here, essentially any text
             // contains a bracket, so it contributed false confidence and no signal.
-            "log", "error", "warning", "verbose", "engine", "texture", "shader",
+            "log",
+            "error",
+            "warning",
+            "verbose",
+            "engine",
+            "texture",
+            "shader",
         )
 
     /**

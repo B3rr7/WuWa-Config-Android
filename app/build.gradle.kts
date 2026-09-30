@@ -271,3 +271,67 @@ dependencies {
 extensions.configure<com.google.devtools.ksp.gradle.KspExtension>("ksp") {
     arg("appfunctions:aggregateAppFunctions", "true")
 }
+
+// ---------------------------------------------------------------------------
+// ktlint over Kotlin sources
+//
+// The ktlint Gradle plugin registers one task per KotlinSourceSet. Under AGP 9
+// there is no Kotlin Gradle plugin — Kotlin comes from AGP's built-in support
+// — so the plugin never sees a source set and `ktlintCheck` degenerates to
+// ktlintKotlinScriptCheck. `./gradlew :app:tasks --all` lists only that, which
+// means the 86 .kt files, i.e. all of the application code, have never been
+// style-checked by this build.
+//
+// These tasks run the ktlint CLI directly on the Android source directories.
+// The CLI version is read from the plugin's own extension rather than written
+// out here, so there is still exactly one place the version is decided.
+// ---------------------------------------------------------------------------
+
+val ktlintCli by configurations.creating
+
+// Read at the project scope, not inside dependencies {} — that block's receiver
+// is the DependencyHandler, where the project extensions are not visible.
+val ktlintCliVersion = the<org.jlleitschuh.gradle.ktlint.KtlintExtension>().version.get()
+
+dependencies {
+    // Not the plugin's `ktlint` configuration: that one resolves the rule engine
+    // but omits the CLI's runtime logging dependency (kotlin-logging-jvm), so
+    // running the CLI off it dies with NoClassDefFoundError: KLogger. Resolving
+    // ktlint-cli itself here pulls the complete runtime graph.
+    ktlintCli("com.pinterest.ktlint:ktlint-cli:$ktlintCliVersion")
+}
+
+val ktlintSourceDirs = listOf("src/main/java", "src/test/java")
+
+fun ktlintCliArgs() =
+    buildList {
+        addAll(ktlintSourceDirs)
+        // Stated explicitly: relative to workingDir, so it is the repo root's
+        // file and not whatever ~/.editorconfig the machine happens to carry.
+        add("--editorconfig=../.editorconfig")
+    }
+
+val ktlintCheckSources =
+    tasks.register<JavaExec>("ktlintCheckSources") {
+        group = "verification"
+        description = "Runs ktlint over the Kotlin source sets (AGP 9 hides them from the ktlint plugin)."
+        classpath = ktlintCli
+        mainClass.set("com.pinterest.ktlint.Main")
+        workingDir = projectDir
+        args = ktlintCliArgs()
+    }
+
+val ktlintFormatSources =
+    tasks.register<JavaExec>("ktlintFormatSources") {
+        group = "formatting"
+        description = "Auto-formats the Kotlin source sets with ktlint."
+        classpath = ktlintCli
+        mainClass.set("com.pinterest.ktlint.Main")
+        workingDir = projectDir
+        args = ktlintCliArgs() + "-F"
+    }
+
+// Fold both into the lifecycle task names CI and AGENTS.md already document, so
+// `./gradlew ktlintCheck` stops being a no-op that reports success.
+tasks.matching { it.name == "ktlintCheck" }.configureEach { dependsOn(ktlintCheckSources) }
+tasks.matching { it.name == "ktlintFormat" }.configureEach { dependsOn(ktlintFormatSources) }

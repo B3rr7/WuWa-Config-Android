@@ -1,6 +1,5 @@
 package com.wuwaconfig.app.ui.components
 
-import com.wuwaconfig.app.util.isLocalOnlyImageUri
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.BlurMaskFilter
@@ -85,6 +84,7 @@ import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.ui.theme.*
+import com.wuwaconfig.app.util.isLocalOnlyImageUri
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.random.Random

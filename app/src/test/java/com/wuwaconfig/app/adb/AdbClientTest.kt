@@ -41,7 +41,11 @@ private class FakeSocket(
     // would block forever once the server is done writing.
     override fun getInputStream(): java.io.InputStream =
         object : java.io.FilterInputStream(clientIn) {
-            override fun read(b: ByteArray, off: Int, len: Int): Int {
+            override fun read(
+                b: ByteArray,
+                off: Int,
+                len: Int,
+            ): Int {
                 val timeout = readTimeoutMs
                 if (timeout == 0) return pipe.read(b, off, len)
                 val deadline = System.currentTimeMillis() + timeout
@@ -80,7 +84,10 @@ private class FakeSocket(
     override fun connect(endpoint: java.net.SocketAddress) {
     }
 
-    override fun connect(endpoint: java.net.SocketAddress, timeout: Int) {
+    override fun connect(
+        endpoint: java.net.SocketAddress,
+        timeout: Int,
+    ) {
     }
 
     override fun close() {

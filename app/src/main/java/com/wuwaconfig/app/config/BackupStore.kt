@@ -103,9 +103,10 @@ class BackupStore(
         // Public copies of private backups share the backup's data, so they must
         // not be listed again — match both the id-suffixed dir that
         // exportPublicCopy creates and the unsuffixed legacy layout.
-        val privateDirNames = privateBackups
-            .flatMap { listOf(sanitizeDirName(it.name), publicDirName(it)) }
-            .toSet()
+        val privateDirNames =
+            privateBackups
+                .flatMap { listOf(sanitizeDirName(it.name), publicDirName(it)) }
+                .toSet()
         val publicBackupsDir = File(publicDir, "Backups")
         val publicBackups =
             if (publicBackupsDir.exists()) {
