@@ -11,7 +11,7 @@ activityCompose = "1.12.4"
 nav3 = "1.1.7"
 coroutines = "1.11.0"
 shizuku = "13.1.5"
-documentfile = "1.0.1"
+documentfile = "1.1.0"
 # androidx.security:security-crypto is the deprecated artifact family; Google
 # steered new work to the platform KeyStore API, and adb/AdbKeyVault.kt now does
 # exactly that (AndroidKeyStore AES-256-GCM) for all key writes.
