@@ -88,7 +88,7 @@
 "downloadUrl":"https://github.com/b3rr7/WuWa-Config-Android/releases/latest",
 "installUrl":"https://github.com/b3rr7/WuWa-Config-Android/releases/latest",
 "releaseNotes":"https://github.com/b3rr7/WuWa-Config-Android/releases",
-"datePublished":"2024-11-15","dateModified":"2026-09-18",
+"datePublished":"2024-11-15","dateModified":"2026-09-30",
 "description":"Player-built Android app that optimizes Wuthering Waves performance via a config editor and hardware-aware INI generator. SmartBrain scores your device and generates ~350 CVars across 5 INI files. Deploys via ADB, Shizuku, Root or SAF. Zero telemetry.",
 "offers":{"@type":"Offer","price":"0","priceCurrency":"USD","availability":"https://schema.org/InStock"},
 "author":{"@type":"Person","name":"Player42","url":"https://github.com/b3rr7"},
@@ -102,11 +102,12 @@
 "FPS Lab — dual-boundary GPU/CPU performance estimator for 35+ chipsets",
 "Pity Tracker — 11 gacha pool types, reads Kuro's official API",
 "Battle Stats — all 14 counters from Client.log",
-"Auto-Tune Wizard — iterative benchmark loop, 5 rounds",
 "Backup & Restore with per-file UUID snapshots",
-"INI Editor with smart flags for redundant and unknown CVars",
-"Deploy Verification — hash snapshot and reconciliation",
-"120 FPS unlock toggle"
+"INI Editor with smart flags for redundant, unknown and platform-dead CVars",
+ "Deploy Verification — hash snapshot and reconciliation",
+ "ADB wireless pairing built in — no PC or USB cable required",
+ "9 read-only functions for your phone's system assistant",
+ "120 FPS unlock toggle"
 ],
 "aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"127","reviewCount":"42","bestRating":"5","worstRating":"1"},
 "review":{"@type":"Review","reviewRating":{"@type":"Rating","ratingValue":"5","bestRating":"5"},"author":{"@type":"Person","name":"Player42"},"reviewBody":"Built it because I faced the same config pain. Works on my Poco X6 Pro — stable 110 FPS with the Balanced preset and 120 FPS unlock."}}
@@ -132,7 +133,10 @@
 {"@type":"Question","name":"Is it stable? What if something breaks?","acceptedAnswer":{"@type":"Answer","text":"It's actively evolving — most devices work great. Safety nets: auto-backup before every deploy, one-tap restore, hash verification. Worst case, you're one tap from your original config."}},
 {"@type":"Question","name":"What is WuWaConfig?","acceptedAnswer":{"@type":"Answer","text":"A free Android app that optimizes Wuthering Waves. It reads your Client.log, scores your phone with SmartBrain (0–100), generates optimized Engine.ini, Scalability.ini and GameUserSettings.ini, then deploys via ADB, Shizuku, Root or SAF."}},
 {"@type":"Question","name":"Does it work on Samsung Galaxy S23 / S24?","acceptedAnswer":{"@type":"Answer","text":"Yes — both Snapdragon and Exynos variants, on Android 8+. Connect via Shizuku or ADB Wireless Debugging, pick a preset, deploy. Exynos models should start one tier lower than the Snapdragon equivalent for thermal headroom."}},
-{"@type":"Question","name":"Best preset for Poco X6 Pro / Snapdragon?","acceptedAnswer":{"@type":"Answer","text":"Start with Balanced or High and let SmartBrain tune. Snapdragon 8 Gen 2/3 flagships can run Ultra or Cinematic with the 120 FPS unlock; mid-range chips are smoothest on Competitive or Performance."}}
+{"@type":"Question","name":"Best preset for Poco X6 Pro / Snapdragon?","acceptedAnswer":{"@type":"Answer","text":"Start with Balanced or High and let SmartBrain tune. Snapdragon 8 Gen 2/3 flagships can run Ultra or Cinematic with the 120 FPS unlock; mid-range chips are smoothest on Competitive or Performance."}},
+ {"@type":"Question","name":"Do I need a PC or a USB cable?","acceptedAnswer":{"@type":"Answer","text":"No. The app implements the ADB wire protocol itself, so there is no adb binary and no computer in the loop. On Android 11+ and newer, paste the code from Pair device with pairing code into the connect dialog to authorise the app's key; pairing is the step most people miss, and after it, connects need no code."}},
+ {"@type":"Question","name":"Shizuku says the service never connected. What now?","acceptedAnswer":{"@type":"Answer","text":"On Xiaomi/HyperOS, vivo and OPPO the ROM blocks or throttles the helper process. Enable USB debugging (Security settings) alongside regular USB debugging, re-authorize it, and allow the app to run in the background. WuWaConfig includes an in-app walkthrough for these ROMs."}},
+ {"@type":"Question","name":"Can my phone's assistant use WuWaConfig?","acceptedAnswer":{"@type":"Answer","text":"Yes — 9 read-only functions are exposed to the system assistant, covering presets, config generation, device profile, log analysis, battle stats and deploy history. Operations that would modify your device are deliberately not exposed."}}
 ]}
 </script>
 
@@ -192,6 +196,7 @@
 <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M12 14l4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
 <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-bot" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M12 4v4M9 14h.01M15 14h.01M9.5 17.5h5M1.5 12v4M22.5 12v4"/></symbol>
 <symbol id="i-search-faq" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M8 11h6"/></symbol>
 </defs></svg>
 
@@ -360,7 +365,7 @@
   <div class="stat" role="listitem"><b data-count="5889">5,889</b><small>CVars in Database</small></div>
   <div class="stat" role="listitem"><b data-count="735">735</b><small>Monitored CVars</small></div>
   <div class="stat" role="listitem"><b data-count="350">350</b><small>CVars per Config</small></div>
-  <div class="stat" role="listitem"><b data-count="33">33</b><small>Restricted CVars</small></div>
+  <div class="stat" role="listitem"><b data-count="31">31</b><small>Restricted CVars</small></div>
   <div class="stat" role="listitem"><b data-count="18">18</b><small>CVar Categories</small></div>
   <div class="stat" role="listitem"><b data-count="8">8</b><small>Config Presets</small></div>
   <div class="stat" role="listitem"><b data-count="13">13</b><small>Navigable Screens</small></div>
@@ -375,18 +380,18 @@
       <p>From automatic hardware analysis to manual INI surgery, gacha math and battle telemetry — all on-device.</p>
     </div>
     <div class="f-grid">
-      <article class="f-card reveal"><span class="f-num">F.01</span><div class="f-icon"><svg class="ic"><use href="#i-sliders"/></svg></div><h3>Config Generator</h3><p>8 presets from Potato to Cinematic. SmartBrain scores your hardware and writes 5 optimized INI files — ~350 CVars across 12+ engine sections — with 24 toggleable options and 23 experimental CVars.</p><span class="tag">120 FPS</span><span class="tag">5 INI Files</span><span class="tag">Ultra Quality</span></article>
-      <article class="f-card reveal"><span class="f-num">F.02</span><div class="f-icon"><svg class="ic"><use href="#i-cpu"/></svg></div><h3>SmartBrain Scoring</h3><p>Scores your device 0–100 from a baseline of 50 with 20+ weighted signals — GPU tier, RAM, Vulkan, thermals, OOM history — then recommends the optimal preset.</p><span class="tag">20+ Signals</span><span class="tag">Auto-Preset</span></article>
+      <article class="f-card reveal"><span class="f-num">F.01</span><div class="f-icon"><svg class="ic"><use href="#i-sliders"/></svg></div><h3>Config Generator</h3><p>8 presets from Potato to Cinematic. SmartBrain scores your hardware and writes 5 optimized INI files — ~350 CVars grouped into commented, topic-by-topic blocks — with 24 toggleable options and 23 experimental CVars.</p><span class="tag">120 FPS</span><span class="tag">5 INI Files</span><span class="tag">Ultra Quality</span></article>
+      <article class="f-card reveal"><span class="f-num">F.02</span><div class="f-icon"><svg class="ic"><use href="#i-cpu"/></svg></div><h3>SmartBrain Scoring</h3><p>Scores your device 0–100 from a baseline of 50 with 20+ weighted signals — GPU tier, RAM, Vulkan, thermals, OOM history — then recommends the optimal preset. The mapping reads the engine banner and your real frame times, so a device that drops frames gets the stability-first preset even at a high score.</p><span class="tag">20+ Signals</span><span class="tag">Auto-Preset</span></article>
       <article class="f-card reveal"><span class="f-num">F.03</span><div class="f-icon"><svg class="ic"><use href="#i-target"/></svg></div><h3>Pity Tracker</h3><p>Reads Kuro's official gacha API across 11 pool types. Character: 80 hard / 66 soft, 50/50 to guaranteed. Weapon: 70/57, 75/25. Background polling with alerts.</p><span class="tag">11 Pools</span><span class="tag">12h Cache</span><span class="tag">50-50 Math</span></article>
       <article class="f-card reveal"><span class="f-num">F.04</span><div class="f-icon"><svg class="ic"><use href="#i-chart"/></svg></div><h3>Battle Stats</h3><p>All 14 counters from Client.log — battles fought, echoes collected, dodges (forward/back/counter), deaths, role changes, teleports, staggers, stamina, echo skills, transforms, month cards. 100% coverage via parallel partition reads.</p><span class="tag">14 Counters</span><span class="tag">CN Log Terms</span><span class="tag">Parallel</span></article>
-      <article class="f-card reveal"><span class="f-num">F.05</span><div class="f-icon"><svg class="ic"><use href="#i-cycle"/></svg></div><h3>Auto-Tune Wizard</h3><p>Iterative benchmark loop up to 5 rounds — deploys, captures real FPS via logcat parsing, and steps through 8 preset levels until you hit the sweet spot. State persisted to JSON.</p><span class="tag">5 Rounds</span><span class="tag">8 Levels</span></article>
-      <article class="f-card reveal"><span class="f-num">F.06</span><div class="f-icon"><svg class="ic"><use href="#i-box"/></svg></div><h3>Backup &amp; Restore</h3><p>Per-file UUID backups, auto-snapshot before every write, restorable individually — saved to both private storage and Downloads/WuWaConfig/Backups for file-manager access.</p><span class="tag">Auto-Backup</span><span class="tag">1-Tap Restore</span></article>
-      <article class="f-card reveal"><span class="f-num">F.07</span><div class="f-icon"><svg class="ic"><use href="#i-db"/></svg></div><h3>INI Editor</h3><p>Full-screen monospace editor for all 5 config files with hash refresh on save — redundant lines flagged "matches game default", unknowns flagged "not in libUE4.so dump".</p><span class="tag">Inline Edit</span><span class="tag">Smart Flags</span></article>
-      <article class="f-card reveal"><span class="f-num">F.08</span><div class="f-icon"><svg class="ic"><use href="#i-search"/></svg></div><h3>Deploy Verification</h3><p>Pulls a fresh Client.log post-deploy and cross-references every CVar against the ConfigMonitor database — accept/reject badge with color-coded redundant, unknown and monitored counts.</p><span class="tag">Hash Snapshot</span><span class="tag">Reconcile</span></article>
-      <article class="f-card reveal"><span class="f-num">F.09</span><div class="f-icon"><svg class="ic"><use href="#i-shield"/></svg></div><h3>Privacy First</h3><p>No Firebase, Crashlytics or Sentry. Only connects to localhost ADB and Kuro's official gacha API — always user-initiated. android:allowBackup disabled system-wide.</p><span class="tag">No Telemetry</span><span class="tag">Local-Only</span></article>
-      <article class="f-card reveal"><span class="f-num">F.10</span><div class="f-icon"><svg class="ic"><use href="#i-phone"/></svg></div><h3>Player Profile</h3><p>Read-only snapshot of UID, server, level, game version, tower floor, weekly rogue score and battle-pass status. Zero footprint — the game cannot detect it. Cached with manual refresh.</p><span class="tag">Read-Only</span><span class="tag">Zero Footprint</span></article>
-      <article class="f-card reveal"><span class="f-num">F.11</span><div class="f-icon"><svg class="ic"><use href="#i-wrench"/></svg></div><h3>ADB Wire Protocol</h3><p>Native in-app ADB — no external binary. Full auth handshake (RSA 2048-bit, SHA1withRSA, SSH-RSA pubkey), auto port scan 37,000–44,000 + 5555, 15s keepalive, base64 chunked push with MD5 verify.</p><span class="tag">No Binary</span><span class="tag">MD5 Verify</span></article>
-      <article class="f-card reveal"><span class="f-num">F.12</span><div class="f-icon"><svg class="ic"><use href="#i-key"/></svg></div><h3>Encrypted ADB Keys</h3><p>RSA keys encrypted at rest via AndroidKeyStore — AES-256-GCM with HKDF (4KB scheme). Plaintext keys auto-migrate on first load; stored as EncryptedFile in app data.</p><span class="tag">AES-256-GCM</span><span class="tag">Auto-Migrate</span></article>
+      <article class="f-card reveal"><span class="f-num">F.05</span><div class="f-icon"><svg class="ic"><use href="#i-box"/></svg></div><h3>Backup &amp; Restore</h3><p>Per-file UUID backups, auto-snapshot before every write, restorable individually — saved to both private storage and Downloads/WuWaConfig/Backups for file-manager access.</p><span class="tag">Auto-Backup</span><span class="tag">1-Tap Restore</span></article>
+      <article class="f-card reveal"><span class="f-num">F.06</span><div class="f-icon"><svg class="ic"><use href="#i-db"/></svg></div><h3>INI Editor</h3><p>Full-screen monospace editor for all 5 config files, with search, line-by-line diff against the live file and hash refresh on save. Every line carries a plain-English flag: "matches game default", "not in the engine dump", "dead on your device" or "UE5-only on a UE4 build".</p><span class="tag">Inline Edit</span><span class="tag">Line Diff</span><span class="tag">Smart Flags</span></article>
+      <article class="f-card reveal"><span class="f-num">F.07</span><div class="f-icon"><svg class="ic"><use href="#i-search"/></svg></div><h3>Deploy Verification</h3><p>Pulls a fresh Client.log post-deploy and cross-references every CVar against the ConfigMonitor database — accept/reject badge with color-coded redundant, unknown and monitored counts.</p><span class="tag">Hash Snapshot</span><span class="tag">Reconcile</span></article>
+      <article class="f-card reveal"><span class="f-num">F.08</span><div class="f-icon"><svg class="ic"><use href="#i-shield"/></svg></div><h3>Privacy First</h3><p>No Firebase, Crashlytics or Sentry. The only network traffic is to your own phone over ADB and to Kuro's official gacha API — always user-initiated. App backups are disabled system-wide, and the assistant functions are read-only.</p><span class="tag">No Telemetry</span><span class="tag">Local-Only</span></article>
+      <article class="f-card reveal"><span class="f-num">F.09</span><div class="f-icon"><svg class="ic"><use href="#i-phone"/></svg></div><h3>Player Profile</h3><p>Read-only snapshot of UID, server, level, game version, tower floor, weekly rogue score and battle-pass status. Zero footprint — the game cannot detect it. Cached with manual refresh.</p><span class="tag">Read-Only</span><span class="tag">Zero Footprint</span></article>
+      <article class="f-card reveal"><span class="f-num">F.10</span><div class="f-icon"><svg class="ic"><use href="#i-wrench"/></svg></div><h3>ADB Wire Protocol</h3><p>Native in-app ADB — no external binary, no PC. Full auth handshake (RSA 2048-bit, SHA1withRSA, SSH-RSA pubkey), Android&nbsp;11+ wireless pairing from the code in Developer options, auto port scan 37,000–44,000 + 5555 plus a loopback check first, 15s keepalive, base64 chunked push with MD5 verify.</p><span class="tag">No Binary</span><span class="tag">Wireless Pairing</span><span class="tag">MD5 Verify</span></article>
+      <article class="f-card reveal"><span class="f-num">F.11</span><div class="f-icon"><svg class="ic"><use href="#i-key"/></svg></div><h3>Encrypted ADB Keys</h3><p>Your RSA key never sits on disk in the clear. The app encrypts it with AES-256-GCM under a key generated inside the platform's hardware-backed KeyStore, and writes a fresh nonce every time — so a diff of the file reveals nothing. Keys from older installs migrate on first load, automatically.</p><span class="tag">AES-256-GCM</span><span class="tag">Hardware-Backed</span><span class="tag">Auto-Migrate</span></article>
+      <article class="f-card reveal"><span class="f-num">F.12</span><div class="f-icon"><svg class="ic"><use href="#i-bot"/></svg></div><h3>Ask Your Assistant</h3><p>WuWaConfig exposes 9 read-only functions to your phone's system assistant, so you can ask for a preset, a device profile, a log breakdown or your deploy history in plain language. Nothing that changes your device is exposed, and nothing is sent anywhere to make it work.</p><span class="tag">9 Functions</span><span class="tag">Read-Only</span><span class="tag">On-Device</span></article>
     </div>
 
     <div class="subhead reveal" style="margin-top:34px">Gacha &amp; Pity Engine</div>
@@ -420,6 +425,8 @@
 <tr><td class="pname" data-l="Issue">120 FPS not unlocking</td><td data-l="Cause">r.FramePace.MaxFPS not set, device too weak, thermal cap active</td><td data-l="Fix">Enable 120 FPS unlock toggle in GameUserSettings.ini, check r.FramePace.MaxFPS=120, ensure thermal headroom</td><td data-l="Signal">unlock120 option</td></tr>
 <tr><td class="pname" data-l="Issue">Post-processing artifacts / bloom overload</td><td data-l="Cause">PostProcessQuality too high, bloom value too high, auto-exposure on low-end</td><td data-l="Fix">Set PostProcessQuality to 0–2, Bloom to 0–1, disable auto-exposure, reduce radial blur</td><td data-l="Signal" class="neg">Room to improve −8</td></tr>
 <tr><td class="pname" data-l="Issue">Slow config deploy / Permission denied</td><td data-l="Cause">Scoped storage blocks shell user on Android 11+ / Chinese ROMs</td><td data-l="Fix">Use run-as fallback (Shizuku/ADB), switch to SAF for scoped storage, or Root, enable USB debugging + Security settings on Chinese ROMs</td><td data-l="Signal">deploy path</td></tr>
+<tr><td class="pname" data-l="Issue">ADB connects, then drops every time</td><td data-l="Cause">Wireless debugging enabled but never paired, or a transient listener answered on a scanned port</td><td data-l="Fix">Paste the code from "Pair device with pairing code" into the connect dialog — pairing authorises the key for good, after which the port needs no code. Use Manual to enter the exact IP:port</td><td data-l="Signal">auth challenge missing</td></tr>
+<tr><td class="pname" data-l="Issue">Shizuku says the service never connected</td><td data-l="Cause">The ROM throttles or blocks the app from spawning the helper process — common on Xiaomi/HyperOS, vivo and OPPO</td><td data-l="Fix">Enable "USB debugging (Security settings)" next to regular USB debugging and re-authorize, then use the in-app ROM background-settings guide. Allow the app to run in the background</td><td data-l="Signal">bind timeout</td></tr>
 </tbody>
 </table>
 </div>
@@ -513,14 +520,15 @@
 
     <div class="ladder reveal" role="list" aria-label="Score to preset mapping">
       <div role="listitem"><b>POTATO</b><small>&le;20 / OOM&ge;2</small></div>
-      <div role="listitem"><b>ENDURANCE</b><small>20+</small></div>
+      <div role="listitem"><b>PERFORMANCE</b><small>20+</small></div>
+      <div role="listitem"><b>ENDURANCE</b><small>25+ auto-adjust / thermal</small></div>
       <div role="listitem"><b>BALANCED</b><small>40+</small></div>
       <div role="listitem" class="hot"><b>COMPETITIVE</b><small>45+ + drops</small></div>
-      <div role="listitem"><b>HIGH</b><small>70+</small></div>
-      <div role="listitem"><b>ULTRA</b><small>80+</small></div>
-      <div role="listitem"><b>CINEMATIC</b><small>85+</small></div>
+      <div role="listitem"><b>HIGH</b><small>70+ flagship / high tier</small></div>
+      <div role="listitem"><b>ULTRA</b><small>80+ flagship</small></div>
+      <div role="listitem"><b>CINEMATIC</b><small>85+ flagship, cool</small></div>
     </div>
-    <p class="sb-foot reveal">COMPETITIVE triggers when frame-drop signals are detected even at a moderate score — stability first.</p>
+    <p class="sb-foot reveal">Higher tiers also require a flagship/high GPU and Vulkan support &mdash; a high score on weaker silicon never unlocks Cinematic. COMPETITIVE triggers when frame-drop signals are detected even at a moderate score — stability first.</p>
   </div>
 </section>
 
@@ -544,8 +552,8 @@
   <div class="container">
     <div class="sec-head reveal">
       <span class="kicker">05 / Engine.ini Output</span>
-      <h2>~350 CVars Across <em>16 Sections</em></h2>
-      <p>Each generation writes Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini and Hardware.ini — tailored to your device and preset.</p>
+      <h2>~350 CVars, <em>Topic by Topic</em></h2>
+      <p>Each generation writes Engine.ini, DeviceProfiles.ini, GameUserSettings.ini, Scalability.ini and Hardware.ini — tailored to your device and preset. Engine.ini is grouped into commented blocks (character quality, AA, post-processing, shadows, streaming, LOD, thermals…), and Scalability.ini carries the four quality tiers.</p>
     </div>
     <div class="f-grid reveal">
       <article class="f-card"><span class="f-num">E.01</span><h3>Character Quality</h3><p>SkeletalMesh LOD scale, outlines, face shadows, eye distance, rim light, auto-exposure, radial blur, landscape capture.</p></article>
@@ -662,7 +670,12 @@
     <div class="sec-head reveal">
       <span class="kicker">06 / CVar Database</span>
       <h2>5,889 CVars, <em>Fully Classified</em></h2>
-      <p>Three-level matching classifies every CVar the game can expose: 52 exact overrides, then 200+ <span class="mono">r.</span> sub-rules, then 18 top-level prefixes.</p>
+      <p>Three-level matching classifies every CVar the game can expose: 52 exact overrides, then 200+ <span class="mono">r.</span> sub-rules, then 18 top-level prefixes. On top of that, the CVar database knows which settings your device can <em>never</em> use &mdash; and comments them out instead of shipping them.</p>
+    </div>
+
+    <div class="sb-cols reveal">
+      <div class="sb-box"><div class="sb-head"><span>Dead-on-your-device CVars</span><i></i></div><div class="sig"><span>Graphics-API families that don't apply to your device are commented out &mdash; the <span class="mono">r.Vulkan.*</span> family on an OpenGL ES device, and vice versa</span><b class="pos">auto-detected</b></div><div class="sig"><span>Console, PC and Metal-only variants (<span class="mono">r.PS4.*</span>, <span class="mono">r.Metal.*</span>, <span class="mono">_PC</span> suffixes) &mdash; verified against exact tokens, so the Android-valid <span class="mono">r.PSO.*</span> family is never caught</span><b class="pos">safe by design</b></div><div class="sig"><span>Each is prefixed with a marker instead of being deleted, so one character restores it</span><b class="pos">1 char to undo</b></div></div>
+      <div class="sb-box"><div class="sb-head"><span>Engine generation detection</span><i></i></div><div class="sig"><span>Reads the <span class="mono">++UE4+&hellip;</span> / <span class="mono">++UE5+&hellip;</span> build banner out of <span class="mono">Client.log</span> instead of assuming</span><b class="pos">log-driven</b></div><div class="sig"><span>UE5-only CVars are suppressed on a UE4 build &mdash; the game ignores them anyway, so shipping them is just noise</span><b class="pos">UE4 / UE5</b></div><div class="sig"><span>Re-evaluated on every generation, so switching graphics API in-game brings its family straight back</span><b class="pos">no sticky state</b></div></div>
     </div>
 
     <div class="cat-cloud reveal" aria-label="CVar categories">
@@ -695,12 +708,12 @@
       </table>
     </div>
 
-    <div class="subhead reveal">Restricted CVars — 33 flagged, auto-stripped</div>
+    <div class="subhead reveal">Restricted CVars — 31 flagged, auto-stripped</div>
     <div class="tbl-wrap reveal">
       <table>
         <thead><tr><th>Category</th><th>CVars</th></tr></thead>
         <tbody>
-          <tr><td data-l="Cat" class="pname">Streaming</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.Streaming.Boost · r.Streaming.PoolSize · r.Streaming.LimitPoolSizeToVRAM · r.Streaming.MinBoost · r.Streaming.CPUReadback · r.Streaming.UseAsyncCPUReadback · r.Streaming.MaxNumTexturesToStreamPerFrame · r.Streaming.MinMipForSplitRequest · r.Streaming.UseFixedPoolsize · r.Streaming.UseAllMips · r.Streaming.MaxTempMemoryAllowed</td></tr>
+          <tr><td data-l="Cat" class="pname">Streaming</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.Streaming.Boost · r.Streaming.PoolSize · r.Streaming.LimitPoolSizeTOVRAM · r.Streaming.MinBoost · r.Streaming.CPUReadback · r.Streaming.UseAsyncCPUReadback · r.Streaming.MaxNumTexturesToStreamPerFrame · r.Streaming.MinMipForSplitRequest · r.Streaming.UseFixedPoolsize · r.Streaming.UseAllMips · r.Streaming.MaxTempMemoryAllowed</td></tr>
           <tr><td data-l="Cat" class="pname">Shadow</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.Shadow.MaxCSMResolution</td></tr>
           <tr><td data-l="Cat" class="pname">Texture</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.MipMapLODBias · r.TextureGroup.Landscape.TextureLODBias · r.Kuro.TexturePool.ExtraBudgetMB</td></tr>
           <tr><td data-l="Cat" class="pname">Quality</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.DetailMode · r.MaterialQualityLevel · r.KuroMaterialQualityLevel</td></tr>
@@ -708,11 +721,11 @@
           <tr><td data-l="Cat" class="pname">LOD</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.Kuro.SkeletalMesh.LODDistanceScale</td></tr>
           <tr><td data-l="Cat" class="pname">Ray Tracing</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.RayTracing.LimitDevice · r.Streamline.DLSSG.RetainResourcesWhenOff</td></tr>
           <tr><td data-l="Cat" class="pname">Compute / Features</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">r.AsyncComputePSO · r.AFME.Enable · r.MFRC.Enable · r.FEstimation.Option</td></tr>
-          <tr><td data-l="Cat" class="pname">Memory</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">Kuro.CppEffectsSystem.UseLowMemoryPlayerEffectLruCapacity · Kuro.CppEffectSystem.UseLowMemoryPlayerEffectLruCapacity</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="code-note reveal">With "Allow restricted CVars" OFF these are stripped from every generated INI before deploy — including <strong>+CVars=</strong> / <strong>-CVars=</strong> variants.</p>
+<tr><td data-l="Cat" class="pname">Memory</td><td data-l="CVars" class="wrapable mono" style="font-size:.72rem">Kuro.CppEffectSystem.UseLowMemoryPlayerEffectLruCapacity</td></tr>
+</tbody>
+</table>
+</div>
+<p class="code-note reveal">With "Allow restricted CVars" OFF these are stripped from every generated INI before deploy — including <strong>+CVars=</strong> / <strong>-CVars=</strong> variants. Matching is case-insensitive, so the same list catches <code>r.Streaming.PoolSize</code>, <code>r.streaming.poolsize</code> and their <code>+</code>/<code>&minus;</code> forms.</p>
 
     <div class="subhead reveal">GPU tier detection — 7 classes</div>
     <div class="sb-cols reveal">
@@ -839,7 +852,7 @@
         </div>
         <div class="sim-boost">vs stock settings<b id="boostPct" aria-live="polite">—</b></div>
         <div class="sim-rec">
-          <span class="sim-rec-label">Auto-Tune would pick</span>
+          <span class="sim-rec-label">SmartBrain would pick</span>
           <span class="sim-rec-badge" id="recPreset" title="Jump to presets" tabindex="0">—</span>
           <small id="recFps" aria-live="polite"></small>
         </div>
@@ -871,16 +884,16 @@
       <div class="tp-icon"><svg class="ic"><use href="#i-wrench"/></svg></div>
       <div class="tp-body">
         <h3>ADB Wireless <span class="rec">Recommended</span> <span class="lvl lv-full">Full Access</span></h3>
-        <p>Native in-app ADB wire protocol — no external binary. Full RSA 2048-bit auth handshake (SHA1withRSA, SSH-RSA pubkey), auto port scanning and MD5-verified chunked pushes.</p>
-        <div class="tp-feats"><span class="tp-feat">Ports 37,000–44,000 + 5555</span><span class="tp-feat">RSA 2048</span><span class="tp-feat">15s keepalive</span><span class="tp-feat">Base64 chunked push</span><span class="tp-feat">Keys AES-256-GCM @ AndroidKeyStore</span></div>
+        <p>Native in-app ADB wire protocol — no external binary. Full RSA 2048-bit auth handshake (SHA1withRSA, SSH-RSA pubkey), Android&nbsp;11+ wireless pairing with the code from Developer options, auto port scanning and MD5-verified chunked pushes.</p>
+        <div class="tp-feats"><span class="tp-feat">Ports 37,000–44,000 + 5555</span><span class="tp-feat">Wireless pairing (Android 11+)</span><span class="tp-feat">Loopback checked first</span><span class="tp-feat">RSA 2048</span><span class="tp-feat">15s keepalive</span><span class="tp-feat">Keys sealed by the hardware KeyStore</span></div>
       </div>
     </div>
     <div class="tab-pane" id="t-shi" role="tabpanel">
       <div class="tp-icon"><svg class="ic"><use href="#i-phone"/></svg></div>
       <div class="tp-body">
         <h3>Shizuku <span class="rec">Best Non-Root</span> <span class="lvl lv-mid">No Root Needed</span></h3>
-        <p>Binder-based UserService with graceful fallbacks and automatic temp-file cleanup. No compile-time dependency on the Shizuku API.</p>
-        <div class="tp-feats"><span class="tp-feat">60s timeout</span><span class="tp-feat">3&times; retry</span><span class="tp-feat">Script fallback &gt;4096 chars</span><span class="tp-feat">Auto-cleanup</span></div>
+        <p>Binder-based UserService with graceful fallbacks and automatic temp-file cleanup. No compile-time dependency on the Shizuku API. If the bind stalls on a Chinese ROM, an in-app walkthrough points you at the exact settings to change.</p>
+        <div class="tp-feats"><span class="tp-feat">45s bind, retried once</span><span class="tp-feat">75s command timeout</span><span class="tp-feat">Script fallback &gt;4096 chars</span><span class="tp-feat">ROM fix guide</span><span class="tp-feat">Auto-cleanup</span></div>
       </div>
     </div>
     <div class="tab-pane" id="t-root" role="tabpanel">
@@ -915,14 +928,14 @@
       <table>
         <thead><tr><th>Preset</th><th>Screen %</th><th>Shadow</th><th>Shadow Res</th><th>SSR</th><th>Mip Bias</th><th>Streaming</th><th>View Dist</th><th>Foliage LOD</th><th>Detail</th><th>LOD Bias</th><th>Grass Cull</th></tr></thead>
         <tbody>
-          <tr><td class="pname h-lo" data-l>POTATO</td><td data-l="Screen %">50%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">128</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">3</td><td data-l="Streaming" class="h-lo">0.3</td><td data-l="View Dist" class="h-lo">0.3</td><td data-l="Foliage LOD">0.4</td><td data-l="Detail">0</td><td data-l="LOD Bias">5</td><td data-l="Grass Cull">1,500</td></tr>
-          <tr><td class="pname h-md" data-l>ENDURANCE</td><td data-l="Screen %">55%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">128</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">3</td><td data-l="Streaming" class="h-lo">0.4</td><td data-l="View Dist" class="h-lo">0.4</td><td data-l="Foliage LOD">0.5</td><td data-l="Detail">0</td><td data-l="LOD Bias">4</td><td data-l="Grass Cull">2,500</td></tr>
-          <tr><td class="pname h-md" data-l>PERFORMANCE</td><td data-l="Screen %">60%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">256</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">3</td><td data-l="Streaming" class="h-lo">0.5</td><td data-l="View Dist" class="h-lo">0.5</td><td data-l="Foliage LOD">0.6</td><td data-l="Detail">0</td><td data-l="LOD Bias">3</td><td data-l="Grass Cull">4,500</td></tr>
-          <tr><td class="pname h-hi" data-l>COMPETITIVE</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">256</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">1</td><td data-l="Streaming">1.0</td><td data-l="View Dist">2.0</td><td data-l="Foliage LOD">1.0</td><td data-l="Detail">0</td><td data-l="LOD Bias">1</td><td data-l="Grass Cull">2,000</td></tr>
-          <tr><td class="pname h-hi" data-l>BALANCED</td><td data-l="Screen %">80%</td><td data-l="Shadow" class="h-md">2</td><td data-l="Shadow Res">1,024</td><td data-l="SSR" class="h-md">1</td><td data-l="Mip Bias">0</td><td data-l="Streaming" class="h-md">2.0</td><td data-l="View Dist">1.5</td><td data-l="Foliage LOD">2.0</td><td data-l="Detail">1</td><td data-l="LOD Bias">0</td><td data-l="Grass Cull">15,000</td></tr>
-          <tr><td class="pname h-hi" data-l>HIGH</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-hi">4</td><td data-l="Shadow Res">2,048</td><td data-l="SSR" class="h-md">2</td><td data-l="Mip Bias">0</td><td data-l="Streaming" class="h-hi">3.0</td><td data-l="View Dist">2.0</td><td data-l="Foliage LOD">2.5</td><td data-l="Detail">2</td><td data-l="LOD Bias">0</td><td data-l="Grass Cull">20,000</td></tr>
-          <tr><td class="pname h-max" data-l>ULTRA</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-max">5</td><td data-l="Shadow Res">2,048</td><td data-l="SSR" class="h-hi">4</td><td data-l="Mip Bias">&minus;1</td><td data-l="Streaming" class="h-max">4.0</td><td data-l="View Dist">3.0</td><td data-l="Foliage LOD">3.0</td><td data-l="Detail">2</td><td data-l="LOD Bias">&minus;1</td><td data-l="Grass Cull">30,000</td></tr>
-          <tr><td class="pname h-max" data-l>CINEMATIC</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-max">5</td><td data-l="Shadow Res">4,096</td><td data-l="SSR" class="h-hi">4</td><td data-l="Mip Bias">&minus;2</td><td data-l="Streaming" class="h-max">6.0</td><td data-l="View Dist">4.0</td><td data-l="Foliage LOD">4.0</td><td data-l="Detail">3</td><td data-l="LOD Bias">&minus;2</td><td data-l="Grass Cull">40,000</td></tr>
+          <tr><td class="pname h-lo" data-l>POTATO</td><td data-l="Screen %">60%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">128</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">3</td><td data-l="Streaming" class="h-lo">0.3</td><td data-l="View Dist" class="h-lo">0.3</td><td data-l="Foliage LOD">0.4</td><td data-l="Detail" class="h-lo">0</td><td data-l="LOD Bias">5</td><td data-l="Grass Cull">1,500</td></tr>
+          <tr><td class="pname h-md" data-l>ENDURANCE</td><td data-l="Screen %">70%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">128</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">3</td><td data-l="Streaming" class="h-lo">0.4</td><td data-l="View Dist" class="h-lo">0.4</td><td data-l="Foliage LOD">0.5</td><td data-l="Detail">1</td><td data-l="LOD Bias">4</td><td data-l="Grass Cull">2,500</td></tr>
+          <tr><td class="pname h-md" data-l>PERFORMANCE</td><td data-l="Screen %">60%</td><td data-l="Shadow" class="h-lo">0</td><td data-l="Shadow Res">256</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">3</td><td data-l="Streaming" class="h-lo">0.5</td><td data-l="View Dist" class="h-lo">0.5</td><td data-l="Foliage LOD">0.6</td><td data-l="Detail">2</td><td data-l="LOD Bias">3</td><td data-l="Grass Cull">4,500</td></tr>
+          <tr><td class="pname h-hi" data-l>COMPETITIVE</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-md">2</td><td data-l="Shadow Res">256</td><td data-l="SSR" class="h-lo">0</td><td data-l="Mip Bias">1</td><td data-l="Streaming">1.0</td><td data-l="View Dist">2.0</td><td data-l="Foliage LOD">1.0</td><td data-l="Detail">3</td><td data-l="LOD Bias">1</td><td data-l="Grass Cull">2,000</td></tr>
+          <tr><td class="pname h-hi" data-l>BALANCED</td><td data-l="Screen %">80%</td><td data-l="Shadow" class="h-md">2</td><td data-l="Shadow Res">1,024</td><td data-l="SSR" class="h-md">1</td><td data-l="Mip Bias">0</td><td data-l="Streaming" class="h-md">2.0</td><td data-l="View Dist">1.5</td><td data-l="Foliage LOD">2.0</td><td data-l="Detail" class="h-md">4</td><td data-l="LOD Bias">0</td><td data-l="Grass Cull">15,000</td></tr>
+          <tr><td class="pname h-hi" data-l>HIGH</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-hi">4</td><td data-l="Shadow Res">2,048</td><td data-l="SSR" class="h-md">2</td><td data-l="Mip Bias">0</td><td data-l="Streaming" class="h-hi">3.0</td><td data-l="View Dist">2.0</td><td data-l="Foliage LOD">2.5</td><td data-l="Detail" class="h-hi">5</td><td data-l="LOD Bias">0</td><td data-l="Grass Cull">20,000</td></tr>
+          <tr><td class="pname h-max" data-l>ULTRA</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-max">5</td><td data-l="Shadow Res">2,048</td><td data-l="SSR" class="h-hi">4</td><td data-l="Mip Bias">&minus;1</td><td data-l="Streaming" class="h-max">4.0</td><td data-l="View Dist">3.0</td><td data-l="Foliage LOD">3.0</td><td data-l="Detail" class="h-max">6</td><td data-l="LOD Bias">&minus;1</td><td data-l="Grass Cull">30,000</td></tr>
+          <tr><td class="pname h-max" data-l>CINEMATIC</td><td data-l="Screen %">100%</td><td data-l="Shadow" class="h-max">5</td><td data-l="Shadow Res">4,096</td><td data-l="SSR" class="h-hi">4</td><td data-l="Mip Bias">&minus;2</td><td data-l="Streaming" class="h-max">6.0</td><td data-l="View Dist">4.0</td><td data-l="Foliage LOD">4.0</td><td data-l="Detail" class="h-max">7</td><td data-l="LOD Bias">&minus;2</td><td data-l="Grass Cull">40,000</td></tr>
         </tbody>
       </table>
     </div>
@@ -943,41 +956,45 @@
     <div class="sec-head reveal">
       <span class="kicker">10 / Screens</span>
       <h2>See It <em>Before You Install</em></h2>
-      <p>Five screens from the actual app, auto-advancing every 10 seconds — or jump with the dots, arrows, or a swipe.</p>
+      <p>Six screens from the actual app, auto-advancing every 10 seconds — or jump with the dots, arrows, or a swipe.</p>
     </div>
 
     <div class="shot-stage reveal">
       <div class="shot-device" aria-roledescription="carousel" aria-label="App screenshots">
         <div class="shot-screen">
           <span class="shot-cam"></span>
-          <span class="shot-count" id="shotCount">01 / 05</span>
+          <span class="shot-count" id="shotCount">01 / 06</span>
 
           <div class="shot-track" id="shotTrack">
             <!-- Replace data-src with real screenshot URLs (e.g. screens/1.webp).
                  Empty/missing data-src shows the styled fallback card. -->
-            <div class="shot-slide" data-cap="Dashboard — SmartBrain score &amp; device summary">
-              <img data-src="screenshots/screen-01.webp" alt="Screenshot of the WuWaConfig dashboard showing SmartBrain score and device summary" loading="lazy" decoding="async" data-shot>
-              <div class="shot-fallback"><svg class="ic"><use href="#i-gauge"/></svg><b>01</b><span>Dashboard</span></div>
+            <div class="shot-slide" data-cap="Home — backend status &amp; quick actions">
+              <img data-src="screenshots/screen-01.webp" alt="Screenshot of the WuWaConfig home screen showing backend connection status and quick actions" loading="lazy" decoding="async" data-shot>
+              <div class="shot-fallback"><svg class="ic"><use href="#i-gauge"/></svg><b>01</b><span>Home</span></div>
             </div>
             <div class="shot-slide" data-cap="Config Generator — presets &amp; toggles">
               <img data-src="screenshots/screen-02.webp" alt="Screenshot of the WuWaConfig config generator with presets and toggles" loading="lazy" decoding="async" data-shot>
               <div class="shot-fallback"><svg class="ic"><use href="#i-sliders"/></svg><b>02</b><span>Generator</span></div>
             </div>
-            <div class="shot-slide" data-cap="FPS Lab — live performance estimator">
-              <img data-src="screenshots/screen-03.webp" alt="Screenshot of the WuWaConfig FPS Lab performance estimator" loading="lazy" decoding="async" data-shot>
-              <div class="shot-fallback"><svg class="ic"><use href="#i-gauge"/></svg><b>03</b><span>FPS Lab</span></div>
-            </div>
             <div class="shot-slide" data-cap="Pity Tracker — gacha history &amp; predictions">
-              <img data-src="screenshots/screen-04.webp" alt="Screenshot of the WuWaConfig pity tracker showing gacha history and predictions" loading="lazy" decoding="async" data-shot>
-              <div class="shot-fallback"><svg class="ic"><use href="#i-target"/></svg><b>04</b><span>Pity Tracker</span></div>
+              <img data-src="screenshots/screen-03.webp" alt="Screenshot of the WuWaConfig pity tracker showing gacha history and predictions" loading="lazy" decoding="async" data-shot>
+              <div class="shot-fallback"><svg class="ic"><use href="#i-target"/></svg><b>03</b><span>Pity Tracker</span></div>
             </div>
-            <div class="shot-slide" data-cap="Deploy — verification report">
-              <img data-src="screenshots/screen-05.webp" alt="Screenshot of the WuWaConfig deploy verification report" loading="lazy" decoding="async" data-shot>
-              <div class="shot-fallback"><svg class="ic"><use href="#i-search"/></svg><b>05</b><span>Deploy</span></div>
+            <div class="shot-slide" data-cap="Player Profile — UID, server &amp; tower progress">
+              <img data-src="screenshots/screen-04.webp" alt="Screenshot of the WuWaConfig player profile showing UID, server and tower progress" loading="lazy" decoding="async" data-shot>
+              <div class="shot-fallback"><svg class="ic"><use href="#i-phone"/></svg><b>04</b><span>Profile</span></div>
+            </div>
+            <div class="shot-slide" data-cap="Battle Stats — combat &amp; exploration counters">
+              <img data-src="screenshots/screen-05.webp" alt="Screenshot of the WuWaConfig battle stats analyzer showing combat and exploration counters" loading="lazy" decoding="async" data-shot>
+              <div class="shot-fallback"><svg class="ic"><use href="#i-chart"/></svg><b>05</b><span>Battle Stats</span></div>
+            </div>
+            <div class="shot-slide" data-cap="Settings — theme options &amp; backup directory">
+              <img data-src="screenshots/screen-06.webp" alt="Screenshot of the WuWaConfig settings screen with theme options and backup directory" loading="lazy" decoding="async" data-shot>
+              <div class="shot-fallback"><svg class="ic"><use href="#i-folder"/></svg><b>06</b><span>Settings</span></div>
             </div>
           </div>
 
-          <div class="shot-cap" id="shotCap">Dashboard — SmartBrain score &amp; device summary</div>
+          <div class="shot-cap" id="shotCap">Home — backend status &amp; quick actions</div>
         </div>
       </div>
 
@@ -1003,17 +1020,17 @@
       <p>How deployment stays safe, and what the app is built with.</p>
     </div>
 
-    <div class="subhead reveal">Auto-Tune state machine</div>
-    <div class="flow reveal" aria-label="Auto-Tune state machine">
-      <span>IDLE</span><i>&rarr;</i><span>DEPLOYING</span><i>&rarr;</i><span>WAITING_FOR_PLAY</span><i>&rarr;</i><span class="hot">CAPTURING</span><i>&rarr;</i><span>COMPLETE</span>
+    <div class="subhead reveal">Deploy pipeline</div>
+    <div class="flow reveal" aria-label="Deploy pipeline">
+      <span>SNAPSHOT HASHES</span><i>&rarr;</i><span>AUTO-BACKUP</span><i>&rarr;</i><span>PUSH (RETRY &times;2)</span><i>&rarr;</i><span>RECONCILE HASHES</span><i>&rarr;</i><span class="hot">VERIFY LOG</span>
     </div>
-    <p class="sb-foot reveal" style="margin-top:0">FPS &lt; target &times;0.85 &rarr; step DOWN a preset · &ge;15% headroom &rarr; step UP · progressive cuts by gap: SSR (&gt;15) &rarr; bloom (&gt;10) &rarr; radial blur (&gt;8) &rarr; shadows (&gt;5). Order: Cinematic &rarr; Ultra &rarr; High &rarr; Balanced &rarr; Competitive &rarr; Endurance &rarr; Performance &rarr; Potato.</p>
+    <p class="sb-foot reveal" style="margin-top:0">Your game's 70+ <span class="mono">[Core.System]</span> paths are read off the device and re-applied, so plugin content keeps resolving. Files go via a staging directory with retry and are only reported as deployed once the whole pipeline finishes &mdash; a hash-sync or verification failure is a failure, not a warning.</p>
 
     <div class="subhead reveal">Deploy safety system</div>
     <div class="f-grid reveal">
       <article class="f-card"><span class="f-num">D.01</span><div class="f-icon"><svg class="ic"><use href="#i-shield"/></svg></div><h3>Hash Sync</h3><p>KuroConfigMonitor snapshots hashes before deploy and reconciles after — concurrent game access is detected. ModifyCount capped at 8; atomic .new &rarr; rename push with read-back verification.</p></article>
       <article class="f-card"><span class="f-num">D.02</span><div class="f-icon"><svg class="ic"><use href="#i-box"/></svg></div><h3>Deploy History</h3><p>deploy_history.json stores up to 20 records: preset, method, files, accepted / redundant / unknown counts, plus baseline &amp; outcome metrics (FPS, thermal, OOM, drops) for delta comparison.</p></article>
-      <article class="f-card"><span class="f-num">D.03</span><div class="f-icon"><svg class="ic"><use href="#i-cycle"/></svg></div><h3>Optimizer Retune</h3><p>Stable (FPS &plusmn;5, no OOM): keep. Degraded: screen &rarr;75%, shadow &minus;2, detail &minus;1. OOM event: jump to Potato baseline. Improved: screen &times;1.15, shadow +1.</p></article>
+      <article class="f-card"><span class="f-num">D.03</span><div class="f-icon"><svg class="ic"><use href="#i-cycle"/></svg></div><h3>One-Tap Retune</h3><p>Every deploy history entry keeps the settings it shipped with, so you can redeploy it adjusted &mdash; never an automated loop. Stable (&plusmn;5 FPS, no OOM): keep. Degraded: screen &times;0.75, shadow &minus;2, detail &minus;1, reflections and draw distance cut. New OOM: back to the Potato baseline. Improved: screen &times;1.15, shadow +1.</p></article>
     </div>
 
     <div class="subhead reveal">Built with</div>
@@ -1022,18 +1039,19 @@
       <span class="chip">Jetpack Compose BOM 2026.04.01</span>
       <span class="chip">MVVM + StateFlow</span>
       <span class="chip">Material 3</span>
-      <span class="chip">Navigation Compose</span>
+      <span class="chip">Navigation 3</span>
       <span class="chip">AGP 9.4.0</span>
       <span class="chip">Gradle 9.6.0</span>
-      <span class="chip">SDK 26+ / Target 34</span>
+      <span class="chip">SDK 26+ / Target 36</span>
       <span class="chip">Gson</span>
-      <span class="chip">Coil</span>
+      <span class="chip">Coil 3</span>
+      <span class="chip">System Agent Functions</span>
       <span class="chip">ExoPlayer</span>
       <span class="chip">JUnit 4</span>
       <span class="chip">ktlint</span>
       <span class="chip">ProGuard</span>
     </div>
-    <p class="sb-foot reveal">Security notes: ADB keys encrypted at rest (AES-256-GCM + HKDF via AndroidKeyStore, plaintext auto-migrated) · cleartext permitted only to 127.0.0.1 / localhost · gacha polling via in-process LocalBroadcastManager · allowBackup=false.</p>
+    <p class="sb-foot reveal">Security notes: ADB key material sealed with AES-256-GCM under a hardware-backed platform KeyStore key (older installs migrated on first load) · cleartext permitted only to 127.0.0.1 / localhost · gacha polling via in-process LocalBroadcastManager · allowBackup=false · the system agent surface is read-only and bound to the system's app-function permission.</p>
   </div>
 </section>
 
@@ -1054,12 +1072,15 @@
         <svg class="ic"><use href="#i-search-faq"/></svg>
       </button>
     </div>
-    <span class="faq-count" id="faqCount" aria-live="polite">13 questions</span>
+    <span class="faq-count" id="faqCount" aria-live="polite">16 questions</span>
     <div class="faq reveal" id="faqList">
       <details><summary>Who made this? Are you a developer?</summary><div class="faq-b">A player, like you — not a professional dev. I faced the same config pain, planned a tool, and built it. It's open source, so you can check every line, and every issue you report becomes the next fix.</div></details>
       <details><summary>What is WuWaConfig?</summary><div class="faq-b">A free Android app that optimizes Wuthering Waves. It reads your <code>Client.log</code>, scores your phone with SmartBrain (0–100), generates optimized <code>Engine.ini</code>, <code>Scalability.ini</code> and <code>GameUserSettings.ini</code>, then deploys via ADB, Shizuku, Root or SAF.</div></details>
       <details><summary>Is it stable? What if something breaks?</summary><div class="faq-b">It's actively evolving — most devices work great, and edge cases get fixed fast because it's open source. Safety nets are built in either way: <strong>auto-backup before every deploy</strong>, one-tap restore, and hash verification. Worst case, you're one tap from your original config.</div></details>
       <details><summary>How do I boost FPS without root?</summary><div class="faq-b">Use <strong>ADB Wireless Debugging</strong> or <strong>Shizuku</strong> — both work on stock, non-rooted phones. SmartBrain reads your real hardware (GPU tier, RAM, Vulkan, thermal history) and picks the right preset. Flagships can unlock 120 FPS; mid-rangers gain stability and fewer drops rather than a huge raw-FPS jump.</div></details>
+      <details><summary>Do I need a PC or a USB cable?</summary><div class="faq-b">No. The app speaks the ADB wire protocol itself, so there's no <code>adb</code> binary to install and no computer in the loop. Turn on <strong>Wireless debugging</strong>, and on Android&nbsp;11+ paste the code from <strong>"Pair device with pairing code"</strong> into the connect dialog — that pairing step is what authorises your phone to accept this app's key, and it's the only part people miss. Pair once and later connects need no code. If your ROM already runs a local ADB service, the app finds that on <span class="mono">127.0.0.1</span> before it ever scans the network.</div></details>
+      <details><summary>Shizuku says the service never connected. What now?</summary><div class="faq-b">On Xiaomi/HyperOS, vivo and OPPO the system blocks or throttles the helper process. Enable <strong>"USB debugging (Security settings)"</strong> alongside regular USB debugging, re-authorize it, and make sure the app is allowed to run in the background. WuWaConfig also ships an in-app walkthrough for exactly these ROMs. The bind itself waits 45&nbsp;seconds and retries once, because a cold start on a heavily loaded phone routinely needs it.</div></details>
+      <details><summary>Can my phone's assistant use WuWaConfig?</summary><div class="faq-b">Yes — 9 read-only functions are exposed to the system assistant, so you can ask which preset fits your phone, generate a config, read your device profile, break down your logs or check your deploy history in plain language. Anything that would modify your device is deliberately not exposed, so the assistant can look but never touch.</div></details>
       <details><summary>Is it safe and private?</summary><div class="faq-b">Yes. No analytics, no telemetry, no crash reporting — nothing leaves your device except user-initiated gacha API calls. <code>android:allowBackup</code> is disabled and ADB keys are encrypted with AndroidKeyStore (AES-256-GCM).</div></details>
       <details><summary>Which phones are supported?</summary><div class="faq-b">Any Android 8+ phone — Snapdragon (Adreno), Dimensity (Mali), Exynos, Tensor, Kirin, Helio — including low-end. Per-chipset DeviceProfiles cover Poco, Redmi, Xiaomi, Samsung, OnePlus, Realme, Vivo, Oppo, Nothing, Motorola, Asus ROG and more.</div></details>
       <details><summary>Does it work on Samsung Galaxy S23 / S24?</summary><div class="faq-b">Yes — both Snapdragon and Exynos variants, on Android 8+. Connect via Shizuku or ADB Wireless Debugging, pick a preset, deploy. Exynos models should start <strong>one tier lower</strong> than the Snapdragon equivalent for thermal headroom.</div></details>
@@ -1108,7 +1129,7 @@
       <a href="https://www.youtube.com/@Player42_g" target="_blank" rel="noopener"><svg class="ic"><use href="#i-play"/></svg>YouTube</a>
     </nav>
     <p class="f-meta"><span class="brand">WuWaConfig</span> · Open Source · MIT · Not affiliated with Kuro Games<br>
-    <em>wuthering-waves · wuwa · fps-boost · engine-ini · config-optimizer · gacha-tracker · pity-calculator · kuro-games · mobile-gaming · android-optimization · unreal-engine-4 · adb · shizuku · gaming-tool · fps-unlock · graphics-tuning · cvars-editor · client-log-analyzer · smart-brain-scoring · config-monitor · vulkan-optimization · thermal-fix · auto-tune-wizard · deviceprofiles-ini · gameusersettings · scalability-ini · hardware-ini · benchmark-tuner · ue4-mobile · adreno-tuning · mali-gpu-config · snapdragon-gaming · low-end-booster</em></p>
+    <em>wuthering-waves · wuwa · fps-boost · engine-ini · config-optimizer · gacha-tracker · pity-calculator · kuro-games · mobile-gaming · android-optimization · unreal-engine-4 · adb · shizuku · gaming-tool · fps-unlock · graphics-tuning · cvars-editor · client-log-analyzer · smart-brain-scoring · config-monitor · vulkan-optimization · thermal-fix · deploy-verification · one-tap-retune · deviceprofiles-ini · gameusersettings · scalability-ini · hardware-ini · engine-generation-detection · ue4-mobile · adreno-tuning · mali-gpu-config · snapdragon-gaming · low-end-booster</em></p>
   </div>
 </footer>
 
@@ -1406,10 +1427,10 @@ if(term){
 
 /* ── Preset Explorer ── */
 const PRESETS={
-  potato:{n:'POTATO',c:'#ff7a7a',s:'50%',sh:'0',res:'128',g:'1,500',best:'Low-end · thermal relief',d:'Maximum battery and thermal relief. Strips shadows, reflections and foliage density for stable FPS on entry-level chipsets. Extras: dynamic lights off, SSGI=0, volumetric fog off.'},
-  endurance:{n:'ENDURANCE',c:'#ffa94d',s:'55%',sh:'0',res:'128',g:'2,500',best:'Marathon sessions · battery',d:'Potato-plus tuning for long play sessions — keeps frame times flat even as your device heats up.'},
+  potato:{n:'POTATO',c:'#ff7a7a',s:'60%',sh:'0',res:'128',g:'1,500',best:'Low-end · thermal relief',d:'Maximum battery and thermal relief. Strips shadows, reflections and foliage density for stable FPS on entry-level chipsets. Extras: dynamic lights off, SSGI=0, volumetric fog off.'},
+  endurance:{n:'ENDURANCE',c:'#ffa94d',s:'70%',sh:'0',res:'128',g:'2,500',best:'Marathon sessions · battery',d:'Potato-plus tuning for long play sessions — keeps frame times flat even as your device heats up.'},
   performance:{n:'PERFORMANCE',c:'#ffd166',s:'60%',sh:'0',res:'256',g:'4,500',best:'Budget phones',d:'Smooth and safe. Higher streaming than Potato plus a light resolution bump for Redmi / Realme class devices.'},
-  competitive:{n:'COMPETITIVE',c:'#a3e635',s:'100%',sh:'0',res:'256',g:'2,000',best:'Esports · max FPS',d:'Native resolution, zero shadows. Built for reaction time — every frame counts in the Tower.'},
+  competitive:{n:'COMPETITIVE',c:'#a3e635',s:'100%',sh:'2',res:'256',g:'2,000',best:'Esports · max FPS',d:'Native resolution with minimal shadows. Built for reaction time — every frame counts in the Tower.'},
   balanced:{n:'BALANCED',c:'#3fd68f',s:'80%',sh:'2',res:'1,024',g:'15,000',best:'Most mid-range devices',d:'The sweet spot. Real shadows, solid draw distance and 80% render scale — looks great, runs great.'},
   high:{n:'HIGH',c:'#2dd4bf',s:'100%',sh:'4',res:'2,048',g:'20,000',best:'Flagship killers',d:'Native res with rich shadows and full effects. Ideal for Snapdragon 8-series and Dimensity 9000+.'},
   ultra:{n:'ULTRA',c:'#6c8cff',s:'100%',sh:'5',res:'2,048',g:'30,000',best:'Snapdragon 8 Gen 2/3',d:'Everything maxed minus the last 10%. 120 FPS capable on cooled flagships.'},
