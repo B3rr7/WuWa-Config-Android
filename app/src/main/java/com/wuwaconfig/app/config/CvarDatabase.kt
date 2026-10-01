@@ -69,7 +69,7 @@ class CvarDatabase(private val assets: AssetManager) {
                 // runs inside it, and rethrown to the caller when it does not.
                 val all =
                     assets.open("cvars/libUE4_cvars.txt").bufferedReader().use { r ->
-                        r.readLines().map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet()
+                        r.readLines().map { it.trim().lowercase() }.filter { it.isActiveCvarName() }.toSet()
                     }
                 val monitored =
                     assets.open("cvars/config_monitor_cvars.txt").bufferedReader().use { r ->
@@ -182,6 +182,20 @@ class CvarDatabase(private val assets: AssetManager) {
         return result
     }
 }
+
+/**
+ * True if [this] is a live CVar name in `libUE4_cvars.txt`, false if the line is
+ * blank or commented out.
+ *
+ * The asset deliberately retains CVars that the shipped game build no longer
+ * registers, one `;`-prefixed line each, so a version bump that drops a CVar can
+ * be reviewed and reverted without re-mining the binary. Those lines must not
+ * reach [allCvars]: a commented name would otherwise register as a distinct,
+ * never-matching key, so `optimizeIniTextImpl` would neither recognise the real
+ * CVar nor flag it as unknown. Prefix set matches the INI parsers below so one
+ * convention covers both the asset and generated config text.
+ */
+internal fun String.isActiveCvarName(): Boolean = isNotBlank() && !startsWith(";") && !startsWith("#") && !startsWith("//") && !startsWith("[")
 
 internal fun optimizeIniTextImpl(
     text: String,
