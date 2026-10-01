@@ -59,9 +59,11 @@ private enum class TokenMatch {
 /**
  * One naming-convention rule.
  *
- * Every token here was verified against the 5,889 names in
+ * Every token here was verified against the 5,372 active names in
  * `assets/cvars/libUE4_cvars.txt` — the counts in the comments are the real
- * occurrences, not estimates.
+ * occurrences, not estimates. The asset also retains ~904 further names as
+ * `;`-prefixed inactive lines (CVars 3.7.0 no longer registers); those are
+ * excluded from these counts because CvarDatabase.isActiveCvarName skips them.
  */
 private data class CvarScopeRule(
     val token: String,
@@ -106,7 +108,7 @@ private val SCOPE_RULES =
             "shader-model specific",
         ),
         // ── Apple ──
-        // 8 (r.Metal.* and r.metal.*)
+        // 7 (r.Metal.* and r.metal.*)
         CvarScopeRule(
             "r.metal",
             TokenMatch.PREFIX,
@@ -136,14 +138,14 @@ private val SCOPE_RULES =
             "Xbox Series only",
         ),
         // ── Graphics API ──
-        // 84
+        // 73
         CvarScopeRule(
             "r.vulkan",
             TokenMatch.PREFIX,
             PlatformScope.VULKAN,
             "Vulkan-only (device is not on Vulkan)",
         ),
-        // 32
+        // 28
         CvarScopeRule(
             "r.opengl",
             TokenMatch.PREFIX,
@@ -164,7 +166,7 @@ private val SCOPE_RULES =
             PlatformScope.ANY,
             "Pipeline State Object (API-agnostic)",
         ),
-        // 250 — the single largest family, and the one most at risk from a loose rule
+        // 223 — the single largest family, and the one most at risk from a loose rule
         CvarScopeRule(
             "r.mobile",
             TokenMatch.PREFIX,
