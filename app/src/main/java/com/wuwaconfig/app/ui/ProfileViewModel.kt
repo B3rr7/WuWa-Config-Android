@@ -33,8 +33,15 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val _profileProgress = MutableStateFlow(0)
     val profileProgress: StateFlow<Int> = _profileProgress.asStateFlow()
 
-    private val _configModifyCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val configModifyCounts: StateFlow<Map<String, Int>> = _configModifyCounts.asStateFlow()
+    /**
+     * Per-file `ModifyCount` values from the device hash file.
+     *
+     * `null` means the read has not succeeded yet — either it has not run or it
+     * failed. That is deliberately distinct from an empty map, which would read
+     * as "the game has modified nothing" when the truth is "we do not know".
+     */
+    private val _configModifyCounts = MutableStateFlow<Map<String, Int>?>(null)
+    val configModifyCounts: StateFlow<Map<String, Int>?> = _configModifyCounts.asStateFlow()
 
     init {
         // JSON file read + Gson parse — keep off the main thread.
@@ -42,6 +49,11 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             val cached = profileStore.load()
             if (cached != null) {
                 _playerProfile.value = cached
+                // The cached profile is the common path, and the modification
+                // counts are a separate device read. Waiting for a profile
+                // refresh before populating them left the MODIFICATIONS block
+                // empty on most launches, even while connected.
+                if (app.backendStatusValue.connected) loadConfigModifyCounts()
             }
         }
     }
@@ -59,7 +71,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             if (result.isSuccess) {
                 _configModifyCounts.value = result.getOrThrow().associate { it.fileName to it.modifyCount }
             } else {
-                _configModifyCounts.value = emptyMap()
+                _configModifyCounts.value = null
                 addLog("Modify counts unavailable: ${result.exceptionOrNull()?.message}", LogLevel.WARNING)
             }
         }
