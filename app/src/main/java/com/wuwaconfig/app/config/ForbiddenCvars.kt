@@ -1,40 +1,16 @@
 package com.wuwaconfig.app.config
 
 object ForbiddenCvars {
-    val ALL: Set<String> =
-        setOf(
-            "r.Kuro.SkeletalMesh.LODDistanceScale",
-            "r.Streaming.Boost",
-            "r.Streaming.PoolSize",
-            "r.Streaming.LimitPoolSizeTOVRAM",
-            "r.Shadow.MaxCSMResolution",
-            "r.Streaming.MinBoost",
-            "r.MipMapLODBias",
-            "r.TextureGroup.Landscape.TextureLODBias",
-            "r.Kuro.TexturePool.ExtraBudgetMB",
-            "r.Streaming.CPUReadback",
-            "r.Streaming.UseAsyncCPUReadback",
-            "r.Streaming.MaxNumTexturesToStreamPerFrame",
-            "r.Streaming.MinMipForSplitRequest",
-            "r.Streaming.UseFixedPoolsize",
-            "r.Streaming.UseAllMips",
-            "r.Streaming.MaxTempMemoryAllowed",
-            "r.RayTracing.LimitDevice",
-            "r.DetailMode",
-            "r.MaterialQualityLevel",
-            "r.KuroMaterialQualityLevel",
-            "r.ViewDistanceScale",
-            "Kuro.CppEffectsSystem.UseLowMemoryPlayerEffectLruCapacity",
-            "Kuro.CppEffectSystem.UseLowMemoryPlayerEffectLruCapacity",
-            "r.AsyncComputePSO",
-            "r.Streamline.DLSSG.RetainResourcesWhenOff",
-            "r.MobileContentScaleFactor",
-            "r.SecondaryScreenPercentage.GameViewport",
-            "r.ScreenPercentage",
-            "r.AFME.Enable",
-            "r.MFRC.Enable",
-            "r.FEstimation.Option",
-        )
+    /**
+     * The CVars this build mishandles, from `assets/config/game_profile.properties`
+     * (`forbiddenCvars`), falling back to [GameProfile.DEFAULT_FORBIDDEN_CVARS].
+     *
+     * Externalised because the list is *per build by definition*: a patch that
+     * fixes one of these lets it go, and one that breaks a new one adds to it.
+     * The compiled-in list is the shipped 3.7.0 set and is what a missing asset
+     * key falls back to, so this is a no-op unless the asset is edited.
+     */
+    val ALL: Set<String> = gameProfile().forbiddenCvars.toSet()
 
     private val commonVariants =
         run {

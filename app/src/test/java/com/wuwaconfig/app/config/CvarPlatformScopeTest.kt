@@ -212,17 +212,7 @@ class CvarPlatformScopeTest {
         }
     }
 
-    private fun readCorpus(): List<String> {
-        val candidates =
-            listOf(
-                "src/main/assets/cvars/libUE4_cvars.txt",
-                "app/src/main/assets/cvars/libUE4_cvars.txt",
-            )
-        val file =
-            candidates.map { java.io.File(it) }.firstOrNull { it.isFile }
-                ?: throw AssertionError("libUE4_cvars.txt not found from ${System.getProperty("user.dir")}")
-        return file.readLines().map { it.trim() }.filter { it.isActiveCvarName() }
-    }
+    private fun readCorpus(): List<String> = realActiveCorpusLines()
 
     // ── engine generation ──
 

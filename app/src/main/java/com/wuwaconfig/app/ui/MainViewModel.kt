@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app: WuWaConfigApp =
@@ -37,16 +36,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val colorfulUi: StateFlow<Boolean> = app.colorfulUi
     val gameConfigDir: String = app.gameConfigDir
 
-    private val defaultBackupDir = application.filesDir.resolve("backups").absolutePath
-
     // Cached in-memory mirrors of the two prefs the composition layer reads
     // (MainActivity start destination + SetupScreen field). Reading
     // SharedPreferences on every recomposition was the NIT; the flows also let
     // finishSetup() push changes without a full restart.
-    private val _backupStorageDir =
-        MutableStateFlow(prefs.getString("backup_dir", defaultBackupDir) ?: defaultBackupDir)
-    val backupStorageDir: StateFlow<String> = _backupStorageDir.asStateFlow()
-
     private val _isSetupDone = MutableStateFlow(prefs.getBoolean("setup_done", false))
     val isSetupDone: StateFlow<Boolean> = _isSetupDone.asStateFlow()
 
@@ -79,31 +72,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun finishSetup(backupDir: String) {
         prefs.edit().putBoolean("setup_done", true).putString("backup_dir", backupDir).apply()
         _isSetupDone.value = true
-        _backupStorageDir.value = backupDir
-    }
-
-    fun changeBackupDir(newDir: String) {
-        prefs.edit().putString("backup_dir", newDir).apply()
-        _backupStorageDir.value = newDir
-        addLog("Backup dir changed to $newDir")
-    }
-
-    fun initDownloadBackupDir() {
-        if (prefs.getBoolean("setup_done", false) && prefs.contains("backup_dir")) return
-        // DEFAULT to app-private storage, unconditionally.
-        //
-        // This used to be getExternalFilesDir("backups"), which resolves to
-        // /storage/emulated/0/Android/data/<pkg>/files/backups — world-readable to
-        // any app holding READ_EXTERNAL_STORAGE on API 26-29 (a normal, install-time
-        // permission there). That directory received backups/{id}.json AND the
-        // collected plaintext Client.log. filesDir is 0700 and cannot be traversed
-        // by another app on any API level, and it needs no runtime grant at all.
-        //
-        // Users who explicitly want backups in Downloads can still pick that
-        // directory in Settings; it just is no longer the silent default.
-        val targetDir = File(getApplication<Application>().filesDir, "backups")
-        runCatching { targetDir.mkdirs() }
-        changeBackupDir(targetDir.absolutePath)
     }
 
     fun saveGeneratorOptions(opts: GeneratorOptions) {

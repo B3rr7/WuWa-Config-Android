@@ -223,38 +223,18 @@ object LogParser {
         return true
     }
 
-    private val UE4_KEYWORDS =
-        listOf(
-            "LogInit",
-            "LogRHI",
-            "Core.System",
-            "GameUserSettings",
-            "K#GPUFamily",
-            "Selected Device Profile",
-            "Resolution",
-            "AverageFPS",
-            "r.ScreenPercentage",
-            "sg.ShadowQuality",
-            "PhysicalMemoryMB",
-            "LogDynamicAtlas",
-            "stdout",
-            "LogMemory",
-            // Kuro's own mobile categories. Measured on a real device log: this game
-            // does NOT emit the classic desktop `LogInit:` / `LogRHI:` / `Core.System`
-            // forms, so a stock-UE4 keyword list alone failed to recognise a valid log.
-            "LogKuroRendering",
-            "LogKuroLogging",
-            "LogKuroStreaming",
-            "LogAndroid",
-            "LogPakFile",
-            "LogConsoleManager",
-            "LogStreaming",
-            "LogContentStreaming",
-            "LogFramePacer",
-            "LogKuro",
-            "GameThread",
-            "Log file open",
-        )
+    /**
+     * Markers that prove a decoded payload is an engine log. Loaded from
+     * `assets/config/game_profile.properties` (`engineKeywords`) with
+     * [GameProfile.DEFAULT_ENGINE_KEYWORDS] as the compiled-in fallback.
+     *
+     * Externalised because this is the gate that decides whether a log is
+     * readable *at all*: a build that renames a category stops matching, every
+     * read falls through to the best-effort path, and the user is told "No
+     * readable Client.log found" rather than being told the marker list is
+     * stale. Keeping it as data means a retune is an asset edit.
+     */
+    private val UE4_KEYWORDS: List<String> = gameProfile().engineKeywords
 
     /**
      * Much broader, lower-confidence log-shape tokens. Used ONLY for payloads too

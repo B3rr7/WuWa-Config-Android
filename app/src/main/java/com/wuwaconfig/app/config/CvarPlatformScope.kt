@@ -218,20 +218,35 @@ enum class EngineGeneration {
 fun detectEngineGeneration(info: LogInfo): EngineGeneration = EngineGeneration.fromBanner(info.engineVersion)
 
 /**
- * UE5-only CVars, inert on this game's UE4 build.
+ * The engine generation to assume when the log carries no startup banner, read
+ * from the game profile (`engineGeneration`).
  *
- * The list is deliberately per-CVar and NOT a `r.temporalaa.` prefix: that family is
- * mostly legitimate UE4 (`r.TemporalAA.Sharpness`, `.MobileFrameWeight`,
- * `.PauseCorrect`, `.FilterSize`) and prefix-matching would have marked ~9 working
- * CVars dead. All three entries below appear in the engine's own "not recognised"
- * list.
+ * This is the single most consequential assumption in the file: a wrong default
+ * marks the UE5-only CVars dead (or resurrects inert ones) for every session
+ * whose log lacked the banner, which is the common case. It is data rather than a
+ * literal so that the day the game moves to a new engine, flipping it is an
+ * asset edit instead of a recompile.
  */
-private val UE5_ONLY_CVARS =
-    setOf(
-        "r.temporalaa.upsampling",
-        "r.temporalaa.algorithm",
-        "r.temporalaacatmullrom",
-    )
+fun configuredEngineGeneration(): EngineGeneration =
+    runCatching { EngineGeneration.valueOf(gameProfile().engineGeneration.uppercase()) }
+        .getOrDefault(EngineGeneration.UE4)
+
+/**
+ * CVars that only exist on UE5. On a UE4 build they are absent from the binary,
+ * so `optimizeIniTextImpl` would classify them as "unknown" and strip them.
+ *
+ * The list is deliberately per-CVar and NOT a `r.temporalaa.` prefix: that family
+ * is mostly legitimate UE4 (`r.TemporalAA.Sharpness`, `.MobileFrameWeight`,
+ * `.PauseCorrect`, `.FilterSize`) and prefix-matching would have marked ~9
+ * working CVars dead.
+ *
+ * Loaded from the game profile (`ue5OnlyCvars`) because the contents are
+ * measured against a specific corpus: a new engine generation adds and removes
+ * entries here, and each one wrongly judged dead is a CVar silently dropped from
+ * a user's config. All three defaults appear in the engine's own "not
+ * recognised" list on UE4.
+ */
+private val UE5_ONLY_CVARS: Set<String> = gameProfile().ue5OnlyCvars.map { it.lowercase() }.toSet()
 
 /**
  * Derives the target platform from a parsed client log.
@@ -280,7 +295,7 @@ private fun scopeExcluded(
  * rule matches, both come back [CvarVerdict.Alive]. A CVar is only ever called dead
  * when a rule's scope *provably* excludes the detected platform.
  *
- * [engine] defaults to [EngineGeneration.UE4] because that is what the app
+ * [engine] defaults to [configuredEngineGeneration] because that is what the app
  * assumed unconditionally before detection existed, and because a log without
  * the startup banner is the common case. Callers holding a parsed [LogInfo]
  * should pass [detectEngineGeneration]'s result.
@@ -288,7 +303,7 @@ private fun scopeExcluded(
 fun classifyCvar(
     name: String,
     target: TargetPlatform,
-    engine: EngineGeneration = EngineGeneration.UE4,
+    engine: EngineGeneration = configuredEngineGeneration(),
 ): CvarVerdict {
     if (target == TargetPlatform.UNKNOWN) return CvarVerdict.Alive
     val lower = name.trim().lowercase()

@@ -18,8 +18,6 @@ import com.wuwaconfig.app.config.PRESETS
 import com.wuwaconfig.app.config.SmartBrain
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.BattleStatsStore
-import com.wuwaconfig.app.model.GameMode
-import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.LogAnalysisStore
 import com.wuwaconfig.app.model.LogInfo
 import kotlinx.coroutines.Dispatchers
@@ -374,98 +372,6 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
         }
 
     private companion object {
-        /** Mirrors DeployHistoryStore.MAX_RECORDS; the store evicts silently beyond it. */
-        const val MAX_DEPLOY_RECORDS = 20
-
-        val SUPPORTED_FRAME_CAPS = setOf(30, 45, 60, 90, 120)
-
-        /**
-         * The one-line blurbs the config screen shows beside each preset. Lived in that
-         * screen's own hardcoded list until this class needed them; kept here so an agent
-         * reads the same wording a user sees.
-         */
-        val PRESET_SUMMARIES =
-            mapOf(
-                "potato" to "Minimum settings, for devices that cannot hold a stable frame rate",
-                "endurance" to "Long sessions on mid-tier hardware, favouring low heat over fidelity",
-                "performance" to "Stability first, when frame pacing matters more than looks",
-                "competitive" to "Maximum clarity without post-processing clutter, for PvP",
-                "balanced" to "The daily default",
-                "high" to "Sharper visuals, for hardware that can hold them",
-                "ultra" to "Flagship devices only",
-                "cinematic" to "Above ultra, flagship hardware only",
-            )
-
-        fun ConfigOptions.toGeneratorOptions(): GeneratorOptions {
-            if (frameRateCap !in SUPPORTED_FRAME_CAPS) {
-                throw AppFunctionInvalidArgumentException(
-                    "frameRateCap must be one of ${SUPPORTED_FRAME_CAPS.sorted().joinToString(", ")}, but was $frameRateCap.",
-                )
-            }
-            // gameMode is nullable in the wire type because the appfunctions schema has no
-            // non-null string with a default; null carries the app's own default.
-            val mode =
-                GameMode.entries.firstOrNull { it.label.equals(gameMode ?: "Overworld", ignoreCase = true) }
-                    ?: throw AppFunctionInvalidArgumentException(
-                        "gameMode must be \"Overworld\" or \"Tower of Adversity\", but was \"$gameMode\".",
-                    )
-            return GeneratorOptions(
-                fps = frameRateCap,
-                unlock120 = unlockHighFrameRate,
-                cool = enableAutoCooling,
-                vulkan = useVulkan,
-                hzb = enableHorizonOcclusion,
-                fog = enableFog,
-                disableOutline = disableOutlines,
-                disableBloom = disableBloom,
-                disableAutoExposure = disableAutoExposure,
-                disableSSR = disableScreenSpaceReflections,
-                mode = mode,
-                cvarOverrides = cvarOverrides.orEmpty().associate { it.name to it.value },
-                generateScalability = includeScalabilityIni,
-                generateHardware = includeHardwareIni,
-                allowRestrictedCvars = allowRestrictedCvars,
-                optimizeWithCvarDb = true,
-                useAdvancedGen = perDeviceTuning,
-            )
-        }
-
-        fun BattleStats.toInfo(): BattleStatsInfo =
-            BattleStatsInfo(
-                battles = battles,
-                echoesCollected = echoesCollected,
-                deaths = deaths,
-                staggers = staggers,
-                staminaUsed = staminaUsed,
-                echoSkillsUsed = echoSkillsUsed,
-                echoTransformsUsed = echoTransformUsed,
-                teleports = teleports,
-                roleChanges = roleChanges,
-                supplyCards = monthCards,
-                supplyCardDaysRemaining = monthCardRemainDays,
-            )
-
-        fun com.wuwaconfig.app.model.DeployRecord.toOutcome(): DeployOutcome {
-            val delta = comparison()
-            return DeployOutcome(
-                id = id,
-                presetName = presetName,
-                deployedAtEpochMillis = timestamp,
-                filesDeployed = filesDeployed,
-                acceptedCount = acceptedCount,
-                totalCount = totalCount,
-                redundantCount = redundantCount,
-                unknownCount = unknownCount,
-                baselineFrameRate = baselineFps ?: 0f,
-                outcomeFrameRate = outcomeFps ?: 0f,
-                frameRateDelta = delta.fpsDelta ?: 0f,
-                thermalDelta = delta.thermalDelta ?: 0,
-                gpuOutOfMemoryDelta = delta.oomDelta ?: 0,
-                droppedFrameDelta = delta.dropFramesDelta ?: 0,
-                hasOutcome = hasOutcome,
-            )
-        }
-
         /**
          * The most [LogInfo] can hold without a game log: hardware the platform reports
          * directly. Frame rate, thermal and memory-pressure fields stay at their defaults,

@@ -23,11 +23,13 @@ import com.wuwaconfig.app.ui.theme.*
 @Composable
 fun SetupScreen(
     viewModel: MainViewModel,
+    initialBackupDir: String,
     onComplete: () -> Unit,
 ) {
-    // rememberSaveable so the in-progress path survives process death. The
-    // initialiser now reads an in-memory StateFlow instead of SharedPreferences.
-    var backupDir by rememberSaveable { mutableStateOf(viewModel.backupStorageDir.value) }
+    // rememberSaveable so the in-progress path survives process death. Seeded from
+    // the single owner of the pref (BackupViewModel.backupStorageDirFlow) rather
+    // than from a second, never-updated copy in MainViewModel.
+    var backupDir by rememberSaveable { mutableStateOf(initialBackupDir) }
 
     GradientBackground {
         Scaffold(

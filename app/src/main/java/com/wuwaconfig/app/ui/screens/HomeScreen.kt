@@ -47,7 +47,7 @@ private enum class CustomConfigState {
     REVIEW,
 }
 
-private val TARGET_NAMES = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
+private val TARGET_NAMES = GamePaths.MONITORED_FILES
 
 /** Shared formatter for deploy-stamp rows; see the `remember` note at the use site. */
 private val DEPLOY_STAMP_FMT = java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.US)

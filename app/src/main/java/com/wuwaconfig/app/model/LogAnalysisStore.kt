@@ -17,6 +17,8 @@ object LogAnalysisStore {
         val timestamp: Long,
     )
 
+    private fun CachedAnalysis.toTimedCache() = TimedCache(this, timestamp)
+
     /**
      * Callers must already be on a background dispatcher — this performs real
      * file I/O (via writeAtomic's fsync) and is not main-thread safe.
@@ -33,20 +35,10 @@ object LogAnalysisStore {
         File(context.filesDir, FILE_NAME).writeAtomic(gson.toJson(cached))
     }
 
-    fun load(context: Context): CachedAnalysis? {
-        val file = File(context.filesDir, FILE_NAME)
-        if (!file.exists()) return null
-        val cached =
-            try {
-                gson.fromJson(file.readText(), CachedAnalysis::class.java)
-            } catch (_: Exception) {
-                null
-            }
-        if (cached == null) return null
-        if (System.currentTimeMillis() - cached.timestamp > CACHE_TTL_MS) {
-            file.delete()
-            return null
-        }
-        return cached
-    }
+    fun load(context: Context): CachedAnalysis? =
+        readFreshCache(
+            File(context.filesDir, FILE_NAME),
+            ttlMs = CACHE_TTL_MS,
+            now = System.currentTimeMillis(),
+        ) { text -> gson.fromJson(text, CachedAnalysis::class.java)?.toTimedCache() }
 }

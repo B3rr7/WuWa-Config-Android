@@ -2,7 +2,6 @@ package com.wuwaconfig.app.config
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 /**
  * The CVar asset must be a SUPERSET of every CVar the game actually sets.
@@ -48,18 +47,7 @@ class CvarLiveCoverageTest {
         )
     }
 
-    /** Mirrors CvarDatabase.isActiveCvarName so the test and the loader cannot drift. */
-    private fun readActiveAsset(): Set<String> {
-        val candidates =
-            listOf(
-                File("src/main/assets/cvars/libUE4_cvars.txt"),
-                File("app/src/main/assets/cvars/libUE4_cvars.txt"),
-            )
-        val file =
-            candidates.firstOrNull { it.isFile }
-                ?: throw AssertionError("libUE4_cvars.txt not found from ${System.getProperty("user.dir")}")
-        return file.readLines().map { it.trim().lowercase() }.filter { it.isActiveCvarName() }.toSet()
-    }
+    private fun readActiveAsset(): Set<String> = realActiveCvarNames()
 
     private fun readFixture(): List<String> {
         val stream =

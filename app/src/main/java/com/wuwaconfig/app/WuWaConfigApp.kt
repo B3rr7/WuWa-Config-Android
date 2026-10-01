@@ -14,6 +14,7 @@ import com.wuwaconfig.app.config.ChipsetDetector
 import com.wuwaconfig.app.config.ConfigGenerator
 import com.wuwaconfig.app.config.CvarDatabase
 import com.wuwaconfig.app.config.DeployHistoryStore
+import com.wuwaconfig.app.config.GameProfile
 import com.wuwaconfig.app.config.ProfileStore
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogRepository
@@ -106,7 +107,15 @@ class WuWaConfigApp : Application() {
     val allowRestrictedCvarsEnabled = MutableStateFlow(true)
     val forceCSharpEnv = MutableStateFlow(false)
     val chipsetInfo = ChipsetDetector.detect()
-    val gameConfigDir = GamePaths.TARGET_DIR
+
+    /**
+     * A getter, not a `val`: property initialisers run before `onCreate()`, and
+     * [GamePaths] derives its paths from [GameProfile], which is loaded in
+     * `onCreate` from assets. A `val` would freeze the path before the asset
+     * exists and silently keep the compiled-in default forever. Harmless today
+     * only because the asset and the defaults are identical.
+     */
+    val gameConfigDir: String get() = GamePaths.TARGET_DIR
 
     override fun onCreate() {
         // Idempotent re-assertion of the init {} block; see the comment there.
@@ -122,6 +131,11 @@ class WuWaConfigApp : Application() {
         // thread so it never blocks cold start or the first ADB connection.
         appScope.launch(Dispatchers.IO) { adbCrypto.warmUp() }
         LogRepository.init()
+        // Game knowledge (paths, log names, CVar lists, gacha economy) comes from
+        // assets/config/game_profile.properties so a game update can be tracked by
+        // editing a file rather than recompiling. Must run before anything reads
+        // GamePaths, and before CvarDatabase so the two can be cross-checked.
+        GameProfile.load(assets)
         cvarDatabase = CvarDatabase(assets)
         configGenerator = ConfigGenerator(cvarDatabase)
         // Disk stats + Downloads listing have no business on the main thread.

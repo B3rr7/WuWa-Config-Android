@@ -52,7 +52,7 @@ class BackupStore(
                 Log.d("BackupStore", "createBackup: listing ${GamePaths.TARGET_DIR}")
                 val files = backend.listDirectory(GamePaths.TARGET_DIR).getOrThrow()
                 Log.d("BackupStore", "createBackup: listed ${files.size} files: $files")
-                val allIniNames = setOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
+                val allIniNames = GamePaths.MONITORED_FILE_SET
                 val targetNames = selectedFiles ?: allIniNames
                 val configFiles =
                     files.filter { it in targetNames && it in allIniNames }.mapNotNull { fileName ->

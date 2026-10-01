@@ -49,7 +49,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     private val ops get() = app.deviceOps
 
     val configManager: ConfigManager by lazy {
-        ConfigManager(getApplication(), { app.backend }, backupStorageDir)
+        ConfigManager(getApplication(), { app.backend }, { backupStorageDir })
     }
 
     // Device session state lives in WuWaConfigApp so every ViewModel observes
@@ -58,8 +58,28 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
     val isApplying: StateFlow<Boolean> = ops.isApplying
     val operationCancelled: StateFlow<Boolean> = ops.operationCancelled
 
-    private val _deployResult = MutableStateFlow<String?>(null)
-    val deployResult: StateFlow<String?> = _deployResult.asStateFlow()
+    /**
+     * Outcome of the last deploy, as a typed value rather than a message string.
+     *
+     * It used to be `StateFlow<String?>`, with failures encoded as
+     * `"Failed: …"`. ConfigGen showed a dialog for *any* non-null value using a
+     * hardcoded green check and the title "✓ Config Deployed", so a failed
+     * deploy rendered a success dialog whose body read "Failed: Permission
+     * denied" — and, because the hash-sync message is only ever written on
+     * success, it also asserted the hash had been refreshed. Success and failure
+     * are now structurally distinct, so a new failure path cannot be added
+     * without choosing how it renders.
+     */
+    sealed interface DeployResult {
+        val message: String
+
+        data class Success(override val message: String) : DeployResult
+
+        data class Failure(override val message: String) : DeployResult
+    }
+
+    private val _deployResult = MutableStateFlow<DeployResult?>(null)
+    val deployResult: StateFlow<DeployResult?> = _deployResult.asStateFlow()
 
     private val _deployHashSync = MutableStateFlow<String?>(null)
     val deployHashSync: StateFlow<String?> = _deployHashSync.asStateFlow()
@@ -80,6 +100,20 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
     private val _verificationReport = MutableStateFlow<VerificationReport?>(null)
     val verificationReport: StateFlow<VerificationReport?> = _verificationReport.asStateFlow()
+
+    /**
+     * Drops a stale verification badge.
+     *
+     * The report was only ever cleared at the start of a deploy, so after leaving
+     * ConfigGen the previous deploy's "N/M CVars accepted" (and its per-CVar
+     * accepted/rejected breakdown) stayed on screen and was presented as the
+     * verification of whatever config was in the editor — which may since have
+     * been edited in Review & Tune. That is a claim about a file that no longer
+     * exists in that form.
+     */
+    fun clearVerificationReport() {
+        _verificationReport.value = null
+    }
 
     /** Deploy-verify progress (log analysis has its own in LogInsightsViewModel). */
     private val _readingProgress = MutableStateFlow(0)
@@ -462,16 +496,29 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
 
                 val adjustedProfile = com.wuwaconfig.app.config.CvarOptimizer.adjustProfile(profile, comparison)
 
+                // Start from the options the record was ACTUALLY deployed with.
+                //
+                // This used to build a fresh GeneratorOptions with fps=60 and every
+                // other field defaulted, ignoring `record.options` — which has been
+                // persisted on every deploy since it was added and read by nothing.
+                // So retuning a 120 FPS config that included Scalability.ini and kept
+                // restricted CVars silently redeployed it at 60 FPS with different
+                // file selection, and History then showed the retuned record as
+                // though it were the same configuration. Only the file selection is
+                // re-derived, because it is the one thing that must reflect what is
+                // actually on the device.
+                val previous = record.options ?: com.wuwaconfig.app.model.GeneratorOptions()
                 val opts =
-                    com.wuwaconfig.app.model.GeneratorOptions(
-                        fps = 60,
+                    previous.copy(
                         generateEngine = record.filesDeployed.contains("Engine.ini"),
                         generateDeviceProfiles = record.filesDeployed.contains("DeviceProfiles.ini"),
                         generateGameUserSettings = record.filesDeployed.contains("GameUserSettings.ini"),
                         generateScalability = record.filesDeployed.contains("Scalability.ini"),
                         generateHardware = record.filesDeployed.contains("Hardware.ini"),
+                        // The retune result is supplied separately as a preset
+                        // profile override, so the generator's own optimiser must
+                        // not run a second time on top of it.
                         useAdvancedGen = false,
-                        optimizeWithCvarDb = true,
                     )
                 val profileOverride = com.wuwaconfig.app.config.CvarOptimizer.toPresetProfile(adjustedProfile)
                 val generated = configGenerator.generate(record.presetName, opts, profileOverride = profileOverride)
@@ -571,6 +618,10 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     gameUserSettingsIni = if (opts.generateGameUserSettings) ini.gameUserSettings else null,
                     scalabilityIni = if (opts.generateScalability && ini.scalability.isNotBlank()) ini.scalability else null,
                     hardwareIni = if (opts.generateHardware && ini.hardware.isNotBlank()) ini.hardware else null,
+                    // Forward the caller's own toggle. Without this the global pref
+                    // decided instead, so the generator's strip decision and the
+                    // setting on screen could disagree.
+                    allowRestrictedCvars = opts.allowRestrictedCvars,
                 ) { msg -> addLog(msg) }
             if (result.isSuccess) {
                 addLog("SUCCESS: ${result.getOrThrow()}")
@@ -658,25 +709,35 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                     _deployRecords.value = deployHistoryStore.getAllRecords()
                     addLog("Deploy record saved (id: ${recordId.take(8)}...)")
                 }
-                _deployResult.value = result.getOrThrow()
+                _deployResult.value = DeployResult.Success(result.getOrThrow())
                 _readingProgress.value = 0
             } else {
                 val err = result.exceptionOrNull()?.message ?: "Unknown error"
                 addLog("FAILED: $err")
-                _deployResult.value = "Failed: $err"
+                _deployResult.value = DeployResult.Failure(err)
             }
         } catch (e: SecurityException) {
             Log.e("WuWaConfig", "deployGeneratedConfigs permission denied", e)
             addLog("CRASH: permission denied: ${e.message}")
+            _deployResult.value = DeployResult.Failure("Permission denied: ${e.message}")
         } catch (e: java.io.IOException) {
             Log.e("WuWaConfig", "deployGeneratedConfigs I/O error", e)
             addLog("CRASH: I/O error: ${e.message}")
+            _deployResult.value = DeployResult.Failure("I/O error: ${e.message}")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             addLog("CRASH: ${e.message}")
             Log.e("WuWaConfig", "deployGeneratedConfigs crashed", e)
+            // These used to leave deployResult null, so the ConfigGen screen
+            // produced NO dialog at all and the user only saw a progress bar
+            // stuck mid-flight. A crash is the case that most needs saying.
+            _deployResult.value = DeployResult.Failure(e.message ?: "Unexpected error")
         } finally {
+            // Reset unconditionally: the panel renders a bare readingProgress
+            // for the next device operation, so leaving it at 90% made the
+            // following read announce "Reading log (90%)…" before it began.
+            _readingProgress.value = 0
             ops.setApplying(false)
         }
     }
@@ -688,6 +749,10 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         scalabilityIni: String? = null,
         hardwareIni: String? = null,
         backupAllInis: Boolean = false,
+        // HomeScreen's custom-file picker has no toggle of its own, so this follows
+        // the app-wide preference. Hardcoding `true` here would have made the
+        // picker's deploy path the one place restricted CVars always got through.
+        allowRestrictedCvars: Boolean = app.allowRestrictedCvarsEnabled.value,
     ) {
         if (ops.isApplying.value || !app.backendStatusValue.connected) return
         ops.setApplying(true)
@@ -727,6 +792,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                         gameUserSettingsIni = gameUserSettingsIni,
                         scalabilityIni = scalabilityIni,
                         hardwareIni = hardwareIni,
+                        allowRestrictedCvars = allowRestrictedCvars,
                     ) { msg -> addLog(msg) }
 
                 if (result.isSuccess) {

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.backend.BackendStatus
+import com.wuwaconfig.app.config.gameProfile
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.GachaPoolType
@@ -39,6 +40,16 @@ import com.wuwaconfig.app.ui.theme.*
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Astrites/Lunites per single pull, from the game profile.
+ *
+ * File level because two composables need it and the literal `160` was hardcoded
+ * in each. Retuning `currencyPerPull` in the asset used to leave the per-pool
+ * "Total Spent" and the overview "Total Astrites" disagreeing, because GachaApi
+ * read the profile while these two sites did not.
+ */
+private val costPerPull: Int = gameProfile().currencyPerPull
+
 @Composable
 fun PityScreen(
     viewModel: GachaViewModel,
@@ -256,8 +267,7 @@ private fun GachaSummary(data: GachaData) {
             0.0
         }
     val totalPullsOverall = data.totalPulls
-    val totalCostFromRecords = data.records.sumOf { (it.count.coerceAtLeast(1) * 160).toLong() }
-    val totalPullsFromCost = if (totalPullsOverall > 0) totalPullsOverall else 0
+    val totalCostFromRecords = data.records.sumOf { (it.count.coerceAtLeast(1) * costPerPull).toLong() }
 
     GlassCard(accentColor = NeonGold) {
         Text(
@@ -306,7 +316,6 @@ private fun GachaSummary(data: GachaData) {
         if (totalCostOverall > 0) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 StatItem("${formatNumber(totalCostOverall)}", "Total Astrites", NeonPurple)
-                StatItem("$totalPullsFromCost", "Total Pulls", NeonCyan)
             }
             Spacer(Modifier.height(10.dp))
         }
@@ -576,7 +585,7 @@ private fun PredictionSection(predictions: List<PityPrediction>) {
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "${pred.totalCost / 160} pulls × 160 Astrites = ${formatNumber(pred.totalCost)} Astrites",
+                        "${pred.totalCost / costPerPull} pulls × $costPerPull Astrites = ${formatNumber(pred.totalCost)} Astrites",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     )

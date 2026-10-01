@@ -35,7 +35,7 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
     private val cvarDatabase get() = app.cvarDatabase
 
     val configManager: ConfigManager by lazy {
-        ConfigManager(getApplication(), { app.backend }, backupStorageDir())
+        ConfigManager(getApplication(), { app.backend }, ::backupStorageDir)
     }
 
     private fun backupStorageDir(): String {

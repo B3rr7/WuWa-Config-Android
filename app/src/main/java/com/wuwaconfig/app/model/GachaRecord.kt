@@ -51,12 +51,20 @@ data class PityPrediction(
     val currentFeaturedKnown: Boolean = false,
     val pullsSinceLastFive: Int,
     val estimatedNextFive: Int,
-    val hardPity: Int = 80,
-    val softPityThreshold: Int = 66,
+    /**
+     * Pity/cost fields default to the values in the game profile rather than to
+     * literals. They are deliberately *defaults* and not constants: a
+     * `PityPrediction` deserialized from a cached gacha response was produced
+     * under whatever economy was configured at the time, and re-defaulting those
+     * on a later launch would silently restate a historical prediction using
+     * today's numbers.
+     */
+    val hardPity: Int = com.wuwaconfig.app.config.GameProfile.get().hardPity,
+    val softPityThreshold: Int = com.wuwaconfig.app.config.GameProfile.get().softPityStart,
     val isInSoftPity: Boolean = false,
-    val pullsUntilHardPity: Int = 80,
+    val pullsUntilHardPity: Int = com.wuwaconfig.app.config.GameProfile.get().hardPity,
     val pullsSinceLastFourStar: Int = 0,
-    val estimatedNextFourStar: Int = 10,
+    val estimatedNextFourStar: Int = com.wuwaconfig.app.config.GameProfile.get().fourStarGuarantee,
     val avgPityThisPool: Double = 0.0,
     val nonBannerRate: Double = 0.0,
     val upRate: Double = 0.0,

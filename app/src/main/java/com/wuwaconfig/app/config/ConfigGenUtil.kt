@@ -4,12 +4,24 @@ import com.wuwaconfig.app.model.CvarEntry
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 
-internal val CVAR_PREFIXES =
-    listOf(
-        "a.", "bbm.", "compat.", "cook.", "fx.", "foliage.", "gc.", "grass.",
-        "kuro.", "lod.", "n.", "niagara.", "r.", "s.", "sg.", "slate.",
-        "t.", "tick.", "vr.", "wp.",
-    )
+/**
+ * The prefixes that make an INI line a CVar assignment rather than some other
+ * key=value pair (scalability groups, Kuro's own settings, …).
+ *
+ * Single source of truth, deliberately shared by all five consumers —
+ * `extractCvarNames`, `deduplicateIniText`, `applyCvarOverrides`,
+ * `markPlatformDeadCvars` and `CvarDatabase.optimizeIniTextImpl`. A prefix
+ * added here reaches every one of them at once; a prefix missing here is
+ * invisible to all of them simultaneously, which is how a CVar ends up
+ * monitored but un-optimizable.
+ *
+ * `magt.` was missing until 3.7.0: the game ships 45 active `magt.*` entries
+ * and one of them, `magt.OptimizeGameThreadWaitingMTKVersion`, is in
+ * `config_monitor_cvars.txt`. With the prefix absent it was reported by the
+ * monitor, displayed to the user, and then skipped by every writer — the exact
+ * split-brain this list exists to prevent.
+ */
+internal val CVAR_PREFIXES: List<String> = gameProfile().cvarPrefixes
 
 fun extractCvarNames(iniText: String): Set<String> {
     val names = linkedSetOf<String>()

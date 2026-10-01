@@ -70,7 +70,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val backgroundOpacity: StateFlow<Float> = app.backgroundOpacity
 
     private val configManager: ConfigManager by lazy {
-        ConfigManager(getApplication(), { app.backend }, null)
+        ConfigManager(getApplication(), { app.backend }, { null })
     }
 
     /**

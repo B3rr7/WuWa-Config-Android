@@ -911,7 +911,7 @@ fun GradientBackground(content: @Composable () -> Unit) {
                     // local-only, so a persisted or injected remote URL can never
                     // become an image request.
                     ImageRequest.Builder(bgImageContext)
-                        .data(if (isLocalOnlyImageUri(imageUri, bgImageContext)) imageUri else null)
+                        .data(if (isLocalOnlyImageUri(imageUri)) imageUri else null)
                         .crossfade(true)
                         .error(
                             requireNotNull(
@@ -1295,3 +1295,14 @@ private fun GlassDialogContent(
         }
     }
 }
+
+/**
+ * Renders a RAM figure given in MB.
+ *
+ * Single formatter because the same `LogInfo.ramMb` was rendered two ways: the
+ * Profile screen did integer division (`it / 1024`), so a device reporting
+ * 5642 MB — 6 GB of RAM — was shown as "5 GB", while ConfigGen showed the raw
+ * "5642 MB". `%.1f` keeps the real figure visible instead of rounding down to a
+ * different whole number of gigabytes.
+ */
+fun formatRam(ramMb: Int): String = "%.1f GB".format(ramMb / 1024.0)

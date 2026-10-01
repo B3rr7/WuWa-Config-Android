@@ -385,6 +385,7 @@ fun AppNavigation(
             entry<Setup> {
                 SetupScreen(
                     viewModel = viewModel,
+                    initialBackupDir = backupViewModel.backupStorageDirFlow.collectAsStateWithLifecycle().value,
                     onComplete = { navigator.replaceAllWith(Home) },
                 )
             }
@@ -447,7 +448,7 @@ fun AppNavigation(
                     backendStatus = backendStatus,
                     chipsetInfo = chipsetInfo,
                     gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR,
-                    backupStorageDir = backupViewModel.backupStorageDir,
+                    backupStorageDir = backupViewModel.backupStorageDirFlow.collectAsStateWithLifecycle().value,
                     onChangeBackupDir = { newDir -> backupViewModel.changeBackupDir(newDir) },
                 )
             }

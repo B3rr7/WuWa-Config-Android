@@ -13,6 +13,16 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object GachaApi {
+    /**
+     * The game's gacha economy — hard/soft pity, the 4★ guarantee, currency per
+     * pull and the regional endpoints — comes from
+     * `assets/config/game_profile.properties`. These were previously literals
+     * duplicated across four places in this file plus two DTO defaults in
+     * `GachaRecord`, so a retune was a five-site edit with no compiler support
+     * and no way to see which copy the UI was actually using.
+     */
+    private val profile: GameProfile get() = gameProfile()
+
     // Standard pools are the permanent "Standard" banners; any 5★ pulled there is
     // a standard 5★ (used to decide character-banner soft-pity status).
     private val STANDARD_POOLS = setOf(GachaPoolType.STANDARD, GachaPoolType.STANDARD_2, GachaPoolType.STANDARD_3)
@@ -54,12 +64,20 @@ object GachaApi {
         return GachaUrlParams(playerId, recordId, cardPoolId, cardPoolType, serverId, languageCode)
     }
 
+    /**
+     * The query endpoint, selected by the player-id prefix.
+     *
+     * Player ids beginning with "1" are served by `aki-game2.com`; every other
+     * prefix by `aki-game2.net`. The mapping is preserved exactly as it was when
+     * both hosts were literals — the keys are named after the *prefix test*, not
+     * after a region, precisely so nobody "corrects" one into the other.
+     *
+     * Both hosts and the path come from the game profile: Kuro controls all
+     * three and can change any of them without notice.
+     */
     private fun getEndpoint(playerId: String): String {
-        return if (playerId.startsWith("1")) {
-            "https://gmserver-api.aki-game2.com/gacha/record/query"
-        } else {
-            "https://gmserver-api.aki-game2.net/gacha/record/query"
-        }
+        val host = if (playerId.startsWith("1")) profile.gachaHostIdPrefix1 else profile.gachaHostOther
+        return host + profile.gachaQueryPath
     }
 
     fun fetchAllRecords(params: GachaUrlParams): Result<GachaData> {
@@ -318,7 +336,7 @@ object GachaApi {
         // 1 pull = 160 Astrites/Lunites, 10-pull = 1600
         // Records may have count > 1 (collapsed 10-pulls)
         val totalPulls = records.sumOf { it.count.coerceAtLeast(1) }
-        return (totalPulls.toLong() * 160)
+        return (totalPulls.toLong() * profile.currencyPerPull)
     }
 
     private fun computeMinMaxPity(
@@ -367,8 +385,8 @@ object GachaApi {
         pool: GachaPoolType,
         standardFiveStars: Set<String>,
     ): PityPrediction {
-        val HARD_PITY = 80
-        val SOFT_PITY_START = 66
+        val HARD_PITY = profile.hardPity
+        val SOFT_PITY_START = profile.softPityStart
         val sorted = records.sortedBy { it.time }
         val fiveStarRecords = sorted.filter { it.qualityLevel == 5 }
 
@@ -485,7 +503,7 @@ object GachaApi {
             isInSoftPity = isInSoftPity,
             pullsUntilHardPity = pullsUntilHardPity,
             pullsSinceLastFourStar = pulls4,
-            estimatedNextFourStar = maxOf(10 - pulls4, 1),
+            estimatedNextFourStar = maxOf(profile.fourStarGuarantee - pulls4, 1),
             avgPityThisPool = avgCharPity.toDouble(),
             nonBannerRate = nonBannerRateValue,
             upRate = upRateValue,
@@ -509,8 +527,8 @@ object GachaApi {
         // threshold (66) for *all* banner types — confirmed by the wuwatracker.com
         // dataset (394 125 samples). Weapon Event is "100% guaranteed featured": every
         // ★5 pulled is the rate-up weapon, unlike the character banner's 50/50.
-        val HARD_PITY = 80
-        val SOFT_PITY_START = 66
+        val HARD_PITY = profile.hardPity
+        val SOFT_PITY_START = profile.softPityStart
         val sorted = records.sortedBy { it.time }
         val fiveStarRecords = sorted.filter { it.qualityLevel == 5 }
 
@@ -550,7 +568,7 @@ object GachaApi {
                 }
                 if (pityGroups.isNotEmpty()) pityGroups.average().toInt() else HARD_PITY
             } else {
-                57 // Empirical mean from wuwatracker.com
+                profile.avgWeaponPityFallback // Empirical mean from wuwatracker.com
             }
 
         val estimated =
@@ -584,7 +602,7 @@ object GachaApi {
             isInSoftPity = isInSoftPity,
             pullsUntilHardPity = pullsUntilHardPity,
             pullsSinceLastFourStar = pulls4,
-            estimatedNextFourStar = maxOf(10 - pulls4, 1),
+            estimatedNextFourStar = maxOf(profile.fourStarGuarantee - pulls4, 1),
             avgPityThisPool = avgWeaponPity.toDouble(),
             // Weapon banner has no non-banner 5★
             nonBannerRate = 0.0,

@@ -87,7 +87,7 @@ class ConfigManagerTest {
         tempDir.deleteRecursively()
     }
 
-    private fun manager() = ConfigManager(context, { backend }, tempDir.absolutePath)
+    private fun manager() = ConfigManager(context, { backend }, { tempDir.absolutePath })
 
     @Test
     fun `deleteConfigFiles reports deleted count`() =

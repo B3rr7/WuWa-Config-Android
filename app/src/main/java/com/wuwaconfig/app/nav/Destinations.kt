@@ -6,13 +6,13 @@ import kotlinx.serialization.Serializable
 /**
  * Type-safe navigation destinations.
  *
- * These replace the 13 bare strings that used to be passed to
+ * These replace the bare strings that used to be passed to
  * `composable("home")` / `navigate("home")`. Two failure modes went away with
  * them: a typo in a `navigate()` call was a runtime no-op that silently did
  * nothing, and a renamed screen was a string search that could miss a call
  * site. Both are now compile errors.
  *
- * All 13 are argument-less, which is deliberate — nothing navigates *to* a
+ * All are argument-less, which is deliberate — nothing navigates *to* a
  * particular config file or record, it just says "open the editor" and the
  * screen reads its own state. If a destination ever needs an argument, add it
  * as a constructor property on a `data class` here; do not add a query
