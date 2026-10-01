@@ -2,6 +2,7 @@ package com.wuwaconfig.app.config
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Random
 
@@ -264,5 +265,130 @@ class LogParserTest {
         val plaintext = "Log line"
         val encrypted = encryptPlaintext(plaintext.toByteArray(Charsets.UTF_8), wuwaHeader)
         assertEquals(plaintext, String(LogParser.decryptWuwaLog(encrypted)!!, Charsets.UTF_8))
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Real captured log lines.
+    //
+    // The fixtures below are verbatim lines from the device's own 3.7.0
+    // Client.log, not synthetic text. That distinction is the whole point: this
+    // file previously fed parseLog INI fragments such as "r.ShadowQuality=3",
+    // which the parser never sees in the field, so three regexes could match
+    // nothing at all across every real session and the suite stayed green.
+    //
+    // 670/531/241 of these LogConsoleManager lines per session were being
+    // discarded, which is why sg.ShadowQuality never reached activeCvars and
+    // why screenPct/shadowQ were permanently null.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private fun parseLines(vararg lines: String) = LogParser.parseLog(lines.joinToString("\n"))
+
+    /**
+     * The engine's console-variable line, verbatim. Only the variable name and the
+     * surviving value change between occurrences in a real session; the sentence
+     * around them never does.
+     */
+    private fun consoleManagerLine(
+        stamp: String,
+        name: String,
+        value: String,
+        losing: String = "SetByScalability",
+        winning: String = "SetByProjectSetting",
+    ) = "[$stamp][  0][GameThread]LogConsoleManager: Warning: Setting the console variable " +
+        "'$name' with '$losing' was ignored as it is lower priority than the previous " +
+        "'$winning'. Value remains '$value'"
+
+    @Test
+    fun `effective CVar value is captured from the console-variable line`() {
+        // Verbatim, log/decrypted/Client.log.txt :875 and :888.
+        val info =
+            parseLines(
+                "[2026.09.30-23.09.03:875][  0][GameThread]LogConfig: Setting CVar [[r.RenderTargetPoolMin:50]]",
+                consoleManagerLine("2026.09.30-23.09.03:888", "r.RenderTargetPoolMin", "50"),
+            )
+        assertEquals("50", info.activeCvars["r.RenderTargetPoolMin"])
+    }
+
+    @Test
+    fun `the effective value wins when it differs from the requested one`() {
+        // The engine writes the requested value first, then reports which value
+        // actually survived priority resolution. Real 3.7.0 sessions disagreed on
+        // r.ScreenPercentage (85 requested, 80 in force), and the requested value
+        // is the one that is actively misleading.
+        val info =
+            parseLines(
+                "[2026.09.30-23.09.03:874][  0][GameThread]LogConfig: Setting CVar [[r.ScreenPercentage:85]]",
+                consoleManagerLine("2026.09.30-23.09.03:888", "r.ScreenPercentage", "80"),
+            )
+        assertEquals("80", info.activeCvars["r.ScreenPercentage"])
+        assertEquals(80f, info.screenPct!!, 0.001f)
+    }
+
+    @Test
+    fun `sg ShadowQuality is captured although it is only ever reported this way`() {
+        // Verbatim, Client.log.txt :443. No `Setting CVar [[sg.ShadowQuality:…]]`
+        // line exists for this CVar, so before CVar_EFFECTIVE_RE it was absent
+        // from activeCvars entirely and SmartBrain's shadow-quality scoring never ran.
+        val info =
+            parseLines(
+                consoleManagerLine("2026.09.30-23.10.51:443", "sg.ShadowQuality", "0", winning = "SetByConsole"),
+            )
+        assertEquals("0", info.activeCvars["sg.ShadowQuality"])
+        assertEquals(0, info.shadowQ)
+    }
+
+    @Test
+    fun `the engine's unknown-name placeholder is not recorded as a CVar`() {
+        // Verbatim, Client.log.txt :890. The engine prints the literal `unknown?`
+        // when it cannot resolve a console variable's name; it is not a CVar and
+        // must not reach activeCvars, ForbiddenCvars, or the CVar-database gate.
+        val info =
+            parseLines(
+                consoleManagerLine("2026.09.30-23.09.03:890", "unknown?", "0", losing = "SetByProjectSetting", winning = "SetByDeviceProfile"),
+            )
+        assertTrue("placeholder leaked into activeCvars: ${info.activeCvars.keys}", info.activeCvars.isEmpty())
+        assertEquals(0, info.forbiddenCvars)
+    }
+
+    @Test
+    fun `a real session's device and API fields all resolve`() {
+        // The regression guard for this whole class of bug: these are the lines a
+        // real 3.7.0 session emits, and each must yield its field. If the game
+        // changes a format, this fails instead of silently nulling a field.
+        val info =
+            parseLines(
+                "LogInit: OS: Android (16), CPU: moto g(60), GPU: Adreno (TM) 618",
+                "LogInit: Build: ++UE4+Release-4.26-CL-0",
+                "K#GPUFamily : Adreno (TM) 618",
+                "K#DeviceModel : motorola(moto g(60))",
+                "LogInit: Memory total: Physical=5642.29MB (6GB approx) Available=2100.00MB",
+                "Setting Android Resolution, logic resolution Width=2456 and Height=1080, final Width=1632 and Height=720",
+                "Selected Device Profile: [Android_Adreno6xx_Lowest]",
+                "[2026.09.30-23.09.03][  0][GameThread]sg.KuroRenderQuality = \"4\"",
+                "LogRHI: Initializing OpenGL RHI",
+                "LogAndroid: VulkanAvailable: false",
+                "LogAndroid: OpenGL ES will be used.",
+                "LogFramePacer: Display: r.FramePace : requesting 30, set as 30",
+            )
+        assertEquals("Adreno (TM) 618", info.gpu)
+        assertEquals("motorola(moto g(60))", info.deviceModel)
+        assertEquals("moto g(60)", info.cpuName)
+        assertEquals(5642, info.ramMb)
+        assertEquals("16", info.androidVersion)
+        assertEquals("2456x1080", info.resolution)
+        assertEquals("Android_Adreno6xx_Lowest", info.deviceProfile)
+        assertEquals("UE4+Release-4.26-CL-0", info.engineVersion)
+        assertEquals("OpenGL ES", info.gameApi)
+        assertEquals("not_available", info.vulkanStatus)
+        assertEquals(30, info.fpsCap)
+        assertEquals("4", info.qualityMode)
+    }
+
+    @Test
+    fun `fpsActual stays null because this game logs no FPS line at all`() {
+        // Documented as unreachable rather than silently "fixed": there is no
+        // AverageFPS line anywhere in a 3.7.0 session, so no pattern can recover
+        // it. SmartBrain gates "competitive" on this field — see SmartBrain:457.
+        assertNull(parseLines("[2026.09.30-23.09.03] GameThread: nothing relevant here").fpsActual)
     }
 }

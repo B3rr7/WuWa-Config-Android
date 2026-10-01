@@ -527,12 +527,6 @@ object LogParser {
             if (fpsActual == null) {
                 AVG_FPS_RE.find(line)?.let { fpsActual = it.groupValues[1].toFloatOrNull() }
             }
-            if (screenPct == null) {
-                SCREEN_PCT_RE.find(line)?.let { screenPct = it.groupValues[1].toFloatOrNull() }
-            }
-            if (shadowQ == null) {
-                SHADOW_Q_RE.find(line)?.let { shadowQ = it.groupValues[1].toIntOrNull() }
-            }
             if (qualityMode == null) {
                 QUALITY_MODE_RE.find(line)?.let { qualityMode = it.groupValues[1] }
             }
@@ -541,9 +535,14 @@ object LogParser {
                 val value = it.groupValues[2].trim().substringBefore(';').trim()
                 activeCvars[it.groupValues[1].trim()] = value
             }
-            CVar_VALUE_RE.find(line)?.let {
-                val value = it.groupValues[1].trim().substringBefore(';').trim()
-                activeCvars[it.groupValues[2].trim()] = value
+            CVar_EFFECTIVE_RE.find(line)?.let {
+                val name = it.groupValues[1].trim()
+                val value = it.groupValues[2].trim().substringBefore(';').trim()
+                // The engine prints the literal placeholder `unknown?` when a
+                // console variable's name could not be resolved. A real CVar
+                // name cannot contain '?', so this drops the placeholder and any
+                // future variant of it without needing an exact-string list.
+                if (name.isNotEmpty() && '?' !in name) activeCvars[name] = value
             }
 
             // ── Game API from LogRHI line ──
@@ -567,6 +566,17 @@ object LogParser {
         // there is nothing to memoize per-line. Was a `var` + null guard that was
         // never assigned inside the loop, so the guard could never be false.
         val forbiddenCvarCount = activeCvars.keys.count { ForbiddenCvars.isForbidden(it) }
+
+        // ── screenPct / shadowQ, read off the finished map ──
+        // Both are reported on the same LogConsoleManager lines that
+        // CVar_EFFECTIVE_RE captures, so deriving them here instead of with a
+        // per-line regex keeps a single source of truth AND yields the value in
+        // effect rather than the value that was requested. Their dedicated
+        // SCREEN_PCT_RE / SHADOW_Q_RE predated this and matched nothing.
+        val lcActive = HashMap<String, String>(activeCvars.size)
+        for ((k, v) in activeCvars) lcActive[k.lowercase()] = v
+        screenPct = screenPct ?: lcActive["r.screenpercentage"]?.toFloatOrNull()
+        shadowQ = shadowQ ?: lcActive["sg.shadowquality"]?.toIntOrNull()
 
         // ── Post-loop API resolution (single source of truth) ──
         val explicitApi =
@@ -773,6 +783,15 @@ object LogParser {
         Regex("""DeviceModel\s*:\s*([^\r\n,\]]+)""", RegexOption.IGNORE_CASE)
     private val SOC_RE =
         Regex("""(snapdragon|dimensity|exynos|kirin|helio)\s*\w*""", RegexOption.IGNORE_CASE)
+
+    /**
+     * Intended as a Qualcomm SoC code, but matched nothing on any observed log.
+     * Kept rather than deleted: it costs one failed `find` per scan and removing it
+     * would silently retire `LogInfo.socCode` on any future build that does emit it.
+     * `socName` is unavailable for the same underlying reason — this game never
+     * names its SoC (only GPU and CPU model), which is why `socName` is null on
+     * real hardware rather than because of a pattern bug.
+     */
     private val SOC_CODE_RE = Regex("""rHn:(\w+)""", RegexOption.IGNORE_CASE)
     private val CPU_RE = Regex("""LogInit.*CPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE)
     private val RAM_RE = Regex("""PhysicalMemoryMB:\s*(\d+)""", RegexOption.IGNORE_CASE)
@@ -828,17 +847,40 @@ object LogParser {
             """r\.FramePace\s*:\s*(?:requesting\s+\d+,\s*)?set\s*(?:as\s+)?(\d+)""",
             RegexOption.IGNORE_CASE,
         )
+
+    /**
+     * Desktop-UE stat line. This game never emits it — zero matches across three
+     * 3.7.0 sessions, which had no `AverageFPS` line of any kind — so
+     * `LogInfo.fpsActual` is structurally always null for WuWa. `SmartBrain`
+     * gates its "competitive" recommendation on `fpsActual != null`, so that
+     * branch is currently unreachable from log data; see SmartBrain:457.
+     */
     private val AVG_FPS_RE = Regex("""AverageFPS\s*[=:]\s*([\d.]+)""", RegexOption.IGNORE_CASE)
-    private val SCREEN_PCT_RE =
-        Regex("""Value remains '(\d+\.?\d*)' .* r\.ScreenPercentage""", RegexOption.IGNORE_CASE)
-    private val SHADOW_Q_RE =
-        Regex("""Value remains '(\d+)' .* sg\.ShadowQuality""", RegexOption.IGNORE_CASE)
     private val QUALITY_MODE_RE =
         Regex("""sg\.KuroRenderQuality\s*=\s*"(.*)"""", RegexOption.IGNORE_CASE)
     private val CVar_SETTING_RE =
         Regex("""Setting CVar \[\[([^:]+):([^\]]+)\]\]""", RegexOption.IGNORE_CASE)
-    private val CVar_VALUE_RE =
-        Regex("""Value remains '([^']+)' .* variable '([^']+)'""", RegexOption.IGNORE_CASE)
+
+    /**
+     * The value actually in effect, as opposed to the one that was requested.
+     *
+     * `LogConsoleManager: Warning: Setting the console variable 'r.ScreenPercentage'
+     *  with 'SetByScalability' was ignored as it is lower priority than the previous
+     *  'SetByProjectSetting'. Value remains '80'`
+     *
+     * The NAME comes first and the value last. The previous pattern expected
+     * `Value remains 'v' ... variable 'n'` and matched 0 lines across three 3.7.0
+     * sessions, which cost two things: `sg.ShadowQuality` never entered
+     * activeCvars at all (it is only ever reported this way), and 8-11 CVars were
+     * recorded at their requested value rather than the effective one —
+     * r.ScreenPercentage read 85 while 80 was in force.
+     *
+     * These lines always follow their `Setting CVar` counterpart (the :888 warning
+     * trails the :874 write), so assigning into activeCvars here lets the effective
+     * value overwrite the requested one without any extra precedence logic.
+     */
+    private val CVar_EFFECTIVE_RE =
+        Regex("""console variable '([^']+)'.*Value remains '([^']*)'""", RegexOption.IGNORE_CASE)
     private val RHI_RE =
         Regex("""LogRHI:\s*Initializing\s+(\S+(?:\s+\S+)*?)\s*RHI""", RegexOption.IGNORE_CASE)
 
