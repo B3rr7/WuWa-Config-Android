@@ -29,10 +29,13 @@ class ProfileExtractor(
     private val publicDir: File,
 ) {
     companion object {
-        private val BACKUP_LOG_NAME_REGEX = Regex("""Client-backup-[A-Za-z0-9._-]+\.log""")
-
-        /** Matches the `YYYY.MM.DD-HH.MM.SS` stamps the game embeds in backup names. */
-        private val BACKUP_STAMP_REGEX = Regex("""(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2})""")
+        /**
+         * Gate for names coming back from a remote `ls`. Every backup log is
+         * discarded with a WARNING when it does not match, so a rotation-scheme
+         * change makes verification degrade to "0 CVars accepted" with no error
+         * surfaced to the user. Externalised for that reason.
+         */
+        internal val BACKUP_LOG_NAME_REGEX: Regex = Regex(gameProfile().backupLogNamePattern)
 
         // BOTH databases name their table "LocalStorage". Verified on-device:
         //   Saved/LocalStorage/LocalStorage.db -> table "LocalStorage"
@@ -41,8 +44,13 @@ class ProfileExtractor(
         // (after the FILE) made every DeviceStorage query throw "no such table", the
         // bare catch swallowed it, and language + all three version fields silently
         // came back null. The file name and the table name are unrelated here.
-        internal const val LOCAL_STORAGE_TABLE = "LocalStorage"
-        internal const val DEVICE_STORAGE_TABLE = "LocalStorage"
+        // BOTH databases name their table "LocalStorage" — the table name and the
+        // file name are unrelated. Now data rather than constants, because naming
+        // the second table after its FILE previously made every DeviceStorage query
+        // throw "no such table", the bare catch swallowed it, and language plus all
+        // three version fields silently came back null.
+        internal val LOCAL_STORAGE_TABLE: String = gameProfile().localStorageTable
+        internal val DEVICE_STORAGE_TABLE: String = gameProfile().deviceStorageTable
     }
 
     suspend fun readClientLogContent(onProgress: (Int) -> Unit = {}): Result<String> =
@@ -263,19 +271,6 @@ class ProfileExtractor(
             safe.sortedByDescending { backupLogSortKey(it) }
         }
 
-    /** Epoch millis of the session-start stamp in a backup filename; 0 when absent. */
-    private fun backupLogSortKey(path: String): Long {
-        val m = BACKUP_STAMP_REGEX.find(path.substringAfterLast("/")) ?: return 0L
-        val g = m.groupValues
-        val nums = IntArray(6) { g[it + 1].toIntOrNull() ?: return 0L }
-        return runCatching {
-            java.util.Calendar.getInstance().apply {
-                clear()
-                set(nums[0], nums[1] - 1, nums[2], nums[3], nums[4], nums[5])
-            }.timeInMillis
-        }.getOrDefault(0L)
-    }
-
     /**
      * Reads at most [maxBytes] from the START of a remote log and decrypts it.
      *
@@ -484,57 +479,73 @@ class ProfileExtractor(
             }
         }
 
+    /**
+     * Battle stats across **all** retained sessions, not just the current log.
+     *
+     * This used to read only `Client.log`, which made the screen's own claim
+     * ("Data from all game sessions is cumulative") false: the game rotates the
+     * log at ~20 MB, so the current file is often just a post-rotation tail and
+     * TOTAL BATTLES silently dropped to the newest session. It also disagreed
+     * with the analysis path, which does merge — so the same screen could show
+     * two different totals depending on which producer ran last.
+     *
+     * [readMergedClientLog] is the same fix already applied to [readProfile],
+     * where reading only the current log left the DEVICE and PERFORMANCE
+     * sections empty for exactly the same reason.
+     */
     suspend fun readBattleStats(onProgress: (Int) -> Unit = {}): Result<BattleStats> =
         withContext(Dispatchers.IO) {
-            val path = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
             try {
-                val sizeRaw = backend.executeShellCommand("wc -c < ${shQuote(path)} 2>/dev/null").getOrDefault("0")
-                val fileSize = sizeRaw.trim().toLongOrNull() ?: 0L
-                if (fileSize <= 0L) return@withContext Result.failure(Exception("Client.log is empty"))
-
-                val cacheDir = context.cacheDir.absolutePath
-                // UUID, not currentTimeMillis(): two concurrent reads landing in the
-                // same millisecond shared a path and one deleted the other's file.
-                val localCopy = "$cacheDir/wuwa_battlestats_${UUID.randomUUID()}"
-
                 onProgress(10)
-                // The copy holds the game's DECRYPTED log, so delete it in a finally on
-                // EVERY path. Deleting eagerly after readBytes() (the old shape) left the
-                // plaintext copy behind in cacheDir whenever readBytes() itself threw or
-                // the coroutine was cancelled. The sibling readRemoteLogToText() already
-                // used the finally shape.
-                val rawBytes =
-                    try {
-                        backend.copyFile(path, localCopy).getOrThrow()
-                        val localFile = File(localCopy)
-                        if (!localFile.exists() || localFile.length() == 0L) {
-                            throw Exception("Failed to copy log file")
-                        }
-                        localFile.readBytes()
-                    } finally {
-                        runCatching { File(localCopy).delete() }
-                    }
+                val merged = readMergedClientLog().getOrThrow()
+                val text = merged.first
+                if (text.isBlank()) return@withContext Result.failure(Exception("Client.log is empty"))
 
                 onProgress(50)
-                val (text, _) = LogParser.decodeLogBytes(rawBytes)
-                onProgress(80)
-                val lines = text.lines()
-
                 // parseBattleStatsLines is stateful (the running stamina counter
-                // depends on the order of lines), so it must run single-threaded.
-                // Parallel chunking restarted the counter per chunk and produced a
-                // result that varied by core count.
+                // depends on the order of lines), so it must run single-threaded
+                // over the whole merged text. Parallel chunking restarted the
+                // counter per chunk and produced a result that varied by core count.
+                val lines = text.lines()
+                onProgress(80)
                 val stats = LogParser.parseBattleStatsLines(lines)
-                return@withContext Result.success(stats.copy(logSizeBytes = fileSize))
+                LogRepository.add(
+                    "readBattleStats: parsed ${lines.size} merged lines from ${merged.second.summary()}",
+                    LogLevel.INFO,
+                )
+                // logSizeBytes is deliberately NOT overwritten here. It is the
+                // merged byte count the parser recorded, and stamping it with the
+                // single current file's size made the same field mean two
+                // different things depending on which producer wrote it.
+                Result.success(stats)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w("ProfileExtractor", "readBattleStats failed: ${e.message}")
-                return@withContext Result.failure(e)
+                Result.failure(e)
             }
         }
 
+    /**
+     * Counts the live settings in one INI.
+     *
+     * A read failure is now logged rather than silently coerced to 0. It still
+     * reports 0 (the alternative — making PlayerProfile's five count fields
+     * nullable — would churn the data class, its Gson round-trip, the AppFunction
+     * DTO and every rendering site for a cosmetic distinction), but the reason is
+     * now in the app log, which the Profile screen's MiniLogViewer displays, so
+     * "0 settings" is at least explicable rather than silently authoritative.
+     */
     private suspend fun countIniSettings(name: String): Int {
         val path = "${GamePaths.TARGET_DIR}/$name"
-        val content = backend.readFile(path).getOrDefault("")
+        val content =
+            backend.readFile(path).getOrElse { e ->
+                LogRepository.add(
+                    "ProfileExtractor: $name unreadable (${e.message}) — its setting count is reported as 0, not as a real count",
+                    LogLevel.WARNING,
+                )
+                ""
+            }
         return content.lines().count { line ->
             val trimmed = line.trimStart()
             // Same skip-set as extractCvarNames / deduplicateIniText / parseCvarEntries:
@@ -554,13 +565,20 @@ class ProfileExtractor(
     private suspend fun pullDb(dbName: String): SQLiteDatabase? {
         val remotePath =
             when (dbName) {
-                "LocalStorage.db" -> "${GamePaths.LOG_DIR.substringBeforeLast("/")}/LocalStorage/$dbName"
-                "DeviceStorage.db" -> "${GamePaths.LOG_DIR.substringBeforeLast("/")}/DeviceSaved/$dbName"
+                "LocalStorage.db" -> "${GamePaths.LOG_DIR.substringBeforeLast("/")}/${gameProfile().localStorageDbRel}"
+                "DeviceStorage.db" -> "${GamePaths.LOG_DIR.substringBeforeLast("/")}/${gameProfile().deviceStorageDbRel}"
                 else -> return null
             }
         val localFile = File(context.cacheDir, "profile_$dbName")
         return try {
-            val raw = backend.executeShellCommand("base64 ${shQuote(remotePath)} 2>/dev/null").getOrNull() ?: return null
+            val raw =
+                backend.executeShellCommand("base64 ${shQuote(remotePath)} 2>/dev/null").getOrNull() ?: run {
+                    LogRepository.add(
+                        "ProfileExtractor: could not read $remotePath from the device — profile fields that depend on it will be empty",
+                        LogLevel.WARNING,
+                    )
+                    return null
+                }
             val bytes = Base64.decode(raw.trim(), Base64.DEFAULT)
             localFile.writeBytes(bytes)
             SQLiteDatabase.openDatabase(localFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
@@ -568,7 +586,17 @@ class ProfileExtractor(
             // Structured-concurrency: CancellationException extends IllegalStateException
             // extends Exception, so the bare catch below would swallow it.
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            // This used to be `catch (_: Exception) { null }` with no log line, so a
+            // failed pull produced Result.success with every field null. The Profile
+            // screen then rendered a complete, confident, all-empty account with
+            // nothing anywhere saying why — indistinguishable from an account with
+            // no data yet.
+            LogRepository.add(
+                "ProfileExtractor: $remotePath unreadable (${e.javaClass.simpleName}: ${e.message}) — " +
+                    "profile fields that depend on it will be empty",
+                LogLevel.WARNING,
+            )
             null
         }
     }
@@ -680,4 +708,29 @@ internal fun parseServerLevels(json: String?): List<Pair<String, Int>> {
         return emptyList()
     }
     return results
+}
+
+/** Matches the `YYYY.MM.DD-HH.MM.SS` stamps the game embeds in backup names. */
+private val BACKUP_STAMP_REGEX: Regex = Regex(gameProfile().backupStampPattern)
+
+/**
+ * Epoch millis of the session-start stamp in a backup filename; 0 when absent.
+ *
+ * Top-level and `internal` rather than a private member of [ProfileExtractor] so
+ * `BackupLogOrderingTest` can assert against the real implementation. That test
+ * previously carried its own copy of this logic, which is exactly the drift
+ * hazard worth avoiding: mtime is unusable here (on the device inspected, seven
+ * files shared `2026-09-23 17:34` while their names spanned three weeks), so the
+ * ordering rule has to be pinned to the one function that ships.
+ */
+internal fun backupLogSortKey(path: String): Long {
+    val m = BACKUP_STAMP_REGEX.find(path.substringAfterLast("/")) ?: return 0L
+    val g = m.groupValues
+    val nums = IntArray(6) { g[it + 1].toIntOrNull() ?: return 0L }
+    return runCatching {
+        java.util.Calendar.getInstance().apply {
+            clear()
+            set(nums[0], nums[1] - 1, nums[2], nums[3], nums[4], nums[5])
+        }.timeInMillis
+    }.getOrDefault(0L)
 }

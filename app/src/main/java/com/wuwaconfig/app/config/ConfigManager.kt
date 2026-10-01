@@ -13,6 +13,7 @@ import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.model.VerificationReport
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -31,7 +32,19 @@ import kotlin.random.Random
 class ConfigManager(
     private val context: Context,
     private val backendProvider: () -> AccessBackend,
-    private val backupDirPath: String? = null,
+    /**
+     * Where backups live. A **provider**, not a value, and that is load-bearing:
+     * it used to be a `val` captured at construction, so changing the backup
+     * directory in Settings wrote the pref and then kept using the old one —
+     * `rebuild()` could never observe a new path, and create/list/restore/delete
+     * plus the pre-apply auto-backup all followed the stale directory. It is read
+     * the same way and at the same time as the backend, so a single
+     * `rebuildIfNeeded()` covers both kinds of change.
+     *
+     * A plain String is still accepted for callers that genuinely have a fixed
+     * directory (the unit tests do).
+     */
+    private val backupDirPath: () -> String? = { null },
     // Injected so the toggle can be stubbed in unit tests without standing up
     // WuWaConfigApp.instance (a lateinit that is null in a headless process).
     private val hashMonitorEnabled: () -> Boolean = { WuWaConfigApp.instance.hashMonitorEnabled.value },
@@ -78,12 +91,20 @@ class ConfigManager(
     @Volatile
     private lateinit var _hashMonitor: HashMonitor
 
+    /**
+     * The backup directory the current [_backupStore] was built with, so
+     * [rebuildIfNeeded] can tell whether a Settings change has taken effect yet.
+     * Null means "the private default".
+     */
+    @Volatile
+    private var _backupDir: String? = null
+
     init {
         rebuild()
     }
 
     private fun rebuild() {
-        _backupStore = BackupStore(context, _backend, backupDirPath)
+        _backupStore = BackupStore(context, _backend, backupDirPath())
         _profileExtractor = ProfileExtractor(context, _backend, _backupStore.backupDir, _backupStore.publicDir)
         _hashMonitor = HashMonitor(context, _backend, hashMonitorEnabled)
     }
@@ -94,10 +115,16 @@ class ConfigManager(
         // coroutines racing a backend switch both constructed a new AccessBackend and one
         // rebuild was wasted. Compute it inside the lock so the check-and-rebuild is one
         // atomic step, and sub-stores always observe the freshly published _backend.
+        //
+        // The backup directory is part of the same check for the same reason: it is
+        // now a provider, so a path change is observable and takes effect on the
+        // next operation instead of the next app launch.
         synchronized(this) {
             val b = backendProvider()
-            if (b !== _backend) {
+            val dir = backupDirPath()
+            if (b !== _backend || dir != _backupDir) {
                 _backend = b
+                _backupDir = dir
                 rebuild()
             }
         }
@@ -140,6 +167,15 @@ class ConfigManager(
         gameUserSettingsIni: String?,
         scalabilityIni: String? = null,
         hardwareIni: String? = null,
+        // Same contract as pushSingleFile, and for the same reason: this is the
+        // path the HomeScreen custom-file picker and the generated-config deploy
+        // both take, and it bypasses pushSingleFile entirely. The "P0-2: enforce
+        // restricted CVars on every path to the device" comment on pushSingleFile
+        // was therefore describing a guarantee this function did not provide — a
+        // user-supplied INI could deploy r.ScreenPercentage / r.Streaming.Boost
+        // with the toggle OFF. Defaults to the app pref (fail-closed to strip).
+        allowRestrictedCvars: Boolean = defaultAllowRestrictedCvars(),
+        // Trailing so the existing `) { msg -> … }` call sites keep working.
         onProgress: (String) -> Unit,
     ): Result<String> =
         withContext(Dispatchers.IO) {
@@ -172,21 +208,39 @@ class ConfigManager(
 
                 val tempDir = newStagingDir()
                 try {
+                    var strippedTotal = 0
                     for ((name, content) in iniFiles) {
+                        val safeContent =
+                            if (allowRestrictedCvars) {
+                                content
+                            } else {
+                                val (stripped, removed) = ForbiddenCvars.stripForbiddenCvarsWithReport(content)
+                                if (removed.isNotEmpty()) {
+                                    strippedTotal += removed.size
+                                    LogRepository.add(
+                                        "ConfigManager: stripped ${removed.size} restricted CVar(s) from $name: ${removed.joinToString(", ")}",
+                                        LogLevel.WARNING,
+                                    )
+                                }
+                                stripped
+                            }
                         onProgress("Applying $name...")
                         LogRepository.add("ConfigManager: pushing $name")
                         val tempFile = File(tempDir, name)
-                        tempFile.writeText(content)
+                        tempFile.writeText(safeContent)
                         val targetPath = "${GamePaths.TARGET_DIR}/$name"
                         pushWithRetry(name, tempFile.absolutePath, targetPath, onProgress)
                             .onFailure { throw it }
                         delay(DEPLOY_INTER_FILE_JITTER_MS + Random.nextLong(DEPLOY_INTER_FILE_JITTER_RANGE_MS))
                     }
-                    LogRepository.add("ConfigManager: custom configs applied successfully", LogLevel.SUCCESS)
-                    Result.success("Custom configs applied successfully!")
+                    val suffix = if (strippedTotal > 0) " ($strippedTotal restricted CVar(s) stripped)" else ""
+                    LogRepository.add("ConfigManager: custom configs applied successfully$suffix", LogLevel.SUCCESS)
+                    Result.success("Custom configs applied successfully!$suffix")
                 } finally {
                     tempDir.deleteRecursively()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 LogRepository.add("ConfigManager: applyCustomConfigs failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)
@@ -260,7 +314,7 @@ class ConfigManager(
                 val targetPath = GamePaths.UE4_COMMAND_LINE_PATH
                 if (enabled) {
                     backend.ensureDirectoryExists(targetPath.substringBeforeLast("/")).getOrThrow()
-                    val content = "-ForceEnableCSharpEnvironment\n"
+                    val content = "${gameProfile().forceCSharpEnvFlag}\n"
                     val stagingFile = File(context.cacheDir, "UE4CommandLine.txt").apply { writeText(content) }
                     try {
                         backend.pushFile(stagingFile.absolutePath, targetPath).getOrThrow()
@@ -312,7 +366,7 @@ class ConfigManager(
         withContext(Dispatchers.IO) {
             try {
                 val content = backend.readFile(GamePaths.UE4_COMMAND_LINE_PATH).getOrNull() ?: ""
-                Result.success(content.contains("-ForceEnableCSharpEnvironment"))
+                Result.success(content.contains(gameProfile().forceCSharpEnvFlag))
             } catch (e: Exception) {
                 LogRepository.add("ConfigManager: readForceCSharpEnv failed: ${e.message}", LogLevel.ERROR)
                 Result.failure(e)

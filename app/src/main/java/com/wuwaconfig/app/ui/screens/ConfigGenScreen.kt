@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
@@ -31,6 +32,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wuwaconfig.app.WuWaConfigApp
+import com.wuwaconfig.app.config.gameProfile
 import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.model.VerificationReport
@@ -45,6 +48,7 @@ import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GlassSwitch
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
+import com.wuwaconfig.app.ui.components.formatRam
 import com.wuwaconfig.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -107,7 +111,14 @@ fun ConfigGenScreen(
     var generateScalability by rememberSaveable { mutableStateOf(false) }
     var generateHardware by rememberSaveable { mutableStateOf(false) }
 
-    var allowRestrictedCvars by rememberSaveable { mutableStateOf(true) }
+    // Seeded from the app-wide preference, and every change is written back to it.
+    // This was pure local state, so "Allow restricted CVars" reset to ON on every
+    // visit AND nothing downstream could observe the choice: the pref read by
+    // ConfigManager.defaultAllowRestrictedCvars() had no writer at all
+    // (WuWaConfigApp.setAllowRestrictedCvarsEnabled was dead code), so the deploy
+    // paths fell back to their own defaults.
+    var allowRestrictedCvars by
+        rememberSaveable { mutableStateOf(WuWaConfigApp.instance.allowRestrictedCvarsEnabled.value) }
     var useAdvancedGen by rememberSaveable { mutableStateOf(false) }
     var optimizeWithCvarDb by rememberSaveable { mutableStateOf(true) }
     var disableAutoAdjust by rememberSaveable { mutableStateOf(false) }
@@ -149,7 +160,7 @@ fun ConfigGenScreen(
     }
 
     var showDeployDialog by remember { mutableStateOf(false) }
-    var deployDialogMessage by remember { mutableStateOf("") }
+    var deployDialogResult by remember { mutableStateOf<DeployHistoryViewModel.DeployResult?>(null) }
     var deployHashSyncMessage by remember { mutableStateOf("") }
 
     val scope = rememberCoroutineScope()
@@ -164,7 +175,7 @@ fun ConfigGenScreen(
                 scope.launch {
                     val result = deployHistoryViewModel.readUriBytes(uri)
                     if (result.isSuccess) {
-                        insightsViewModel.analyzeClientLogBytes(result.getOrThrow())
+                        insightsViewModel.analyzeClientLogBytes(result.getOrThrow(), allowRestrictedCvars)
                     } else {
                         deployHistoryViewModel.addLog("FAILED: ${result.exceptionOrNull()?.message}")
                     }
@@ -184,8 +195,16 @@ fun ConfigGenScreen(
 
     LaunchedEffect(deployResult) {
         deployResult?.let {
-            deployDialogMessage = it
-            deployHashSyncMessage = deployHistoryViewModel.deployHashSync.value ?: ""
+            deployDialogResult = it
+            // Only a SUCCESS has a hash-sync result to show. Reading it for a
+            // failure produced the "KuroConfigMonitor hash refreshed" line on a
+            // dialog whose body said the deploy had failed.
+            deployHashSyncMessage =
+                if (it is DeployHistoryViewModel.DeployResult.Success) {
+                    deployHistoryViewModel.deployHashSync.value ?: ""
+                } else {
+                    ""
+                }
             showDeployDialog = true
             deployHistoryViewModel.clearDeployResult()
         }
@@ -232,7 +251,7 @@ fun ConfigGenScreen(
                         logInfo = logInfo,
                         brain = brain,
                         allowRestrictedCvars = allowRestrictedCvars,
-                        onAnalyzeDevice = { insightsViewModel.analyzeClientLog() },
+                        onAnalyzeDevice = { insightsViewModel.analyzeClientLog(allowRestrictedCvars) },
                         onImportLog = { logPickerLauncher.launch(arrayOf("*/*")) },
                     )
                 }
@@ -287,7 +306,7 @@ fun ConfigGenScreen(
                         GlassCardHeader("Frame Target", tint(NeonBlue))
                         Spacer(Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            listOf(30, 45, 60, 90, 120).forEach { value ->
+                            gameProfile().supportedFrameCaps.forEach { value ->
                                 val chip = tint(fpsColor(value))
                                 FilterChip(
                                     selected = fps == value,
@@ -322,7 +341,15 @@ fun ConfigGenScreen(
                         GeneratorSwitch("Disable bloom", disableBloom, onCheckedChange = { disableBloom = it }, accentColor = tint(NeonAmber))
                         GeneratorSwitch("Disable auto exposure", disableAutoExposure, onCheckedChange = { disableAutoExposure = it }, accentColor = tint(NeonGreen))
                         GeneratorSwitch("Disable SSR/reflections", disableSSR, onCheckedChange = { disableSSR = it }, accentColor = tint(NeonBlue))
-                        GeneratorSwitch("Allow restricted CVars", allowRestrictedCvars, onCheckedChange = { allowRestrictedCvars = it }, accentColor = tint(NeonRed))
+                        GeneratorSwitch(
+                            "Allow restricted CVars",
+                            allowRestrictedCvars,
+                            onCheckedChange = {
+                                allowRestrictedCvars = it
+                                WuWaConfigApp.instance.setAllowRestrictedCvarsEnabled(it)
+                            },
+                            accentColor = tint(NeonRed),
+                        )
                         GeneratorSwitch("Disable auto quality adjust", disableAutoAdjust, onCheckedChange = { disableAutoAdjust = it }, accentColor = tint(NeonPink))
                         GeneratorSwitch("GSR upscaling (low-end)", enableGSR, onCheckedChange = { enableGSR = it }, accentColor = tint(NeonGreen))
                         GeneratorSwitch("Experimental CVars", experimentalCvars, onCheckedChange = { experimentalCvars = it }, accentColor = tint(NeonRed))
@@ -410,6 +437,11 @@ fun ConfigGenScreen(
                                                     scalability = generated.scalability,
                                                     hardware = generated.hardware,
                                                 )
+                                            // Editing the generated config invalidates the
+                                            // last deploy's verification: that badge counted
+                                            // CVars in the file as it was PUSHED, and this
+                                            // payload is the starting point for changing it.
+                                            deployHistoryViewModel.clearVerificationReport()
                                             viewModel.openReviewTune(payload, opts)
                                             onNavigateToReviewTune()
                                         } finally {
@@ -441,57 +473,77 @@ fun ConfigGenScreen(
         }
     }
 
+    // Success and failure are rendered from a typed result. A failure must never
+    // be able to reuse the success chrome (green accent, check mark, "Config
+    // Deployed" title, hash-refreshed panel) — that combination is what told the
+    // user a deploy had worked while its own body said it had not.
+    val deployDialogSucceeded = deployDialogResult is DeployHistoryViewModel.DeployResult.Success
+    val deployDialogAccent = if (deployDialogSucceeded) NeonGreen else NeonRed
     if (showDeployDialog) {
         GlassDialog(
             onDismissRequest = { showDeployDialog = false },
-            accentColor = NeonGreen,
+            accentColor = deployDialogAccent,
             icon = {
                 Icon(
-                    Icons.Default.CheckCircle,
+                    if (deployDialogSucceeded) Icons.Default.CheckCircle else Icons.Default.Error,
                     contentDescription = null,
-                    tint = NeonGreen,
+                    tint = deployDialogAccent,
                     modifier = Modifier.size(48.dp),
                 )
             },
-            title = { Text("✓ Config Deployed", fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    if (deployDialogSucceeded) "✓ Config Deployed" else "✗ Deploy Failed",
+                    fontWeight = FontWeight.Bold,
+                )
+            },
             text = {
                 Column {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        deployDialogMessage,
+                        deployDialogResult?.message.orEmpty(),
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Spacer(Modifier.height(14.dp))
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(NeonGreen.copy(alpha = 0.10f))
-                                .border(1.dp, NeonGreen.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-                                .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = NeonGreen,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                "Hash sync",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = NeonGreen,
+                    if (deployDialogSucceeded) {
+                        Spacer(Modifier.height(14.dp))
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(NeonGreen.copy(alpha = 0.10f))
+                                    .border(1.dp, NeonGreen.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                    .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = NeonGreen,
+                                modifier = Modifier.size(20.dp),
                             )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                deployHashSyncMessage.ifBlank { "KuroConfigMonitor hash refreshed." },
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    "Hash sync",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonGreen,
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    deployHashSyncMessage.ifBlank { "KuroConfigMonitor hash refreshed." },
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                         }
+                    } else {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "The device config was not changed. Nothing was written and the hash file was left alone.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             },
@@ -630,7 +682,7 @@ private fun AnalysisPanel(
                             val pct = readingProgress
                             if (pct > 0) "Reading log ($pct%)..." else "Analyzing..."
                         }
-                        logInfo != null -> "Loaded — ${logInfo.gpu ?: "?"} • ${logInfo.ramMb?.let { "$it MB" } ?: "?"}"
+                        logInfo != null -> "Loaded — ${logInfo.gpu ?: "?"} • ${logInfo.ramMb?.let { formatRam(it) } ?: "?"}"
                         else -> "Analyze from device or import an encrypted Client.log file."
                     },
                     style = MaterialTheme.typography.bodySmall,
@@ -679,7 +731,7 @@ private fun AnalysisPanel(
                     DetailRow("GPU", info.gpu ?: "-")
                     DetailRow("API", info.gameApi ?: info.api ?: "-")
                     DetailRow("Android", info.androidVersion?.let { "Android $it" } ?: "-")
-                    DetailRow("RAM", info.ramMb?.let { "$it MB" } ?: "-")
+                    DetailRow("RAM", info.ramMb?.let { formatRam(it) } ?: "-")
                 }
             } else {
                 Text(

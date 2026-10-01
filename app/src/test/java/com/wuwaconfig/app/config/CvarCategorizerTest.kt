@@ -2,10 +2,8 @@ package com.wuwaconfig.app.config
 
 import com.wuwaconfig.app.model.CvarCategory
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 class CvarCategorizerTest {
     @Test
@@ -270,26 +268,6 @@ class CvarCategorizerTest {
         assertEquals(CvarCategory.MOBILE, CvarCategorizer.categorize("r.Mobile.Shadow.CSM"))
     }
 
-    /**
-     * The real CVar list lives in app/src/main/assets, which is NOT on the unit-test
-     * classpath (the classpath copy under src/test/resources is a 10-line stub). Gradle runs
-     * unit tests with the working directory set to the module dir, so resolve the asset
-     * relative to that and fall back to the repo root for IDE runners.
-     */
-    private fun realCvarKeys(): List<String> {
-        val candidates =
-            listOf(
-                File("src/main/assets/cvars/libUE4_cvars.txt"),
-                File("app/src/main/assets/cvars/libUE4_cvars.txt"),
-            )
-        val file = candidates.firstOrNull { it.isFile }
-        val cwd = File(".").absolutePath
-        assertNotNull("libUE4_cvars.txt not found; tried ${candidates.map { it.path }} from cwd=$cwd", file)
-        return file!!
-            .readLines()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && !it.startsWith(";") && !it.startsWith("#") }
-            .filter { it.startsWith("r.") }
-            .distinct()
-    }
+    /** Reads the real corpus off disk; see [realCvarCorpusFile] for why. */
+    private fun realCvarKeys(): List<String> = realRenderCvarKeys()
 }

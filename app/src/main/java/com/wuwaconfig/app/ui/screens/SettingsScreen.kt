@@ -457,7 +457,7 @@ fun SettingsScreen(
                             val previewRequest =
                                 remember(imageUri) {
                                     ImageRequest.Builder(ctx)
-                                        .data(if (isLocalOnlyImageUri(imageUri, ctx)) imageUri else null)
+                                        .data(if (isLocalOnlyImageUri(imageUri)) imageUri else null)
                                         .crossfade(true)
                                         .build()
                                 }

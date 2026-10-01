@@ -63,6 +63,10 @@ class HashMonitor(
     }
 
     suspend fun refreshConfigHashes(incrementModifyCount: Boolean = false): Result<String> {
+        // The game's own ceiling for ModifyCount. Clamping to a value the engine
+        // does not expect risks it treating the hash file as tampered, so it is
+        // read from the game profile rather than hardcoded here.
+        val cap = gameProfile().hashModifyCountCap
         if (!hashMonitorEnabled()) {
             LogRepository.add("ConfigManager: HashMonitor disabled — skipping hash sync", LogLevel.WARNING)
             // Success, but unambiguous: nothing was written and the drift detector is
@@ -130,8 +134,8 @@ class HashMonitor(
                                 prevTime = t.removePrefix("LastModifiedTime=").trim()
                             }
                         }
-                        val baseCount = (prevCount?.coerceIn(0, 8)) ?: 0
-                        val displayCount = if (incrementModifyCount) minOf(baseCount + 1, 8) else baseCount
+                        val baseCount = (prevCount?.coerceIn(0, cap)) ?: 0
+                        val displayCount = if (incrementModifyCount) minOf(baseCount + 1, cap) else baseCount
                         updates[name] =
                             mapOf(
                                 "Hash" to hash,

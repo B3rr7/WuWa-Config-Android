@@ -1,5 +1,6 @@
 package com.wuwaconfig.app.config
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -94,20 +95,12 @@ class LogValidationWindowTest {
  * Backup filenames carry the session's start and end stamps, and mtime is not
  * reliable: on the device inspected, seven files shared `2026-09-23 17:34`
  * while their names spanned three weeks.
+ *
+ * These assert against the shipped [backupLogSortKey], not a local copy. An
+ * earlier revision of this file re-implemented the stamp regex locally, which
+ * meant the test would keep passing if the production ordering rule drifted.
  */
 class BackupLogOrderingTest {
-    private fun sortKey(path: String): Long {
-        val m = Regex("""(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2})""").find(path) ?: return 0L
-        val g = m.groupValues
-        val n = IntArray(6) { g[it + 1].toIntOrNull() ?: return 0L }
-        return java.util.Calendar
-            .getInstance()
-            .apply {
-                clear()
-                set(n[0], n[1] - 1, n[2], n[3], n[4], n[5])
-            }.timeInMillis
-    }
-
     private val realNames =
         listOf(
             "Client-backup-2026.09.05-21.13.08-2026.09.05-21.26.29.log",
@@ -119,7 +112,7 @@ class BackupLogOrderingTest {
 
     @Test
     fun `newest session sorts first`() {
-        val sorted = realNames.sortedByDescending(::sortKey)
+        val sorted = realNames.sortedByDescending(::backupLogSortKey)
         assertTrue("newest first, got ${sorted.first()}", sorted.first().contains("2026.09.26-21.49.44"))
     }
 
@@ -128,7 +121,7 @@ class BackupLogOrderingTest {
         // The 2026.09.10 session ran until 2026.09.23 17:34 — the same mtime as six
         // other files on the device — so any mtime-based sort would interleave it
         // arbitrarily. By session start it belongs between the 09-26 and 09-05 logs.
-        val sorted = realNames.sortedByDescending(::sortKey)
+        val sorted = realNames.sortedByDescending(::backupLogSortKey)
         val iSep = sorted.indexOfFirst { it.contains("2026.09.10-20.51.55") }
         val iMay = sorted.indexOfFirst { it.contains("2026.09.05-21.13.08") }
         val iSep26 = sorted.indexOfFirst { it.contains("2026.09.26-21.49.44") }
@@ -140,7 +133,7 @@ class BackupLogOrderingTest {
     fun `a null-prefixed name still sorts by its embedded stamp`() {
         // "Client-backup-null-…" has no session-start stamp but does carry the END
         // stamp, so it must not throw and must not be treated as unparseable.
-        val sorted = realNames.sortedByDescending(::sortKey)
+        val sorted = realNames.sortedByDescending(::backupLogSortKey)
         val idx = sorted.indexOfFirst { it.contains("null-") }
         assertTrue("must still be ordered, not dropped", idx >= 0)
         val iSep = sorted.indexOfFirst { it.contains("2026.09.10-20.51.55") }
@@ -150,13 +143,22 @@ class BackupLogOrderingTest {
 
     @Test
     fun `a name with no stamp at all sorts last without throwing`() {
-        assertTrue("unparseable must sort last", sortKey("Client-backup-garbage.log") == 0L)
+        assertTrue("unparseable must sort last", backupLogSortKey("Client-backup-garbage.log") == 0L)
     }
 
     @Test
     fun `the two sessions on the same day order by time`() {
         val a = "Client-backup-2026.09.26-18.31.20-2026.09.26-18.54.55.log"
         val b = "Client-backup-2026.09.26-21.49.44-2026.09.26-22.13.30.log"
-        assertTrue("later session first", sortKey(b) > sortKey(a))
+        assertTrue("later session first", backupLogSortKey(b) > backupLogSortKey(a))
+    }
+
+    @Test
+    fun `a remote ls path sorts the same as its bare filename`() {
+        // The name arrives from remote `ls`, so it is a full path. Stripping the
+        // directory is part of the contract, not incidental.
+        val bare = "Client-backup-2026.09.26-21.49.44-2026.09.26-22.13.30.log"
+        val remote = "/sdcard/Android/data/com.kurogame.wutheringwaves/files/Logs/$bare"
+        assertEquals(backupLogSortKey(bare), backupLogSortKey(remote))
     }
 }

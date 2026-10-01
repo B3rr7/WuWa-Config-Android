@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.GeneratedIni
 import com.wuwaconfig.app.model.GeneratorOptions
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
@@ -57,14 +58,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-private val ReviewMonitoredFiles =
-    listOf(
-        "Engine.ini",
-        "DeviceProfiles.ini",
-        "GameUserSettings.ini",
-        "Scalability.ini",
-        "Hardware.ini",
-    )
+/** The five generated INIs, from the single source of truth in [GamePaths]. */
+private val ReviewMonitoredFiles = GamePaths.MONITORED_FILES
 
 private val FileAccents = listOf(NeonCyan, NeonPurple, NeonGreen, NeonAmber, NeonPink)
 

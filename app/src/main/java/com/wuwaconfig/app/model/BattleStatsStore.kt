@@ -15,6 +15,8 @@ object BattleStatsStore {
         val timestamp: Long,
     )
 
+    private fun CachedBattleStats.toTimedCache() = TimedCache(stats, timestamp)
+
     /**
      * Callers must already be on a background dispatcher — this performs real
      * file I/O (via writeAtomic's fsync) and is not main-thread safe.
@@ -30,22 +32,12 @@ object BattleStatsStore {
         File(context.filesDir, FILE_NAME).writeAtomic(gson.toJson(cached))
     }
 
-    fun load(context: Context): BattleStats? {
-        val file = File(context.filesDir, FILE_NAME)
-        if (!file.exists()) return null
-        val cached =
-            try {
-                gson.fromJson(file.readText(), CachedBattleStats::class.java)
-            } catch (_: Exception) {
-                null
-            }
-        if (cached == null) return null
-        if (System.currentTimeMillis() - cached.timestamp > CACHE_TTL_MS) {
-            file.delete()
-            return null
-        }
-        return cached.stats
-    }
+    fun load(context: Context): BattleStats? =
+        readFreshCache(
+            File(context.filesDir, FILE_NAME),
+            ttlMs = CACHE_TTL_MS,
+            now = System.currentTimeMillis(),
+        ) { text -> gson.fromJson(text, CachedBattleStats::class.java)?.toTimedCache() }
 
     fun clear(context: Context) {
         File(context.filesDir, FILE_NAME).delete()

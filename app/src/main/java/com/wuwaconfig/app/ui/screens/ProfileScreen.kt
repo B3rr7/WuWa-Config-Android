@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.backend.BackendStatus
+import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.ui.ProfileViewModel
 import com.wuwaconfig.app.ui.components.BouncingOrb
@@ -31,6 +32,7 @@ import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
+import com.wuwaconfig.app.ui.components.formatRam
 import com.wuwaconfig.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -337,7 +339,7 @@ private fun DeviceSection(profile: PlayerProfile) {
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoChip(Icons.Default.Storage, "RAM", profile.ramMb?.let { "${it / 1024} GB" } ?: "—", NeonPink, Modifier.weight(1f))
+            InfoChip(Icons.Default.Storage, "RAM", profile.ramMb?.let { formatRam(it) } ?: "—", NeonPink, Modifier.weight(1f))
             InfoChip(Icons.Default.Android, "Android", profile.androidVersion ?: "—", NeonGreen, Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
@@ -489,7 +491,7 @@ private fun ConfigSummarySection(
             Spacer(Modifier.height(10.dp))
             Text("MODIFICATIONS", style = MaterialTheme.typography.labelMedium, color = NeonPink.copy(alpha = 0.7f), letterSpacing = 2.sp)
             Spacer(Modifier.height(8.dp))
-            val allFiles = listOf("Engine.ini", "DeviceProfiles.ini", "GameUserSettings.ini", "Scalability.ini", "Hardware.ini")
+            val allFiles = GamePaths.MONITORED_FILES
             for (fileName in allFiles) {
                 val count = configModifyCounts[fileName] ?: 0
                 Row(
