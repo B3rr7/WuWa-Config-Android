@@ -82,67 +82,7 @@ class BackupStore(
             }
         }
 
-    fun getLocalBackups(): List<ConfigBackup> {
-        val privateBackups =
-            if (backupDir.exists()) {
-                backupDir.listFiles()
-                    ?.filter { it.extension == "json" }
-                    ?.mapNotNull { file ->
-                        try {
-                            gson.fromJson(file.readText(), ConfigBackup::class.java)
-                        } catch (_: Exception) {
-                            null
-                        }
-                    }
-                    ?: emptyList()
-            } else {
-                emptyList()
-            }
-
-        val privateNames = privateBackups.map { it.name }.toSet()
-        // Public copies of private backups share the backup's data, so they must
-        // not be listed again — match both the id-suffixed dir that
-        // exportPublicCopy creates and the unsuffixed legacy layout.
-        val privateDirNames =
-            privateBackups
-                .flatMap { listOf(sanitizeDirName(it.name), publicDirName(it)) }
-                .toSet()
-        val publicBackupsDir = File(publicDir, "Backups")
-        val publicBackups =
-            if (publicBackupsDir.exists()) {
-                publicBackupsDir.listFiles()
-                    ?.filter { it.isDirectory }
-                    ?.filter { dir -> dir.listFiles()?.any { f -> f.extension == "ini" } == true }
-                    ?.filter { dir -> dir.name !in privateNames && dir.name !in privateDirNames }
-                    ?.mapNotNull { dir ->
-                        try {
-                            val iniFiles =
-                                dir.listFiles()
-                                    ?.filter { it.extension == "ini" }
-                                    ?.sortedBy { it.name }
-                                    ?.map { f ->
-                                        ConfigFile(name = f.name, content = f.readText())
-                                    }
-                                    ?: emptyList()
-                            if (iniFiles.isEmpty()) return@mapNotNull null
-                            ConfigBackup(
-                                id = UUID.nameUUIDFromBytes(dir.absolutePath.toByteArray()).toString(),
-                                name = dir.name,
-                                timestamp = dir.lastModified().coerceAtLeast(1L),
-                                files = iniFiles,
-                                type = "legacy",
-                            )
-                        } catch (_: Exception) {
-                            null
-                        }
-                    }
-                    ?: emptyList()
-            } else {
-                emptyList()
-            }
-
-        return (privateBackups + publicBackups).sortedByDescending { it.timestamp }
-    }
+    fun getLocalBackups(): List<ConfigBackup> = listBackups(backupDir, publicDir, gson)
 
     /**
      * Best-effort export of the backup into Downloads. The private copy is the
@@ -179,7 +119,114 @@ class BackupStore(
     }
 
     /** Id-suffixed so distinct names sanitizing to the same string stay distinct. */
-    private fun publicDirName(backup: ConfigBackup): String = sanitizeDirName(backup.name) + "_" + backup.id.take(8)
+    private fun publicDirName(backup: ConfigBackup): String = Companion.sanitizeDirName(backup.name) + "_" + backup.id.take(8)
 
-    private fun sanitizeDirName(name: String): String = name.replace(Regex("""[<>:"/\\|?*]"""), "_").take(100)
+    companion object {
+        /**
+         * Lists backups from the private store and the public mirror, newest first.
+         *
+         * Extracted from [getLocalBackups] so the ordering and the de-duplication
+         * can be tested. That logic was previously only reachable through a
+         * constructed BackupStore, which needs a Context and an AccessBackend — and
+         * the public half additionally needs `Environment`, which is not stubbed.
+         * The listing itself is pure `File` work, so it was the one part of this
+         * class that could be pinned without a device.
+         *
+         * Two rules matter and are easy to get wrong:
+         *
+         *  - **Ordering is by `timestamp`, descending.** The private JSONs carry a
+         *    real timestamp; the public "legacy" dirs fall back to the directory's
+         *    mtime, which is why a bulk restore can interleave them.
+         *  - **A public copy of a private backup is not listed again.** They share
+         *    the backup's data, so listing both shows one backup twice. Both the
+         *    id-suffixed directory `exportPublicCopy` creates and the unsuffixed
+         *    legacy layout are matched, because older versions wrote the latter.
+         *
+         * Corrupt JSON is skipped rather than failing the listing: one truncated
+         * file must not hide every other backup.
+         */
+        internal fun listBackups(
+            backupDir: File,
+            publicDir: File,
+            gson: Gson = Gson(),
+        ): List<ConfigBackup> {
+            val privateBackups =
+                if (backupDir.exists()) {
+                    backupDir.listFiles()
+                        ?.filter { it.extension == "json" }
+                        ?.mapNotNull { file ->
+                            try {
+                                gson.fromJson(file.readText(), ConfigBackup::class.java)
+                            } catch (_: Exception) {
+                                null
+                            }
+                        }
+                        ?: emptyList()
+                } else {
+                    emptyList()
+                }
+
+            val privateNames = privateBackups.map { it.name }.toSet()
+            val privateDirNames =
+                privateBackups
+                    .flatMap { listOf(sanitizeDirName(it.name), sanitizeDirName(it.name) + "_" + it.id.take(8)) }
+                    .toSet()
+            val publicBackupsDir = File(publicDir, "Backups")
+            val publicBackups =
+                if (publicBackupsDir.exists()) {
+                    publicBackupsDir.listFiles()
+                        ?.filter { it.isDirectory }
+                        ?.filter { dir -> dir.listFiles()?.any { f -> f.extension == "ini" } == true }
+                        ?.filter { dir -> dir.name !in privateNames && dir.name !in privateDirNames }
+                        ?.mapNotNull { dir ->
+                            try {
+                                val iniFiles =
+                                    dir.listFiles()
+                                        ?.filter { it.extension == "ini" }
+                                        ?.sortedBy { it.name }
+                                        // Per file, not per directory: the private half
+                                        // above already tolerates one unreadable JSON,
+                                        // and a single bad INI (a directory named
+                                        // "x.ini", a permission denial) must not drop
+                                        // the whole backup from the listing.
+                                        ?.mapNotNull { f ->
+                                            try {
+                                                ConfigFile(name = f.name, content = f.readText())
+                                            } catch (_: Exception) {
+                                                null
+                                            }
+                                        }
+                                        ?: emptyList()
+                                if (iniFiles.isEmpty()) return@mapNotNull null
+                                ConfigBackup(
+                                    id = UUID.nameUUIDFromBytes(dir.absolutePath.toByteArray()).toString(),
+                                    name = dir.name,
+                                    timestamp = dir.lastModified().coerceAtLeast(1L),
+                                    files = iniFiles,
+                                    type = "legacy",
+                                )
+                            } catch (_: Exception) {
+                                null
+                            }
+                        }
+                        ?: emptyList()
+                } else {
+                    emptyList()
+                }
+
+            return (privateBackups + publicBackups).sortedByDescending { it.timestamp }
+        }
+
+        /**
+         * The de-duplication key for a backup's public directory.
+         *
+         * Lives in the companion rather than as a member so it is callable without
+         * constructing a BackupStore — which needs a Context and an AccessBackend.
+         * That matters because it is half of the rule that keeps a backup from
+         * being listed twice: [listBackups] matches a public directory against
+         * both this and the unsuffixed form, so the sanitisation has to be pinned
+         * directly rather than only observed through the listing.
+         */
+        internal fun sanitizeDirName(name: String): String = name.replace(Regex("""[<>:"/\\|?*]"""), "_").take(100)
+    }
 }
