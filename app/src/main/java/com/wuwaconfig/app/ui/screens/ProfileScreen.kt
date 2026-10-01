@@ -33,6 +33,7 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
 import com.wuwaconfig.app.ui.components.formatRam
+import com.wuwaconfig.app.ui.modifyCountLabel
 import com.wuwaconfig.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -193,7 +194,7 @@ private fun BadgeItem(
 @Composable
 private fun ProfileContent(
     profile: PlayerProfile,
-    configModifyCounts: Map<String, Int>,
+    configModifyCounts: Map<String, Int>?,
 ) {
     GameProgressSection(profile)
     GameInfoSection(profile)
@@ -454,7 +455,7 @@ private fun DiagnosticRow(
 @Composable
 private fun ConfigSummarySection(
     profile: PlayerProfile,
-    configModifyCounts: Map<String, Int>,
+    configModifyCounts: Map<String, Int>?,
 ) {
     GlassCard(accentColor = NeonPink) {
         SectionHeader("CONFIG SUMMARY", NeonPink)
@@ -485,15 +486,25 @@ private fun ConfigSummarySection(
         Spacer(Modifier.height(8.dp))
         ConfigBar("Hardware.ini", profile.hardwareSettingCount, maxCount, Color(0xFFAA88FF))
 
-        if (configModifyCounts.isNotEmpty()) {
-            Spacer(Modifier.height(14.dp))
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NeonPink.copy(alpha = 0.15f)))
-            Spacer(Modifier.height(10.dp))
-            Text("MODIFICATIONS", style = MaterialTheme.typography.labelMedium, color = NeonPink.copy(alpha = 0.7f), letterSpacing = 2.sp)
-            Spacer(Modifier.height(8.dp))
+        // Always rendered. A block that vanishes and reappears reads as a
+        // rendering glitch; an explicit "unavailable" line reads as missing data.
+        Spacer(Modifier.height(14.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NeonPink.copy(alpha = 0.15f)))
+        Spacer(Modifier.height(10.dp))
+        Text("MODIFICATIONS", style = MaterialTheme.typography.labelMedium, color = NeonPink.copy(alpha = 0.7f), letterSpacing = 2.sp)
+        Spacer(Modifier.height(8.dp))
+        if (configModifyCounts == null) {
+            Text(
+                "Unavailable — the device hash file could not be read.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
             val allFiles = GamePaths.MONITORED_FILES
             for (fileName in allFiles) {
-                val count = configModifyCounts[fileName] ?: 0
+                // Absent from the hash file means the game has not touched this
+                // INI, which is not the same as a measured zero.
+                val count = configModifyCounts[fileName]
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -502,14 +513,14 @@ private fun ConfigSummarySection(
                     Text(fileName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "$count",
+                            modifyCountLabel(configModifyCounts, fileName),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold,
-                            color = if (count > 0) NeonAmber else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            color = if ((count ?: 0) > 0) NeonAmber else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            "× modified",
+                            if (count == null) "not modified by the game" else "× modified",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         )
