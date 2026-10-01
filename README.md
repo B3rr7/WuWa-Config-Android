@@ -292,8 +292,8 @@ app/src/main/java/com/wuwaconfig/app/
 │
 ├── backend/                      the four ways to reach the game's files
 │   ├── AccessBackend.kt          AccessMethod enum, BackendStatus, the interface itself
-│   ├── AdbBackend.kt             base64-chunked push over AdbClient, run-as fallback on denial
-│   ├── ShizukuBackend.kt         Shizuku UserService IPC, 60s timeout, script-file fallback
+│   ├── AdbBackend.kt             base64-chunked push over AdbClient, wireless pairing, run-as fallback on denial
+│   ├── ShizukuBackend.kt         Shizuku UserService IPC, 45s bind (retried), 75s calls, script-file fallback
 │   ├── RootBackend.kt            su -c, 10s timeout
 │   ├── SafBackend.kt             DocumentFile over a persistable tree URI — no shell
 │   └── ShellUtils.kt             shQuote, computeMd5, runAsCommand, PUSH_RETRY_COUNT
