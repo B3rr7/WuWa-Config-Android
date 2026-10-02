@@ -13,6 +13,7 @@ import com.wuwaconfig.app.model.LogAnalysisStore
 import com.wuwaconfig.app.model.LogInfo
 import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
+import com.wuwaconfig.app.util.formatBytes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -118,7 +119,7 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
                     _readingProgress.value = 60
                     val (text, report) = result.getOrThrow()
                     addLog("Encrypted log detected; decrypted successfully.")
-                    addLog("Read ${report.used.size} log file(s), ${"%.1f".format(report.bytesRead / 1024.0 / 1024.0)} MB, newest first:")
+                    addLog("Read ${report.used.size} log file(s), ${formatBytes(report.bytesRead)}, newest first:")
                     report.used.take(6).forEach { addLog("  + $it") }
                     if (report.skipped.isNotEmpty()) {
                         addLog("Skipped ${report.skipped.size}: ${report.skipped.take(3).joinToString("; ")}", LogLevel.WARNING)

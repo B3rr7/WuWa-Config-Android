@@ -12,6 +12,7 @@ import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.model.VerificationReport
+import com.wuwaconfig.app.util.formatBytes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -312,9 +313,8 @@ class ProfileExtractor(
         val bytesRead: Long,
     ) {
         fun summary(): String =
-            "Merged ${used.size} log(s), ${
-                "%.1f".format(bytesRead / 1024.0 / 1024.0)
-            } MB" + if (skipped.isEmpty()) "" else " (skipped ${skipped.size})"
+            "Merged ${used.size} log(s), ${formatBytes(bytesRead)}" +
+                if (skipped.isEmpty()) "" else " (skipped ${skipped.size})"
     }
 
     /**
