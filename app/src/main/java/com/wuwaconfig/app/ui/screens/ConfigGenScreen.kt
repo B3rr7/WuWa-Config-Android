@@ -77,6 +77,8 @@ fun ConfigGenScreen(
     val readingProgress = if (analysisProgress > 0) analysisProgress else deployReadingProgress
     val logInfo by insightsViewModel.logAnalysis.collectAsStateWithLifecycle()
     val brain by insightsViewModel.brainRecommendation.collectAsStateWithLifecycle()
+    val analysisFromCache by insightsViewModel.analysisFromCache.collectAsStateWithLifecycle()
+    val analysisAgeHours by insightsViewModel.analysisAgeHours.collectAsStateWithLifecycle()
     val deployResult by deployHistoryViewModel.deployResult.collectAsStateWithLifecycle()
     val verificationReport by deployHistoryViewModel.verificationReport.collectAsStateWithLifecycle()
     val colorful by viewModel.colorfulUi.collectAsStateWithLifecycle()
@@ -252,6 +254,8 @@ fun ConfigGenScreen(
                         readingProgress = readingProgress,
                         logInfo = logInfo,
                         brain = brain,
+                        analysisFromCache = analysisFromCache,
+                        analysisAgeHours = analysisAgeHours,
                         allowRestrictedCvars = allowRestrictedCvars,
                         onAnalyzeDevice = { insightsViewModel.analyzeClientLog(allowRestrictedCvars) },
                         onImportLog = { logPickerLauncher.launch(arrayOf("*/*")) },
@@ -416,8 +420,13 @@ fun ConfigGenScreen(
                                             generateEngine = generateEngine, generateDeviceProfiles = generateDeviceProfiles,
                                             generateGameUserSettings = generateGameUserSettings, generateScalability = generateScalability,
                                             generateHardware = generateHardware, allowRestrictedCvars = allowRestrictedCvars,
-                                            importFromLog = !userChangedPreset && selectedPreset == brain?.preset,
-                                            useAdvancedGen = useAdvancedGen || (logInfo != null && !userChangedPreset && selectedPreset == brain?.preset),
+                                            // A cached analysis is up to 24h stale, so it must not
+                                            // silently re-enable advanced tuning the user
+                                            // switched off, and its CVars must not be merged
+                                            // into a fresh Engine.ini. Both were gated on
+                                            // `logInfo != null`, which the cache satisfies.
+                                            importFromLog = !analysisFromCache && !userChangedPreset && selectedPreset == brain?.preset,
+                                            useAdvancedGen = useAdvancedGen || (!analysisFromCache && logInfo != null && !userChangedPreset && selectedPreset == brain?.preset),
                                             optimizeWithCvarDb = optimizeWithCvarDb,
                                             disableAutoAdjust = disableAutoAdjust,
                                             enableGSR = enableGSR,
@@ -673,6 +682,8 @@ private fun AnalysisPanel(
     readingProgress: Int,
     logInfo: com.wuwaconfig.app.model.LogInfo?,
     brain: com.wuwaconfig.app.config.BrainRecommendation?,
+    analysisFromCache: Boolean,
+    analysisAgeHours: Long?,
     allowRestrictedCvars: Boolean = true,
     onAnalyzeDevice: () -> Unit,
     onImportLog: () -> Unit,
@@ -689,7 +700,19 @@ private fun AnalysisPanel(
                             val pct = readingProgress
                             if (pct > 0) "Reading log ($pct%)..." else "Analyzing..."
                         }
-                        logInfo != null -> "Loaded — ${logInfo.gpu ?: "?"} • ${logInfo.ramMb?.let { formatRam(it) } ?: "?"}"
+                        logInfo != null ->
+                            buildString {
+                                if (analysisFromCache) {
+                                    append("Cached")
+                                    analysisAgeHours?.let { append(" ${it}h ago") }
+                                    append(" — ")
+                                } else {
+                                    append("Loaded — ")
+                                }
+                                append(logInfo.gpu ?: "?")
+                                append(" • ")
+                                append(logInfo.ramMb?.let { formatRam(it) } ?: "?")
+                            }
                         else -> "Analyze from device or import an encrypted Client.log file."
                     },
                     style = MaterialTheme.typography.bodySmall,
