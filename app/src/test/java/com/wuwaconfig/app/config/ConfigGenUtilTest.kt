@@ -1,6 +1,9 @@
 package com.wuwaconfig.app.config
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConfigGenUtilTest {
@@ -100,5 +103,73 @@ class ConfigGenUtilTest {
         val ini = "r.ScreenPercentage=100\n; comment\nr.ScreenPercentage=90"
         val out = applyCvarOverrides(ini, mapOf("r.screenpercentage" to "75"))
         assertEquals("r.ScreenPercentage=75\n; comment\nr.ScreenPercentage=75", out)
+    }
+
+    @Test
+    fun `drift is null when the device block matches the default`() {
+        assertNull(coreSystemDrift(DEFAULT_CORE, DEFAULT_CORE))
+    }
+
+    @Test
+    fun `a path the device mounts but the default omits is reported`() {
+        // This is the case that motivates the externalisation: the bundled
+        // inventory is stale and the new plugin's content would not mount.
+        val device = DEFAULT_CORE + "Paths=../../../Engine/Plugins/NewPlugin/Content"
+        val drift = coreSystemDrift(device, DEFAULT_CORE)
+        assertNotNull(drift)
+        assertTrue(drift!!.contains("NewPlugin"))
+        assertTrue(drift.contains("1 path(s) on device"))
+    }
+
+    @Test
+    fun `a default path the device does not mount is reported separately`() {
+        // Normal after a plugin is removed upstream; reported, but not as the
+        // failure direction, because the default is a deliberate superset.
+        val device = DEFAULT_CORE.filterNot { it.contains("NRD") }
+        val drift = coreSystemDrift(device, DEFAULT_CORE)
+        assertNotNull(drift)
+        assertTrue(drift!!.contains("harmless"))
+    }
+
+    @Test
+    fun `both directions are reported together`() {
+        val device = DEFAULT_CORE.filterNot { it.contains("NRD") } + "Paths=../../../Engine/Plugins/NewPlugin/Content"
+        val drift = coreSystemDrift(device, DEFAULT_CORE)
+        assertNotNull(drift)
+        assertTrue(drift!!.contains("NewPlugin"))
+        assertTrue(drift.contains("harmless"))
+    }
+
+    @Test
+    fun `drift detection ignores whitespace and ordering`() {
+        // Index 0 is the header by construction, both from the asset and from
+        // extractCoreSystemPaths, so only the Paths= entries may be reordered.
+        val shuffled = listOf(DEFAULT_CORE.first()) + DEFAULT_CORE.drop(1).reversed().map { "  ${it.trim()}  " }
+        assertNull(coreSystemDrift(shuffled, DEFAULT_CORE))
+    }
+
+    @Test
+    fun `an unreadable or blockless engine ini falls back to the default`() {
+        assertEquals(DEFAULT_CORE, extractCoreSystemPaths(null, DEFAULT_CORE))
+        assertEquals(DEFAULT_CORE, extractCoreSystemPaths("", DEFAULT_CORE))
+        assertEquals(DEFAULT_CORE, extractCoreSystemPaths("[SystemSettings]\nx=1", DEFAULT_CORE))
+        // A [Core.System] header with no Paths= lines is not a usable block.
+        assertEquals(DEFAULT_CORE, extractCoreSystemPaths("[Core.System]\n", DEFAULT_CORE))
+    }
+
+    @Test
+    fun `a device block is returned verbatim including unknown paths`() {
+        val ini = "[Core.System]\nPaths=../../../Engine/Content\nPaths=../../../Engine/Plugins/NewPlugin/Content\n[SystemSettings]\nx=1"
+        val extracted = extractCoreSystemPaths(ini, DEFAULT_CORE)
+        assertEquals(listOf("[Core.System]", "Paths=../../../Engine/Content", "Paths=../../../Engine/Plugins/NewPlugin/Content"), extracted)
+    }
+
+    private companion object {
+        val DEFAULT_CORE =
+            listOf(
+                "[Core.System]",
+                "Paths=../../../Engine/Content",
+                "Paths=../../../Engine/Plugins/Runtime/Nvidia/NRD/Content",
+            )
     }
 }
