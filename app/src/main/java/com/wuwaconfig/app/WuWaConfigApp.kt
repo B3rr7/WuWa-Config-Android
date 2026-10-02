@@ -16,6 +16,7 @@ import com.wuwaconfig.app.config.CvarDatabase
 import com.wuwaconfig.app.config.DeployHistoryStore
 import com.wuwaconfig.app.config.GameProfile
 import com.wuwaconfig.app.config.ProfileStore
+import com.wuwaconfig.app.config.TuningProfile
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.service.ShellUserService
@@ -136,6 +137,9 @@ class WuWaConfigApp : Application() {
         // editing a file rather than recompiling. Must run before anything reads
         // GamePaths, and before CvarDatabase so the two can be cross-checked.
         GameProfile.load(assets)
+        // Nested tuning data (presets, classifiers, plugin paths). Separate asset
+        // from game_profile.properties because it is not flat.
+        TuningProfile.load(assets)
         cvarDatabase = CvarDatabase(assets)
         configGenerator = ConfigGenerator(cvarDatabase)
         // Disk stats + Downloads listing have no business on the main thread.

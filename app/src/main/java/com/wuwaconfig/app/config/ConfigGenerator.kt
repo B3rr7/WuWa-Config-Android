@@ -59,49 +59,21 @@ data class PostProcessedIni(
         )
 }
 
-val PRESETS =
-    mapOf(
-        "potato" to
-            PresetProfile(
-                screen = 60, shadow = 0, shadowRes = 128, ssr = 0, mipbias = 3,
-                streaming = 0.3, vd = 0.3, flod = 0.4, detail = 0, lod_bias = 5, grasscull = 1500, characterDetail = 0, postProcess = 0, staticLighting = false, cutsceneQuality = 0,
-            ),
-        "endurance" to
-            PresetProfile(
-                screen = 70, shadow = 0, shadowRes = 128, ssr = 0, mipbias = 3,
-                streaming = 0.4, vd = 0.4, flod = 0.5, detail = 1, lod_bias = 4, grasscull = 2500, characterDetail = 0, postProcess = 0, staticLighting = false, cutsceneQuality = 0,
-            ),
-        "performance" to
-            PresetProfile(
-                screen = 60, shadow = 0, shadowRes = 256, ssr = 0, mipbias = 3,
-                streaming = 0.5, vd = 0.5, flod = 0.6, detail = 2, lod_bias = 3, grasscull = 4500, characterDetail = 1, postProcess = 1, staticLighting = false, cutsceneQuality = 1,
-            ),
-        "competitive" to
-            PresetProfile(
-                screen = 100, shadow = 2, shadowRes = 256, ssr = 0, mipbias = 1,
-                streaming = 1.0, vd = 2.0, flod = 1.0, detail = 3, lod_bias = 1, grasscull = 2000, characterDetail = 1, postProcess = 1, staticLighting = false, cutsceneQuality = 1,
-            ),
-        "balanced" to
-            PresetProfile(
-                screen = 80, shadow = 2, shadowRes = 1024, ssr = 1, mipbias = 0,
-                streaming = 2.0, vd = 1.5, flod = 2.0, detail = 4, lod_bias = 0, grasscull = 15000, characterDetail = 2, postProcess = 2, staticLighting = true, cutsceneQuality = 2,
-            ),
-        "high" to
-            PresetProfile(
-                screen = 100, shadow = 4, shadowRes = 2048, ssr = 2, mipbias = 0,
-                streaming = 3.0, vd = 2.0, flod = 2.5, detail = 5, lod_bias = 0, grasscull = 20000, characterDetail = 2, postProcess = 2, staticLighting = true, cutsceneQuality = 2,
-            ),
-        "ultra" to
-            PresetProfile(
-                screen = 100, shadow = 5, shadowRes = 2048, ssr = 4, mipbias = -1,
-                streaming = 4.0, vd = 3.0, flod = 3.0, detail = 6, lod_bias = -1, grasscull = 30000, characterDetail = 3, postProcess = 3, staticLighting = true, cutsceneQuality = 3,
-            ),
-        "cinematic" to
-            PresetProfile(
-                screen = 100, shadow = 5, shadowRes = 4096, ssr = 4, mipbias = -2,
-                streaming = 6.0, vd = 4.0, flod = 4.0, detail = 7, lod_bias = -2, grasscull = 40000, characterDetail = 3, postProcess = 3, staticLighting = true, cutsceneQuality = 3,
-            ),
-    )
+/**
+ * The eight presets and their per-field tuning, from [TuningProfile].
+ *
+ * A getter rather than a `val` so it always reflects the loaded asset. The
+ * compiled-in defaults in [TuningProfile.DEFAULT_PRESETS] are identical, so a
+ * caller that runs before `WuWaConfigApp.onCreate` has loaded the asset still
+ * gets today's presets.
+ *
+ * Externalised because a retune is currently a recompile: the streaming
+ * multiplier, grasscull distance and detail rank are the highest-volume tuning
+ * data in the app, and they are exactly the values a game patch or a
+ * community retune would want to change.
+ */
+val PRESETS: Map<String, PresetProfile>
+    get() = TuningProfile.get().presets
 
 class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
     fun extractCvarNames(iniText: String): Set<String> = com.wuwaconfig.app.config.extractCvarNames(iniText)
