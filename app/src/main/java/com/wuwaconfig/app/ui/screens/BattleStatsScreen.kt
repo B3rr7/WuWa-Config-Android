@@ -31,6 +31,7 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
 import com.wuwaconfig.app.ui.theme.*
+import com.wuwaconfig.app.util.formatBytes
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -270,14 +271,6 @@ private fun StatCell(
         Spacer(Modifier.height(2.dp))
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = accent)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-    }
-}
-
-private fun formatBytes(bytes: Long): String {
-    return when {
-        bytes >= 1_000_000 -> "${"%.1f".format(bytes / 1_000_000.0)} MB"
-        bytes >= 1_000 -> "${"%.1f".format(bytes / 1_000.0)} KB"
-        else -> "$bytes B"
     }
 }
 
