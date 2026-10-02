@@ -296,9 +296,8 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         val npcDist: Int,
     ) {
         companion object {
-            private val HIGH_END = TierValues(800, 16, 8000, 384, 14000, 18000, 15000)
-            private val MID = TierValues(500, 8, 6000, 256, 10000, 13000, 10000)
-            private val LOW = TierValues(380, 4, 4000, 192, 7000, 9000, 7000)
+            private val deviceTierValues: Map<String, TuningProfile.TierValues>
+                get() = TuningProfile.get().deviceTierValues
 
             private data class TierValues(
                 val streamPool: Int,
@@ -316,19 +315,21 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 hasThermalIssues: Boolean,
             ): DeviceTier {
                 val values =
-                    if (isHighEnd) {
-                        HIGH_END
-                    } else if (isMid) {
-                        MID
-                    } else {
-                        LOW
-                    }
-                val grassCull =
+                    deviceTierValues.getValue(
+                        when {
+                            isHighEnd -> "high_end"
+                            isMid -> "mid"
+                            else -> "low"
+                        },
+                    )
+                // A thermally-throttled mid-tier device culls far more aggressively
+                // than a healthy one, which is why "mid_thermal" is its own class.
+                val grassClass =
                     when {
-                        isHighEnd -> 2000
-                        isMid && hasThermalIssues -> 600
-                        isMid -> 1200
-                        else -> 800
+                        isHighEnd -> "high_end"
+                        isMid && hasThermalIssues -> "mid_thermal"
+                        isMid -> "mid"
+                        else -> "low"
                     }
                 return DeviceTier(
                     isHighEnd = isHighEnd,
@@ -340,7 +341,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                     skinCacheMem = values.skinCacheMem,
                     ismDist = values.ismDist,
                     ismRad = values.ismRad,
-                    grassCull = grassCull,
+                    grassCull = TuningProfile.get().grassCullByClass.getValue(grassClass),
                     npcDist = values.npcDist,
                 )
             }
@@ -361,7 +362,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
     }
 
     private companion object {
-        private const val GRASSCULL_TIER_CEILING_MULT = 20
+        /** Safety ceiling: a preset may not exceed this multiple of its tier budget. */
+        private val grasscullTierCeilingMult: Int
+            get() = TuningProfile.get().grasscullTierCeilingMult
 
         // High-end: Adreno 740+/8xx (720/725/735 are upper-mid), Mali G72+ (not ancient G71).
         private val highEndGpuPatterns: List<Regex>
@@ -696,7 +699,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         // Preset-tuned grasscull is the target cull distance; the device tier supplies a
         // safety ceiling (×GRASSCULL_TIER_CEILING_MULT of its own cull budget) so a
         // cinematic preset on a weak phone is clamped instead of exploding draw distance.
-        val grassBase = minOf(p.grasscull, dt.grassCull * GRASSCULL_TIER_CEILING_MULT)
+        val grassBase = minOf(p.grasscull, dt.grassCull * grasscullTierCeilingMult)
         val foliageLod = p.flod.coerceIn(0.3, 5.0)
         lines.add("r.ViewDistanceScale=$viewDistance")
         lines.add("r.Kuro.MobileISMDecideDistance=${dt.ismDist}.0")
@@ -1334,6 +1337,11 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
     }
 
     private fun buildAndroidScalabilityIni(p: PresetProfile): String {
+        // The in-game label for a Kuro quality level. Externalised because it is
+        // localised game-facing text: a patch can change the wording without any
+        // CVar being renamed, and the CVar database cannot detect that. The
+        // fallback keeps a non-empty name rather than blanking the in-game option.
+        fun kuroLevelName(level: Int): String = TuningProfile.get().kuroLevelName(level, "画质$level")
         val viewQ =
             if (p.q1) {
                 3
@@ -1435,7 +1443,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 listOf("", "[ShadingQuality@3]", "r.HairStrands.SkyAO.SampleCount=4", "r.HairStrands.SkyLighting.IntegrationType=2", "r.HairStrands.Visibility.MSAA.SamplePerPixel=4"),
                 listOf(
                     "", "[KuroRenderQuality@1]",
-                    "KuroRenderQuality.LevelName=均衡",
+                    "KuroRenderQuality.LevelName=${kuroLevelName(1)}",
                     "r.StaticMeshLODDistanceScale=2",
                     "r.ScreenSizeCullRatioFactor=80",
                     "r.DrawKuroPPLensflare=1",
@@ -1450,7 +1458,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 ),
                 listOf(
                     "", "[KuroRenderQuality@2]",
-                    "KuroRenderQuality.LevelName=画质优先偏性能",
+                    "KuroRenderQuality.LevelName=${kuroLevelName(2)}",
                     "r.StaticMeshLODDistanceScale=1.5",
                     "r.ScreenSizeCullRatioFactor=60",
                     "r.DrawKuroPPLensflare=1",
@@ -1465,7 +1473,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 ),
                 listOf(
                     "", "[KuroRenderQuality@0]",
-                    "KuroRenderQuality.LevelName=极致性能",
+                    "KuroRenderQuality.LevelName=${kuroLevelName(0)}",
                     "r.StaticMeshLODDistanceScale=3",
                     "r.ScreenSizeCullRatioFactor=150",
                     "r.DrawKuroPPLensflare=0",
@@ -1480,7 +1488,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 ),
                 listOf(
                     "", "[KuroRenderQuality@3]",
-                    "KuroRenderQuality.LevelName=画质优先",
+                    "KuroRenderQuality.LevelName=${kuroLevelName(3)}",
                     "r.StaticMeshLODDistanceScale=1",
                     "r.ScreenSizeCullRatioFactor=40",
                     "r.DrawKuroPPLensflare=1",
@@ -1495,7 +1503,7 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 ),
                 listOf(
                     "", "[KuroLocalRenderQuality@0]",
-                    "KuroRenderQuality.LevelName=极致性能",
+                    "KuroRenderQuality.LevelName=${kuroLevelName(0)}",
                     "r.StaticMeshLODDistanceScale=3",
                     "r.ScreenSizeCullRatioFactor=150",
                     "r.DrawKuroPPLensflare=0",

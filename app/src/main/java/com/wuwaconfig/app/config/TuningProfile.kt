@@ -72,6 +72,126 @@ class TuningProfile internal constructor(
     val midGpuPatterns: List<Regex> = root.regexList("midGpuPatterns", DEFAULT_MID_GPU_PATTERNS)
 
     /**
+     * Per-tier geometry budgets (stream pool, aniso, capture distance, …).
+     *
+     * Keyed `high_end`/`mid`/`low`, matching [ConfigGenerator.DeviceTier]'s
+     * branches.
+     */
+    val deviceTierValues: Map<String, TierValues> =
+        root.getAsJsonObject("deviceTierValues")
+            ?.entrySet()
+            ?.mapNotNull { (tier, value) ->
+                val o = value.asJsonObject
+                tierValues(o)?.let { tier to it }
+            }?.toMap()
+            ?.takeIf { it.size == DEFAULT_DEVICE_TIER_VALUES.size }
+            ?: DEFAULT_DEVICE_TIER_VALUES
+
+    /**
+     * Grass cull distance per device class, in metres.
+     *
+     * The keys are the four cases the `when` in `DeviceTier.fromTier` handles.
+     * Note `mid_thermal` is separate from `mid`: a thermally-throttled mid-tier
+     * device culls far more aggressively than a healthy one.
+     */
+    val grassCullByClass: Map<String, Int> =
+        root.getAsJsonObject("grassCullByClass")
+            ?.entrySet()
+            ?.mapNotNull { (k, v) -> v.takeIf { it.isJsonPrimitive }?.asInt?.let { k to it } }
+            ?.toMap()
+            ?.takeIf { it.keys.containsAll(DEFAULT_GRASS_CULL_BY_CLASS.keys) }
+            ?: DEFAULT_GRASS_CULL_BY_CLASS
+
+    /** Safety ceiling: a preset may not exceed this multiple of its tier's cull budget. */
+    val grasscullTierCeilingMult: Int =
+        root.getAsJsonObject("grasscullTier")?.int("ceilingMult", DEFAULT_GRASSCULL_TIER_CEILING_MULT)
+            ?: DEFAULT_GRASSCULL_TIER_CEILING_MULT
+
+    /**
+     * The Chinese `KuroRenderQuality.LevelName` shown in the in-game settings UI,
+     * keyed by the numeric quality level (`0`–`3`).
+     *
+     * These are localised game-facing strings, so they are the one table where a
+     * game patch can legitimately change them without any CVar being renamed —
+     * and a wrong value here is invisible to the CVar database. [unknownLevel]
+     * covers a level the asset does not name, because emitting an empty name
+     * would blank the in-game option.
+     */
+    val kuroQualityLevelNames: Map<String, String> =
+        root.getAsJsonObject("kuroQualityLevelNames")
+            ?.entrySet()
+            ?.mapNotNull { (k, v) -> v.takeIf { it.isJsonPrimitive }?.asString?.let { k to it } }
+            ?.toMap()
+            ?.takeIf { it.keys.containsAll(DEFAULT_KURO_QUALITY_LEVEL_NAMES.keys) }
+            ?: DEFAULT_KURO_QUALITY_LEVEL_NAMES
+
+    fun kuroLevelName(
+        level: Int,
+        unknownLevel: String,
+    ): String = kuroQualityLevelNames[level.toString()] ?: unknownLevel
+
+    /**
+     * Vendor markers for [ChipsetDetector], as vendor → Build field → substrings.
+     *
+     * The field is part of the key rather than implied by a flat list because the
+     * markers are ambiguous in isolation: `soc` containing `mt` is a MediaTek
+     * signal, while `soc` containing `sm` is a Snapdragon one. A flat
+     * "all substrings" list would let the cross-product turn each into a match for
+     * every vendor.
+     *
+     * Matching stays substring `contains`, not anchored: see the note on
+     * `ChipsetDetector.classify`, which pins today's semantics deliberately.
+     */
+    val chipsetVendors: Map<String, Map<String, List<String>>> =
+        root.getAsJsonObject("chipsetVendors")
+            ?.entrySet()
+            ?.mapNotNull { (vendor, fields) ->
+                val markers =
+                    fields.asJsonObject.entrySet().mapNotNull { (field, value) ->
+                        value.asJsonArray.map { it.asString }.takeIf { it.isNotEmpty() }?.let { field to it }
+                    }.toMap()
+                markers.takeIf { it.isNotEmpty() }?.let { vendor to it }
+            }?.toMap()
+            ?.takeIf { it.keys.containsAll(DEFAULT_CHIPSET_VENDORS.keys) }
+            ?: DEFAULT_CHIPSET_VENDORS
+
+    /** True when any marker for [vendor] appears in the matching field of [fields]. */
+    fun isVendor(
+        vendor: String,
+        fields: Map<String, String>,
+    ): Boolean {
+        val markers = chipsetVendors[vendor] ?: return false
+        return markers.any { (field, needles) ->
+            val haystack = fields[field] ?: return@any false
+            needles.any { haystack.contains(it) }
+        }
+    }
+
+    /** The per-tier geometry budget, mirroring `DeviceTier.TierValues`. */
+    data class TierValues(
+        val streamPool: Int,
+        val maxAniso: Int,
+        val landscapeCaptureDist: Int,
+        val skinCacheMem: Int,
+        val ismDist: Int,
+        val ismRad: Int,
+        val npcDist: Int,
+    )
+
+    private fun tierValues(o: JsonObject): TierValues? {
+        val streamPool = o.intOrNull("streamPool") ?: return null
+        val maxAniso = o.intOrNull("maxAniso") ?: return null
+        val landscapeCaptureDist = o.intOrNull("landscapeCaptureDist") ?: return null
+        val skinCacheMem = o.intOrNull("skinCacheMem") ?: return null
+        val ismDist = o.intOrNull("ismDist") ?: return null
+        val ismRad = o.intOrNull("ismRad") ?: return null
+        val npcDist = o.intOrNull("npcDist") ?: return null
+        return TierValues(streamPool, maxAniso, landscapeCaptureDist, skinCacheMem, ismDist, ismRad, npcDist)
+    }
+
+    private fun JsonObject.intOrNull(key: String): Int? = get(key)?.takeIf { it.isJsonPrimitive }?.asInt
+
+    /**
      * A regex plus its mapped value, compiled once.
      *
      * These tables exist so detection does not recompile ~60 patterns per
@@ -382,6 +502,117 @@ class TuningProfile internal constructor(
                 Regex("""adreno.*6\d{2}"""),
                 Regex("""adreno.*7[1-3]\d"""),
                 Regex("""mali-g(5\d{1,2}|6\d{1,2})"""),
+            )
+
+        val DEFAULT_DEVICE_TIER_VALUES: Map<String, TierValues> =
+            mapOf(
+                "high_end" to
+                    TierValues(
+                        streamPool = 800,
+                        maxAniso = 16,
+                        landscapeCaptureDist = 8000,
+                        skinCacheMem = 384,
+                        ismDist = 14000,
+                        ismRad = 18000,
+                        npcDist = 15000,
+                    ),
+                "mid" to
+                    TierValues(
+                        streamPool = 500,
+                        maxAniso = 8,
+                        landscapeCaptureDist = 6000,
+                        skinCacheMem = 256,
+                        ismDist = 10000,
+                        ismRad = 13000,
+                        npcDist = 10000,
+                    ),
+                "low" to
+                    TierValues(
+                        streamPool = 380,
+                        maxAniso = 4,
+                        landscapeCaptureDist = 4000,
+                        skinCacheMem = 192,
+                        ismDist = 7000,
+                        ismRad = 9000,
+                        npcDist = 7000,
+                    ),
+            )
+
+        val DEFAULT_GRASS_CULL_BY_CLASS: Map<String, Int> =
+            mapOf(
+                "high_end" to 2000,
+                "mid_thermal" to 600,
+                "mid" to 1200,
+                "low" to 800,
+            )
+
+        const val DEFAULT_GRASSCULL_TIER_CEILING_MULT = 20
+
+        val DEFAULT_KURO_QUALITY_LEVEL_NAMES: Map<String, String> =
+            mapOf(
+                "0" to "极致性能",
+                "1" to "均衡",
+                "2" to "画质优先偏性能",
+                "3" to "画质优先",
+            )
+
+        val DEFAULT_CHIPSET_VENDORS: Map<String, Map<String, List<String>>> =
+            mapOf(
+                "snapdragon" to
+                    mapOf(
+                        "soc" to
+                            listOf(
+                                "sm",
+                                "qcom",
+                                "sun",
+                                "taro",
+                                "pitti",
+                            ),
+                        "board" to
+                            listOf(
+                                "kalama",
+                                "shima",
+                                "lahaina",
+                                "kona",
+                                "parrot",
+                                "crow",
+                                "garnet",
+                            ),
+                    ),
+                "mediatek" to
+                    mapOf(
+                        "soc" to
+                            listOf(
+                                "mt",
+                            ),
+                        "manufacturer" to
+                            listOf(
+                                "mediatek",
+                            ),
+                    ),
+                "exynos" to
+                    mapOf(
+                        "soc" to
+                            listOf(
+                                "exynos",
+                            ),
+                        "board" to
+                            listOf(
+                                "exynos",
+                            ),
+                    ),
+                "tensor" to
+                    mapOf(
+                        "soc" to
+                            listOf(
+                                "gs",
+                                "tensor",
+                            ),
+                        "board" to
+                            listOf(
+                                "gscaler",
+                            ),
+                    ),
             )
 
         @Volatile

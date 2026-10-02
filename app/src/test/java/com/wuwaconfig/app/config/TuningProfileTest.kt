@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -299,6 +300,152 @@ class TuningProfileTest {
         )
         assertEquals(TuningProfile.DEFAULT_HIGH_END_GPU_PATTERNS, parsed.highEndGpuPatterns)
         assertEquals(TuningProfile.DEFAULT_MID_GPU_PATTERNS, parsed.midGpuPatterns)
+    }
+
+    @Test
+    fun `the asset carries the device tier budgets the defaults define`() {
+        val obj = assetRoot().getAsJsonObject("deviceTierValues")
+        assertEquals(
+            TuningProfile.DEFAULT_DEVICE_TIER_VALUES.keys.toSet(),
+            obj.entrySet().map { it.key }.toSet(),
+        )
+        for ((tier, expected) in TuningProfile.DEFAULT_DEVICE_TIER_VALUES) {
+            val o = obj.getAsJsonObject(tier)
+            assertEquals(
+                "$tier.streamPool",
+                expected.streamPool.toDouble(),
+                o.get("streamPool").asDouble,
+                0.0,
+            )
+            assertEquals("$tier.maxAniso", expected.maxAniso.toDouble(), o.get("maxAniso").asDouble, 0.0)
+            assertEquals(
+                "$tier.landscapeCaptureDist",
+                expected.landscapeCaptureDist.toDouble(),
+                o.get("landscapeCaptureDist").asDouble,
+                0.0,
+            )
+            assertEquals("$tier.skinCacheMem", expected.skinCacheMem.toDouble(), o.get("skinCacheMem").asDouble, 0.0)
+            assertEquals("$tier.ismDist", expected.ismDist.toDouble(), o.get("ismDist").asDouble, 0.0)
+            assertEquals("$tier.ismRad", expected.ismRad.toDouble(), o.get("ismRad").asDouble, 0.0)
+            assertEquals("$tier.npcDist", expected.npcDist.toDouble(), o.get("npcDist").asDouble, 0.0)
+        }
+    }
+
+    @Test
+    fun `the asset carries the grass cull classes and the tier ceiling`() {
+        val root = assetRoot()
+        val obj = root.getAsJsonObject("grassCullByClass")
+        assertEquals(TuningProfile.DEFAULT_GRASS_CULL_BY_CLASS.keys.toSet(), obj.entrySet().map { it.key }.toSet())
+        for ((key, expected) in TuningProfile.DEFAULT_GRASS_CULL_BY_CLASS) {
+            assertEquals(key, expected.toDouble(), obj.get(key).asDouble, 0.0)
+        }
+        assertEquals(
+            TuningProfile.DEFAULT_GRASSCULL_TIER_CEILING_MULT.toDouble(),
+            root.getAsJsonObject("grasscullTier").get("ceilingMult").asDouble,
+            0.0,
+        )
+    }
+
+    @Test
+    fun `the grass cull budget decreases as the device class weakens`() {
+        // The tiers are a performance ladder, so an inversion here would give a
+        // weaker device a larger cull radius than a stronger one.
+        val g = TuningProfile.DEFAULT_GRASS_CULL_BY_CLASS
+        assertTrue("mid_thermal must cull harder than mid", g.getValue("mid_thermal") < g.getValue("mid"))
+        assertTrue("low must cull harder than mid", g.getValue("low") < g.getValue("mid"))
+        assertTrue("high_end must cull furthest", g.getValue("high_end") > g.getValue("mid"))
+    }
+
+    @Test
+    fun `the asset carries the kuro quality level names`() {
+        val obj = assetRoot().getAsJsonObject("kuroQualityLevelNames")
+        assertEquals(TuningProfile.DEFAULT_KURO_QUALITY_LEVEL_NAMES.keys.toSet(), obj.entrySet().map { it.key }.toSet())
+        for ((level, expected) in TuningProfile.DEFAULT_KURO_QUALITY_LEVEL_NAMES) {
+            assertEquals("level $level", expected, obj.get(level).asString)
+        }
+    }
+
+    @Test
+    fun `every kuro quality level has a distinct non-empty name`() {
+        // These render as the in-game quality option labels. A duplicate or blank
+        // name shows the player two identical options.
+        val names = TuningProfile.DEFAULT_KURO_QUALITY_LEVEL_NAMES
+        assertEquals("levels 0-3 must all be named", 4, names.size)
+        assertEquals("names must be distinct", names.size, names.values.toSet().size)
+        assertTrue("no name may be blank", names.values.none { it.isBlank() })
+    }
+
+    @Test
+    fun `an unnamed kuro level falls back rather than emitting a blank name`() {
+        val profile = TuningProfile.get()
+        assertEquals("画质9", profile.kuroLevelName(9, "画质9"))
+        assertEquals(TuningProfile.DEFAULT_KURO_QUALITY_LEVEL_NAMES.getValue("2"), profile.kuroLevelName(2, "画质2"))
+    }
+
+    @Test
+    fun `the asset carries the chipset vendor markers the defaults define`() {
+        val obj = assetRoot().getAsJsonObject("chipsetVendors")
+        assertEquals(TuningProfile.DEFAULT_CHIPSET_VENDORS.keys.toSet(), obj.entrySet().map { it.key }.toSet())
+        for ((vendor, fields) in TuningProfile.DEFAULT_CHIPSET_VENDORS) {
+            val vendorObj = obj.getAsJsonObject(vendor)
+            assertEquals(
+                "$vendor marker fields",
+                fields.keys.toSet(),
+                vendorObj.entrySet().map { it.key }.toSet(),
+            )
+            for ((field, needles) in fields) {
+                assertEquals(
+                    "$vendor.$field markers, in order",
+                    needles,
+                    vendorObj.getAsJsonArray(field).map { it.asString },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `markers are scoped to their own vendor and never leak across`() {
+        // The failure this guards against: flattening every marker into one
+        // "does any field contain any needle" list would make `mt` a Snapdragon
+        // marker too, so a MediaTek phone would report both vendors.
+        val profile = TuningProfile.get()
+        for ((vendor, fields) in profile.chipsetVendors) {
+            for (needle in fields.values.flatten()) {
+                for (other in profile.chipsetVendors.keys - vendor) {
+                    val owned = profile.chipsetVendors.getValue(other).values.flatten()
+                    assertTrue(
+                        "'$needle' is listed under both $vendor and $other",
+                        needle !in owned,
+                    )
+                }
+            }
+        }
+        // And the specific ambiguity, asserted directly rather than structurally.
+        assertFalse(profile.isVendor("snapdragon", mapOf("soc" to "mt6893")))
+        assertTrue(profile.isVendor("mediatek", mapOf("soc" to "mt6893")))
+        assertFalse(profile.isVendor("mediatek", mapOf("soc" to "sm8550")))
+        assertTrue(profile.isVendor("snapdragon", mapOf("soc" to "sm8550")))
+    }
+
+    @Test
+    fun `a marker only matches in its own field`() {
+        // Field scoping stops a marker list being searched across every input at
+        // once. Chosen to avoid substring overlaps: "gscaler" contains "gs", so
+        // it would match Tensor's soc marker even when passed as the soc string --
+        // the documented fragility of unanchored matching, not a scoping failure.
+        val profile = TuningProfile.get()
+        // "kalama" is a board-only Snapdragon codename and overlaps no soc marker.
+        assertTrue(profile.isVendor("snapdragon", mapOf("board" to "kalama")))
+        assertFalse(profile.isVendor("snapdragon", mapOf("soc" to "kalama")))
+        assertFalse(profile.isVendor("snapdragon", mapOf("manufacturer" to "kalama")))
+        // "mediatek" is a manufacturer-only marker and overlaps no soc marker.
+        assertTrue(profile.isVendor("mediatek", mapOf("manufacturer" to "mediatek")))
+        assertFalse(profile.isVendor("mediatek", mapOf("soc" to "mediatek")))
+    }
+
+    @Test
+    fun `an unknown vendor name is simply not detected`() {
+        assertFalse(TuningProfile.get().isVendor("nvidia", mapOf("soc" to "sm8550")))
     }
 
     @Test
