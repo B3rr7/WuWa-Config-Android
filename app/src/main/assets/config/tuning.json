@@ -535,5 +535,94 @@
       "ignoreCase": true,
       "value": "Android_Maleoon"
     }
-  ]
+  ],
+  "deviceTierValues": {
+    "high_end": {
+      "streamPool": 800,
+      "maxAniso": 16,
+      "landscapeCaptureDist": 8000,
+      "skinCacheMem": 384,
+      "ismDist": 14000,
+      "ismRad": 18000,
+      "npcDist": 15000
+    },
+    "mid": {
+      "streamPool": 500,
+      "maxAniso": 8,
+      "landscapeCaptureDist": 6000,
+      "skinCacheMem": 256,
+      "ismDist": 10000,
+      "ismRad": 13000,
+      "npcDist": 10000
+    },
+    "low": {
+      "streamPool": 380,
+      "maxAniso": 4,
+      "landscapeCaptureDist": 4000,
+      "skinCacheMem": 192,
+      "ismDist": 7000,
+      "ismRad": 9000,
+      "npcDist": 7000
+    }
+  },
+  "grassCullByClass": {
+    "high_end": 2000,
+    "mid_thermal": 600,
+    "mid": 1200,
+    "low": 800
+  },
+  "grasscullTier": {
+    "ceilingMult": 20
+  },
+  "kuroQualityLevelNames": {
+    "0": "极致性能",
+    "1": "均衡",
+    "2": "画质优先偏性能",
+    "3": "画质优先"
+  },
+  "chipsetVendors": {
+    "snapdragon": {
+      "soc": [
+        "sm",
+        "qcom",
+        "sun",
+        "taro",
+        "pitti"
+      ],
+      "board": [
+        "kalama",
+        "shima",
+        "lahaina",
+        "kona",
+        "parrot",
+        "crow",
+        "garnet"
+      ]
+    },
+    "mediatek": {
+      "soc": [
+        "mt"
+      ],
+      "manufacturer": [
+        "mediatek"
+      ]
+    },
+    "exynos": {
+      "soc": [
+        "exynos"
+      ],
+      "board": [
+        "exynos"
+      ]
+    },
+    "tensor": {
+      "soc": [
+        "gs",
+        "tensor"
+      ],
+      "board": [
+        "gscaler"
+      ]
+    }
+  }
 }

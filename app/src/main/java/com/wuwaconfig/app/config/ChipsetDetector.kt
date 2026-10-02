@@ -33,6 +33,11 @@ object ChipsetDetector {
      * word-boundary or prefix matching would change which devices classify as
      * what. That is a behaviour change, so it is a separate decision; these
      * tests pin today's semantics so the tightening is reviewable.
+     *
+     * The markers themselves now come from [TuningProfile], keyed per vendor and
+     * per Build field. That indirection is what makes the fragility above
+     * visible: adding a MediaTek marker can no longer accidentally become a
+     * Snapdragon one, because the vendor each marker belongs to is explicit.
      */
     internal fun classify(
         soc: String,
@@ -43,26 +48,22 @@ object ChipsetDetector {
         val b = board.lowercase()
         val m = manufacturer.lowercase()
 
-        val isSnapdragon =
-            s.contains("sm") || s.contains("qcom") ||
-                b.contains("kalama") || b.contains("shima") ||
-                b.contains("lahaina") || b.contains("kona") ||
-                s.contains("sun") || s.contains("taro") ||
-                s.contains("pitti") || b.contains("parrot") ||
-                b.contains("crow") || b.contains("garnet")
-
-        val isMediatek = s.contains("mt") || m.contains("mediatek")
-        val isExynos = s.contains("exynos") || b.contains("exynos")
-        val isTensor = s.contains("gs") || s.contains("tensor") || b.contains("gscaler")
+        val fields =
+            mapOf(
+                "soc" to s,
+                "board" to b,
+                "manufacturer" to m,
+            )
+        val vendors = TuningProfile.get()
 
         return ChipsetInfo(
             socName = s.uppercase(),
             manufacturer = m,
             board = b,
-            isSnapdragon = isSnapdragon,
-            isMediatek = isMediatek,
-            isExynos = isExynos,
-            isTensor = isTensor,
+            isSnapdragon = vendors.isVendor("snapdragon", fields),
+            isMediatek = vendors.isVendor("mediatek", fields),
+            isExynos = vendors.isVendor("exynos", fields),
+            isTensor = vendors.isVendor("tensor", fields),
         )
     }
 
