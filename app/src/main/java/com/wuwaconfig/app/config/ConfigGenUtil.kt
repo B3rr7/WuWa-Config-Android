@@ -74,6 +74,18 @@ fun replaceCoreSystemPaths(
     return result.joinToString("\n")
 }
 
+/**
+ * Reads the `[Core.System]` block out of a device's Engine.ini.
+ *
+ * When a block is found its `Paths=` entries are returned as-is, including any
+ * the bundled default does not list — a game update that mounts a new plugin is
+ * the signal that `tuning.json` needs the path added, and silently keeping the
+ * default here would drop that plugin's content. [coreSystemDrift] reports the
+ * difference so the staleness is visible in the app log instead.
+ *
+ * Falls back to [defaultCoreSystem] only when the file is unreadable or carries
+ * no block at all.
+ */
 fun extractCoreSystemPaths(
     engineIni: String?,
     defaultCoreSystem: List<String>,
@@ -89,7 +101,41 @@ fun extractCoreSystemPaths(
         if (line.trim().startsWith("[")) break
         if (line.trim().startsWith("Paths=", ignoreCase = true)) paths.add(line.trimEnd())
     }
-    return if (paths.size > 1) paths else defaultCoreSystem
+    if (paths.size <= 1) return defaultCoreSystem
+    coreSystemDrift(paths, defaultCoreSystem)?.let { drift ->
+        LogRepository.add(drift, LogLevel.WARNING)
+    }
+    return paths
+}
+
+/**
+ * Describes how a device's `[Core.System]` block differs from [defaultCoreSystem],
+ * or null when they match.
+ *
+ * Only the *device* side is reported as a problem. A path in the default that
+ * the device does not mount is normal — the default is a superset carried
+ * across game versions — whereas a path the device mounts that the default
+ * omits means the bundled inventory is stale for this build.
+ */
+fun coreSystemDrift(
+    devicePaths: List<String>,
+    defaultCoreSystem: List<String>,
+): String? {
+    val deviceSet = devicePaths.drop(1).map { it.trim() }.toSet()
+    val defaultSet = defaultCoreSystem.drop(1).map { it.trim() }.toSet()
+    val extra = deviceSet - defaultSet
+    val missing = defaultSet - deviceSet
+    if (extra.isEmpty() && missing.isEmpty()) return null
+    val parts = mutableListOf<String>()
+    if (extra.isNotEmpty()) {
+        parts += "${extra.size} path(s) on device but not in tuning.json: " +
+            extra.sorted().joinToString(", ") { it.removePrefix("Paths=") }
+    }
+    if (missing.isNotEmpty()) {
+        parts += "${missing.size} default path(s) not mounted by this build " +
+            "(harmless if the plugin was removed)"
+    }
+    return "tuning.json coreSystemPaths is out of step with the device: " + parts.joinToString("; ")
 }
 
 fun mergeWithLogCvars(

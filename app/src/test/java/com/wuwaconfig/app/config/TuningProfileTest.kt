@@ -163,6 +163,28 @@ class TuningProfileTest {
     }
 
     @Test
+    fun `the asset carries every core system path the defaults define`() {
+        val root =
+            JsonParser.parseReader(realAssetFile().inputStream().bufferedReader()).asJsonObject
+        val asset = root.getAsJsonArray("coreSystemPaths").map { it.asString }
+        assertEquals(
+            "tuning.json coreSystemPaths must match DEFAULT_CORE_SYSTEM_PATHS exactly, in order",
+            TuningProfile.DEFAULT_CORE_SYSTEM_PATHS,
+            asset,
+        )
+    }
+
+    @Test
+    fun `the core system block is well formed`() {
+        val block = TuningProfile.DEFAULT_CORE_SYSTEM_PATHS
+        assertEquals("the block opens with its header", "[Core.System]", block.first())
+        val paths = block.drop(1)
+        assertEquals("no empty path entries", paths.size, paths.filter { it.isNotBlank() }.size)
+        assertTrue("every entry is a Paths= line", paths.all { it.startsWith("Paths=") })
+        assertEquals("paths are unique", paths.size, paths.toSet().size)
+    }
+
+    @Test
     fun `the loaded profile agrees with the defaults`() {
         // The path the app actually takes: TuningProfile.get() after a load.
         val loaded = TuningProfile.get()
