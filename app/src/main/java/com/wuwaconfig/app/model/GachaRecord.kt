@@ -76,7 +76,6 @@ data class PityPrediction(
     val maxPity5: Int = 0,
     val minPity4: Int = 0,
     val maxPity4: Int = 0,
-    val isPoolActive: Boolean = true,
 )
 
 data class SsrInterval(

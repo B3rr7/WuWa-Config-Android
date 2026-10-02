@@ -183,7 +183,6 @@ class GachaHistoryStoreTest {
         assertEquals("", pred.firstPullDate)
         assertEquals(0, pred.minPity5)
         assertEquals(0, pred.maxPity5)
-        assertEquals(true, pred.isPoolActive)
     }
 
     @Test

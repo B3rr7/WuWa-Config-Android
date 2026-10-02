@@ -463,7 +463,6 @@ object GachaApi {
         val totalCost = computeTotalCost(sorted)
         val (minPity5, maxPity5) = computeMinMaxPity(sorted, 5)
         val (minPity4, maxPity4) = computeMinMaxPity(sorted, 4)
-        val isPoolActive = records.isNotEmpty()
 
         // UP rate = featured / total 5-stars
         val upSsrCount = fiveStarRecords.count { !isStandardFive(it.name, standardFiveStars) }
@@ -515,7 +514,6 @@ object GachaApi {
             maxPity5 = maxPity5,
             minPity4 = minPity4,
             maxPity4 = maxPity4,
-            isPoolActive = isPoolActive,
         )
     }
 
@@ -585,7 +583,6 @@ object GachaApi {
         val totalCost = computeTotalCost(sorted)
         val (minPity5, maxPity5) = computeMinMaxPity(sorted, 5)
         val (minPity4, maxPity4) = computeMinMaxPity(sorted, 4)
-        val isPoolActive = records.isNotEmpty()
 
         return PityPrediction(
             poolType = pool.type,
@@ -616,7 +613,6 @@ object GachaApi {
             maxPity5 = maxPity5,
             minPity4 = minPity4,
             maxPity4 = maxPity4,
-            isPoolActive = isPoolActive,
         )
     }
 }
