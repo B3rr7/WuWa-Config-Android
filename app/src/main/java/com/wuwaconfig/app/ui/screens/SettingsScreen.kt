@@ -512,7 +512,7 @@ fun SettingsScreen(
                             )
                         }
                         Text(
-                            "${(bgAlpha * 100).toInt()}%",
+                            "${(bgAlphaDraft * 100).toInt()}%",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = NeonPink,
