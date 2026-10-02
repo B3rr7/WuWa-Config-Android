@@ -354,9 +354,9 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         // and newer big cores. The old "adreno 8 gen" branch could never match a GPU
         // string ("Gen" appears in SoC names) and Mali-G71 is ancient.
         val isHighEnd =
-            HIGH_END_GPU_PATTERNS.any { it.containsMatchIn(gpu) }
+            highEndGpuPatterns.any { it.containsMatchIn(gpu) }
         val isMid =
-            MID_GPU_PATTERNS.any { it.containsMatchIn(gpu) }
+            midGpuPatterns.any { it.containsMatchIn(gpu) }
         return DeviceTier.fromTier(isHighEnd, isMid, hasThermalIssues)
     }
 
@@ -364,62 +364,17 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
         private const val GRASSCULL_TIER_CEILING_MULT = 20
 
         // High-end: Adreno 740+/8xx (720/725/735 are upper-mid), Mali G72+ (not ancient G71).
-        private val HIGH_END_GPU_PATTERNS =
-            listOf(
-                Regex("""adreno.*7[4-9]\d"""),
-                Regex("""adreno.*8\d{2}"""),
-                Regex("""mali-g(7[2-9]\d|8\d{1,2}|9\d{1,2})"""),
-            )
-        private val MID_GPU_PATTERNS =
-            listOf(
-                Regex("""adreno.*6\d{2}"""),
-                Regex("""adreno.*7[1-3]\d"""),
-                Regex("""mali-g(5\d{1,2}|6\d{1,2})"""),
-            )
+        private val highEndGpuPatterns: List<Regex>
+            get() = TuningProfile.get().highEndGpuPatterns
+        private val midGpuPatterns: List<Regex>
+            get() = TuningProfile.get().midGpuPatterns
 
-        // Precompiled once so device-profile detection no longer recompiles ~20 patterns.
-        private val CHIPSET_PROFILES =
-            listOf(
-                Regex("""snapdragon\s*8\s*elite|sm8750|adreno\s*830""", RegexOption.IGNORE_CASE) to "Android_Adreno830",
-                Regex("""snapdragon\s*8\s*gen\s*3|sm8650|adreno\s*750""", RegexOption.IGNORE_CASE) to "Android_Adreno750",
-                Regex("""snapdragon\s*8\s*gen\s*2|sm8550|adreno\s*740""", RegexOption.IGNORE_CASE) to "Android_Adreno740",
-                Regex("""snapdragon\s*8\s*\+?\s*gen\s*1|sm8475|sm8450|adreno\s*730""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
-                Regex("""snapdragon\s*7|sm7\d{3}|adreno\s*7""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
-                Regex("""snapdragon\s*6|snapdragon\s*695|snapdragon\s*680|sm6\d{3}|adreno\s*6""", RegexOption.IGNORE_CASE) to "Android_Adreno6xx",
-                Regex("""adreno\s*5""", RegexOption.IGNORE_CASE) to "Android_Adreno5xx",
-                Regex("""adreno\s*4""", RegexOption.IGNORE_CASE) to "Android_Adreno4xx",
-                Regex("""dimensity\s*94|mali-g925""", RegexOption.IGNORE_CASE) to "Android_Mali_G925",
-                Regex("""dimensity\s*93|mali-g720""", RegexOption.IGNORE_CASE) to "Android_Mali_G720",
-                Regex("""dimensity\s*92|mali-g715""", RegexOption.IGNORE_CASE) to "Android_Mali_G715",
-                Regex("""dimensity\s*90|mali-g710""", RegexOption.IGNORE_CASE) to "Android_Mali_G710",
-                Regex("""dimensity\s*8|mali-g61[0-9]|mali-g615""", RegexOption.IGNORE_CASE) to "Android_Mali_G615",
-                Regex("""dimensity\s*7|mali-g6""", RegexOption.IGNORE_CASE) to "Android_Mali_G61x",
-                Regex("""dimensity\s*6|mali-g57""", RegexOption.IGNORE_CASE) to "Android_Mali_G57",
-                Regex("""exynos\s*24|xclipse\s*9""", RegexOption.IGNORE_CASE) to "Android_Xclipse9xx",
-                Regex("""exynos\s*13|xclipse\s*5""", RegexOption.IGNORE_CASE) to "Android_Xclipse5xx",
-                Regex("""kirin|maleoon""", RegexOption.IGNORE_CASE) to "Android_Maleoon",
-            )
-        private val GPU_ONLY_PROFILES =
-            listOf(
-                Regex("""adreno\s*830""", RegexOption.IGNORE_CASE) to "Android_Adreno830",
-                Regex("""adreno\s*750""", RegexOption.IGNORE_CASE) to "Android_Adreno750",
-                Regex("""adreno\s*740""", RegexOption.IGNORE_CASE) to "Android_Adreno740",
-                Regex("""adreno\s*730""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
-                Regex("""adreno\s*7""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
-                Regex("""adreno\s*6""", RegexOption.IGNORE_CASE) to "Android_Adreno6xx",
-                Regex("""adreno\s*5""", RegexOption.IGNORE_CASE) to "Android_Adreno5xx",
-                Regex("""adreno\s*4""", RegexOption.IGNORE_CASE) to "Android_Adreno4xx",
-                Regex("""mali-g925""", RegexOption.IGNORE_CASE) to "Android_Mali_G925",
-                Regex("""mali-g720""", RegexOption.IGNORE_CASE) to "Android_Mali_G720",
-                Regex("""mali-g715""", RegexOption.IGNORE_CASE) to "Android_Mali_G715",
-                Regex("""mali-g710""", RegexOption.IGNORE_CASE) to "Android_Mali_G710",
-                Regex("""mali-g615""", RegexOption.IGNORE_CASE) to "Android_Mali_G615",
-                Regex("""mali-g6""", RegexOption.IGNORE_CASE) to "Android_Mali_G61x",
-                Regex("""mali-g57""", RegexOption.IGNORE_CASE) to "Android_Mali_G57",
-                Regex("""xclipse\s*9""", RegexOption.IGNORE_CASE) to "Android_Xclipse9xx",
-                Regex("""xclipse\s*5""", RegexOption.IGNORE_CASE) to "Android_Xclipse5xx",
-                Regex("""maleoon""", RegexOption.IGNORE_CASE) to "Android_Maleoon",
-            )
+        // DeviceProfile detection tables. Still compiled once, at TuningProfile load
+        // time, so detection does not recompile ~36 patterns per call.
+        private val chipsetProfiles: List<TuningProfile.RegexTier>
+            get() = TuningProfile.get().chipsetProfiles
+        private val gpuOnlyProfiles: List<TuningProfile.RegexTier>
+            get() = TuningProfile.get().gpuOnlyProfiles
     }
 
     private fun buildAndroidEngineIni(
@@ -1132,16 +1087,17 @@ class ConfigGenerator(private val cvarDatabase: CvarDatabase) {
                 5.0
             }
 
-        // CHIPSET_PROFILES / GPU_ONLY_PROFILES are declared once at the class companion
-        // (see the companion object near the top) — they are referenced here by name.
+        // The profile tables live on TuningProfile, compiled once per load rather
+        // than per detection, so they are still precompiled — just sourced from the
+        // asset instead of a literal. Order is the matching rule: first hit wins.
 
         fun profileFromChipset(): String? {
             val t = socText
-            for ((pattern, profile) in CHIPSET_PROFILES) {
-                if (pattern.containsMatchIn(t)) return profile
+            for (entry in chipsetProfiles) {
+                if (entry.regex.containsMatchIn(t)) return entry.value
             }
-            for ((pattern, profile) in GPU_ONLY_PROFILES) {
-                if (pattern.containsMatchIn(gpu)) return profile
+            for (entry in gpuOnlyProfiles) {
+                if (entry.regex.containsMatchIn(gpu)) return entry.value
             }
             return null
         }

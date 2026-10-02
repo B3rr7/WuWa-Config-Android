@@ -1,6 +1,7 @@
 package com.wuwaconfig.app.config
 
 import com.google.gson.Gson
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -29,6 +30,13 @@ class TuningProfileTest {
             .getAsJsonObject("presets")
             .entrySet()
             .associate { it.key to gson.fromJson(it.value, Map::class.java) }
+    }
+
+    /** The parsed real asset, failing loudly rather than passing over a missing file. */
+    private fun assetRoot(): JsonObject {
+        val file = realAssetFile()
+        assertTrue("tuning.json not found at ${file.absolutePath}", file.isFile)
+        return JsonParser.parseReader(file.inputStream().bufferedReader()).asJsonObject
     }
 
     @Test
@@ -164,9 +172,7 @@ class TuningProfileTest {
 
     @Test
     fun `the asset carries every core system path the defaults define`() {
-        val root =
-            JsonParser.parseReader(realAssetFile().inputStream().bufferedReader()).asJsonObject
-        val asset = root.getAsJsonArray("coreSystemPaths").map { it.asString }
+        val asset = assetRoot().getAsJsonArray("coreSystemPaths").map { it.asString }
         assertEquals(
             "tuning.json coreSystemPaths must match DEFAULT_CORE_SYSTEM_PATHS exactly, in order",
             TuningProfile.DEFAULT_CORE_SYSTEM_PATHS,
@@ -182,6 +188,117 @@ class TuningProfileTest {
         assertEquals("no empty path entries", paths.size, paths.filter { it.isNotBlank() }.size)
         assertTrue("every entry is a Paths= line", paths.all { it.startsWith("Paths=") })
         assertEquals("paths are unique", paths.size, paths.toSet().size)
+    }
+
+    @Test
+    fun `the asset carries every regex pattern the defaults define`() {
+        val root = assetRoot()
+
+        // Pattern tables are the tables most likely to be hand-edited, so they
+        // are pinned in full rather than sampled: a silently dropped row turns
+        // into a device that matches no profile at all and quietly gets a
+        // generic one.
+        val tables =
+            mapOf(
+                "gpuTierPatterns" to TuningProfile.DEFAULT_GPU_TIER_PATTERNS,
+                "chipsetProfiles" to TuningProfile.DEFAULT_CHIPSET_PROFILES,
+                "gpuOnlyProfiles" to TuningProfile.DEFAULT_GPU_ONLY_PROFILES,
+            )
+        for ((key, defaults) in tables) {
+            val expected =
+                defaults.map { Triple(it.first.pattern, it.first.options.contains(RegexOption.IGNORE_CASE), it.second) }
+            val actual =
+                root.getAsJsonArray(key).map { row ->
+                    val o = row.asJsonObject
+                    Triple(
+                        o.get("pattern").asString,
+                        o.get("ignoreCase")?.asBoolean ?: false,
+                        o.get("value")?.asString,
+                    )
+                }
+            assertEquals("$key must match the compiled-in default row for row, in order", expected, actual)
+        }
+
+        val lists =
+            mapOf(
+                "highEndGpuPatterns" to TuningProfile.DEFAULT_HIGH_END_GPU_PATTERNS.map { it.pattern },
+                "midGpuPatterns" to TuningProfile.DEFAULT_MID_GPU_PATTERNS.map { it.pattern },
+            )
+        for ((key, defaults) in lists) {
+            val actual = root.getAsJsonArray(key).map { it.asString }
+            assertEquals("$key must match the compiled-in default, in order", defaults, actual)
+        }
+    }
+
+    @Test
+    fun `every device profile named by the tables starts with Android_`() {
+        // These strings are written into the generated DeviceProfiles.ini as
+        // +DeviceProfile= names, so a typo does not fail loudly here -- it fails
+        // silently on device as an unrecognised profile.
+        val named =
+            TuningProfile.DEFAULT_CHIPSET_PROFILES.map { it.second } +
+                TuningProfile.DEFAULT_GPU_ONLY_PROFILES.map { it.second }
+        assertTrue("no profile names", named.isNotEmpty())
+        assertTrue(
+            "every DeviceProfile name must start with Android_: ${named.filterNot { it.startsWith("Android_") }}",
+            named.all { it.startsWith("Android_") },
+        )
+        // Deliberately not unique: two patterns may target the same profile (for
+        // example the gen-1 and gen-2 Snapdragon rows both select Android_Adreno7xx).
+        // First match wins, so a repeat costs nothing.
+        assertTrue("expected the deliberate repeats to be present", named.size > named.toSet().size)
+    }
+
+    @Test
+    fun `every gpu tier is one of the six known names`() {
+        // getGPUTier's result feeds the tier tables; an unrecognised name would
+        // fall through to the most conservative profile instead of failing.
+        val known = setOf("flagship", "high", "mid_high", "mid", "mid_low", "low")
+        val tiers = TuningProfile.DEFAULT_GPU_TIER_PATTERNS.map { it.second }.toSet()
+        assertTrue("unexpected tier names: ${tiers - known}", tiers.all { it in known })
+    }
+
+    @Test
+    fun `an uncompilable pattern is dropped rather than crashing the load`() {
+        // A typo in an asset regex must not take down generation, which is the
+        // one thing that must always work.
+        val json =
+            JsonObject().apply {
+                add(
+                    "chipsetProfiles",
+                    com.google.gson.JsonArray().apply {
+                        add(
+                            com.google.gson.JsonObject().apply {
+                                addProperty("pattern", "adreno([")
+                                addProperty("value", "Android_Broken")
+                            },
+                        )
+                        add(
+                            com.google.gson.JsonObject().apply {
+                                addProperty("pattern", "adreno\\s*8\\d{2}")
+                                addProperty("value", "Android_Adreno830")
+                                addProperty("ignoreCase", true)
+                            },
+                        )
+                    },
+                )
+            }
+        val parsed = TuningProfile(json)
+        assertEquals("only the valid pattern survives", 1, parsed.chipsetProfiles.size)
+        assertEquals("Android_Adreno830", parsed.chipsetProfiles.first().value)
+        assertTrue(parsed.chipsetProfiles.first().regex.options.contains(RegexOption.IGNORE_CASE))
+    }
+
+    @Test
+    fun `a table missing from the asset falls back to the compiled-in default`() {
+        val parsed = TuningProfile(JsonObject())
+        assertEquals(TuningProfile.DEFAULT_GPU_TIER_PATTERNS.map { it.first.pattern }, parsed.gpuTierPatterns.map { it.regex.pattern })
+        assertEquals(
+            TuningProfile.DEFAULT_CHIPSET_PROFILES.map { it.second },
+            parsed.chipsetProfiles.map { it.value },
+        )
+        assertEquals(TuningProfile.DEFAULT_HIGH_END_GPU_PATTERNS, parsed.highEndGpuPatterns)
+        assertEquals(TuningProfile.DEFAULT_MID_GPU_PATTERNS, parsed.midGpuPatterns)
     }
 
     @Test
