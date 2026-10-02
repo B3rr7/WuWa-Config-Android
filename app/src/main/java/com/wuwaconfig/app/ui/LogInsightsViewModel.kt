@@ -57,6 +57,24 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
     private val _battleStatsFromCache = MutableStateFlow(false)
     val battleStatsFromCache: StateFlow<Boolean> = _battleStatsFromCache.asStateFlow()
 
+    /**
+     * Whether the currently displayed analysis came from the 24h cache rather
+     * than a read of the device.
+     *
+     * The cache exists so the ConfigGen panel is not empty on entry, but a
+     * cached LogInfo is up to 24h stale: it describes a previous session's
+     * hardware and settings. Without this flag the panel renders it as current
+     * ("Loaded — GPU • RAM") and the generator merges its CVars into a fresh
+     * Engine.ini, so a day-old log silently shapes today's config.
+     */
+    private val _analysisFromCache = MutableStateFlow(false)
+    val analysisFromCache: StateFlow<Boolean> = _analysisFromCache.asStateFlow()
+
+    private val _analysisAgeHours = MutableStateFlow<Long?>(null)
+
+    /** Age of the cached analysis in whole hours, or null when not from cache. */
+    val analysisAgeHours: StateFlow<Long?> = _analysisAgeHours.asStateFlow()
+
     private val _battleStatsLoading = MutableStateFlow(false)
     val battleStatsLoading: StateFlow<Boolean> = _battleStatsLoading.asStateFlow()
 
@@ -81,6 +99,10 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
 
     fun analyzeClientLog(allowRestrictedCvars: Boolean = true) {
         if (_battleStatsLoading.value || !connected) return
+        // A fresh read supersedes the cache; leaving the flag set would badge
+        // new data as stale and, worse, keep the generator from trusting it.
+        _analysisFromCache.value = false
+        _analysisAgeHours.value = null
         ops.setApplying(true)
         ops.launchBackendOp(managesBusyFlag = true) {
             _logAnalysis.value = null
@@ -131,6 +153,9 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
         bytes: ByteArray,
         allowRestrictedCvars: Boolean = true,
     ) {
+        // Imported log text is fresh even though it did not come from the device.
+        _analysisFromCache.value = false
+        _analysisAgeHours.value = null
         if (ops.isApplying.value) return
         ops.setApplying(true)
         ops.launchBackendOp(managesBusyFlag = true) {
@@ -206,6 +231,9 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
             if (cached != null) {
                 _logAnalysis.value = cached.logInfo
                 _brainRecommendation.value = cached.brainRecommendation
+                _analysisFromCache.value = true
+                _analysisAgeHours.value =
+                    (System.currentTimeMillis() - cached.timestamp) / (60L * 60L * 1000L)
             }
         }
     }
