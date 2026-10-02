@@ -72,7 +72,6 @@ object LogRepository {
     }
 
     fun init() {
-        var usedFallback = false
         synchronized(lock) {
             if (logFile != null) return
             // App-scoped storage ONLY. app.log used to be mirrored automatically into
@@ -102,9 +101,6 @@ object LogRepository {
                     next.toList()
                 }
             _entries.value = snapshot
-            if (usedFallback) {
-                add("App log is stored in app-private storage; use Save/Export to write a copy to Downloads", LogLevel.INFO)
-            }
         }
     }
 

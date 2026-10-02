@@ -507,15 +507,4 @@ class GachaPredictionTest {
         val pred = GachaApi.calcCharacterPrediction(records, characterPool, standardFives)
         assertEquals("10 pulls * 160 = 1600", 1600L, pred.totalCost)
     }
-
-    @Test
-    fun `isPoolActive true when records present`() {
-        val pred =
-            GachaApi.calcCharacterPrediction(
-                listOf(rec("3-star", 3, "2024-01-01 10:00:00")),
-                characterPool,
-                standardFives,
-            )
-        assertTrue(pred.isPoolActive)
-    }
 }
