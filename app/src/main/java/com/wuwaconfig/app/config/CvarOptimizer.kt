@@ -4,40 +4,25 @@ import com.wuwaconfig.app.model.DeployComparison
 import com.wuwaconfig.app.model.LogInfo
 
 object CvarOptimizer {
-    // Precompiled once; the old body rebuilt ~25 Regex objects on every call.
-    private val GPU_TIER_PATTERNS =
-        listOf(
-            (Regex("""adreno.*8[3-9]\d|adreno.*8[12]\d""") to "flagship"),
-            (Regex("""tensor\s*g[345]""") to "flagship"),
-            (Regex("""dimensity\s*9[3-9]\d\d?""") to "flagship"),
-            (Regex("""apple\s*(m[34]|a18)""") to "flagship"),
-            (Regex("""adreno.*7[5-9]\d|adreno.*8[0]\d""") to "high"),
-            (Regex("""tensor\s*g[12]""") to "high"),
-            (Regex("""dimensity\s*(9[0-2]\d|8[5-9]\d)""") to "high"),
-            (Regex("""exynos\s*2200""") to "high"),
-            (Regex("""kirin\s*9000""") to "high"),
-            (Regex("""mali-g(7[6-9]|8\d|9\d)\d?""") to "high"),
-            (Regex("""apple\s*(m[12]|a1[67])""") to "high"),
-            (Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""") to "mid_high"),
-            (Regex("""dimensity\s*(8[0-4]\d|7[3-9]\d)""") to "mid_high"),
-            (Regex("""tensor""") to "mid_high"),
-            (Regex("""exynos\s*2[1-3]00""") to "mid_high"),
-            (Regex("""kirin\s*9[1-9]\d\d?""") to "mid_high"),
-            (Regex("""xclipse""") to "mid_high"),
-            (Regex("""apple\s*a1[45]""") to "mid_high"),
-            (Regex("""adreno.*6[0-4]\d|mali-g(6\d|7[0-5])\d?|mali-g615""") to "mid"),
-            (Regex("""dimensity\s*[0-9]{3}""") to "mid"),
-            (Regex("""exynos\s*[0-9]{4}""") to "mid"),
-            (Regex("""kirin\s*[0-9]{4}""") to "mid"),
-            (Regex("""apple\s*a1[23]""") to "mid"),
-            (Regex("""adreno.*5\d\d|mali-g5\d?""") to "mid_low"),
-            (Regex("""adreno.*[34]\d\d|mali-g[34]""") to "low"),
-        )
+    /**
+     * GPU string to tier name, in priority order -- the first match wins, so the
+     * table's order is the matching rule. From [TuningProfile], which carries the
+     * compiled-in default.
+     *
+     * Compiled once, at TuningProfile load time, rather than per call: the old
+     * body rebuilt ~25 Regex objects on every [getGPUTier] invocation.
+     *
+     * Externalised because a new SoC or GPU generation is an asset edit, and a
+     * device that matches nothing silently fell back to the most conservative
+     * tier.
+     */
+    private val gpuTierPatterns: List<TuningProfile.RegexTier>
+        get() = TuningProfile.get().gpuTierPatterns
 
     fun getGPUTier(gpu: String?): String {
         val g = gpu?.lowercase() ?: return "unknown"
-        for ((pattern, tier) in GPU_TIER_PATTERNS) {
-            if (pattern.containsMatchIn(g)) return tier
+        for (entry in gpuTierPatterns) {
+            if (entry.regex.containsMatchIn(g)) return entry.value
         }
         return "unknown"
     }

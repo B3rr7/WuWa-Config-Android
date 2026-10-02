@@ -54,6 +54,69 @@ class TuningProfile internal constructor(
         root.getAsJsonArray("coreSystemPaths")?.mapNotNull { it.asString }?.takeIf { it.isNotEmpty() }
             ?: DEFAULT_CORE_SYSTEM_PATHS
 
+    /**
+     * GPU string → tier name (`flagship`/`high`/`mid_high`/`mid`/`mid_low`/`low`),
+     * in priority order — the first match wins, so order is significant.
+     */
+    val gpuTierPatterns: List<RegexTier> = root.patternTable("gpuTierPatterns", DEFAULT_GPU_TIER_PATTERNS)
+
+    /** Chipset or GPU string → UE `DeviceProfile` name, first match wins. */
+    val chipsetProfiles: List<RegexTier> = root.patternTable("chipsetProfiles", DEFAULT_CHIPSET_PROFILES)
+
+    /** As [chipsetProfiles], for when the SoC is unknown and only the GPU is. */
+    val gpuOnlyProfiles: List<RegexTier> = root.patternTable("gpuOnlyProfiles", DEFAULT_GPU_ONLY_PROFILES)
+
+    /** Device-tier boundaries: "is this GPU high-end", then "is it mid". */
+    val highEndGpuPatterns: List<Regex> = root.regexList("highEndGpuPatterns", DEFAULT_HIGH_END_GPU_PATTERNS)
+
+    val midGpuPatterns: List<Regex> = root.regexList("midGpuPatterns", DEFAULT_MID_GPU_PATTERNS)
+
+    /**
+     * A regex plus its mapped value, compiled once.
+     *
+     * These tables exist so detection does not recompile ~60 patterns per
+     * generate call, and compiling eagerly at load keeps that property when the
+     * source becomes an asset.
+     */
+    data class RegexTier(
+        val regex: Regex,
+        val value: String,
+    )
+
+    private fun JsonObject.patternTable(
+        key: String,
+        default: List<Pair<Regex, String>>,
+    ): List<RegexTier> {
+        val rows =
+            root.getAsJsonArray(key)?.mapNotNull { row ->
+                val o = row.asJsonObject
+                val pattern = o.get("pattern")?.takeIf { it.isJsonPrimitive }?.asString ?: return@mapNotNull null
+                val value = o.get("value")?.takeIf { it.isJsonPrimitive }?.asString ?: return@mapNotNull null
+                val ignoreCase = o.get("ignoreCase")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
+                // A pattern that will not compile must not take down generation.
+                runCatching {
+                    if (ignoreCase) Regex(pattern, RegexOption.IGNORE_CASE) else Regex(pattern)
+                }.getOrNull()
+                    ?.let { RegexTier(it, value) }
+            }.orEmpty()
+        if (rows.isEmpty()) return default.map { RegexTier(it.first, it.second) }
+        // Order is the matching rule, so the asset's order is authoritative; only
+        // its length is checked against the default, by the parity test.
+        return rows
+    }
+
+    private fun JsonObject.regexList(
+        key: String,
+        default: List<Regex>,
+    ): List<Regex> {
+        val rows =
+            root.getAsJsonArray(key)?.mapNotNull { entry ->
+                val pattern = entry.asString
+                runCatching { Regex(pattern) }.getOrNull()
+            }.orEmpty()
+        return rows.ifEmpty { default }
+    }
+
     private fun parsePresets(json: JsonObject): Map<String, PresetProfile> {
         val obj = json.getAsJsonObject("presets") ?: return DEFAULT_PRESETS
         val result = LinkedHashMap<String, PresetProfile>()
@@ -232,6 +295,93 @@ class TuningProfile internal constructor(
                 "Paths=../../../Engine/Plugins/MagtModule/Content",
                 "Paths=../../../Engine/Plugins/Runtime/Intel/XeSS/Content",
                 "Paths=../../../Engine/Plugins/Runtime/Nvidia/NRD/Content",
+            )
+
+        val DEFAULT_GPU_TIER_PATTERNS: List<Pair<Regex, String>> =
+            listOf(
+                Regex("""adreno.*8[3-9]\d|adreno.*8[12]\d""") to "flagship",
+                Regex("""tensor\s*g[345]""") to "flagship",
+                Regex("""dimensity\s*9[3-9]\d\d?""") to "flagship",
+                Regex("""apple\s*(m[34]|a18)""") to "flagship",
+                Regex("""adreno.*7[5-9]\d|adreno.*8[0]\d""") to "high",
+                Regex("""tensor\s*g[12]""") to "high",
+                Regex("""dimensity\s*(9[0-2]\d|8[5-9]\d)""") to "high",
+                Regex("""exynos\s*2200""") to "high",
+                Regex("""kirin\s*9000""") to "high",
+                Regex("""mali-g(7[6-9]|8\d|9\d)\d?""") to "high",
+                Regex("""apple\s*(m[12]|a1[67])""") to "high",
+                Regex("""adreno.*7[0-4]\d|adreno.*6[5-9]\d""") to "mid_high",
+                Regex("""dimensity\s*(8[0-4]\d|7[3-9]\d)""") to "mid_high",
+                Regex("""tensor""") to "mid_high",
+                Regex("""exynos\s*2[1-3]00""") to "mid_high",
+                Regex("""kirin\s*9[1-9]\d\d?""") to "mid_high",
+                Regex("""xclipse""") to "mid_high",
+                Regex("""apple\s*a1[45]""") to "mid_high",
+                Regex("""adreno.*6[0-4]\d|mali-g(6\d|7[0-5])\d?|mali-g615""") to "mid",
+                Regex("""dimensity\s*[0-9]{3}""") to "mid",
+                Regex("""exynos\s*[0-9]{4}""") to "mid",
+                Regex("""kirin\s*[0-9]{4}""") to "mid",
+                Regex("""apple\s*a1[23]""") to "mid",
+                Regex("""adreno.*5\d\d|mali-g5\d?""") to "mid_low",
+                Regex("""adreno.*[34]\d\d|mali-g[34]""") to "low",
+            )
+
+        val DEFAULT_CHIPSET_PROFILES: List<Pair<Regex, String>> =
+            listOf(
+                Regex("""snapdragon\s*8\s*elite|sm8750|adreno\s*830""", RegexOption.IGNORE_CASE) to "Android_Adreno830",
+                Regex("""snapdragon\s*8\s*gen\s*3|sm8650|adreno\s*750""", RegexOption.IGNORE_CASE) to "Android_Adreno750",
+                Regex("""snapdragon\s*8\s*gen\s*2|sm8550|adreno\s*740""", RegexOption.IGNORE_CASE) to "Android_Adreno740",
+                Regex("""snapdragon\s*8\s*\+?\s*gen\s*1|sm8475|sm8450|adreno\s*730""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
+                Regex("""snapdragon\s*7|sm7\d{3}|adreno\s*7""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
+                Regex("""snapdragon\s*6|snapdragon\s*695|snapdragon\s*680|sm6\d{3}|adreno\s*6""", RegexOption.IGNORE_CASE) to "Android_Adreno6xx",
+                Regex("""adreno\s*5""", RegexOption.IGNORE_CASE) to "Android_Adreno5xx",
+                Regex("""adreno\s*4""", RegexOption.IGNORE_CASE) to "Android_Adreno4xx",
+                Regex("""dimensity\s*94|mali-g925""", RegexOption.IGNORE_CASE) to "Android_Mali_G925",
+                Regex("""dimensity\s*93|mali-g720""", RegexOption.IGNORE_CASE) to "Android_Mali_G720",
+                Regex("""dimensity\s*92|mali-g715""", RegexOption.IGNORE_CASE) to "Android_Mali_G715",
+                Regex("""dimensity\s*90|mali-g710""", RegexOption.IGNORE_CASE) to "Android_Mali_G710",
+                Regex("""dimensity\s*8|mali-g61[0-9]|mali-g615""", RegexOption.IGNORE_CASE) to "Android_Mali_G615",
+                Regex("""dimensity\s*7|mali-g6""", RegexOption.IGNORE_CASE) to "Android_Mali_G61x",
+                Regex("""dimensity\s*6|mali-g57""", RegexOption.IGNORE_CASE) to "Android_Mali_G57",
+                Regex("""exynos\s*24|xclipse\s*9""", RegexOption.IGNORE_CASE) to "Android_Xclipse9xx",
+                Regex("""exynos\s*13|xclipse\s*5""", RegexOption.IGNORE_CASE) to "Android_Xclipse5xx",
+                Regex("""kirin|maleoon""", RegexOption.IGNORE_CASE) to "Android_Maleoon",
+            )
+
+        val DEFAULT_GPU_ONLY_PROFILES: List<Pair<Regex, String>> =
+            listOf(
+                Regex("""adreno\s*830""", RegexOption.IGNORE_CASE) to "Android_Adreno830",
+                Regex("""adreno\s*750""", RegexOption.IGNORE_CASE) to "Android_Adreno750",
+                Regex("""adreno\s*740""", RegexOption.IGNORE_CASE) to "Android_Adreno740",
+                Regex("""adreno\s*730""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
+                Regex("""adreno\s*7""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
+                Regex("""adreno\s*6""", RegexOption.IGNORE_CASE) to "Android_Adreno6xx",
+                Regex("""adreno\s*5""", RegexOption.IGNORE_CASE) to "Android_Adreno5xx",
+                Regex("""adreno\s*4""", RegexOption.IGNORE_CASE) to "Android_Adreno4xx",
+                Regex("""mali-g925""", RegexOption.IGNORE_CASE) to "Android_Mali_G925",
+                Regex("""mali-g720""", RegexOption.IGNORE_CASE) to "Android_Mali_G720",
+                Regex("""mali-g715""", RegexOption.IGNORE_CASE) to "Android_Mali_G715",
+                Regex("""mali-g710""", RegexOption.IGNORE_CASE) to "Android_Mali_G710",
+                Regex("""mali-g615""", RegexOption.IGNORE_CASE) to "Android_Mali_G615",
+                Regex("""mali-g6""", RegexOption.IGNORE_CASE) to "Android_Mali_G61x",
+                Regex("""mali-g57""", RegexOption.IGNORE_CASE) to "Android_Mali_G57",
+                Regex("""xclipse\s*9""", RegexOption.IGNORE_CASE) to "Android_Xclipse9xx",
+                Regex("""xclipse\s*5""", RegexOption.IGNORE_CASE) to "Android_Xclipse5xx",
+                Regex("""maleoon""", RegexOption.IGNORE_CASE) to "Android_Maleoon",
+            )
+
+        val DEFAULT_HIGH_END_GPU_PATTERNS: List<Regex> =
+            listOf(
+                Regex("""adreno.*7[4-9]\d"""),
+                Regex("""adreno.*8\d{2}"""),
+                Regex("""mali-g(7[2-9]\d|8\d{1,2}|9\d{1,2})"""),
+            )
+
+        val DEFAULT_MID_GPU_PATTERNS: List<Regex> =
+            listOf(
+                Regex("""adreno.*6\d{2}"""),
+                Regex("""adreno.*7[1-3]\d"""),
+                Regex("""mali-g(5\d{1,2}|6\d{1,2})"""),
             )
 
         @Volatile
