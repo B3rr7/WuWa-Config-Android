@@ -398,6 +398,11 @@ class ProfileExtractor(
 
                 val uidStr = uid ?: ""
 
+                // The five countIniSettings calls are the last of the small round
+                // trips. Everything after this is one large read, so the progress
+                // has to move again here or the bar sits at 10% for the whole read.
+                onProgress(20)
+
                 val baseProfile =
                     PlayerProfile(
                         engineSettingCount = countIniSettings("Engine.ini"),
@@ -433,15 +438,21 @@ class ProfileExtractor(
                 // Android version / FPS are all logged at startup, so reading only
                 // the current log left the DEVICE and PERFORMANCE sections empty
                 // even though the data existed in the newest backup.
+                // readMergedClientLog pulls the current log plus the head of up to
+                // eight backups (an 8 MB budget) through the shell — by far the
+                // slowest part of a profile read, and the part the old 10% reading
+                // never got past. It reports no progress of its own, so the steps
+                // are emitted around it.
                 val deviceInfo =
                     runCatching {
-                        onProgress(10)
                         val merged = readMergedClientLog().getOrThrow()
                         LogRepository.add("readProfile: ${merged.second.summary()}", LogLevel.INFO)
+                        onProgress(70)
                         LogParser.parseLog(merged.first)
                     }.onFailure {
                         LogRepository.add("readProfile: device/performance log unavailable (${it.message})", LogLevel.WARNING)
                     }.getOrNull()
+                onProgress(90)
 
                 val profile =
                     if (deviceInfo != null) {
@@ -467,6 +478,7 @@ class ProfileExtractor(
                     } else {
                         baseProfile
                     }
+                onProgress(100)
                 Result.success(profile)
             } catch (e: Exception) {
                 Log.w("ProfileExtractor", "readProfile failed: ${e.message}")
