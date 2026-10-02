@@ -40,6 +40,7 @@ import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.LogInsightsViewModel
 import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.components.CancelledBanner
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassCardHeader
@@ -68,6 +69,7 @@ fun ConfigGenScreen(
 ) {
     val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
     val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
+    val operationCancelled by deployHistoryViewModel.operationCancelled.collectAsStateWithLifecycle()
     // Analysis progress lives on the insights VM; deploy verification progress lives on the
     // deploy VM. Only one is ever >0 at a time (DeviceOps serializes them), so pick the active one.
     val analysisProgress by insightsViewModel.readingProgress.collectAsStateWithLifecycle()
@@ -466,6 +468,11 @@ fun ConfigGenScreen(
                                 enabled = true,
                                 accentColor = NeonRed,
                             ) { Text("Cancel Operation", fontWeight = FontWeight.Bold) }
+                        } else if (operationCancelled) {
+                            // Without this a cancelled deploy is indistinguishable
+                            // from one that never started: the buttons just
+                            // re-enable and nothing says why.
+                            CancelledBanner()
                         }
                     }
                 }

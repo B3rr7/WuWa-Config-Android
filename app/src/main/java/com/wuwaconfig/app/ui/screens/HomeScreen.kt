@@ -33,6 +33,7 @@ import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.SettingsViewModel
 import com.wuwaconfig.app.ui.components.*
+import com.wuwaconfig.app.ui.components.CancelledBanner
 import com.wuwaconfig.app.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -95,6 +96,7 @@ fun HomeScreen(
         }
     val backups by backupViewModel.backups.collectAsStateWithLifecycle()
     val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
+    val operationCancelled by deployHistoryViewModel.operationCancelled.collectAsStateWithLifecycle()
     val deployRecords by deployHistoryViewModel.deployRecords.collectAsStateWithLifecycle()
     val deployHistoryEnabled by viewModel.deployHistoryEnabled.collectAsStateWithLifecycle()
     val customDeploySuccess by deployHistoryViewModel.customDeploySuccess.collectAsStateWithLifecycle()
@@ -708,6 +710,8 @@ fun HomeScreen(
                                     enabled = true,
                                     accentColor = NeonRed,
                                 ) { Text("Cancel", fontWeight = FontWeight.Bold) }
+                            } else if (operationCancelled) {
+                                CancelledBanner()
                             }
                         }
                     }
