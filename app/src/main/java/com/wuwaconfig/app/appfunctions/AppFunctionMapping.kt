@@ -180,7 +180,9 @@ internal fun GachaStatsResult.toInfo(
     isStale: Boolean,
 ): GachaStatsInfo =
     GachaStatsInfo(
-        ageHours = ageHours ?: 0L,
+        // Passed through as null rather than flattened to zero: an unknown age and a
+        // just-now fetch are different claims, and only one of them is a lie.
+        ageHours = ageHours,
         isStale = isStale,
         totalPulls = totalPulls,
         totalCurrency = totalCurrency,

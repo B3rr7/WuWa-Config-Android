@@ -387,8 +387,15 @@ data class GachaItemCountInfo(
 /** Lifetime totals across the whole retained gacha history. */
 @AppFunctionSerializable(isDescribedByKDoc = true)
 data class GachaStatsInfo(
-    /** How long ago these records were fetched, in hours. Zero when unknown. */
-    val ageHours: Long,
+    /**
+     * How long ago these records were fetched, in hours.
+     *
+     * Null when the age cannot be known — a cache written before `fetchedAt`
+     * existed reports no timestamp, and that is not the same as "fetched just now".
+     * Collapsing it to zero would tell an agent the numbers are current when they
+     * may be a year old, which is the one claim here that must not be wrong.
+     */
+    val ageHours: Long? = null,
     /**
      * True when the records are past the 12-hour freshness window, so they may no
      * longer describe the account. Still valid history — re-fetch for current numbers.

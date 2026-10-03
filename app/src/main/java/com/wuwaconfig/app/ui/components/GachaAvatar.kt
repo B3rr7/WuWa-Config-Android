@@ -66,13 +66,20 @@ object GachaAvatar {
      * [resourceType] picks the prefix: the record endpoint labels characters
      * `Resonator` and weapons `Weapon`, and the script names the files to match.
      * Anything else is treated as a character, which is the common case.
+     *
+     * A leading `Weapon ` is stripped before slugifying. The gacha endpoint names
+     * the base 3★ weapons `Weapon Broadblade41` while the wiki file is
+     * `Broadblade41`, so without this the slug would carry a doubled `weapon_`
+     * prefix and never match. Stripping is a no-op for a name that has no prefix,
+     * so it is safe either way.
      */
     fun assetFile(
         context: Context,
         name: String,
         resourceType: String,
     ): String? {
-        val slug = name.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
+        val base = name.removePrefix("Weapon ").removePrefix("weapon ")
+        val slug = base.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
         val candidate =
             if (resourceType.equals("Weapon", ignoreCase = true)) {
                 "weapon_$slug.webp"

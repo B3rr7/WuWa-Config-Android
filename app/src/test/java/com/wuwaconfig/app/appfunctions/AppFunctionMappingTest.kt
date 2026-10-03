@@ -1,6 +1,7 @@
 package com.wuwaconfig.app.appfunctions
 
 import androidx.appfunctions.AppFunctionInvalidArgumentException
+import com.wuwaconfig.app.config.GachaStatsResult
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.model.ConfigFile
@@ -352,6 +353,22 @@ class AppFunctionMappingTest {
     }
 
     // ─────────── gacha prediction mapping ───────────
+
+    @Test
+    fun `an unknown age stays null rather than becoming zero`() {
+        // A cache written before fetchedAt existed has no timestamp. Flattening that
+        // to 0 would tell an agent the numbers are current when they may be a year
+        // old — the one claim on this surface that must not be wrong.
+        val result = GachaStatsResult.EMPTY.toInfo(ageHours = null, isStale = false)
+        assertNull(result.ageHours)
+    }
+
+    @Test
+    fun `a known age is carried through`() {
+        val result = GachaStatsResult.EMPTY.toInfo(ageHours = 720L, isStale = true)
+        assertEquals(720L, result.ageHours)
+        assertTrue(result.isStale)
+    }
 
     @Test
     fun `PityPrediction maps every agent-facing field`() {
