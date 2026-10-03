@@ -65,6 +65,34 @@ object GachaApi {
     }
 
     /**
+     * Relabels this record as belonging to [queriedType].
+     *
+     * **The `cardPoolType` the endpoint returns is a banner name, not a pool id.**
+     * Measured on a real account against 3.7.0: the rows came back as
+     * `"Resonators Accurate Modulation"` (304), `"Full-Range Modualtion"` (88, the
+     * game's own typo) and `"Resonators Accurate Modulation - 2"` (67) — and only
+     * the `STANDARD_3`-style pools answered with a literal `"10"` / `"11"`.
+     *
+     * Every downstream grouping keys off this field:
+     * `fetchAllRecords` buckets rows per pool to build predictions, `calcCharacterPrediction`
+     * picks the featured unit out of the pool it is given, and the standard-pool 5★
+     * set that drives the 50/50 logic is derived from it. Comparing a banner name
+     * against `GachaPoolType.type` therefore matched almost nothing: on that account
+     * 459 of 544 rows fell out of every bucket, and the current banner produced no
+     * prediction at all while a long-expired one did — purely because its rows
+     * happened to carry the numeric string.
+     *
+     * The response to a query for pool N *is* pool N by construction: this loop sends
+     * one request per [GachaPoolType] and the server answers that pool. So the
+     * request is the authority and the response's label is discarded.
+     *
+     * A banner-name table like this one's `ui.analysis.base_pool` alternative was
+     * rejected deliberately: it needs a Kuro-maintained name list that would rot on
+     * every new banner, which is the failure mode this removes.
+     */
+    private fun GachaRecord.stampQueriedPoolType(queriedType: String): GachaRecord = if (cardPoolType == queriedType) this else copy(cardPoolType = queriedType)
+
+    /**
      * The query endpoint, selected by the player-id prefix.
      *
      * Player ids beginning with "1" are served by `aki-game2.com`; every other
@@ -111,7 +139,10 @@ object GachaApi {
                 val response = result.getOrThrow()
 
                 if (response.code == 0 && !response.data.isNullOrEmpty()) {
-                    records.addAll(response.data)
+                    // Stamp the *queried* pool type onto the rows rather than trusting
+                    // the one the server sent back. See stampQueriedPoolType for why
+                    // the server's value is unusable.
+                    records.addAll(response.data.map { it.stampQueriedPoolType(pool.type) })
                     poolsWithData.add(pool.type)
                     anySuccess = true
                 } else if (response.code != 0) {
@@ -254,6 +285,15 @@ object GachaApi {
                             name = item["name"] as? String ?: "",
                             count = (item["count"] as? Number)?.toInt() ?: 1,
                             time = item["time"] as? String ?: "",
+                            // Read rather than ignored. This mapper is hand-written, so a
+                            // field absent here is absent from the model *whatever the
+                            // server sent* — which is why resourceId used to arrive as a
+                            // flat 0 and every avatar lookup keyed on it found nothing.
+                            // WutheringWavesTool binds the same payload automatically and
+                            // resolves avatars from `assets/header/{id}.png`, so the ids
+                            // do come back; this class was dropping them.
+                            resourceId = item.intUnder("resourceId", "resource_id"),
+                            resourceType = item.stringUnder("resourceType", "resource_type"),
                         )
                     } catch (_: Exception) {
                         null
@@ -294,6 +334,73 @@ object GachaApi {
         standardFiveStars: Set<String>,
     ): Boolean {
         return name in standardFiveStars
+    }
+
+    /**
+     * Reads the first of [keys] present as a number, else 0.
+     *
+     * Two spellings because the record payload's exact casing for the avatar id could
+     * not be confirmed against a live response — Kuro's `record_id` is single-use, so
+     * a replay is rejected and the app must be on-device to see the payload. Guessing
+     * one spelling and being wrong would leave every avatar silently missing, which is
+     * exactly the failure this replaces, so both are accepted and the cost is two
+     * map lookups on a path that is already parsing JSON per row.
+     *
+     * A non-numeric value degrades to 0 rather than throwing: the surrounding mapper
+     * treats an unusable field as absent for every other field too.
+     */
+    private fun Map<String, Any?>.intUnder(vararg keys: String): Int {
+        for (key in keys) {
+            val value = this[key]
+            if (value is Number) return value.toInt()
+            if (value is String) value.toIntOrNull()?.let { return it }
+        }
+        return 0
+    }
+
+    /** Reads the first of [keys] present as a non-blank string, else "". */
+    private fun Map<String, Any?>.stringUnder(vararg keys: String): String {
+        for (key in keys) {
+            val value = this[key] as? String
+            if (!value.isNullOrBlank()) return value
+        }
+        return ""
+    }
+
+    /**
+     * Share of 50/50 pulls that were won, over [fiveStarRecords] in any order.
+     *
+     * The guarantee is what makes this more than a plain off-banner ratio: after a
+     * loss the next 5★ cannot lose, so counting it would understate the rate. Such
+     * a pull is skipped — it is excluded from the numerator *and* the denominator.
+     *
+     * Named for what it measures, which is the win rate; the field it feeds,
+     * `PityPrediction.nonBannerRate`, keeps its original misleading name because
+     * renaming a persisted cache field is a schema migration for no benefit.
+     *
+     * Reports 0.0 when there was no 50/50 to resolve.
+     */
+    internal fun fiftyFiftyWinRate(
+        fiveStarRecords: List<GachaRecord>,
+        standardFiveStars: Set<String>,
+    ): Double {
+        var isGuaranteedNext = false
+        var totalFiftyFifty = 0
+        var wonFiftyFifty = 0
+        for (star in fiveStarRecords) {
+            val isUp = !isStandardFive(star.name, standardFiveStars)
+            if (isGuaranteedNext) {
+                isGuaranteedNext = false
+            } else {
+                totalFiftyFifty++
+                if (isUp) {
+                    wonFiftyFifty++
+                } else {
+                    isGuaranteedNext = true
+                }
+            }
+        }
+        return if (totalFiftyFifty > 0) wonFiftyFifty.toDouble() / totalFiftyFifty else 0.0
     }
 
     internal fun calcPullsSinceLastFourStar(records: List<GachaRecord>): Int {
@@ -468,24 +575,9 @@ object GachaApi {
         val upSsrCount = fiveStarRecords.count { !isStandardFive(it.name, standardFiveStars) }
         val upRateValue = if (fiveStarRecords.isNotEmpty()) upSsrCount.toDouble() / fiveStarRecords.size else 0.0
 
-        // Non-banner rate (50/50 loss rate): traverse oldest -> newest, tracking guarantee.
-        var isGuaranteedNext = false
-        var totalFiftyFifty = 0
-        var wonFiftyFifty = 0
-        for (star in fiveStarRecords) {
-            val isUp = !isStandardFive(star.name, standardFiveStars)
-            if (isGuaranteedNext) {
-                isGuaranteedNext = false
-            } else {
-                totalFiftyFifty++
-                if (isUp) {
-                    wonFiftyFifty++
-                } else {
-                    isGuaranteedNext = true
-                }
-            }
-        }
-        val nonBannerRateValue = if (totalFiftyFifty > 0) wonFiftyFifty.toDouble() / totalFiftyFifty else 0.0
+        // Non-banner rate (50/50 win rate) — shared with GachaStats via
+        // fiftyFiftyWinRate so the two can never disagree on the same records.
+        val nonBannerRateValue = fiftyFiftyWinRate(fiveStarRecords, standardFiveStars)
 
         return PityPrediction(
             poolType = pool.type,

@@ -206,6 +206,18 @@ fun PityScreen(
                             }
                         }
                     }
+                    // Lifetime view, mirroring WutheringWavesTool's 统计 tab. Placed
+                    // after the per-pool predictions because those answer "where does
+                    // this banner stand" while this answers "what does the whole
+                    // record amount to"; the per-pool view is the one a player
+                    // checks before pulling.
+                    item { GachaStatsSection(data) }
+                    // The per-banner visual view. Placed after the lifetime totals
+                    // because it answers a different question — "what does my whole
+                    // record amount to" versus "what does this banner look like" —
+                    // and because it carries the item grid, which is the part a
+                    // player actually recognises their pulls in.
+                    item { GachaVisualSection(data) }
                     item {
                         Text(
                             "PULL HISTORY",
@@ -637,7 +649,14 @@ private fun formatCost(cost: Long): String {
     return formatNumber(cost) + " Astrites"
 }
 
-private fun formatNumber(number: Long): String {
+/**
+ * Groups a number into thousands.
+ *
+ * `internal` because [GachaStatsSection] is a separate file in this package and
+ * formats Astrites the same way. Two formatters for one convention is how "10.7K"
+ * and "10700" end up on the same screen.
+ */
+internal fun formatNumber(number: Long): String {
     return if (number >= 10000) {
         "%.1fK".format(number / 1000.0).replace(".0", "")
     } else if (number >= 1000) {
@@ -719,15 +738,16 @@ private fun HistoryBanner(
     viewModel: GachaViewModel,
 ) {
     // System.currentTimeMillis() must not be read during composition — it is an
-    // impure, non-snapshot read, so the countdown never ticked. Refresh the
+    // impure, non-snapshot read, so the age never ticked. Refresh the
     // ViewModel's StateFlow on a timer instead.
-    LaunchedEffect(entry.expiresAt) {
+    LaunchedEffect(entry.fetchedAt) {
         while (true) {
-            viewModel.refreshGachaHistoryRemainingHours()
+            viewModel.refreshGachaHistoryAge()
             delay(60_000)
         }
     }
-    val remainingHrs by viewModel.gachaHistoryRemainingHours.collectAsStateWithLifecycle()
+    val ageHrs by viewModel.gachaHistoryAgeHours.collectAsStateWithLifecycle()
+    val isStale by viewModel.gachaHistoryIsStaleFlow.collectAsStateWithLifecycle()
     GlassCard(accentColor = NeonCyan) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.History, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(20.dp))
@@ -735,7 +755,13 @@ private fun HistoryBanner(
             Column(modifier = Modifier.weight(1f)) {
                 Text("Previous Result", style = MaterialTheme.typography.labelMedium, color = NeonCyan.copy(alpha = 0.7f))
                 Text(
-                    "${entry.totalPulls} pulls · ${entry.fiveStars}★5 · expires in ${remainingHrs}h",
+                    buildString {
+                        append("${entry.totalPulls} pulls · ${entry.fiveStars}★5")
+                        // Null age means a cache written before fetchedAt existed.
+                        // Saying "0h ago" would be a lie; staying silent is honest.
+                        ageHrs?.let { append(" · fetched ${it}h ago") }
+                        if (isStale) append(" · may be behind, re-fetch for current numbers")
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -767,8 +793,15 @@ private fun HistoryBanner(
     }
 }
 
+/**
+ * A figure with a caption under it.
+ *
+ * `internal` rather than private because [GachaStatsSection] is a separate file in
+ * this package and reuses it. Duplicating a nine-line composable to avoid widening
+ * its visibility would leave two spellings of the same visual token to drift.
+ */
 @Composable
-private fun StatItem(
+internal fun StatItem(
     value: String,
     label: String,
     accent: Color,

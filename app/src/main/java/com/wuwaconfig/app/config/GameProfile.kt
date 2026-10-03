@@ -141,6 +141,24 @@ class GameProfile internal constructor(
 
     val conveneUrlPattern: String get() = str(KEY_CONVENE_URL_PATTERN, DEFAULT_CONVENE_URL_PATTERN)
 
+    /**
+     * How long a fetched gacha record still counts as a *current snapshot*, in
+     * hours. Past this the data is still perfectly usable history — it is just no
+     * longer what the player's account looks like now, so the UI says so and an
+     * agent is told the numbers may be behind.
+     *
+     * Distinct from [gachaHistoryRetentionHours] on purpose. Collapsing the two
+     * is what turned the history file into a self-deleting cache.
+     */
+    val gachaHistoryFreshHours: Int get() = int(KEY_GACHA_FRESH_HOURS, DEFAULT_GACHA_FRESH_HOURS)
+
+    /**
+     * How long the fetched gacha history is kept on disk, in hours. The default
+     * is one year rather than "forever" so the file cannot grow without bound if
+     * the player never clears it.
+     */
+    val gachaHistoryRetentionHours: Int get() = int(KEY_GACHA_RETENTION_HOURS, DEFAULT_GACHA_RETENTION_HOURS)
+
     // ── CVar data ──
 
     val supportedFrameCaps: List<Int>
@@ -188,6 +206,8 @@ class GameProfile internal constructor(
         private const val KEY_GACHA_HOST_OTHER = "gachaHostOther"
         private const val KEY_GACHA_QUERY_PATH = "gachaQueryPath"
         private const val KEY_CONVENE_URL_PATTERN = "conveneUrlPattern"
+        private const val KEY_GACHA_FRESH_HOURS = "gachaHistoryFreshHours"
+        private const val KEY_GACHA_RETENTION_HOURS = "gachaHistoryRetentionHours"
         private const val KEY_SUPPORTED_FRAME_CAPS = "supportedFrameCaps"
         private const val KEY_CVAR_PREFIXES = "cvarPrefixes"
         private const val KEY_FORBIDDEN_CVARS = "forbiddenCvars"
@@ -226,6 +246,12 @@ class GameProfile internal constructor(
 
         const val DEFAULT_CONVENE_URL_PATTERN =
             """https://aki-gm-resources(-oversea)?\.aki-game\.(net|com)/aki/gacha/index\.html#/record[^"\s]*"""
+
+        /** Was the store's single TTL. Kept as the freshness window so the "re-fetch me" hint is unchanged. */
+        const val DEFAULT_GACHA_FRESH_HOURS = 12
+
+        /** 8760h = 365d. Long enough to be history, bounded so the file cannot grow without limit. */
+        const val DEFAULT_GACHA_RETENTION_HOURS = 8760
 
         val DEFAULT_SUPPORTED_FRAME_CAPS = listOf(30, 45, 60, 90, 120)
 

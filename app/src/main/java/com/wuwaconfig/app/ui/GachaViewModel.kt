@@ -62,32 +62,48 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val loaded = GachaHistoryStore.load(getApplication())
             _gachaHistory.value = loaded
+            _gachaHistoryAge.value = loaded?.let { GachaHistoryStore.ageHours(it) }
+            _gachaHistoryStale.value = loaded?.let { GachaHistoryStore.isStale(it) } ?: false
         }
     }
 
     fun clearGachaHistory() {
         viewModelScope.launch(Dispatchers.IO) { GachaHistoryStore.delete(getApplication()) }
         _gachaHistory.value = null
-        _gachaHistoryRemaining.value = 0L
+        _gachaHistoryAge.value = null
+        _gachaHistoryStale.value = false
         addLog("Gacha history cleared")
     }
 
-    fun gachaHistoryRemainingHours(): Long =
-        _gachaHistory.value?.let { entry ->
-            maxOf((entry.expiresAt - System.currentTimeMillis()) / (60 * 60 * 1000), 0L)
-        } ?: 0L
+    /**
+     * How long ago the stored history was fetched, in hours, or null when the entry
+     * predates `fetchedAt` and its age cannot be known.
+     *
+     * This replaced a countdown to [com.wuwaconfig.app.model.GachaHistoryEntry.expiresAt].
+     * That field is now a *retention* deadline a year out, so counting down to it
+     * would have read "expires in 8760h" — technically true and completely useless.
+     * What the banner needs to say is how old the numbers are.
+     */
+    fun gachaHistoryAgeHours(): Long? = _gachaHistory.value?.let { GachaHistoryStore.ageHours(it) }
+
+    /** True when the stored history is past its freshness window. */
+    fun gachaHistoryIsStale(): Boolean = _gachaHistory.value?.let { GachaHistoryStore.isStale(it) } ?: false
 
     /**
-     * Snapshot of [gachaHistoryRemainingHours]. Reading `System.currentTimeMillis()`
-     * straight from composition is an impure, non-snapshot read, so the countdown
+     * Snapshot of [gachaHistoryAgeHours]. Reading `System.currentTimeMillis()`
+     * straight from composition is an impure, non-snapshot read, so the age
      * froze at whatever value it had on the first frame — the UI must collect
-     * this instead and call [refreshGachaHistoryRemainingHours] on a timer.
+     * this instead and call [refreshGachaHistoryAge] on a timer.
      */
-    private val _gachaHistoryRemaining = MutableStateFlow(0L)
-    val gachaHistoryRemainingHours: StateFlow<Long> = _gachaHistoryRemaining.asStateFlow()
+    private val _gachaHistoryAge = MutableStateFlow<Long?>(null)
+    val gachaHistoryAgeHours: StateFlow<Long?> = _gachaHistoryAge.asStateFlow()
 
-    fun refreshGachaHistoryRemainingHours() {
-        _gachaHistoryRemaining.value = gachaHistoryRemainingHours()
+    private val _gachaHistoryStale = MutableStateFlow(false)
+    val gachaHistoryIsStaleFlow: StateFlow<Boolean> = _gachaHistoryStale.asStateFlow()
+
+    fun refreshGachaHistoryAge() {
+        _gachaHistoryAge.value = gachaHistoryAgeHours()
+        _gachaHistoryStale.value = gachaHistoryIsStale()
     }
 
     /**

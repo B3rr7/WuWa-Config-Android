@@ -3,6 +3,7 @@ package com.wuwaconfig.app.appfunctions
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
+import android.os.Environment
 import android.util.DisplayMetrics
 import androidx.annotation.RequiresApi
 import androidx.appfunctions.AppFunction
@@ -11,17 +12,26 @@ import androidx.appfunctions.AppFunctionInvalidArgumentException
 import androidx.appfunctions.AppFunctionService
 import androidx.appfunctions.AppFunctionServiceEntryPoint
 import androidx.appfunctions.AppFunctionSystemUnknownException
+import com.google.gson.reflect.TypeToken
+import com.wuwaconfig.app.PREFS_NAME
 import com.wuwaconfig.app.WuWaConfigApp
+import com.wuwaconfig.app.config.BackupStore
 import com.wuwaconfig.app.config.CvarOptimizer
+import com.wuwaconfig.app.config.ForbiddenCvars
+import com.wuwaconfig.app.config.GachaHistoryStore
+import com.wuwaconfig.app.config.GachaStats
+import com.wuwaconfig.app.config.GachaStatsResult
 import com.wuwaconfig.app.config.LogParser
 import com.wuwaconfig.app.config.PRESETS
 import com.wuwaconfig.app.config.SmartBrain
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.model.BattleStatsStore
+import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.LogAnalysisStore
 import com.wuwaconfig.app.model.LogInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * System-agent callable surface for the config generator and log analyser.
@@ -369,6 +379,107 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
                         "No deployment has id '$deployId'. Call \"getDeployHistory\" for the current list of identifiers.",
                     )
             record.toOutcome()
+        }
+
+    /**
+     * Read the gacha pity predictions from the app's stored pull history.
+     *
+     * The history is written when the app fetches gacha records and kept for a year,
+     * so a result here is normally the account's whole record rather than one
+     * session. It stops counting as a *current* snapshot after 12 hours; check
+     * "getGachaStats" for the age and staleness before quoting the numbers as
+     * current. An empty list means no history has ever been fetched.
+     *
+     * @return Per-pool pity status. The account identifier and the raw gacha URL are withheld.
+     */
+    @AppFunction(isDescribedByKDoc = true)
+    suspend fun getGachaPrediction(): List<GachaPredictionInfo> =
+        withContext(Dispatchers.IO) {
+            val entry = GachaHistoryStore.load(applicationContext) ?: return@withContext emptyList()
+            val type = object : TypeToken<GachaData>() {}.type
+            val data =
+                GachaHistoryStore.gson.fromJson<GachaData>(entry.fullDataJson, type)
+                    ?: return@withContext emptyList()
+            val safeData = data.copy(predictions = data.predictions ?: emptyList())
+            safeData.predictions.map { it.toGachaPredictionInfo() }
+        }
+
+    /**
+     * Read lifetime totals across the whole stored gacha history.
+     *
+     * Complements "getGachaPrediction", which reports where each pool stands right
+     * now: this reports what the account's full record amounts to — total pulls,
+     * average pity, 50/50 win rate, and the character/weapon split.
+     *
+     * Both read the same file. The records are kept for a year but stop being a
+     * current snapshot after 12 hours, so check isStale before describing any figure
+     * as the player's present position. The account identifier and the raw gacha URL
+     * are withheld.
+     *
+     * @return Lifetime aggregates, or zeroes when no history has ever been fetched.
+     */
+    @AppFunction(isDescribedByKDoc = true)
+    suspend fun getGachaStats(): GachaStatsInfo =
+        withContext(Dispatchers.IO) {
+            val entry =
+                GachaHistoryStore.load(applicationContext)
+                    ?: return@withContext GachaStatsResult.EMPTY.toInfo(ageHours = null, isStale = true)
+            val type = object : TypeToken<GachaData>() {}.type
+            val data =
+                GachaHistoryStore.gson.fromJson<GachaData>(entry.fullDataJson, type)
+                    ?: return@withContext GachaStatsResult.EMPTY.toInfo(ageHours = null, isStale = true)
+            GachaStats.aggregate(data).toInfo(
+                ageHours = GachaHistoryStore.ageHours(entry),
+                isStale = GachaHistoryStore.isStale(entry),
+            )
+        }
+
+    /**
+     * Look up a CVar in the game's CVar database.
+     *
+     * Tells the caller whether the name is a real CVar the game registers, whether the
+     * app monitors it for drift, what the game's default value is, which functional
+     * category it belongs to, and whether it is one of the restricted CVars the game
+     * mishandles.
+     *
+     * @param name CVar name as the engine spells it, for example "r.Shadow.MaxResolution". Case-insensitive.
+     * @return The lookup result. An unrecognised name returns isKnown=false rather than throwing.
+     */
+    @AppFunction(isDescribedByKDoc = true)
+    suspend fun lookupCvar(name: String): CvarInfo =
+        withContext(Dispatchers.IO) {
+            app.cvarDatabase.load()
+            CvarInfo(
+                name = name,
+                isKnown = app.cvarDatabase.isKnown(name),
+                isMonitored = app.cvarDatabase.isMonitored(name),
+                gameDefault = app.cvarDatabase.gameDefault(name),
+                category = app.cvarDatabase.categorize(name).displayName,
+                isForbidden = ForbiddenCvars.isForbidden(name),
+            )
+        }
+
+    /**
+     * List configuration backups the app has stored.
+     *
+     * Read-only: this lists backups so the caller can decide which one to restore, but
+     * does not restore anything. Restore overwrites the game's live configuration and
+     * is deliberately not exposed to agents.
+     *
+     * @return Backups with their contained files, newest first. Empty when no backups exist.
+     */
+    @AppFunction(isDescribedByKDoc = true)
+    suspend fun listBackups(): List<BackupInfo> =
+        withContext(Dispatchers.IO) {
+            val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val defaultBackupDir = applicationContext.filesDir.resolve("backups").absolutePath
+            val backupDir = File(prefs.getString("backup_dir", defaultBackupDir) ?: defaultBackupDir)
+            val publicDir =
+                File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                    "WuWaConfig",
+                )
+            BackupStore.listBackups(backupDir, publicDir).map { it.toBackupInfo() }
         }
 
     private companion object {

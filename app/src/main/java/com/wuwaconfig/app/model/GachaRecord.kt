@@ -1,11 +1,33 @@
 package com.wuwaconfig.app.model
 
+/**
+ * One gacha pull as the Kuro record endpoint returns it.
+ *
+ * [resourceId] and [resourceType] were absent until the record id was needed to
+ * resolve a pull to an avatar and to split character pulls from weapon pulls.
+ * Both default rather than being required because Gson populates a cache written
+ * by an older build: a field the endpoint omits, or one absent from JSON already
+ * on disk, has to hydrate to something inert instead of throwing. Zero means
+ * "the endpoint did not say", which is not the same as resource id 0.
+ */
 data class GachaRecord(
     val cardPoolType: String,
     val qualityLevel: Int,
     val name: String,
     val count: Int,
     val time: String,
+    /**
+     * Stable in-game id of the pulled character or weapon, e.g. 1109 for a
+     * character or 21050046 for a weapon. This is what keys an avatar lookup.
+     * Zero means the endpoint did not supply one.
+     */
+    val resourceId: Int = 0,
+    /**
+     * What was pulled, as the endpoint spells it. The 3.7.0 global record endpoint
+     * returns the English `Resonator` / `Weapon` / `Item`; other regions may return
+     * the Chinese `角色` / `武器`, so consumers must accept both.
+     */
+    val resourceType: String = "",
 )
 
 enum class GachaPoolType(val type: String, val label: String) {
@@ -93,8 +115,24 @@ data class GachaApiResponse(
 
 data class GachaHistoryEntry(
     val id: String,
+    /**
+     * When the underlying records were fetched, as epoch milliseconds. Zero for
+     * caches written before this field existed, which is why [isStale] treats
+     * zero as "unknown age" rather than "infinitely old".
+     */
+    val fetchedAt: Long = 0L,
+    /**
+     * When this entry stops being kept, as epoch milliseconds. Derived from
+     * `gachaHistoryRetentionHours`, and deliberately *not* the freshness window:
+     * the file is now history, so it outlives the point where it stops being a
+     * current snapshot. See [com.wuwaconfig.app.config.GachaHistoryStore].
+     */
     val expiresAt: Long,
     val totalPulls: Int,
     val fiveStars: Int,
+    /**
+     * The full [GachaData] as JSON. Not a credential: the Convene URL's
+     * `record_id` lives only in memory and is never written here.
+     */
     val fullDataJson: String,
 )

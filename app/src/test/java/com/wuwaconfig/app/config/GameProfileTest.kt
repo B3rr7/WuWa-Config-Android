@@ -102,6 +102,21 @@ class GameProfileTest {
         assertEquals(GameProfile.DEFAULT_GACHA_QUERY_PATH, p.gachaQueryPath)
         assertEquals(GameProfile.DEFAULT_CONVENE_URL_PATTERN, p.conveneUrlPattern)
         assertEquals(GameProfile.DEFAULT_SOFT_PITY_RATE, p.softPityRateAtThreshold, 1e-9)
+        assertEquals(GameProfile.DEFAULT_GACHA_FRESH_HOURS, p.gachaHistoryFreshHours)
+        assertEquals(GameProfile.DEFAULT_GACHA_RETENTION_HOURS, p.gachaHistoryRetentionHours)
+    }
+
+    @Test
+    fun `gacha retention outlasts freshness`() {
+        // Load-bearing, not a style assertion: if retention ever drops to or below
+        // freshness the history file starts deleting itself again the moment it goes
+        // stale, which is the exact defect the two windows were split to remove.
+        val p = loadRealAsset()
+        assertTrue(
+            "retention (${p.gachaHistoryRetentionHours}h) must exceed freshness (${p.gachaHistoryFreshHours}h)",
+            p.gachaHistoryRetentionHours > p.gachaHistoryFreshHours,
+        )
+        assertTrue("both windows must be positive", p.gachaHistoryFreshHours > 0)
     }
 
     @Test

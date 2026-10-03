@@ -2,8 +2,11 @@ package com.wuwaconfig.app.appfunctions
 
 import androidx.appfunctions.AppFunctionInvalidArgumentException
 import com.wuwaconfig.app.model.BattleStats
+import com.wuwaconfig.app.model.ConfigBackup
+import com.wuwaconfig.app.model.ConfigFile
 import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.GameMode
+import com.wuwaconfig.app.model.PityPrediction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -346,6 +349,100 @@ class AppFunctionMappingTest {
     @Test
     fun `the record cap matches the store it describes`() {
         assertEquals(20, MAX_DEPLOY_RECORDS)
+    }
+
+    // ─────────── gacha prediction mapping ───────────
+
+    @Test
+    fun `PityPrediction maps every agent-facing field`() {
+        val pred =
+            PityPrediction(
+                poolType = "1",
+                poolLabel = "Character Event",
+                status = "50/50",
+                lastFiveStarName = "Jiyan",
+                lastFiveStarTime = "2026-01-01 12:00:00",
+                currentFeaturedName = "Camellya",
+                currentFeaturedKnown = true,
+                pullsSinceLastFive = 42,
+                estimatedNextFive = 78,
+                hardPity = 80,
+                softPityThreshold = 66,
+                isInSoftPity = true,
+                pullsUntilHardPity = 38,
+                pullsSinceLastFourStar = 5,
+                estimatedNextFourStar = 10,
+                avgPityThisPool = 62.5,
+                nonBannerRate = 0.5,
+                upRate = 0.5,
+            )
+        val info = pred.toGachaPredictionInfo()
+        assertEquals("1", info.poolType)
+        assertEquals("Character Event", info.poolLabel)
+        assertEquals("50/50", info.status)
+        assertEquals("Jiyan", info.lastFiveStarName)
+        assertEquals("2026-01-01 12:00:00", info.lastFiveStarTime)
+        assertEquals("Camellya", info.currentFeaturedName)
+        assertTrue(info.currentFeaturedKnown)
+        assertEquals(42, info.pullsSinceLastFive)
+        assertEquals(78, info.estimatedNextFive)
+        assertEquals(80, info.hardPity)
+        assertEquals(66, info.softPityThreshold)
+        assertTrue(info.isInSoftPity)
+        assertEquals(38, info.pullsUntilHardPity)
+        assertEquals(5, info.pullsSinceLastFourStar)
+        assertEquals(10, info.estimatedNextFourStar)
+        assertEquals(62.5, info.avgPityThisPool, 0.001)
+        assertEquals(0.5, info.nonBannerRate, 0.001)
+        assertEquals(0.5, info.upRate, 0.001)
+    }
+
+    @Test
+    fun `PityPrediction mapping withholds ssrIntervals and totalCost`() {
+        val pred =
+            PityPrediction(
+                poolType = "2",
+                poolLabel = "Weapon Event",
+                status = "Guaranteed",
+                lastFiveStarName = "Verity's Handle",
+                lastFiveStarTime = "2026-02-01",
+                pullsSinceLastFive = 10,
+                estimatedNextFive = 70,
+                totalCost = 999_999L,
+            )
+        val info = pred.toGachaPredictionInfo()
+        // totalCost is financial data; ssrIntervals is detailed pull history.
+        // Neither field exists on the wire type, so neither can leak.
+        assertEquals(10, info.pullsSinceLastFive)
+        assertEquals(70, info.estimatedNextFive)
+    }
+
+    // ─────────── backup mapping ───────────
+
+    @Test
+    fun `ConfigBackup maps to a listing without file contents`() {
+        val backup =
+            ConfigBackup(
+                id = "abc123",
+                name = "Before tuning",
+                timestamp = 1_700_000_000_000L,
+                files =
+                    listOf(
+                        ConfigFile(name = "Engine.ini", content = "secret engine text"),
+                        ConfigFile(name = "GameUserSettings.ini", content = "secret settings text"),
+                    ),
+            )
+        val info = backup.toBackupInfo()
+        assertEquals("abc123", info.id)
+        assertEquals("Before tuning", info.name)
+        assertEquals(1_700_000_000_000L, info.timestamp)
+        assertEquals(listOf("Engine.ini", "GameUserSettings.ini"), info.fileNames)
+    }
+
+    @Test
+    fun `an empty backup maps to an empty file list`() {
+        val backup = ConfigBackup(id = "x", name = "empty", files = emptyList())
+        assertEquals(emptyList<String>(), backup.toBackupInfo().fileNames)
     }
 }
 

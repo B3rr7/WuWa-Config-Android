@@ -331,3 +331,132 @@ data class CachedLogAnalysisInfo(
     /** Confidence of that recommendation, 0 to 100. */
     val recommendationScore: Int,
 )
+
+/** Per-pool gacha pity status from the app's cached gacha analysis. */
+@AppFunctionSerializable(isDescribedByKDoc = true)
+data class GachaPredictionInfo(
+    /** Pool identifier, for example "1" (Character Event). */
+    val poolType: String,
+    /** Human-readable pool name, for example "Character Event". */
+    val poolLabel: String,
+    /** Whether the next 5-star is "Guaranteed" to be the featured one, "50/50", or "Unknown". */
+    val status: String,
+    /** Name of the last 5-star pulled in this pool, empty when none. */
+    val lastFiveStarName: String,
+    /** When the last 5-star was pulled, as a game timestamp, empty when none. */
+    val lastFiveStarTime: String,
+    /** The featured character of the current banner, empty when unknown. */
+    val currentFeaturedName: String,
+    /** True when the featured character is known rather than guessed. */
+    val currentFeaturedKnown: Boolean,
+    /** Pulls since the last 5-star in this pool. */
+    val pullsSinceLastFive: Int,
+    /** Estimated pulls until the next 5-star, based on this pool's average. */
+    val estimatedNextFive: Int,
+    /** Pulls at which a 5-star is guaranteed (hard pity). */
+    val hardPity: Int,
+    /** Pulls at which the 5-star rate begins to increase (soft pity). */
+    val softPityThreshold: Int,
+    /** True when pullsSinceLastFive has reached the soft-pity threshold. */
+    val isInSoftPity: Boolean,
+    /** Pulls remaining until the hard-pity guarantee. */
+    val pullsUntilHardPity: Int,
+    /** Pulls since the last 4-star or 5-star in this pool. */
+    val pullsSinceLastFourStar: Int,
+    /** Estimated pulls until the next 4-star. */
+    val estimatedNextFourStar: Int,
+    /** Average 5-star pity observed in this pool. */
+    val avgPityThisPool: Double,
+    /** Chance the next 5-star is not the featured one, 0.0 to 1.0. */
+    val nonBannerRate: Double,
+    /** Chance the next 5-star is the featured one, 0.0 to 1.0. */
+    val upRate: Double,
+)
+
+/** One item's lifetime pull count, from the retained gacha history. */
+@AppFunctionSerializable(isDescribedByKDoc = true)
+data class GachaItemCountInfo(
+    /** Character or weapon name as the game reports it. */
+    val name: String,
+    /** In-game resource id, used to resolve an avatar. Zero when the endpoint did not supply one. */
+    val resourceId: Int,
+    /** Lifetime number of pulls of this item. */
+    val count: Int,
+)
+
+/** Lifetime totals across the whole retained gacha history. */
+@AppFunctionSerializable(isDescribedByKDoc = true)
+data class GachaStatsInfo(
+    /** How long ago these records were fetched, in hours. Zero when unknown. */
+    val ageHours: Long,
+    /**
+     * True when the records are past the 12-hour freshness window, so they may no
+     * longer describe the account. Still valid history — re-fetch for current numbers.
+     */
+    val isStale: Boolean,
+    /** Lifetime number of pulls. */
+    val totalPulls: Int,
+    /** Lifetime currency equivalent of those pulls, using the game's cost per pull. */
+    val totalCurrency: Long,
+    /** Lifetime 5-star count. */
+    val fiveStarCount: Int,
+    /** Lifetime 4-star count. */
+    val fourStarCount: Int,
+    /** Lifetime 3-star count. */
+    val threeStarCount: Int,
+    /** Average pulls per 5-star over the history. Zero when the history holds no 5-star. */
+    val averageFiveStarPity: Double,
+    /** Average pulls per 4-star over the history. Zero when the history holds no 4-star. */
+    val averageFourStarPity: Double,
+    /**
+     * Share of character-banner 50/50s won, from 0.0 to 1.0. Draws that the loss
+     * guarantee covered are excluded from both sides. Zero when there was no 50/50.
+     */
+    val fiftyFiftyWinRate: Double,
+    /** Timestamp of the earliest pull, empty when unknown. */
+    val firstPullTime: String,
+    /** Timestamp of the most recent pull, empty when unknown. */
+    val lastPullTime: String,
+    /** Lifetime pulls made in character pools. */
+    val characterPulls: Int,
+    /** Distinct 5-star character items obtained. */
+    val characterFiveStarItems: Int,
+    /** Lifetime pulls made in weapon pools. */
+    val weaponPulls: Int,
+    /** Distinct 5-star weapon items obtained. */
+    val weaponFiveStarItems: Int,
+    /** Most-pulled 5-star items, highest first. */
+    val topFiveStars: List<GachaItemCountInfo>,
+    /** Most-pulled 4-star items, highest first. */
+    val topFourStars: List<GachaItemCountInfo>,
+)
+
+/** The result of looking up a CVar name in the game's CVar database. */
+@AppFunctionSerializable(isDescribedByKDoc = true)
+data class CvarInfo(
+    /** The CVar name as queried. */
+    val name: String,
+    /** True when the name exists in the game's CVar database. */
+    val isKnown: Boolean,
+    /** True when the name is in the monitored set the app tracks for drift. */
+    val isMonitored: Boolean,
+    /** The game's default value for this CVar, or null when unknown. */
+    val gameDefault: String?,
+    /** Functional category, for example "Lighting & Shadow". */
+    val category: String,
+    /** True when the name is one of the restricted CVars the game mishandles. */
+    val isForbidden: Boolean,
+)
+
+/** One configuration backup stored by the app. */
+@AppFunctionSerializable(isDescribedByKDoc = true)
+data class BackupInfo(
+    /** Opaque identifier for this backup. */
+    val id: String,
+    /** User-assigned backup name. */
+    val name: String,
+    /** When the backup was created, as epoch milliseconds. */
+    val timestamp: Long,
+    /** Configuration files stored in this backup. */
+    val fileNames: List<String>,
+)

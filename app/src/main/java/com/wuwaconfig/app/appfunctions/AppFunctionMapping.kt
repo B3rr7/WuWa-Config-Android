@@ -1,11 +1,15 @@
 package com.wuwaconfig.app.appfunctions
 
 import androidx.appfunctions.AppFunctionInvalidArgumentException
+import com.wuwaconfig.app.config.GachaItemCount
+import com.wuwaconfig.app.config.GachaStatsResult
 import com.wuwaconfig.app.config.gameProfile
 import com.wuwaconfig.app.model.BattleStats
+import com.wuwaconfig.app.model.ConfigBackup
 import com.wuwaconfig.app.model.DeployRecord
 import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratorOptions
+import com.wuwaconfig.app.model.PityPrediction
 
 /** Mirrors DeployHistoryStore.MAX_RECORDS; the store evicts silently beyond it. */
 internal const val MAX_DEPLOY_RECORDS = 20
@@ -123,3 +127,75 @@ internal fun DeployRecord.toOutcome(): DeployOutcome {
         hasOutcome = hasOutcome,
     )
 }
+
+/**
+ * The deliberately reduced [GachaPredictionInfo]: every field of [PityPrediction]
+ * except `ssrIntervals` (detailed pull history, not needed for "when's my next
+ * 5-star?") and `totalCost` (a spending total, which is financial data the agent
+ * has no use for). The account identifier and raw gacha URL are never part of
+ * [PityPrediction] in the first place.
+ */
+internal fun PityPrediction.toGachaPredictionInfo(): GachaPredictionInfo =
+    GachaPredictionInfo(
+        poolType = poolType,
+        poolLabel = poolLabel,
+        status = status,
+        lastFiveStarName = lastFiveStarName,
+        lastFiveStarTime = lastFiveStarTime,
+        currentFeaturedName = currentFeaturedName,
+        currentFeaturedKnown = currentFeaturedKnown,
+        pullsSinceLastFive = pullsSinceLastFive,
+        estimatedNextFive = estimatedNextFive,
+        hardPity = hardPity,
+        softPityThreshold = softPityThreshold,
+        isInSoftPity = isInSoftPity,
+        pullsUntilHardPity = pullsUntilHardPity,
+        pullsSinceLastFourStar = pullsSinceLastFourStar,
+        estimatedNextFourStar = estimatedNextFourStar,
+        avgPityThisPool = avgPityThisPool,
+        nonBannerRate = nonBannerRate,
+        upRate = upRate,
+    )
+
+/** [ConfigBackup] reduced to its listing fields; file contents are not exposed. */
+internal fun ConfigBackup.toBackupInfo(): BackupInfo =
+    BackupInfo(
+        id = id,
+        name = name,
+        timestamp = timestamp,
+        fileNames = files.map { it.name },
+    )
+
+internal fun GachaItemCount.toInfo(): GachaItemCountInfo = GachaItemCountInfo(name = name, resourceId = resourceId, count = count)
+
+/**
+ * Lifetime totals plus the freshness of the record set they came from.
+ *
+ * The age and staleness are carried on the wire rather than left for the caller to
+ * infer, because "average pity 55" and "average pity 55, measured three weeks ago"
+ * are different claims and an agent quoting the first as current would be wrong.
+ */
+internal fun GachaStatsResult.toInfo(
+    ageHours: Long?,
+    isStale: Boolean,
+): GachaStatsInfo =
+    GachaStatsInfo(
+        ageHours = ageHours ?: 0L,
+        isStale = isStale,
+        totalPulls = totalPulls,
+        totalCurrency = totalCurrency,
+        fiveStarCount = fiveStarCount,
+        fourStarCount = fourStarCount,
+        threeStarCount = threeStarCount,
+        averageFiveStarPity = averageFiveStarPity,
+        averageFourStarPity = averageFourStarPity,
+        fiftyFiftyWinRate = fiftyFiftyWinRate,
+        firstPullTime = firstPullTime,
+        lastPullTime = lastPullTime,
+        characterPulls = characterPulls,
+        characterFiveStarItems = characterFiveStarItems,
+        weaponPulls = weaponPulls,
+        weaponFiveStarItems = weaponFiveStarItems,
+        topFiveStars = topFiveStars.map { it.toInfo() },
+        topFourStars = topFourStars.map { it.toInfo() },
+    )

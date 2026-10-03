@@ -66,9 +66,13 @@ class GachaHistoryStoreTest {
         assertEquals(200, entry.totalPulls)
         assertEquals(8, entry.fiveStars)
         assertTrue("expiresAt must be in the future", entry.expiresAt > System.currentTimeMillis())
+        // expiresAt is the RETENTION deadline, not the freshness window. This used
+        // to assert ~12h, which is now the freshness window and is carried by
+        // isStale/ageHours instead — see the staleness tests below.
+        val retentionHours = gameProfile().gachaHistoryRetentionHours.toLong()
         assertTrue(
-            "expiresAt must be ~12h from now (±10s tolerance)",
-            entry.expiresAt - System.currentTimeMillis() in (12L * 3600 * 1000 - 10_000)..(12L * 3600 * 1000 + 10_000),
+            "expiresAt must be ~${retentionHours}h from now (±10s tolerance)",
+            entry.expiresAt - System.currentTimeMillis() in (retentionHours * 3600 * 1000 - 10_000)..(retentionHours * 3600 * 1000 + 10_000),
         )
         assertTrue("id should be 8 chars", entry.id.length == 8)
         assertTrue("fullDataJson should contain records", entry.fullDataJson.contains("Item0"))
@@ -85,7 +89,12 @@ class GachaHistoryStoreTest {
         assertTrue(loaded.fullDataJson.contains("Item0"))
     }
 
-    // ─────────── TTL behavior ───────────
+    // ─────────── retention vs freshness ───────────
+    //
+    // The distinction these pin is the whole point of the change: the file is
+    // history and must survive being stale. The old suite asserted the opposite
+    // (`load returns null and deletes expired entry`) and was passing for the
+    // wrong reason — it described a cache, not a history.
 
     @Test
     fun `load returns null when file does not exist`() {
@@ -93,12 +102,13 @@ class GachaHistoryStoreTest {
     }
 
     @Test
-    fun `load returns null and deletes expired entry`() {
+    fun `load returns null and deletes an entry past RETENTION`() {
         val data = sampleData()
         val expiredEntry =
             com.wuwaconfig.app.model.GachaHistoryEntry(
                 id = "expired1",
-                // already expired
+                fetchedAt = System.currentTimeMillis() - 1000,
+                // already past the retention window
                 expiresAt = System.currentTimeMillis() - 1000,
                 totalPulls = data.totalPulls,
                 fiveStars = data.fiveStars,
@@ -106,8 +116,54 @@ class GachaHistoryStoreTest {
             )
         File(tempDir, "gacha_history.json").writeText(com.google.gson.Gson().toJson(expiredEntry))
         assertNull(GachaHistoryStore.load(context))
-        // File should be deleted
         assertTrue(!File(tempDir, "gacha_history.json").exists())
+    }
+
+    @Test
+    fun `a stale entry is still loaded, not deleted`() {
+        // The regression this guards: being past the 12h freshness window used to
+        // delete the file, so lifetime statistics were impossible to compute.
+        val data = sampleData()
+        val staleEntry =
+            com.wuwaconfig.app.model.GachaHistoryEntry(
+                id = "stale1",
+                fetchedAt = System.currentTimeMillis() - 48 * 3600 * 1000L,
+                expiresAt = System.currentTimeMillis() + 300 * 24 * 3600 * 1000L,
+                totalPulls = data.totalPulls,
+                fiveStars = data.fiveStars,
+                fullDataJson = com.google.gson.Gson().toJson(data),
+            )
+        File(tempDir, "gacha_history.json").writeText(com.google.gson.Gson().toJson(staleEntry))
+
+        val loaded = GachaHistoryStore.load(context)
+        assertNotNull("a stale entry is still valid history", loaded)
+        assertEquals("stale1", loaded!!.id)
+        assertTrue("the file must survive being stale", File(tempDir, "gacha_history.json").exists())
+        assertTrue("and it must report itself stale", GachaHistoryStore.isStale(loaded))
+    }
+
+    @Test
+    fun `an entry inside the freshness window is not stale`() {
+        val entry = GachaHistoryStore.save(context, sampleData())
+        assertTrue("a just-saved entry is fresh", !GachaHistoryStore.isStale(entry))
+        assertEquals(0L, GachaHistoryStore.ageHours(entry))
+    }
+
+    @Test
+    fun `a legacy entry with no fetchedAt is not reported stale`() {
+        // Gson leaves the new field at 0 for JSON written by an older build.
+        // Treating that as "infinitely old" would tell the player to re-fetch
+        // history that is still perfectly good.
+        val legacy =
+            com.wuwaconfig.app.model.GachaHistoryEntry(
+                id = "legacy",
+                expiresAt = System.currentTimeMillis() + 3600_000L,
+                totalPulls = 10,
+                fiveStars = 1,
+                fullDataJson = "{}",
+            )
+        assertTrue(!GachaHistoryStore.isStale(legacy))
+        assertNull("age is unknowable, not zero", GachaHistoryStore.ageHours(legacy))
     }
 
     // ─────────── delete ───────────
