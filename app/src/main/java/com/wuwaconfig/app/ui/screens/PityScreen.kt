@@ -2,6 +2,7 @@ package com.wuwaconfig.app.ui.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,7 +29,6 @@ import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.GachaPoolType
 import com.wuwaconfig.app.model.GachaRecord
-import com.wuwaconfig.app.model.PityPrediction
 import com.wuwaconfig.app.model.SsrInterval
 import com.wuwaconfig.app.ui.GachaViewModel
 import com.wuwaconfig.app.ui.components.BouncingOrb
@@ -66,6 +67,11 @@ fun PityScreen(
     // Pre-grouped in the ViewModel on gachaData; the screen used to filter the
     // whole record list once per pool inside the LazyColumn content lambda.
     val recordsByPool by viewModel.recordsByPool.collectAsStateWithLifecycle()
+
+    // Which view of the loaded history is showing. `rememberSaveable` rather than
+    // `remember` so the selection survives rotation — losing it drops the player
+    // back onto the default tab after an orientation change mid-pull.
+    var selectedTab by rememberSaveable { mutableStateOf(GachaTab.VISUAL) }
 
     GradientBackground {
         Scaffold(
@@ -191,48 +197,44 @@ fun PityScreen(
 
                 val data = gachaData
                 if (data != null) {
-                    item { GachaSummary(data) }
-                    if (data.predictions.isNotEmpty()) {
-                        item { PredictionSection(data.predictions) }
-                    }
-                    if (data.predictions.isEmpty()) {
-                        item {
-                            GlassCard(accentColor = NeonAmber) {
+                    // The data body is split across tabs rather than run as one long
+                    // scroll. WutheringWavesTool does the same with 直观 / 详情 /
+                    // 表格 / 统计, and the reason holds on a phone: the visual, lifetime
+                    // and raw-record views answer different questions, and stacking them
+                    // buries the one a player opens the screen for — where this banner
+                    // stands right now.
+                    item { GachaTabBar(selectedTab, onSelect = { selectedTab = it }) }
+
+                    when (selectedTab) {
+                        GachaTab.VISUAL -> {
+                            item { GachaVisualSection(data) }
+                        }
+
+                        GachaTab.STATS -> {
+                            item { GachaSummary(data) }
+                            item { GachaStatsSection(data) }
+                        }
+
+                        GachaTab.TABLE -> {
+                            item {
                                 Text(
-                                    "No pity predictions available — need character or weapon banner pulls.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = NeonAmber,
+                                    "PULL HISTORY",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    letterSpacing = 2.sp,
+                                    modifier = Modifier.padding(start = 4.dp, top = 4.dp),
                                 )
                             }
+                            for (poolType in GachaPoolType.ALL) {
+                                val poolRecords = recordsByPool[poolType.type].orEmpty()
+                                if (poolRecords.isEmpty()) continue
+                                item { PoolHistoryHeader(poolType, poolRecords) }
+                                items(poolRecords.size, key = { idx -> "${poolType.type}-$idx" }) { idx ->
+                                    RecordRow(poolRecords[idx])
+                                }
+                                item { Spacer(Modifier.height(8.dp)) }
+                            }
                         }
-                    }
-                    // Lifetime view, mirroring WutheringWavesTool's 统计 tab. Placed
-                    // after the per-pool predictions because those answer "where does
-                    // this banner stand" while this answers "what does the whole
-                    // record amount to"; the per-pool view is the one a player
-                    // checks before pulling.
-                    item { GachaStatsSection(data) }
-                    // The per-banner visual view. Placed after the lifetime totals
-                    // because it answers a different question — "what does my whole
-                    // record amount to" versus "what does this banner look like" —
-                    // and because it carries the item grid, which is the part a
-                    // player actually recognises their pulls in.
-                    item { GachaVisualSection(data) }
-                    item {
-                        Text(
-                            "PULL HISTORY",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            letterSpacing = 2.sp,
-                            modifier = Modifier.padding(start = 4.dp, top = 4.dp),
-                        )
-                    }
-                    for (poolType in GachaPoolType.ALL) {
-                        val poolRecords = recordsByPool[poolType.type].orEmpty()
-                        if (poolRecords.isEmpty()) continue
-                        item { PoolHistoryHeader(poolType, poolRecords) }
-                        items(poolRecords.size, key = { idx -> "${poolType.type}-$idx" }) { idx -> RecordRow(poolRecords[idx]) }
-                        item { Spacer(Modifier.height(8.dp)) }
                     }
                 } else if (conveneUrl != null) {
                     item {
@@ -251,6 +253,66 @@ fun PityScreen(
                 }
 
                 item { Spacer(Modifier.height(16.dp)) }
+            }
+        }
+    }
+}
+
+/**
+ * The views of a loaded gacha history, mirroring WutheringWavesTool's analysis tabs.
+ *
+ * [VISUAL] is the default because it answers the question that brings a player to
+ * this screen: what does the current banner look like. [STATS] is the lifetime
+ * record and [TABLE] the raw pulls.
+ *
+ * Deliberately three, not WWT's four — WWT also has a cloud backup, which has no
+ * equivalent here.
+ */
+private enum class GachaTab(val label: String, val accent: Color) {
+    VISUAL("Visual", NeonCyan),
+    STATS("Stats", NeonGold),
+    TABLE("Table", NeonPurple),
+}
+
+/**
+ * The tab selector.
+ *
+ * A segmented row of pills rather than WWT's toggle group: the same affordance, sized
+ * for touch. Selected state is carried by an accent fill plus a bold weight, so it
+ * does not rely on colour alone.
+ */
+@Composable
+private fun GachaTabBar(
+    selected: GachaTab,
+    onSelect: (GachaTab) -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        GachaTab.entries.forEach { tab ->
+            val isSelected = tab == selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (isSelected) {
+                            tab.accent.copy(alpha = 0.22f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                        },
+                    )
+                    .clickable { onSelect(tab) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    tab.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isSelected) tab.accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                )
             }
         }
     }
@@ -378,268 +440,6 @@ private fun PoolHistoryHeader(
                 Text("★4×$pool4", style = MaterialTheme.typography.labelSmall, color = NeonPurple)
             }
         }
-    }
-}
-
-@Composable
-private fun PredictionSection(predictions: List<PityPrediction>) {
-    Text(
-        "NEXT ★5 PREDICTION",
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-        letterSpacing = 2.sp,
-        modifier = Modifier.padding(start = 4.dp),
-    )
-    Spacer(Modifier.height(10.dp))
-
-    for (pred in predictions) {
-        val accent =
-            when (pred.status) {
-                "Guaranteed" -> NeonGold
-                "50/50" -> NeonAmber
-                else -> NeonCyan
-            }
-        GlassCard(accentColor = accent) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    pred.poolLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                val statusLabel =
-                    when (pred.status) {
-                        "Guaranteed" -> "Guaranteed"
-                        "50/50" -> "50 / 50"
-                        else -> pred.status
-                    }
-                StatusPill(statusLabel, accent)
-            }
-            Spacer(Modifier.height(14.dp))
-            PityProgressBar(
-                pulls = pred.pullsSinceLastFive,
-                hardPity = pred.hardPity,
-                softThreshold = pred.softPityThreshold,
-                accent = accent,
-            )
-            Spacer(Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    "${pred.pullsSinceLastFive} / ${pred.hardPity}",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = accent,
-                )
-                Text(
-                    "Soft ${pred.softPityThreshold} · Hard ${pred.hardPity}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                )
-            }
-
-            if (pred.isInSoftPity) {
-                Spacer(Modifier.height(10.dp))
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = NeonAmber.copy(alpha = 0.15f),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            "Soft pity active — your ★5 rate is boosted!",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = NeonAmber,
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            if (pred.lastFiveStarName.isNotEmpty()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Last ★5: ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        pred.lastFiveStarName.ifEmpty { "—" },
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = NeonGold,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        pred.lastFiveStarTime,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
-
-                val subject =
-                    if (pred.currentFeaturedName.isNotEmpty()) {
-                        pred.currentFeaturedName
-                    } else if (pred.currentFeaturedKnown) {
-                        pred.poolLabel
-                    } else {
-                        "Unknown featured"
-                    }
-                if (pred.status == "Guaranteed") {
-                    Text(
-                        "$subject is guaranteed.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NeonGold,
-                    )
-                } else if (pred.status == "50/50") {
-                    Text(
-                        "$subject is 50 / 50.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NeonAmber,
-                    )
-                } else {
-                    Text(
-                        "Not enough pulls yet to estimate — keep wishing.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "Simple estimate from your pull history — not a guarantee it will happen.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                )
-                Spacer(Modifier.height(10.dp))
-            }
-
-            // Additional stats row: UP rate, Non-banner rate, Avg pity, Date range
-            if (pred.lastFiveStarName.isNotEmpty()) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // UP Rate / Non-banner rate
-                    if (pred.status == "50/50" || pred.status == "Guaranteed") {
-                        val upRate = pred.upRate
-                        val nonBannerRate = pred.nonBannerRate
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            if (upRate > 0) {
-                                StatItem("${"%.0f".format(upRate * 100)}%", "UP Rate", NeonGold)
-                            }
-                            if (pred.status == "50/50" && nonBannerRate > 0) {
-                                StatItem("${"%.0f".format(nonBannerRate * 100)}%", "50/50 Loss", NeonAmber)
-                            }
-                        }
-                        Spacer(Modifier.height(6.dp))
-                    }
-
-                    // Average pity for this pool
-                    if (pred.avgPityThisPool > 0) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            StatItem("${"%.1f".format(pred.avgPityThisPool)}", "Avg ★5 Pity", NeonCyan)
-                        }
-                        Spacer(Modifier.height(6.dp))
-                    }
-
-                    // Date range
-                    if (pred.firstPullDate.isNotEmpty() && pred.lastPullDate.isNotEmpty()) {
-                        val start = if (pred.firstPullDate.length >= 10) pred.firstPullDate.substring(0, 10) else pred.firstPullDate
-                        val end = if (pred.lastPullDate.length >= 10) pred.lastPullDate.substring(0, 10) else pred.lastPullDate
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            StatItem("$start – $end", "Date Range", MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
-                        }
-                        Spacer(Modifier.height(6.dp))
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-            }
-
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                StatItem("${pred.pullsSinceLastFive}", "Since ★5", accent)
-                StatItem("${pred.pullsUntilHardPity}", "To Hard", if (pred.isInSoftPity) NeonAmber else NeonCyan)
-                StatItem("~${pred.estimatedNextFive}", "Est. ★5", NeonGold)
-            }
-
-            Spacer(Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                StatItem("${pred.pullsSinceLastFourStar}", "Since ★4", MaterialTheme.colorScheme.onSurfaceVariant)
-                StatItem("~${pred.estimatedNextFourStar}", "Est. ★4", MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            // Total Cost
-            if (pred.totalCost > 0) {
-                Spacer(Modifier.height(10.dp))
-                GlassCard(accentColor = NeonPurple) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            "Total Spent",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            formatCost(pred.totalCost),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = NeonPurple,
-                        )
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "${pred.totalCost / costPerPull} pulls × $costPerPull Astrites = ${formatNumber(pred.totalCost)} Astrites",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    )
-                }
-            }
-
-            // SSR Intervals Table
-            if (pred.ssrIntervals.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                SsrIntervalsTable(pred.ssrIntervals)
-            }
-
-            // Min/Max Pity Range
-            if (pred.minPity5 > 0 || pred.maxPity5 > 0 || pred.minPity4 > 0 || pred.maxPity4 > 0) {
-                Spacer(Modifier.height(10.dp))
-                GlassCard(accentColor = NeonCyan) {
-                    Text(
-                        "PITY RANGE",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = NeonCyan.copy(alpha = 0.8f),
-                        letterSpacing = 2.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        if (pred.minPity5 > 0 && pred.maxPity5 > 0) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("${pred.minPity5} – ${pred.maxPity5}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = NeonGold)
-                                Text("★5 Range", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        if (pred.minPity4 > 0 && pred.maxPity4 > 0) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("${pred.minPity4} – ${pred.maxPity4}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = NeonPurple)
-                                Text("★4 Range", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(8.dp))
     }
 }
 
