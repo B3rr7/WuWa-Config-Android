@@ -43,9 +43,16 @@ MAX_SIZE = 256
 WEBP_QUALITY = 82
 
 # The wiki's file naming, which is the only stable handle these images have.
-# Verified against the live wiki: characters are "<Name> Full Sprite.png", weapons
-# and materials are "Weapon <Name>.png".
-CHARACTER_TEMPLATE = "{name} Full Sprite.png"
+# Verified against the live wiki: weapons and materials are "Weapon <Name>.png".
+#
+# Characters prefer "Resonator <Name>.png" — a 256x256 square icon that is already
+# avatar-shaped. The "<Name> Full Sprite.png" alternative is a 560x920 full-body
+# illustration, which the app renders inside a 44dp circle: that crops a standing
+# figure down to a sliver of torso, so the icon is both the better source and the
+# smaller download. The sprite is kept as a fallback for the handful of characters
+# with no icon yet.
+CHARACTER_TEMPLATE = "Resonator {name}.png"
+CHARACTER_FALLBACK_TEMPLATE = "{name} Full Sprite.png"
 WEAPON_TEMPLATE = "Weapon {name}.png"
 
 # MediaWiki caps a multi-title query at 50; stay under it.
@@ -161,7 +168,10 @@ def main() -> int:
     # (roster category, is_weapon)
     sources = [("Resonators", False), ("Weapons", True)]
 
-    total = {"new": 0, "skipped": 0, "failed": 0}
+    # `stale` counts files already on disk whose best available source is the
+    # fallback sprite — they exist, so they are not "new", but a better icon may
+    # since have been published and only --force would replace them.
+    total = {"new": 0, "skipped": 0, "failed": 0, "stale": 0}
     missing: list[str] = []
 
     for category, is_weapon in sources:
@@ -181,19 +191,43 @@ def main() -> int:
             print(f"Could not resolve image URLs: {error}", file=sys.stderr)
             return 1
 
+        # A character with no icon falls back to its full sprite. Resolved in one
+        # batch only for the names that actually need it, so the common case still
+        # costs a single API round trip.
+        fallback_urls = {}
+        if not is_weapon:
+            unresolved = [n for n in roster if template.format(name=n) not in urls]
+            if unresolved:
+                try:
+                    fallback_urls = image_urls(
+                        [CHARACTER_FALLBACK_TEMPLATE.format(name=n) for n in unresolved]
+                    )
+                except Exception as error:  # noqa: BLE001
+                    print(f"Could not resolve sprite fallbacks: {error}", file=sys.stderr)
+
         for name in roster:
             file_name = template.format(name=name)
-            if file_name not in urls:
+            url = urls.get(file_name)
+            used_fallback = False
+            if url is None and not is_weapon:
+                fallback_name = CHARACTER_FALLBACK_TEMPLATE.format(name=name)
+                url = fallback_urls.get(fallback_name)
+                used_fallback = url is not None
+                if url is not None:
+                    print(f"    (no icon for {name}; using full sprite)")
+            if url is None:
                 missing.append(file_name)
                 continue
             destination = OUTPUT_DIR / output_name(name, is_weapon)
             if destination.exists() and not args.force:
-                total["skipped"] += 1
+                # An existing file may be the old sprite. Count it separately so a
+                # later icon is not silently missed.
+                total["stale" if used_fallback else "skipped"] += 1
                 continue
             if args.check:
                 total["new"] += 1
                 continue
-            if download(urls[file_name], destination):
+            if download(url, destination):
                 total["new"] += 1
             else:
                 total["failed"] += 1
@@ -202,7 +236,15 @@ def main() -> int:
     if args.check:
         print(f"Would download: {total['new']}")
     else:
-        print(f"Downloaded: {total['new']}  Skipped: {total['skipped']}  Failed: {total['failed']}")
+        print(
+            f"Downloaded: {total['new']}  Skipped: {total['skipped']}  "
+            f"Failed: {total['failed']}"
+        )
+        if total["stale"]:
+            print(
+                f"{total['stale']} existing file(s) have no character icon yet and are "
+                f"using the full-sprite fallback; re-run with --force once the wiki adds one."
+            )
     if missing:
         print(f"No wiki file found for {len(missing)} entries, e.g.:")
         for name in missing[:10]:
