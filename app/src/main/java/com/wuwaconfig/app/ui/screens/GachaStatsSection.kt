@@ -38,6 +38,9 @@ import androidx.compose.ui.unit.sp
 import com.wuwaconfig.app.config.GachaItemKind
 import com.wuwaconfig.app.config.GachaStats
 import com.wuwaconfig.app.config.GachaStatsResult
+import com.wuwaconfig.app.config.KuroGuide
+import com.wuwaconfig.app.config.OfficialCharacter
+import com.wuwaconfig.app.config.OfficialStatus
 import com.wuwaconfig.app.config.gameProfile
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaPoolType
@@ -587,6 +590,91 @@ private fun BannerItemGrid(banner: BannerData) {
                     }
                 }
                 // Keep a short last row aligned to the same columns as a full one.
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+    }
+}
+
+// ─────────── currently featured, from Kuro's official guide ───────────
+
+/**
+ * The characters Kuro's guide is currently featuring.
+ *
+ * Sits above the banner chips rather than among them, and that placement is the
+ * whole point: the chips are *the player's own history*, this is *the game's
+ * current state*. Listing them together would imply the game has a banner for
+ * every chip, which is exactly the confusion this is meant to remove.
+ *
+ * Labelled as a guide listing rather than a live banner because that is what it
+ * is. Measured on 2026-10-04 it named Mornye as featured while the running banners
+ * were Hsin, Iuno and Chisa, so the source has a demonstrated false positive. It
+ * is shown unfiltered rather than trimmed to the known-good ones — a list silently
+ * corrected to match today's answer would misrepresent a source that cannot be
+ * relied on to do that tomorrow.
+ *
+ * Deliberately characters only: the guide exposes no weapon data at all.
+ */
+@Composable
+fun FeaturedCharactersStrip(
+    characters: List<OfficialCharacter>,
+    modifier: Modifier = Modifier,
+) {
+    val featured = remember(characters) { KuroGuide.featuredCharacters(characters) }
+    if (featured.isEmpty()) return
+
+    GlassCard(accentColor = NeonGreen, modifier = modifier) {
+        GlassCardHeader("FEATURED BY KURO'S GUIDE", NeonGreen)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Kuro's editorial flag, not the live gacha banner. It has been known to " +
+                "name a character that is not running.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(12.dp))
+        featured.chunked(4).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { character ->
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(contentAlignment = Alignment.TopEnd) {
+                            GachaAvatar(
+                                name = character.name,
+                                resourceType = "Resonator",
+                                size = 46.dp,
+                            )
+                            if (character.status == OfficialStatus.NEWLY_LAUNCHED) {
+                                Box(
+                                    Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(NeonAmber)
+                                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                                ) {
+                                    Text(
+                                        "NEW",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            character.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            "★${character.star}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NeonGold,
+                        )
+                    }
+                }
                 repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
             }
             Spacer(Modifier.height(10.dp))

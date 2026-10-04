@@ -14,6 +14,9 @@
 
         Every actual HTTP client in the app is https with platform-default trust:
           config/GachaApi.kt       -> gmserver-api.aki-game2.{com,net}
+          config/KuroGuide.kt      -> guide-server.aki-game.net
+                                      (images it returns are served from
+                                       guide-res.aki-game.net, fetched by Coil)
           update/UpdateManager.kt -> api.github.com + the release asset
         The WebView loads a local asset with a synthetic https base URL.
     -->

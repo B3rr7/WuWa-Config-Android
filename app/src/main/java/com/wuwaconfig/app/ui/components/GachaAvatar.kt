@@ -41,6 +41,27 @@ object GachaAvatar {
     internal const val ASSET_DIR = "gacha_avatars"
 
     /**
+     * Official Kuro art, keyed by character name, published by
+     * [com.wuwaconfig.app.config.KuroGuide].
+     *
+     * Consulted **before** the bundled assets because first-party art is both
+     * higher fidelity and stays current, whereas the bundled wiki copies only
+     * change when the app is rebuilt. A name absent here simply falls through to
+     * the bundle, so a failed or partial fetch costs nothing but the freshness.
+     *
+     * Keys are [com.wuwaconfig.app.config.OfficialCharacter.name] verbatim, so
+     * lookup is case- and punctuation-sensitive on purpose: a wrong key would show
+     * the wrong character's face, which is worse than showing an initial.
+     */
+    @Volatile
+    private var officialArt: Map<String, String> = emptyMap()
+
+    /** Publishes official art. Replaces the previous map wholesale. */
+    fun setOfficialArt(map: Map<String, String>) {
+        officialArt = map.filterValues { it.isNotBlank() }
+    }
+
+    /**
      * The filenames present in the asset directory, cached after the first read.
      *
      * Listing assets is a filesystem walk, so it happens once per process rather
@@ -88,13 +109,30 @@ object GachaAvatar {
             }
         return candidate.takeIf { it in availableAssets(context) }
     }
+
+    /**
+     * Official Kuro art for [name], or null when the guide has none for it.
+     *
+     * Official art only covers characters — the guide exposes no weapon data — so a
+     * weapon always falls through to the bundled bundle even when the fetch
+     * succeeded. That asymmetry is why this takes [resourceType] rather than
+     * looking every name up blindly.
+     */
+    fun officialArtFor(
+        name: String,
+        resourceType: String,
+    ): String? {
+        if (resourceType.equals("Weapon", ignoreCase = true)) return null
+        return officialArt[name]
+    }
 }
 
 /**
  * A portrait for [name], or a coloured initial when none resolves.
  *
- * The asset is checked before the image is requested, so a missing portrait never
- * reaches Coil as a failing load — it goes straight to the initial.
+ * Resolution order is official art, then the bundled bundle, then the initial.
+ * Both image sources are checked before Coil is asked to load anything, so a
+ * missing portrait never surfaces as a broken-image icon or a failed request.
  */
 @Composable
 fun GachaAvatar(
@@ -104,11 +142,16 @@ fun GachaAvatar(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val asset = remember(name, resourceType) { GachaAvatar.assetFile(context, name, resourceType) }
+    val official = remember(name, resourceType) { GachaAvatar.officialArtFor(name, resourceType) }
+    val asset =
+        remember(name, resourceType) {
+            if (official != null) null else GachaAvatar.assetFile(context, name, resourceType)
+        }
 
-    if (asset != null) {
+    val model = official ?: asset?.let { "file:///android_asset/${GachaAvatar.ASSET_DIR}/$it" }
+    if (model != null) {
         AsyncImage(
-            model = "file:///android_asset/${GachaAvatar.ASSET_DIR}/$asset",
+            model = model,
             contentDescription = name,
             modifier = modifier.size(size).clip(CircleShape),
         )

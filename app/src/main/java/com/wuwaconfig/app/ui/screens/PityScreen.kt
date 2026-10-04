@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.backend.BackendStatus
+import com.wuwaconfig.app.config.KuroGuide
+import com.wuwaconfig.app.config.OfficialCharacter
 import com.wuwaconfig.app.config.gameProfile
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
@@ -32,6 +34,7 @@ import com.wuwaconfig.app.model.GachaRecord
 import com.wuwaconfig.app.model.SsrInterval
 import com.wuwaconfig.app.ui.GachaViewModel
 import com.wuwaconfig.app.ui.components.BouncingOrb
+import com.wuwaconfig.app.ui.components.GachaAvatar
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassTopBar
@@ -72,6 +75,24 @@ fun PityScreen(
     // `remember` so the selection survives rotation — losing it drops the player
     // back onto the default tab after an orientation change mid-pull.
     var selectedTab by rememberSaveable { mutableStateOf(GachaTab.VISUAL) }
+
+    // Kuro's official guide, for current character banners and first-party art.
+    // Fetched once per screen entry, not per tab: the answer changes on Kuro's
+    // schedule, not on a tab switch, and the player may flip between tabs often.
+    //
+    // Failures are absorbed rather than surfaced — a missing featured strip is a
+    // degradation, not an error the player can act on, and the bundled wiki art
+    // already covers every portrait it would have drawn.
+    var officialCharacters by remember { mutableStateOf<List<OfficialCharacter>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        KuroGuide.fetchCharacters()
+            .onSuccess { fetched ->
+                officialCharacters = fetched
+                GachaAvatar.setOfficialArt(
+                    fetched.mapNotNull { c -> c.cardPictureUrl.takeIf { it.isNotBlank() }?.let { c.name to it } }.toMap(),
+                )
+            }
+    }
 
     GradientBackground {
         Scaffold(
@@ -204,6 +225,11 @@ fun PityScreen(
                     // buries the one a player opens the screen for — where this banner
                     // stands right now.
                     item { GachaTabBar(selectedTab, onSelect = { selectedTab = it }) }
+
+                    // Current game state, so it leads the player's own history
+                    // below. Empty until the fetch resolves, and stays empty if it
+                    // never does — the tab is still fully usable without it.
+                    item { FeaturedCharactersStrip(officialCharacters) }
 
                     when (selectedTab) {
                         GachaTab.VISUAL -> {
