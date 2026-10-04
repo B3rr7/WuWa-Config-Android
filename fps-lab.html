@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html data-theme="spectro" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>WuWa FPS Calculator &amp; Benchmark Lab | WuWaConfig</title>
+<meta content="Free WuWa FPS calculator: simulate Wuthering Waves performance on 36 Snapdragon, Dimensity, Exynos and Tensor chips with a thermal model before you play." name="description"/>
+
+<meta content="Player42 (b3rr7)" name="author"/>
+<meta content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" name="robots"/>
+<meta content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" name="googlebot"/>
+<meta content="#faf8f2" media="(prefers-color-scheme: light)" name="theme-color"/>
+<meta content="#16130b" media="(prefers-color-scheme: dark)" name="theme-color"/>
+<meta content="yes" name="mobile-web-app-capable"/>
+<meta content="yes" name="apple-mobile-web-app-capable"/>
+<meta content="default" name="apple-mobile-web-app-status-bar-style"/>
+<meta content="WuWaConfig" name="apple-mobile-web-app-title"/>
+<meta content="light dark" name="color-scheme"/>
+<meta content="WuWaConfig" name="application-name"/>
+<meta content="WuWaConfig v1.1.5" name="generator"/>
+<meta content="general" name="rating"/>
+<meta content="global" name="distribution"/>
+<meta content="7 days" name="revisit-after"/>
+<link href="https://b3rr7.github.io/WuWa-Config-Android/fps-lab.html" rel="canonical"/>
+<link href="manifest.json" rel="manifest"/>
+<meta content="wYDhaafbJinixB1OwoSMHJ0r0e4tC9vwcqDaW5F679E" name="google-site-verification"/><meta content="5BtYJwVeB2KVsYZT-VSAVeBAr3LPYqoQZnb7HXmp7Bg" name="google-site-verification"/><meta content="096CF91DB1E36BDEFD586BF8ECD45785" name="msvalidate.01"/>
+<link href="favicon.png" rel="icon" type="image/png"/>
+<link href="apple-touch-icon.png" rel="apple-touch-icon"/>
+<link href="https://github.com/b3rr7/WuWa-Config-Android/releases.atom" rel="alternate" title="WuWaConfig Releases" type="application/rss+xml"/>
+<!-- ═══ Open Graph (Facebook, LinkedIn, etc.) ═══ -->
+<meta content="website" property="og:type"/>
+<meta content="WuWaConfig" property="og:site_name"/>
+<meta content="WuWa FPS Calculator &amp; Benchmark Lab | WuWaConfig" property="og:title"/>
+<meta content="Free WuWa FPS calculator: simulate Wuthering Waves performance on 36 Snapdragon, Dimensity, Exynos and Tensor chips with a thermal model before you play." property="og:description"/>
+<meta content="https://b3rr7.github.io/WuWa-Config-Android/fps-lab.html" property="og:url"/>
+<meta content="https://b3rr7.github.io/WuWa-Config-Android/og-image.png" property="og:image"/>
+<meta content="https://b3rr7.github.io/WuWa-Config-Android/og-image.png" property="og:image:secure_url"/>
+<meta content="image/png" property="og:image:type"/>
+<meta content="1200" property="og:image:width"/>
+<meta content="630" property="og:image:height"/>
+<meta content="WuWaConfig — Wuthering Waves Performance Optimizer for Android" property="og:image:alt"/>
+<meta content="en_US" property="og:locale"/>
+<meta content="en_GB" property="og:locale:alternate"/>
+<meta content="Player42" property="article:author"/>
+<meta content="Mobile Gaming Utilities" property="article:section"/>
+<meta content="Wuthering Waves" property="article:tag"/>
+<meta content="FPS Boost" property="article:tag"/>
+<meta content="Engine.ini" property="article:tag"/>
+<meta content="Android Optimization" property="article:tag"/>
+<meta content="Config Optimizer" property="article:tag"/>
+<meta content="Android Optimization" property="article:tag"/>
+<meta content="2024-11-15T00:00:00+00:00" property="article:published_time"/>
+<meta content="2026-09-18T00:00:00+00:00" property="article:modified_time"/>
+
+<!-- ═══ Twitter Card ═══ -->
+<meta content="summary_large_image" name="twitter:card"/>
+<meta content="WuWa FPS Calculator &amp; Benchmark Lab | WuWaConfig" name="twitter:title"/>
+<meta content="Free WuWa FPS calculator: simulate Wuthering Waves performance on 36 Snapdragon, Dimensity, Exynos and Tensor chips with a thermal model before you play." name="twitter:description"/>
+<meta content="https://b3rr7.github.io/WuWa-Config-Android/og-image.png" name="twitter:image"/>
+<meta content="WuWaConfig — Wuthering Waves Performance Optimizer for Android" name="twitter:image:alt"/>
+<meta content="Price" name="twitter:label1"/>
+<meta content="Free" name="twitter:data1"/>
+<meta content="License" name="twitter:label2"/>
+<meta content="MIT Open Source" name="twitter:data2"/>
+<!-- ═══ JSON-LD: WebSite + Sitelinks Searchbox (Google feature) ═══ -->
+
+<!-- ═══ JSON-LD: SoftwareApplication (richer than MobileApplication) ═══ -->
+
+
+
+<!-- ⚡ PERF: first character wallpaper downloads immediately (no empty-phone flash).
+     ─────────────────────────────────────────────────────────────────────────────
+     🖼️ IMAGE REQUIREMENTS FOR SMOOTH PERFORMANCE:
+     Prepare each character image in squoosh.app:
+       1. Resize  → max 1000px wide
+       2. Blur    → Gaussian ~40px (bakes the aura softness INTO the file — zero GPU cost)
+       3. Export  → WebP q75 (~30–60 KB each, vs 2–3 MB PNG)
+     The page applies NO runtime filters — all softness comes from the file itself.
+     If images are missing, a themed gradient placeholder is shown instead.
+     ───────────────────────────────────────────────────────────────────────────── -->
+
+<!-- ⚠️ PRIVACY: this Google Fonts link shares visitor IPs with Google. For strict
+     "Zero Telemetry", self-host Inter + JetBrains Mono as woff2 in /fonts/. -->
+
+
+<link href="https://github.com" rel="dns-prefetch"/>
+
+
+<link href="styles.css" rel="stylesheet"/>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "WuWa FPS Lab", "applicationCategory": "GameApplication", "operatingSystem": "Any (Web Browser)", "description": "Free WuWa FPS calculator: simulate Wuthering Waves performance on 36 mobile chipsets with GPU/CPU boundary model and thermal throttling prediction.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}</script></head><body><noscript><style>.reveal{opacity:1!important;transform:none!important}.js-only{display:none!important}</style></noscript><script>document.documentElement.classList.add('js')</script><a class="skip" href="#main">Skip to content</a><div id="progress"></div><svg aria-hidden="true" height="0" style="position:absolute" width="0"><defs>
+<symbol id="i-bolt" viewbox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"></path></symbol>
+<symbol id="i-cpu" viewbox="0 0 24 24"><rect height="16" rx="2" width="16" x="4" y="4"></rect><rect height="6" width="6" x="9" y="9"></rect><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3"></path></symbol>
+<symbol id="i-target" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></symbol>
+<symbol id="i-chart" viewbox="0 0 24 24"><path d="M6 20v-4M12 20V10M18 20V4"></path></symbol>
+<symbol id="i-cycle" viewbox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></symbol>
+<symbol id="i-box" viewbox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5M12 22V12"></path></symbol>
+<symbol id="i-db" viewbox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"></path></symbol>
+<symbol id="i-search" viewbox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></symbol>
+<symbol id="i-shield" viewbox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></symbol>
+<symbol id="i-sliders" viewbox="0 0 24 24"><path d="M5 4v16M12 4v16M19 4v16"></path><circle cx="5" cy="9" r="2.2"></circle><circle cx="12" cy="15" r="2.2"></circle><circle cx="19" cy="7" r="2.2"></circle></symbol>
+<symbol id="i-phone" viewbox="0 0 24 24"><rect height="20" rx="2" width="10" x="7" y="2"></rect><path d="M11 18h2"></path></symbol>
+<symbol id="i-wrench" viewbox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></symbol>
+<symbol id="i-key" viewbox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3z"></path></symbol>
+<symbol id="i-folder" viewbox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></symbol>
+<symbol id="i-unlock" viewbox="0 0 24 24"><rect height="11" rx="2" width="18" x="3" y="11"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></symbol>
+<symbol id="i-film" viewbox="0 0 24 24"><rect height="20" rx="2" width="20" x="2" y="2"></rect><path d="M7 2v20M17 2v20"></path></symbol>
+<symbol id="i-trophy" viewbox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></symbol>
+<symbol id="i-warn" viewbox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4M12 17h.01"></path></symbol>
+<symbol id="i-down" viewbox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><path d="M12 15V3"></path></symbol>
+<symbol id="i-ext" viewbox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><path d="M10 14 21 3"></path></symbol>
+<symbol id="i-send" viewbox="0 0 24 24"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4 20-7z"></path></symbol>
+<symbol id="i-chat" viewbox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></symbol>
+<symbol id="i-play" viewbox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"></path></symbol>
+<symbol id="i-gauge" viewbox="0 0 24 24"><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"></path><path d="M12 14l4-4"></path><path d="M3.34 19a10 10 0 1 1 17.32 0"></path></symbol>
+<symbol id="i-copy" viewbox="0 0 24 24"><rect height="13" rx="2" width="13" x="9" y="9"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></symbol>
+<symbol id="i-check" viewbox="0 0 24 24"><path d="M20 6 9 17l-5-5"></path></symbol>
+<symbol id="i-bot" viewbox="0 0 24 24"><rect height="12" rx="3" width="18" x="3" y="8"></rect><path d="M12 4v4M9 14h.01M15 14h.01M9.5 17.5h5M1.5 12v4M22.5 12v4"></path></symbol>
+<symbol id="i-search-faq" viewbox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path><path d="M8 11h6"></path></symbol>
+</defs></svg><div aria-label="Element themes" class="dock js-only" role="group">
+<span class="dock-label">Element</span><button class="t-auto on" id="themeAuto" type="button" aria-pressed="true" data-tip="AUTO" title="Auto: element follows the character on the home page">Auto</button>
+<button aria-label="Spectro theme" aria-pressed="true" class="t-dot on" data-theme="spectro" data-tip="SPECTRO" style="--tc:#f2b437"></button>
+<button aria-label="Glacio theme" aria-pressed="false" class="t-dot" data-theme="glacio" data-tip="GLACIO" style="--tc:#4cc9f0"></button>
+<button aria-label="Fusion theme" aria-pressed="false" class="t-dot" data-theme="fusion" data-tip="FUSION" style="--tc:#ff6b52"></button>
+<button aria-label="Electro theme" aria-pressed="false" class="t-dot" data-theme="electro" data-tip="ELECTRO" style="--tc:#a78bfa"></button>
+<button aria-label="Aero theme" aria-pressed="false" class="t-dot" data-theme="aero" data-tip="AERO" style="--tc:#45d98c"></button>
+<button aria-label="Havoc theme" aria-pressed="false" class="t-dot" data-theme="havoc" data-tip="HAVOC" style="--tc:#f4567e"></button>
+</div><header class="navbar" id="navbar">
+<div class="container nav-in">
+<a class="logo" href="index.html"><span class="logo-mark"><img alt="" height="30" src="icon-96.webp" width="30"/></span>WuWa<em>Config</em></a>
+<button aria-expanded="false" aria-label="Menu" class="burger" id="burger"><span></span><span></span><span></span></button>
+<nav aria-label="Main">
+<ul class="nav-links" id="navLinks"><li><a href="index.html">Home</a></li><li><a href="presets.html">Presets</a></li><li><a aria-current="page" href="fps-lab.html">FPS Lab</a></li><li><a href="troubleshooting.html">Troubleshooting</a></li><li><a href="faq.html">FAQ</a></li><li><a class="nav-cta" href="download.html">Download</a></li></ul>
+</nav>
+</div>
+</header><main id="main"><section><div class="container"><div class="sec-head"><span class="kicker">FPS Lab</span><h1>WuWa FPS Lab — <em>Test Your Device Performance Before You Play</em></h1><p>Free WuWa FPS calculator: 36 real SoCs, GPU vs CPU limits and a thermal model. Pick settings, then get the matching preset.</p></div></div></section><section id="simulator">
+<div class="container">
+<div class="sec-head reveal">
+<span class="kicker">Simulator</span>
+<h2>Build Your <em>Virtual Rig</em></h2>
+<p>Pick one of <strong class="mono" style="font-size:.85em">36 real SoCs</strong> and dial the settings. The model simulates <strong>GPU pixel cost vs CPU draw-call limits</strong>, per-tier thermals and throttling — so raising render scale raises load and <em>drops</em> FPS, exactly like real hardware. Your rig is remembered between visits.</p>
+</div>
+<div class="sim reveal">
+<div class="sim-controls">
+<div class="sim-field">
+<label for="selChip">Chipset (SoC)</label>
+<select id="selChip">
+<optgroup label="Snapdragon — Flagship">
+<option value="sd8e">Snapdragon 8 Elite · Adreno 830</option>
+<option selected="" value="sd8g3">Snapdragon 8 Gen 3 · Adreno 750</option>
+<option value="sd8g2">Snapdragon 8 Gen 2 · Adreno 740</option>
+<option value="sd8pg1">Snapdragon 8+ Gen 1 · Adreno 730</option>
+<option value="sd8g1">Snapdragon 8 Gen 1 · Adreno 730</option>
+<option value="sd888">Snapdragon 888 · Adreno 660</option>
+<option value="sd865">Snapdragon 865 · Adreno 650</option>
+<option value="sd855">Snapdragon 855 · Adreno 640</option>
+</optgroup>
+<optgroup label="Snapdragon — Mid &amp; Budget">
+<option value="sd7pg3">Snapdragon 7+ Gen 3 · Adreno 732</option>
+<option value="sd7g3">Snapdragon 7 Gen 3 · Adreno 720</option>
+<option value="sd778g">Snapdragon 778G · Adreno 642L</option>
+<option value="sd6g1">Snapdragon 6 Gen 1 · Adreno 710</option>
+<option value="sd695">Snapdragon 695 · Adreno 619</option>
+</optgroup>
+<optgroup label="MediaTek Dimensity">
+<option value="d9400">Dimensity 9400 · Mali-G925</option>
+<option value="d9300">Dimensity 9300 · Mali-G720</option>
+<option value="d9200">Dimensity 9200 · Mali-G715</option>
+<option value="d9000">Dimensity 9000 · Mali-G710</option>
+<option value="d8300">Dimensity 8300 · Mali-G615</option>
+<option value="d8100">Dimensity 8100 · Mali-G610</option>
+<option value="d7300">Dimensity 7300 · Mali-G615</option>
+<option value="d7200">Dimensity 7200 · Mali-G610</option>
+<option value="d6100">Dimensity 6100+ · Mali-G57</option>
+</optgroup>
+<optgroup label="Samsung Exynos">
+<option value="ex2400">Exynos 2400 · Xclipse 940</option>
+<option value="ex2200">Exynos 2200 · Xclipse 920</option>
+<option value="ex2100">Exynos 2100 · Mali-G78</option>
+<option value="ex1380">Exynos 1380 · Mali-G68</option>
+</optgroup>
+<optgroup label="Google Tensor">
+<option value="tg5">Tensor G5 · Immortalis G925</option>
+<option value="tg4">Tensor G4 · Mali-G715</option>
+<option value="tg3">Tensor G3 · Mali-G715</option>
+<option value="tg2">Tensor G2 · Mali-G710</option>
+<option value="tg1">Tensor G1 · Mali-G78</option>
+</optgroup>
+<optgroup label="Kirin &amp; Helio">
+<option value="kr9010">Kirin 9010 · Maleoon 910</option>
+<option value="kr9000">Kirin 9000 · Mali-G78</option>
+<option value="hg99">Helio G99 · Mali-G57</option>
+<option value="hg96">Helio G96 · Mali-G57</option>
+<option value="hg88">Helio G88 · Mali-G52</option>
+</optgroup>
+</select>
+<p class="chip-info">GPU: <span class="gpu-badge" id="chipGpu">Adreno 750</span> <span class="tier-badge" id="chipTier">Flagship</span></p>
+</div>
+<div class="sim-sec-title">Graphics</div>
+<div class="sim-field">
+<label>Render Scale (Screen %) <output id="oScreen">80%</output></label>
+<input id="rScreen" max="100" min="50" step="5" type="range" value="80"/>
+</div>
+<div class="sim-field">
+<label>Shadow Quality <output id="oShadow">2 / 5</output></label>
+<input id="rShadow" max="5" min="0" step="1" type="range" value="2"/>
+</div>
+<div class="sim-field">
+<label>Texture Streaming <output id="oStream">2 / 6</output></label>
+<input id="rStream" max="6" min="0" step="1" type="range" value="2"/>
+</div>
+<div class="sim-sec-title">Engine Options</div>
+<div class="sim-toggles">
+<button aria-pressed="true" class="tg on" id="tg120"><svg class="ic"><use href="#i-unlock"></use></svg>120 FPS Unlock</button>
+<button aria-pressed="true" class="tg on" id="tgVulkan"><svg class="ic"><use href="#i-bolt"></use></svg>Vulkan API</button>
+<button aria-pressed="false" class="tg" id="tgVsync"><svg class="ic"><use href="#i-film"></use></svg>VSync</button>
+</div>
+<p class="sim-note">* Educational estimates from a <strong>GPU + CPU boundary model</strong> with per-tier thermal throttling. Real SmartBrain reads <strong>your actual Client.log</strong> — GPU tier, RAM, thermal &amp; OOM history — for numbers that match <em>your</em> device.</p>
+</div>
+<div class="sim-result">
+<div class="sim-live"><i></i> Live Estimator</div>
+<div aria-label="Estimated sustained FPS gauge" class="sim-gauge" id="simGauge" role="img">
+<div class="sim-val"><b aria-live="polite" id="simFps">—</b><small>est. sustained FPS</small></div>
+</div>
+<div aria-live="polite" class="sim-bound" id="boundBadge">GPU-BOUND</div>
+<div class="sim-tiles">
+<div class="sim-tile"><b id="ftMs">—</b><small>Frame Time · ms</small></div>
+<div class="sim-tile"><b id="ftLows">—</b><small>1% Lows</small></div>
+</div>
+<div class="sim-compare">
+<div class="sc-row"><span>Stock</span><div class="sc-bar"><i id="barStock"></i></div><b id="numStock">—</b></div>
+<div class="sc-row"><span>Tuned</span><div class="sc-bar tuned"><i id="barTuned"></i></div><b id="numTuned">—</b></div>
+</div>
+<div class="sim-boost">vs stock settings<b aria-live="polite" id="boostPct">—</b></div>
+<div class="sim-rec">
+<span class="sim-rec-label">SmartBrain would pick</span>
+<span class="sim-rec-badge" id="recPreset" tabindex="0" title="Jump to presets">—</span>
+<small aria-live="polite" id="recFps"></small>
+</div>
+<div class="sim-thermal">
+<span>Thermal Load</span>
+<div class="th-bar"><i id="thFill"></i></div>
+<b aria-live="polite" id="thLabel">—</b>
+</div>
+<p aria-live="polite" class="sr-only" id="simStatus" role="status"></p>
+</div>
+</div>
+</div>
+</section><section><div class="container"><div class="cta"><div class="cta-actions"><a class="btn btn-p" href="download.html"><svg class="ic"><use href="#i-down"></use></svg>Download WuWaConfig</a><a class="btn btn-g" href="presets.html">See recommended presets</a> <a class="btn btn-g" href="troubleshooting.html">Troubleshooting</a> <a class="btn btn-g" href="index.html">Home</a> </div></div></div></section></main><footer>
+<div class="container f-inner">
+<div class="f-links" style="margin-bottom:12px"><a href="index.html">Home</a><a href="presets.html">Presets</a><a href="fps-lab.html">FPS Lab</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">FAQ</a><a href="download.html">Download</a></div><nav aria-label="Footer" class="f-links">
+<a href="https://github.com/b3rr7/WuWa-Config-Android" rel="noopener" target="_blank"><svg class="ic"><use href="#i-ext"></use></svg>GitHub</a>
+<a href="https://github.com/b3rr7/WuWa-Config-Android/releases/latest" rel="noopener" target="_blank"><svg class="ic"><use href="#i-down"></use></svg>Releases</a>
+<a href="https://github.com/b3rr7/WuWa-Config-Android/issues" rel="noopener" target="_blank"><svg class="ic"><use href="#i-warn"></use></svg>Report an Issue</a>
+<a href="https://t.me/Yt_Player42" rel="noopener" target="_blank"><svg class="ic"><use href="#i-send"></use></svg>Telegram</a>
+<a href="https://discord.gg/5WP9nN2e2s" rel="noopener" target="_blank"><svg class="ic"><use href="#i-chat"></use></svg>Discord</a>
+<a href="https://www.youtube.com/@Player42_g" rel="noopener" target="_blank"><svg class="ic"><use href="#i-play"></use></svg>YouTube</a>
+</nav>
+<p class="f-meta"><span class="brand">WuWaConfig</span> · Open Source · MIT · Not affiliated with Kuro Games<br/>
+<em>wuthering-waves · wuwa · fps-boost · engine-ini · config-optimizer · gacha-tracker · android-optimization · adb · shizuku · fps-unlock · thermal-fix · v1.1.5</em></p>
+</div>
+</footer><button aria-label="Back to top" class="to-top" id="toTop">↑</button><script>
+(function(){
+'use strict';
+
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const slowNet=(navigator.connection&&
+  (navigator.connection.saveData||/2g/.test(navigator.connection.effectiveType||'')));
+
+const PRESETS={
+  potato:{n:'POTATO',c:'#ff7a7a',s:'60%',sh:'0',res:'128',g:'1,500',best:'Low-end · thermal relief',d:'Maximum battery and thermal relief. Strips shadows, reflections and foliage density for stable FPS on entry-level chipsets. Extras: dynamic lights off, SSGI=0, volumetric fog off.'},
+  endurance:{n:'ENDURANCE',c:'#ffa94d',s:'70%',sh:'0',res:'128',g:'2,500',best:'Marathon sessions · battery',d:'Potato-plus tuning for long play sessions — keeps frame times flat even as your device heats up.'},
+  performance:{n:'PERFORMANCE',c:'#ffd166',s:'60%',sh:'0',res:'256',g:'4,500',best:'Budget phones',d:'Smooth and safe. Higher streaming than Potato plus a light resolution bump for Redmi / Realme class devices.'},
+  competitive:{n:'COMPETITIVE',c:'#a3e635',s:'100%',sh:'2',res:'256',g:'2,000',best:'Esports · max FPS',d:'Native resolution with minimal shadows. Built for reaction time — every frame counts in the Tower.'},
+  balanced:{n:'BALANCED',c:'#3fd68f',s:'80%',sh:'2',res:'1,024',g:'15,000',best:'Most mid-range devices',d:'The sweet spot. Real shadows, solid draw distance and 80% render scale — looks great, runs great.'},
+  high:{n:'HIGH',c:'#2dd4bf',s:'100%',sh:'4',res:'2,048',g:'20,000',best:'Flagship killers',d:'Native res with rich shadows and full effects. Ideal for Snapdragon 8-series and Dimensity 9000+.'},
+  ultra:{n:'ULTRA',c:'#6c8cff',s:'100%',sh:'5',res:'2,048',g:'30,000',best:'Snapdragon 8 Gen 2/3',d:'Everything maxed minus the last 10%. 120 FPS capable on cooled flagships.'},
+  cinematic:{n:'CINEMATIC',c:'#b78bff',s:'100%',sh:'5',res:'4,096',g:'40,000',best:'Showcase · screenshots',d:'4K shadows, volumetric glory. The mode you screenshot — not the one you climb the Tower in.'}
+};
+/* ── Theme switcher (+ auto element sync with the character slideshow) ── */
+const dots=$$('.t-dot');
+const autoBtn=document.getElementById('themeAuto');
+let auto=true, lastEl=null;
+try{auto=localStorage.getItem('wuwa-theme-auto')!=='0'}catch(e){}
+function paintAuto(){if(autoBtn){autoBtn.classList.toggle('on',auto);autoBtn.setAttribute('aria-pressed',auto)}}
+function setAuto(v){auto=v;try{localStorage.setItem('wuwa-theme-auto',v?'1':'0')}catch(e){}paintAuto()}
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem('wuwa-theme',t)}catch(e){}
+  dots.forEach(b=>{const on=b.dataset.theme===t;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});
+}
+function setTheme(t){applyTheme(t);setAuto(false)}            /* manual pick turns auto off */
+window.wuwaAutoTheme=function(t){if(!t)return;lastEl=t;if(auto)applyTheme(t)};
+let saved='spectro';
+try{saved=localStorage.getItem('wuwa-theme')||'spectro'}catch(e){}
+applyTheme(saved);paintAuto();
+dots.forEach(b=>b.addEventListener('click',()=>setTheme(b.dataset.theme)));
+if(autoBtn)autoBtn.addEventListener('click',()=>{setAuto(!auto);if(auto&&lastEl)applyTheme(lastEl)});
+
+
+/* ── Scroll progress + navbar + to-top ── */
+const nav=$('#navbar'), prog=$('#progress'), toTop=$('#toTop');
+function onScroll(){
+  const y=scrollY, h=document.documentElement.scrollHeight-innerHeight;
+  prog.style.width=(h>0?(y/h)*100:0)+'%';
+  nav.classList.toggle('scrolled',y>10);
+  toTop.classList.toggle('show',y>560);
+}
+addEventListener('scroll',onScroll,{passive:true}); onScroll();
+toTop.onclick=()=>scrollTo({top:0,behavior:'smooth'});
+
+
+/* ── Mobile menu ── */
+const burger=$('#burger'), links=$('#navLinks');
+function closeMenu(){links.classList.remove('open');burger.classList.remove('on');burger.setAttribute('aria-expanded','false');document.body.style.overflow=''}
+burger.onclick=e=>{e.stopPropagation();const o=links.classList.toggle('open');burger.classList.toggle('on',o);burger.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''};
+links.querySelectorAll('a').forEach(a=>a.onclick=closeMenu);
+document.addEventListener('click',e=>{if(links.classList.contains('open')&&!links.contains(e.target)&&!burger.contains(e.target))closeMenu()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
+
+
+/* ── Reveal on scroll ── */
+if('IntersectionObserver'in window&&!reduced){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.1,rootMargin:'0px 0px -40px 0px'});
+  $$('.reveal').forEach(el=>io.observe(el));
+}else $$('.reveal').forEach(el=>el.classList.add('in'));
+
+
+try{
+/* ════════════════════════════════════════════════════════════
+   ⚗️ FPS LAB 3.0 — DUAL-BOUNDARY MODEL + PERSISTED STATE
+   ════════════════════════════════════════════════════════════ */
+const CHIPS={
+  sd8e:['Adreno 830',150,130,'Flagship'],  sd8g3:['Adreno 750',140,120,'Flagship'],
+  sd8g2:['Adreno 740',130,112,'Flagship'], sd8pg1:['Adreno 730',118,100,'Flagship'],
+  sd8g1:['Adreno 730',100,88,'Flagship'],  sd888:['Adreno 660',88,78,'Flagship'],
+  sd865:['Adreno 650',80,72,'High'],       sd855:['Adreno 640',66,62,'Upper-Mid'],
+  sd7pg3:['Adreno 732',96,84,'Upper-Mid'], sd7g3:['Adreno 720',74,66,'Mid'],
+  sd778g:['Adreno 642L',60,55,'Mid'],      sd6g1:['Adreno 710',48,45,'Mid'],
+  sd695:['Adreno 619',40,38,'Mid'],
+  d9400:['Mali-G925',148,128,'Flagship'],  d9300:['Mali-G720',138,118,'Flagship'],
+  d9200:['Mali-G715',112,96,'Flagship'],   d9000:['Mali-G710',100,88,'High'],
+  d8300:['Mali-G615',86,76,'Upper-Mid'],   d8100:['Mali-G610',74,66,'Upper-Mid'],
+  d7300:['Mali-G615',50,46,'Mid'],         d7200:['Mali-G610',47,44,'Mid'],
+  d6100:['Mali-G57',30,30,'Low'],
+  ex2400:['Xclipse 940',120,105,'Flagship'],ex2200:['Xclipse 920',88,76,'High'],
+  ex2100:['Mali-G78',76,68,'High'],        ex1380:['Mali-G68',48,45,'Mid'],
+  tg5:['Immortalis G925',118,100,'Flagship'],tg4:['Mali-G715',100,86,'High'],
+  tg3:['Mali-G715',88,78,'High'],          tg2:['Mali-G710',72,64,'Upper-Mid'],
+  tg1:['Mali-G78',66,60,'Upper-Mid'],
+  kr9010:['Maleoon 910',92,80,'High'],     kr9000:['Mali-G78',76,68,'High'],
+  hg99:['Mali-G57',29,34,'Low'],           hg96:['Mali-G57',27,32,'Low'],
+  hg88:['Mali-G52',21,27,'Low']
+};
+const THR={Flagship:1.05,High:0.9,'Upper-Mid':0.78,Mid:0.65,Low:0.55};
+const TIER_COL={Flagship:'var(--good)',High:'#0e8a7a','Upper-Mid':'var(--warn)','Mid':'var(--ink-2)',Low:'var(--bad)'};
+
+const ORDER=['CINEMATIC','ULTRA','HIGH','BALANCED','COMPETITIVE','PERFORMANCE','ENDURANCE','POTATO'];
+const PP={
+  CINEMATIC:{s:100,sh:5,st:6,c:'#b78bff'},
+  ULTRA:{s:100,sh:5,st:4,c:'#6c8cff'},
+  HIGH:{s:100,sh:4,st:3,c:'#2dd4bf'},
+  BALANCED:{s:80,sh:2,st:2,c:'#3fd68f'},
+  COMPETITIVE:{s:100,sh:0,st:1,c:'#a3e635'},
+  PERFORMANCE:{s:60,sh:0,st:0.5,c:'#ffd166'},
+  ENDURANCE:{s:55,sh:0,st:0.4,c:'#ffa94d'},
+  POTATO:{s:50,sh:0,st:0.3,c:'#ff7a7a'}
+};
+
+const pix=s=>Math.pow(s/100,1.6);
+
+function model(g,c,tier,s,sh,st,vulkan,vsync,cap){
+  const q =(1-sh*0.055)*(1-st*0.028)*(vulkan?1:0.93)*(vsync?0.97:1);
+  const cq=(1-sh*0.012)*(vulkan?1:0.97);
+  const fpsGPU=g*q/pix(s);
+  const fpsCPU=c*cq;
+  const fpsRaw=Math.min(fpsGPU,fpsCPU,cap);
+  const bound=(fpsGPU<=fpsCPU&&fpsGPU<=cap)?'GPU':(fpsCPU<=cap?'CPU':'CAP');
+  let load=pix(s)*(0.45+sh*0.11)*(0.6+st*0.0667)
+           *(vulkan?0.95:1)*(vsync?0.97:1)/THR[tier];
+  if(bound!=='GPU')load*=0.9;
+  load=Math.min(1,load);
+  const thrF=load>0.8?1-(load-0.8)*0.6:1;
+  const sustained=Math.max(6,Math.round(fpsRaw*thrF));
+  const lows=Math.max(4,Math.round(sustained*(0.9-load*0.25)));
+  return{sustained,lows,load,bound};
+}
+
+const selChip=$('#selChip'), chipGpu=$('#chipGpu'), chipTier=$('#chipTier'),
+      rS=$('#rScreen'), rSh=$('#rShadow'), rSt=$('#rStream'),
+      oS=$('#oScreen'), oSh=$('#oShadow'), oSt=$('#oStream'),
+      tg120=$('#tg120'), tgVk=$('#tgVulkan'), tgVs=$('#tgVsync'),
+      simG=$('#simGauge'), simF=$('#simFps'),
+      boundBadge=$('#boundBadge'),
+      ftMs=$('#ftMs'), ftLows=$('#ftLows'),
+      bSt=$('#barStock'), bTu=$('#barTuned'), nSt=$('#numStock'), nTu=$('#numTuned'),
+      boostEl=$('#boostPct'), recEl=$('#recPreset'), recFpsEl=$('#recFps'),
+      thF=$('#thFill'), thL=$('#thLabel'),
+      simStatus=$('#simStatus');
+
+const pixHint=document.createElement('p');
+pixHint.className='pix-hint';
+if(rS&&rS.closest('.sim-field'))rS.closest('.sim-field').appendChild(pixHint);
+
+const SIM_KEY='wuwa-sim';
+function saveSim(){
+  try{localStorage.setItem(SIM_KEY,JSON.stringify({
+    c:selChip.value,s:rS.value,sh:rSh.value,st:rSt.value,
+    u:tg120.classList.contains('on'),v:tgVk.classList.contains('on'),y:tgVs.classList.contains('on')
+  }))}catch(e){}
+}
+(function loadSim(){
+  try{
+    const d=JSON.parse(localStorage.getItem(SIM_KEY)||'null');
+    if(!d)return;
+    if(CHIPS[d.c])selChip.value=d.c;
+    if(d.s>=50&&d.s<=100)rS.value=d.s;
+    if(d.sh>=0&&d.sh<=5)rSh.value=d.sh;
+    if(d.st>=0&&d.st<=6)rSt.value=d.st;
+    tg120.classList.toggle('on',!!d.u); tg120.setAttribute('aria-pressed',String(!!d.u));
+    tgVk.classList.toggle('on',!!d.v);  tgVk.setAttribute('aria-pressed',String(!!d.v));
+    tgVs.classList.toggle('on',!!d.y);  tgVs.setAttribute('aria-pressed',String(!!d.y));
+  }catch(e){}
+})();
+
+function fillSliders(){
+  rS.style.setProperty('--fill',((rS.value-50)/50*100)+'%');
+  rSh.style.setProperty('--fill',(rSh.value/5*100)+'%');
+  rSt.style.setProperty('--fill',(rSt.value/6*100)+'%');
+}
+
+let lastRec='';
+
+function calc(){
+  const [gpuName,g,c,tier]=CHIPS[selChip.value];
+  chipGpu.textContent=gpuName;
+  chipTier.textContent=tier; chipTier.style.color=TIER_COL[tier]||'var(--ink-2)';
+
+  const screen=+rS.value, sh=+rSh.value, st=+rSt.value;
+  oS.textContent=screen+'%'; oSh.textContent=sh+' / 5'; oSt.textContent=st+' / 6';
+  fillSliders();
+
+  const unlock=tg120.classList.contains('on'),
+        vulkan=tgVk.classList.contains('on'),
+        vsync=tgVs.classList.contains('on'),
+        cap=unlock?120:60;
+
+  const m =model(g,c,tier,screen,sh,st,vulkan,vsync,cap);
+  const ms=model(g,c,tier,100,2,2,false,true,60);
+
+  simF.textContent=m.sustained;
+  ftMs.textContent=(1000/m.sustained).toFixed(1);
+  ftLows.textContent=m.lows;
+  const pct=Math.min(100,m.sustained/120*100);
+  simG.style.setProperty('--p',pct);
+  const col=m.sustained>=100?'var(--good)':m.sustained>=60?'#0e8a7a':m.sustained>=35?'var(--warn)':'var(--bad)';
+  simG.style.setProperty('--gc',col); simF.style.color=col;
+
+  boundBadge.classList.remove('cpu','cap');
+  if(m.bound==='GPU'){
+    boundBadge.textContent='GPU-BOUND — resolution & quality are the limiter';
+  }else if(m.bound==='CPU'){
+    boundBadge.classList.add('cpu');
+    boundBadge.textContent='CPU-BOUND — lowering render scale won\u2019t add FPS';
+  }else{
+    boundBadge.classList.add('cap');
+    boundBadge.textContent='FRAME-CAP — the FPS ceiling is the limit, not hardware';
+  }
+
+  pixHint.textContent=screen>=100
+    ?'[■] 100% pixels — native resolution, heaviest GPU load'
+    :`[■] renders ${Math.round(pix(screen)*100)}% of native pixels`;
+
+  nSt.textContent=ms.sustained; nTu.textContent=m.sustained;
+  bSt.style.setProperty('--w',Math.min(100,ms.sustained/120*100)+'%');
+  bTu.style.setProperty('--w',pct+'%');
+  const boost=Math.round((m.sustained-ms.sustained)/ms.sustained*100);
+  boostEl.textContent=(boost>=0?'\u25B2 +':'\u25BC \u2212')+Math.abs(boost)+'%';
+  boostEl.style.color=boost>=0?'var(--good)':'var(--bad)';
+
+  const target=Math.max(45,Math.round(cap*0.8));
+  let recKey='POTATO', recF=0;
+  for(const k of ORDER){
+    const p=PP[k];
+    const r=model(g,c,tier,p.s,p.sh,p.st,true,false,cap);
+    recF=r.sustained;
+    if(r.sustained>=target){recKey=k;break}
+  }
+  recEl.textContent=recKey;
+  recEl.style.setProperty('--rc',PP[recKey].c);
+  recFpsEl.textContent='this chip sustains ~'+recF+' FPS at '+recKey;
+
+  thF.style.setProperty('--w',(m.load*100).toFixed(0)+'%');
+  const th=m.load<0.35?['Cool','var(--good)']:m.load<0.55?['Moderate','#0e8a7a']:m.load<0.75?['Warm','var(--warn)']:m.load<0.9?['Hot','#c2620e']:['Throttling','var(--bad)'];
+  thL.textContent=th[0]; thL.style.color=th[1];
+
+  lastRec=m.sustained+' FPS sustained, '+recKey+' recommended, thermal '+th[0].toLowerCase();
+  saveSim();
+}
+
+selChip.addEventListener('change',()=>{calc(); simStatus.textContent=lastRec});
+[rS,rSh,rSt].forEach(el=>{
+  el.addEventListener('input',calc);
+  el.addEventListener('change',()=>{simStatus.textContent=lastRec});
+});
+[tg120,tgVk,tgVs].forEach(b=>b.addEventListener('click',()=>{
+  b.classList.toggle('on');
+  b.setAttribute('aria-pressed',b.classList.contains('on'));
+  calc(); simStatus.textContent=lastRec;
+}));
+recEl.addEventListener('click',()=>location.href='presets.html');
+recEl.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();recEl.click()}});
+calc();
+
+
+}catch(_){}
+try{
+/* ── FAQ search/filter with highlight ── */
+(function(){
+  const input=$('#faqSearch'); if(!input)return;
+  const list=$('#faqList'), clear=$('#faqSearchClear'),
+        empty=$('#faqEmpty'), count=$('#faqCount');
+  if(!list||!clear||!empty||!count)return;
+  const items=[...list.querySelectorAll('details')];
+  const total=items.length;
+
+  function escapeRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
+  function strip(html){const d=document.createElement('div');d.innerHTML=html;return d.textContent||''}
+
+  /* cache original HTML so we can restore highlight-free state */
+  items.forEach(it=>{
+    it.dataset.q=strip(it.querySelector('summary').innerHTML).toLowerCase();
+    it.dataset.a=strip(it.querySelector('.faq-b').innerHTML).toLowerCase();
+    it.dataset.summaryHtml=it.querySelector('summary').innerHTML;
+    it.dataset.bodyHtml=it.querySelector('.faq-b').innerHTML;
+  });
+
+  function filter(q){
+    q=q.trim().toLowerCase();
+    clear.classList.toggle('show',q.length>0);
+    let shown=0;
+    items.forEach(it=>{
+      const match=!q||it.dataset.q.includes(q)||it.dataset.a.includes(q);
+      it.classList.toggle('hidden',!match);
+      if(match)shown++;
+      /* restore + highlight on summary + body */
+      const sumEl=it.querySelector('summary');
+      const bodyEl=it.querySelector('.faq-b');
+      if(q){
+        const re=new RegExp('('+escapeRe(q)+')','gi');
+        const hl=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                     .replace(re,'<mark>$1</mark>');
+        /* only highlight in text nodes, preserve HTML tags */
+        sumEl.innerHTML=it.dataset.summaryHtml.replace(/>([^<]+)</g,(m,t)=>'>'+hl(t)+'<');
+        bodyEl.innerHTML=it.dataset.bodyHtml.replace(/>([^<]+)</g,(m,t)=>'>'+hl(t)+'<');
+        if(match)it.open=true;
+      }else{
+        sumEl.innerHTML=it.dataset.summaryHtml;
+        bodyEl.innerHTML=it.dataset.bodyHtml;
+        if(!q)it.open=false;
+      }
+    });
+    empty.classList.toggle('show',shown===0);
+    count.textContent=shown===total?`${total} questions`:`${shown} / ${total} match${shown===1?'':'es'}`;
+  }
+
+  input.addEventListener('input',()=>filter(input.value));
+  clear.addEventListener('click',()=>{input.value='';filter('');input.focus()});
+
+  /* ── Global keyboard shortcuts ── */
+  const THEME_ORDER=['spectro','glacio','fusion','electro','aero','havoc'];
+  document.addEventListener('keydown',e=>{
+    /* ignore when typing in form fields */
+    const t=e.target;
+    const inField=t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable);
+    if(inField){
+      if(e.key==='Escape'&&t===input){input.value='';filter('');input.blur()}
+      return;
+    }
+    if(e.key==='/'&&input){e.preventDefault();input.focus();input.scrollIntoView({behavior:reduced?'auto':'smooth',block:'center'})}
+    else if(e.key==='Escape'&&input.value){input.value='';filter('');input.blur()}
+    else if(e.key==='t'||e.key==='T'){
+      const cur=document.documentElement.getAttribute('data-theme')||'spectro';
+      const i=THEME_ORDER.indexOf(cur);
+      const next=THEME_ORDER[(i+1)%THEME_ORDER.length];
+      setTheme(next);
+    }
+  });
+})();
+
+/* ════════════════════════════════════════════════════════════
+   📸 SCREENS AUTO-SLIDER — 10s
+   ════════════════════════════════════════════════════════════ */
+(function(){
+  const strack=$('#shotTrack'); if(!strack)return;
+  const slides=[...strack.children];
+  const dotsWrap=$('#shotDots'), capEl=$('#shotCap'), countEl=$('#shotCount');
+  const N=slides.length, INTERVAL=10000;
+  let cur=0, timer=null, playing=!reduced;
+
+  slides.forEach(s=>{
+    const img=s.querySelector('[data-shot]');
+    const src=img&&img.getAttribute('data-src');
+    if(img&&src){
+      img.src=src;
+      img.style.display='block';
+      /* if the screenshot itself fails to load, fall back to the styled card */
+      img.addEventListener('error',()=>{img.remove()});
+    }else if(img){
+      img.remove();
+    }
+  });
+
+  slides.forEach((_,i)=>{
+    const d=document.createElement('button');
+    d.className='sdot'+(i===0?' on':''); d.setAttribute('role','tab');
+    d.setAttribute('aria-label','Screenshot '+(i+1));
+    d.innerHTML='<span class="fill"></span><b>'+String(i+1).padStart(2,'0')+'</b>';
+    d.onclick=()=>go(i,true);
+    dotsWrap.appendChild(d);
+  });
+  const sdots=[...dotsWrap.children];
+
+  function render(){
+    strack.style.transform=`translateX(-${cur*100}%)`;
+    capEl.textContent=slides[cur].dataset.cap||'';
+    countEl.textContent=String(cur+1).padStart(2,'0')+' / '+String(N).padStart(2,'0');
+    sdots.forEach((d,i)=>d.classList.toggle('on',i===cur));
+  }
+
+  function restartFill(){
+    sdots.forEach(d=>{
+      const f=d.querySelector('.fill');
+      f.style.animation='none'; void f.offsetHeight; f.style.animation='';
+    });
+    if(!playing){
+      sdots.forEach(d=>{d.querySelector('.fill').style.animationPlayState='paused'});
+    }
+  }
+
+  function arm(){
+    clearInterval(timer);
+    if(!playing)return;
+    timer=setInterval(()=>go(cur+1),INTERVAL);
+  }
+
+  function go(i,user){
+    cur=(i+N)%N;
+    render();
+    restartFill();
+    if(user)arm();
+  }
+
+  const stage=document.querySelector('.shot-stage');
+  stage.addEventListener('mouseenter',()=>clearInterval(timer));
+  stage.addEventListener('mouseleave',()=>{if(playing)arm()});
+
+  const playBtn=$('#shotPlay');
+  playBtn.onclick=()=>{
+    playing=!playing;
+    playBtn.setAttribute('aria-pressed',String(!playing));
+    playBtn.querySelector('span').textContent=playing?'Pause':'Play';
+    sdots.forEach(d=>{d.querySelector('.fill').style.animationPlayState=playing?'running':'paused'});
+    if(playing){arm()}else{clearInterval(timer)}
+  };
+
+  $('#shotPrev').onclick=()=>go(cur-1,true);
+  $('#shotNext').onclick=()=>go(cur+1,true);
+
+  strack.tabIndex=0;
+  strack.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight')go(cur+1,true);
+    if(e.key==='ArrowLeft')go(cur-1,true);
+  });
+
+  let tx=0;
+  strack.addEventListener('touchstart',e=>{tx=e.touches[0].clientX},{passive:true});
+  strack.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-tx;
+    if(Math.abs(dx)>40)go(cur+(dx<0?1:-1),true);
+  },{passive:true});
+
+  if(playing){arm()}else{
+    playBtn.querySelector('span').textContent='Play';
+    playBtn.setAttribute('aria-pressed','true');
+    sdots.forEach(d=>{d.querySelector('.fill').style.animationPlayState='paused'});
+  }
+})();
+
+}catch(_){}
+})();
+</script><script>
+(function(){
+'use strict';
+if(!window.matchMedia) return;
+if(!matchMedia('(pointer: fine)').matches ||
+   (matchMedia('(any-pointer: coarse)').matches &&
+    matchMedia('(hover: none)').matches)) return;
+if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+if(document.documentElement.classList.contains('cur-on')) return;
+
+const rx=document.createElement('div'); rx.className='wcur-x';
+const ry=document.createElement('div'); ry.className='wcur-y';
+const ring=document.createElement('div'); ring.className='wcur-ring';
+document.body.appendChild(rx);
+document.body.appendChild(ry);
+document.body.appendChild(ring);
+document.documentElement.classList.add('cur-on');
+
+let x=-100,y=-100, mx=-100,my=-100, s=1;
+let hover=false,shown=false;
+
+addEventListener('pointermove',e=>{
+  x=e.clientX; y=e.clientY;
+  if(!shown){shown=true; mx=x; my=y; document.documentElement.classList.add('cur-vis')}
+},{passive:true});
+
+document.addEventListener('mouseleave',()=>{shown=false; document.documentElement.classList.remove('cur-vis')});
+document.addEventListener('mouseenter',()=>{shown=true;  document.documentElement.classList.add('cur-vis')});
+
+const HOV='a,button,summary,.t-dot,.tab,.tg,.px-chip,.chip,.sdot,.sbtn,input[type=range],label,.sim-rec-badge,[role=tab]';
+const TXT='input:not([type=range]):not([type=checkbox]):not([type=radio]),textarea,select,[contenteditable="true"]';
+
+document.addEventListener('pointerover',e=>{
+  const t=e.target;
+  if(!(t instanceof Element)) return;
+  if(t.closest(TXT)){
+    document.documentElement.classList.add('cur-hide');
+    document.documentElement.classList.remove('cur-hov');
+    hover=false; return;
+  }
+  document.documentElement.classList.remove('cur-hide');
+  hover=!!t.closest(HOV);
+  document.documentElement.classList.toggle('cur-hov',hover);
+});
+
+addEventListener('pointerdown',e=>{
+  const p=document.createElement('div');
+  p.className='wcur-pulse';
+  p.style.left=e.clientX+'px';
+  p.style.top =e.clientY+'px';
+  document.body.appendChild(p);
+  p.addEventListener('animationend',()=>p.remove());
+},{passive:true});
+
+(function loop(){
+  mx+=(x-mx)*.2;  my+=(y-my)*.2;
+  const tS=hover?1.5:1;
+  s+=(tS-s)*.2;
+  rx.style.transform=`translate(${x-7.5}px,${y}px)`;
+  ry.style.transform=`translate(${x}px,${y-7.5}px)`;
+  ring.style.transform=`translate(${mx}px,${my}px) translate(-50%,-50%) scale(${s})`;
+  requestAnimationFrame(loop);
+})();
+})();
+</script><script src="register-sw.js" defer></script>
+</body></html>

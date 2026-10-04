@@ -2,7 +2,7 @@
   "name": "WuWaConfig — Wuthering Waves Performance Optimizer",
   "short_name": "WuWaConfig",
   "description": "Player-built Android app that optimizes Wuthering Waves performance via a config editor and hardware-aware INI generator. Deploys via ADB, Shizuku, Root or SAF.",
-  "id": "/",
+  "id": "/WuWa-Config-Android/",
   "start_url": "/WuWa-Config-Android/",
   "scope": "/WuWa-Config-Android/",
   "display": "standalone",
@@ -13,43 +13,21 @@
   "dir": "ltr",
   "categories": ["utilities", "productivity", "games"],
   "icons": [
-    {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%2316130b'/%3E%3Cpath d='M280 64 100 320h140l-20 128 200-256h-140l20-128z' fill='%23f2b437'/%3E%3C/svg%3E",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%2316130b'/%3E%3Cpath d='M105 24 38 120h52l-8 48 75-96h-52l8-48z' fill='%23f2b437'/%3E%3C/svg%3E",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%2316130b'/%3E%3Cpath d='M280 64 100 320h140l-20 128 200-256h-140l20-128z' fill='%23f2b437'/%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%2316130b'/%3E%3Cpath d='M105 24 38 120h52l-8 48 75-96h-52l8-48z' fill='%23f2b437'/%3E%3C/svg%3E", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "screenshots": [
+    { "src": "og-image.png", "sizes": "1200x630", "type": "image/png", "form_factor": "wide", "label": "Fix lag, boost FPS, generate custom configs" },
+    { "src": "screenshots/screen-02.webp", "sizes": "1080x2400", "type": "image/webp", "form_factor": "narrow", "label": "Config Generator — 8 presets, 24 toggles" },
+    { "src": "screenshots/screen-03.webp", "sizes": "1080x2400", "type": "image/webp", "form_factor": "narrow", "label": "Pity Tracker — 11 pools, 50/50 math" }
   ],
   "shortcuts": [
-    {
-      "name": "FPS Lab",
-      "short_name": "FPS Lab",
-      "description": "Estimate sustained FPS for your chipset",
-      "url": "/WuWa-Config-Android/#simulator"
-    },
-    {
-      "name": "Presets",
-      "short_name": "Presets",
-      "description": "8 optimization presets from Potato to Cinematic",
-      "url": "/WuWa-Config-Android/#presets"
-    },
-    {
-      "name": "FAQ",
-      "short_name": "FAQ",
-      "description": "Frequently asked questions about WuWaConfig",
-      "url": "/WuWa-Config-Android/#faq"
-    },
-    {
-      "name": "Download APK",
-      "short_name": "Download",
-      "description": "Download the latest APK from GitHub Releases",
-      "url": "https://github.com/b3rr7/WuWa-Config-Android/releases/latest"
-    }
+    { "name": "FPS Lab", "short_name": "FPS Lab", "description": "Estimate sustained FPS for your chipset", "url": "/WuWa-Config-Android/fps-lab.html", "icons": [{ "src": "icon-96.webp", "sizes": "96x96", "type": "image/webp" }] },
+    { "name": "Presets", "short_name": "Presets", "description": "8 optimization presets from Potato to Cinematic", "url": "/WuWa-Config-Android/presets.html", "icons": [{ "src": "icon-96.webp", "sizes": "96x96", "type": "image/webp" }] },
+    { "name": "FAQ", "short_name": "FAQ", "description": "Frequently asked questions about WuWaConfig", "url": "/WuWa-Config-Android/faq.html", "icons": [{ "src": "icon-96.webp", "sizes": "96x96", "type": "image/webp" }] },
+    { "name": "Download APK", "short_name": "Download", "description": "Get the latest APK from GitHub Releases", "url": "/WuWa-Config-Android/download.html", "icons": [{ "src": "icon-96.webp", "sizes": "96x96", "type": "image/webp" }] }
   ]
 }
