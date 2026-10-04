@@ -77,6 +77,25 @@ object GachaStats {
                 .map { it.name }
                 .toSet()
 
+        // The same draws as objects rather than names, so the UI can split the
+        // permanent pool into its character and weapon sides and render each with
+        // the right portrait. Names alone cannot do that -- a name does not say
+        // whether it came off a character or a weapon banner.
+        val standardFiveStarItems =
+            records
+                .filter { it.cardPoolType in standardPoolTypeNames && it.qualityLevel == 5 }
+                .groupBy { it.name }
+                .map { (name, group) ->
+                    GachaItemCount(
+                        name = name,
+                        kind = group.first().kind(),
+                        resourceId = group.first().resourceId,
+                        // Times pulled, not times seen: a collapsed 10-pull that
+                        // yielded the same standard 5★ twice counts twice.
+                        count = group.sumOf { it.count.coerceAtLeast(1) },
+                    )
+                }.sortedBy { it.name }
+
         val characterFiveStars = fiveStarRecords.filter { it.belongsTo(GachaItemKind.CHARACTER) }
         val weaponFiveStars = fiveStarRecords.filter { it.belongsTo(GachaItemKind.WEAPON) }
         // "UP" means a 5★ that is not a standard one, i.e. a banner pull rather than
@@ -120,6 +139,7 @@ object GachaStats {
             weaponFiveStarItems = weaponFiveStars.size,
             topFiveStars = topItems(records, 5),
             topFourStars = topItems(records, 4),
+            standardFiveStars = standardFiveStarItems,
         )
     }
 
@@ -242,6 +262,15 @@ data class GachaStatsResult(
     val weaponFiveStarItems: Int,
     val topFiveStars: List<GachaItemCount>,
     val topFourStars: List<GachaItemCount>,
+    /**
+     * The permanent pool's 5★s, deduplicated by name, split by [GachaItemCount.kind].
+     *
+     * Scoped to what the player has actually drawn — there is no authoritative
+     * roster of the permanent pool anywhere this app can reach, so this is a
+     * collection record and not a pool contents list. Sorted by name because there
+     * is no meaningful pull order for a set of permanent items.
+     */
+    val standardFiveStars: List<GachaItemCount>,
 ) {
     companion object {
         /**
@@ -275,6 +304,7 @@ data class GachaStatsResult(
                 weaponFiveStarItems = 0,
                 topFiveStars = emptyList(),
                 topFourStars = emptyList(),
+                standardFiveStars = emptyList(),
             )
     }
 }

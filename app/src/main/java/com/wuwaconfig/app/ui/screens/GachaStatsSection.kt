@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wuwaconfig.app.config.GachaItemCount
 import com.wuwaconfig.app.config.GachaItemKind
 import com.wuwaconfig.app.config.GachaStats
 import com.wuwaconfig.app.config.GachaStatsResult
@@ -679,5 +680,94 @@ fun FeaturedCharactersStrip(
             }
             Spacer(Modifier.height(10.dp))
         }
+    }
+}
+
+/**
+ * The permanent pool, as a collection record of what the player holds from it.
+ *
+ * Split into character and weapon halves because the permanent pool really does
+ * yield both off one shared 5★ pity — there is no separate standard-weapon banner
+ * in this game, and a card implying otherwise would send someone hunting for a
+ * banner that does not exist.
+ *
+ * Scoped to pulls the player has made. No reachable source lists what the permanent
+ * pool *contains*, so this shows what has been drawn rather than claiming to be the
+ * roster; the header says so, since an unlabelled portrait grid here reads as a
+ * complete checklist and would understate a young account as thoroughly as it would
+ * overstate an old one.
+ */
+@Composable
+fun StandardBannerStrip(
+    stats: GachaStatsResult,
+    modifier: Modifier = Modifier,
+) {
+    val characters = remember(stats) { stats.standardFiveStars.filter { it.kind == GachaItemKind.CHARACTER } }
+    val weapons = remember(stats) { stats.standardFiveStars.filter { it.kind == GachaItemKind.WEAPON } }
+
+    GlassCard(accentColor = NeonCyan, modifier = modifier) {
+        GlassCardHeader("STANDARD · ALWAYS OPEN", NeonCyan)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Permanent pool. Characters and weapons share one 5★ pity — there is no " +
+                "separate standard-weapon banner. Shown: permanent 5★s you have drawn.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (stats.standardFiveStars.isEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "No permanent 5★s recorded yet.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return@GlassCard
+        }
+
+        StandardRow("Characters", characters, "Resonator")
+        if (weapons.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            StandardRow("Weapons", weapons, "Weapon")
+        }
+    }
+}
+
+/** One half of [StandardBannerStrip]: a titled grid of portraits. */
+@Composable
+private fun StandardRow(
+    title: String,
+    items: List<GachaItemCount>,
+    resourceType: String,
+) {
+    Spacer(Modifier.height(12.dp))
+    Text(
+        "$title · ${items.size}",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
+    Spacer(Modifier.height(8.dp))
+    items.chunked(6).forEach { row ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            row.forEach { item ->
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    GachaAvatar(
+                        name = item.name,
+                        resourceType = resourceType,
+                        size = 38.dp,
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        item.name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+        Spacer(Modifier.height(8.dp))
     }
 }

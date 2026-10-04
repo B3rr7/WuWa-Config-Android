@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.backend.BackendStatus
+import com.wuwaconfig.app.config.GachaStats
 import com.wuwaconfig.app.config.KuroGuide
 import com.wuwaconfig.app.config.OfficialCharacter
 import com.wuwaconfig.app.config.gameProfile
@@ -230,6 +231,13 @@ fun PityScreen(
                     // below. Empty until the fetch resolves, and stays empty if it
                     // never does — the tab is still fully usable without it.
                     item { FeaturedCharactersStrip(officialCharacters) }
+
+                    // Scoped to the item because `data` is bound inside the list
+                    // scope, and remembered so switching tabs does not re-walk the
+                    // history on every recomposition.
+                    item {
+                        StandardBannerStrip(remember(data) { GachaStats.aggregate(data) })
+                    }
 
                     when (selectedTab) {
                         GachaTab.VISUAL -> {

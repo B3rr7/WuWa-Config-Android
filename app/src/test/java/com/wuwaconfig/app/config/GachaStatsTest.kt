@@ -483,3 +483,142 @@ class GachaStatsTest {
         assertEquals(listOf("Four"), GachaStats.topItems(records, rarity = 4).map { it.name })
     }
 }
+
+// ─────────── standard pool contents ───────────
+
+class StandardFiveStarsTest {
+    private fun record(
+        pool: GachaPoolType,
+        name: String,
+        quality: Int = 5,
+        count: Int = 1,
+        resourceId: Int = 0,
+        resourceType: String = "",
+    ) = GachaRecord(
+        cardPoolType = pool.type,
+        qualityLevel = quality,
+        name = name,
+        count = count,
+        time = "2026-01-01",
+        resourceId = resourceId,
+        resourceType = resourceType,
+    )
+
+    @Test
+    fun `only standard pool 5stars are collected`() {
+        val result =
+            GachaStats.aggregate(
+                GachaData(
+                    records =
+                        listOf(
+                            record(GachaPoolType.STANDARD, "Jiyan"),
+                            record(GachaPoolType.STANDARD_2, "Yinlin"),
+                            record(GachaPoolType.STANDARD_3, "Calcharo"),
+                            // Event banner 5★s are not permanent-pool members.
+                            record(GachaPoolType.CHARACTER_EVENT, "Hsin"),
+                            record(GachaPoolType.WEAPON_EVENT, "Verity"),
+                        ),
+                ),
+            )
+        assertEquals(setOf("Jiyan", "Yinlin", "Calcharo"), result.standardFiveStars.map { it.name }.toSet())
+    }
+
+    @Test
+    fun `lower rarities in the standard pool are excluded`() {
+        val result =
+            GachaStats.aggregate(
+                GachaData(
+                    records =
+                        listOf(
+                            record(GachaPoolType.STANDARD, "Jiyan", quality = 5),
+                            record(GachaPoolType.STANDARD, "Cecilia", quality = 4),
+                            record(GachaPoolType.STANDARD, "Danjin", quality = 3),
+                        ),
+                ),
+            )
+        assertEquals(listOf("Jiyan"), result.standardFiveStars.map { it.name })
+    }
+
+    @Test
+    fun `duplicate names collapse to one entry that sums the counts`() {
+        val result =
+            GachaStats.aggregate(
+                GachaData(
+                    records =
+                        listOf(
+                            record(GachaPoolType.STANDARD, "Jiyan", count = 1),
+                            // A second standard pull of the same item.
+                            record(GachaPoolType.STANDARD_2, "Jiyan", count = 1),
+                            // A collapsed 10-pull yielding it twice.
+                            record(GachaPoolType.STANDARD_3, "Jiyan", count = 10),
+                        ),
+                ),
+            )
+        assertEquals(1, result.standardFiveStars.size)
+        assertEquals(12, result.standardFiveStars.single().count)
+    }
+
+    @Test
+    fun `characters and weapons are told apart so each can use its own portrait`() {
+        // The permanent pool yields both; a name alone cannot say which side an
+        // item came from, and rendering both with a character portrait would be
+        // visibly wrong.
+        val result =
+            GachaStats.aggregate(
+                GachaData(
+                    records =
+                        listOf(
+                            record(GachaPoolType.STANDARD, "Jiyan", resourceType = "Resonator", resourceId = 1102),
+                            record(GachaPoolType.STANDARD, "Verity", resourceType = "Weapon", resourceId = 2201),
+                        ),
+                ),
+            )
+        val byName = result.standardFiveStars.associateBy { it.name }
+        assertEquals(GachaItemKind.CHARACTER, byName.getValue("Jiyan").kind)
+        assertEquals(GachaItemKind.WEAPON, byName.getValue("Verity").kind)
+        assertEquals(1102, byName.getValue("Jiyan").resourceId)
+    }
+
+    @Test
+    fun `the set of standard names matches the one driving the 50-50 verdict`() {
+        // These two must never disagree about which 5★s are standard, or the app
+        // would call a pull Guaranteed while the collection card omits it.
+        val data =
+            GachaData(
+                records =
+                    listOf(
+                        record(GachaPoolType.STANDARD, "Jiyan"),
+                        record(GachaPoolType.CHARACTER_EVENT, "Hsin"),
+                    ),
+            )
+        val stats = GachaStats.aggregate(data)
+        val fromCollection = stats.standardFiveStars.map { it.name }.toSet()
+        // The 50/50 verdict and the collection card are derived from the same
+        // standard set. Two 5★ draws, one of them permanent: exactly one counts as
+        // a rate-up banner pull, and exactly one appears in the collection.
+        assertEquals(setOf("Jiyan"), fromCollection)
+        assertEquals(2, stats.fiveStarCount)
+        assertEquals(1, stats.upFiveStarCount)
+    }
+
+    @Test
+    fun `an empty history yields an empty list rather than failing`() {
+        assertTrue(GachaStats.aggregate(GachaData()).standardFiveStars.isEmpty())
+    }
+
+    @Test
+    fun `entries are sorted by name`() {
+        val result =
+            GachaStats.aggregate(
+                GachaData(
+                    records =
+                        listOf(
+                            record(GachaPoolType.STANDARD, "Zani"),
+                            record(GachaPoolType.STANDARD, "Jiyan"),
+                            record(GachaPoolType.STANDARD, "Calcharo"),
+                        ),
+                ),
+            )
+        assertEquals(listOf("Calcharo", "Jiyan", "Zani"), result.standardFiveStars.map { it.name })
+    }
+}
