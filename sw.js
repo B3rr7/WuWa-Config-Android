@@ -27,8 +27,12 @@ const SHELL = [
   './icon-512.png',
   './fonts/InterVariable.woff2',
   './fonts/InterVariable-Italic.woff2',
-  './fonts/JetBrainsMono[wght].woff2',
-  './fonts/JetBrainsMono-Italic[wght].woff2',
+  // Percent-encoded, matching how styles.css references them. The raw filename
+  // contains [wght], and a URL with literal brackets is malformed -- browsers do not
+  // encode them automatically, so cache.add() would reject the entry. Because
+  // install uses allSettled that would have failed silently rather than loudly.
+  './fonts/JetBrainsMono%5Bwght%5D.woff2',
+  './fonts/JetBrainsMono-Italic%5Bwght%5D.woff2',
 ];
 
 self.addEventListener('install', e => {
