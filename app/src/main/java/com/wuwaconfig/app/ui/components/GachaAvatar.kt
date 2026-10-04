@@ -18,6 +18,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import coil3.compose.AsyncImage
 
+/** Scheme Coil resolves bundled assets through. */
+private const val ASSET_URI_PREFIX = "file:///android_asset/"
+
 /**
  * Character and weapon portraits for the gacha views.
  *
@@ -44,10 +47,10 @@ object GachaAvatar {
      * Official Kuro art, keyed by character name, published by
      * [com.wuwaconfig.app.config.KuroGuide].
      *
-     * Consulted **before** the bundled assets because first-party art is both
-     * higher fidelity and stays current, whereas the bundled wiki copies only
-     * change when the app is rebuilt. A name absent here simply falls through to
-     * the bundle, so a failed or partial fetch costs nothing but the freshness.
+     * Held for the characters the bundle does not cover, and reachable ahead of the
+     * bundle only once Coil can actually fetch it — see [portraitModel] for why the
+     * ordering is what it is. A name absent here simply falls through, so a failed
+     * or partial fetch costs nothing.
      *
      * Keys are [com.wuwaconfig.app.config.OfficialCharacter.name] verbatim, so
      * lookup is case- and punctuation-sensitive on purpose: a wrong key would show
@@ -128,12 +131,33 @@ object GachaAvatar {
 }
 
 /**
- * A portrait for [name], or a coloured initial when none resolves.
+ * The model Coil should load, or null to draw the coloured initial instead.
  *
- * Resolution order is official art, then the bundled bundle, then the initial.
- * Both image sources are checked before Coil is asked to load anything, so a
- * missing portrait never surfaces as a broken-image icon or a failed request.
+ * Deliberately NOT "official art first". `coil-network` is not a dependency — see
+ * [com.wuwaconfig.app.util.LocalOnlyImage] for why — so Coil has no fetcher that can
+ * resolve an `https` URL at all. Handing it one produced an `AsyncImage` that could
+ * never resolve, and because the old code set the bundled asset to null whenever an
+ * official URL existed, that turned into a *blank circle with no fallback*: every
+ * character Kuro's guide had art for lost its portrait, while 181 bundled `.webp`
+ * files sat unused. The KDoc claimed "a missing portrait never surfaces as a
+ * broken-image icon or a failed request", which was false in exactly this case.
+ *
+ * So the bundled asset is preferred and the official URL is the fallback: the first
+ * is always loadable, and the second still wins for any character the bundle does
+ * not cover. If `coil-network` is ever added, swap the two — that is the only change
+ * needed, and this ordering is what makes it a safe swap in the meantime.
+ *
+ * Pure and Context-free so the ordering is unit-testable. Deriving the asset
+ * filename needs a `Context` (it lists `assets/`), which under
+ * `unitTests.isReturnDefaultValues = true` would silently return an empty list and
+ * make every assertion pass for the wrong reason.
  */
+internal fun portraitModel(
+    bundledAsset: String?,
+    officialUrl: String?,
+): String? = bundledAsset?.let { "$ASSET_URI_PREFIX${GachaAvatar.ASSET_DIR}/$it" } ?: officialUrl
+
+/** The model Coil should load, or a coloured initial when none resolves. */
 @Composable
 fun GachaAvatar(
     name: String,
@@ -143,12 +167,9 @@ fun GachaAvatar(
 ) {
     val context = LocalContext.current
     val official = remember(name, resourceType) { GachaAvatar.officialArtFor(name, resourceType) }
-    val asset =
-        remember(name, resourceType) {
-            if (official != null) null else GachaAvatar.assetFile(context, name, resourceType)
-        }
+    val bundled = remember(name, resourceType) { GachaAvatar.assetFile(context, name, resourceType) }
+    val model = remember(name, resourceType, bundled, official) { portraitModel(bundled, official) }
 
-    val model = official ?: asset?.let { "file:///android_asset/${GachaAvatar.ASSET_DIR}/$it" }
     if (model != null) {
         AsyncImage(
             model = model,
