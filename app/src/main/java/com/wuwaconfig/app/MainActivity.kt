@@ -42,6 +42,7 @@ import com.wuwaconfig.app.nav.History
 import com.wuwaconfig.app.nav.Home
 import com.wuwaconfig.app.nav.IniEditor
 import com.wuwaconfig.app.nav.Logs
+import com.wuwaconfig.app.nav.MyCharacter
 import com.wuwaconfig.app.nav.Navigator
 import com.wuwaconfig.app.nav.Pity
 import com.wuwaconfig.app.nav.Profile
@@ -54,6 +55,7 @@ import com.wuwaconfig.app.nav.startDestination
 import com.wuwaconfig.app.nav.toEntries
 import com.wuwaconfig.app.service.AdbConnectionService
 import com.wuwaconfig.app.ui.BackupViewModel
+import com.wuwaconfig.app.ui.CharacterViewModel
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.GachaViewModel
 import com.wuwaconfig.app.ui.IniEditorViewModel
@@ -70,6 +72,7 @@ import com.wuwaconfig.app.ui.screens.HistoryScreen
 import com.wuwaconfig.app.ui.screens.HomeScreen
 import com.wuwaconfig.app.ui.screens.IniEditorScreen
 import com.wuwaconfig.app.ui.screens.LogsScreen
+import com.wuwaconfig.app.ui.screens.MyCharacterScreen
 import com.wuwaconfig.app.ui.screens.PityScreen
 import com.wuwaconfig.app.ui.screens.ProfileScreen
 import com.wuwaconfig.app.ui.screens.ReviewTuneScreen
@@ -172,6 +175,7 @@ class MainActivity : ComponentActivity() {
             val mainViewModel: MainViewModel = viewModel()
             val gachaViewModel: GachaViewModel = viewModel()
             val profileViewModel: ProfileViewModel = viewModel()
+            val characterViewModel: CharacterViewModel = viewModel()
             val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
             val textOpacity by settingsViewModel.textOpacity.collectAsStateWithLifecycle()
             val fontFamilyName by settingsViewModel.fontFamilyName.collectAsStateWithLifecycle()
@@ -209,7 +213,7 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     } else {
-                        AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel, iniEditorViewModel)
+                        AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel, iniEditorViewModel, characterViewModel)
                     }
                 }
             }
@@ -306,6 +310,7 @@ fun AppNavigation(
     gachaViewModel: GachaViewModel,
     profileViewModel: ProfileViewModel,
     iniEditorViewModel: IniEditorViewModel,
+    characterViewModel: CharacterViewModel,
 ) {
     // Every ViewModel is passed in rather than obtained inside its entry, and
     // that is load-bearing under Navigation 3. navigation3-runtime ships no
@@ -404,6 +409,7 @@ fun AppNavigation(
                     onNavigateToLogs = { navigator.navigate(Logs) },
                     onNavigateToHistory = { navigator.navigate(History) },
                     onNavigateToIniEditor = { navigator.navigate(IniEditor) },
+                    onNavigateToMyCharacter = { navigator.navigate(MyCharacter) },
                 )
             }
             entry<Backups> {
@@ -496,6 +502,12 @@ fun AppNavigation(
             entry<IniEditor> {
                 IniEditorScreen(
                     viewModel = iniEditorViewModel,
+                    onBack = { navigator.goBack() },
+                )
+            }
+            entry<MyCharacter> {
+                MyCharacterScreen(
+                    viewModel = characterViewModel,
                     onBack = { navigator.goBack() },
                 )
             }

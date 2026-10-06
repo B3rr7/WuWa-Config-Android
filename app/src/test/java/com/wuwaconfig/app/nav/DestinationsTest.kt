@@ -48,6 +48,7 @@ class DestinationsTest {
             "com.wuwaconfig.app.nav.Logs",
             "com.wuwaconfig.app.nav.History",
             "com.wuwaconfig.app.nav.IniEditor",
+            "com.wuwaconfig.app.nav.MyCharacter",
         )
 
     @Test

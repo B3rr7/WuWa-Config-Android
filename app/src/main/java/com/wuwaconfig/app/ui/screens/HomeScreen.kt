@@ -81,6 +81,7 @@ fun HomeScreen(
     onNavigateToLogs: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToIniEditor: () -> Unit = {},
+    onNavigateToMyCharacter: () -> Unit = {},
 ) {
     val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
     // Shizuku's UserService is a background process this app spawns, so the
@@ -656,6 +657,28 @@ fun HomeScreen(
                                 Spacer(Modifier.weight(1f))
                                 Text(
                                     "Edit",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                )
+                            }
+                            ElevatedButton(
+                                onClick = onNavigateToMyCharacter,
+                                modifier = Modifier.fillMaxWidth().height(84.dp),
+                                enabled = true,
+                                shape = RoundedCornerShape(8.dp),
+                                colors =
+                                    ButtonDefaults.elevatedButtonColors(
+                                        containerColor = NeonCyan.copy(alpha = 0.08f),
+                                        contentColor = NeonCyan,
+                                    ),
+                                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
+                            ) {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("My Characters", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "Your build",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                                 )

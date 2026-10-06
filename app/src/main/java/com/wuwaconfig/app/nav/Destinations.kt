@@ -62,6 +62,9 @@ data object History : NavKey
 @Serializable
 data object IniEditor : NavKey
 
+@Serializable
+data object MyCharacter : NavKey
+
 /**
  * The full destination set, in declaration order.
  *
@@ -87,6 +90,7 @@ val ALL_DESTINATIONS: List<NavKey> =
         Logs,
         History,
         IniEditor,
+        MyCharacter,
     )
 
 /**
