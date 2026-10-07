@@ -49,6 +49,7 @@ class DestinationsTest {
             "com.wuwaconfig.app.nav.History",
             "com.wuwaconfig.app.nav.IniEditor",
             "com.wuwaconfig.app.nav.MyCharacter",
+            "com.wuwaconfig.app.nav.Calculator",
         )
 
     @Test

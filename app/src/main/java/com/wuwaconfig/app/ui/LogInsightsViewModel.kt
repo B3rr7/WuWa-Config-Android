@@ -55,6 +55,9 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
     private val _battleStats = MutableStateFlow<BattleStats?>(null)
     val battleStats: StateFlow<BattleStats?> = _battleStats.asStateFlow()
 
+    private val _battleStatsSummary = MutableStateFlow<com.wuwaconfig.app.model.BattleStatsSummary?>(null)
+    val battleStatsSummary: StateFlow<com.wuwaconfig.app.model.BattleStatsSummary?> = _battleStatsSummary.asStateFlow()
+
     private val _battleStatsFromCache = MutableStateFlow(false)
     val battleStatsFromCache: StateFlow<Boolean> = _battleStatsFromCache.asStateFlow()
 
@@ -207,12 +210,13 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
             addLog("Brain recommends: ${brain.preset} (score: ${brain.score})")
 
             withContext(Dispatchers.IO) {
-                val battleStats = com.wuwaconfig.app.config.LogParser.parseBattleStats(text)
-                BattleStatsStore.save(getApplication(), battleStats)
+                val summary = com.wuwaconfig.app.config.LogParser.parseBattleStatsSummary(text)
+                BattleStatsStore.save(getApplication(), summary.total, summary)
                 LogAnalysisStore.save(getApplication(), info, brain)
                 val report =
                     com.wuwaconfig.app.config.SmartBrain.buildReportText(info, brain, cvarDatabase)
                 LogRepository.saveSmartBrainReport(report)
+                _battleStatsSummary.value = summary
             }
             addLog("Analysis cached for quick viewing")
         } catch (e: java.io.IOException) {
@@ -242,8 +246,10 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
     suspend fun loadBattleStatsFromCache(): Boolean =
         withContext(Dispatchers.IO) {
             val cached = BattleStatsStore.load(getApplication())
+            val summary = BattleStatsStore.loadSummary(getApplication())
             if (cached != null) {
                 _battleStats.value = cached
+                _battleStatsSummary.value = summary
                 _battleStatsFromCache.value = true
                 true
             } else {
@@ -270,9 +276,12 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
             ops.launchBackendOp(managesBusyFlag = true) {
                 addLog("Reading Client.log for battle stats...")
                 try {
-                    val result = configManager.readBattleStats(onProgress = { _battleStatsProgress.value = it })
+                    val result = configManager.readBattleStatsSummary(onProgress = { _battleStatsProgress.value = it })
                     if (result.isSuccess) {
-                        _battleStats.value = result.getOrThrow()
+                        val summary = result.getOrThrow()
+                        _battleStats.value = summary.total
+                        _battleStatsSummary.value = summary
+                        BattleStatsStore.save(getApplication(), summary.total, summary)
                         addLog("Battle stats loaded")
                     } else {
                         addLog("FAILED: ${result.exceptionOrNull()?.message}")

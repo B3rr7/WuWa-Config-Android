@@ -17,7 +17,29 @@ data class BattleStats(
     val monthCardRemainDays: Int = 0,
     val playerId: String = "",
     val logSizeBytes: Long = 0,
+    val playtimeSeconds: Long = 0L,
+    val sessions: Int = 0,
 ) {
+    val totalDodges: Int get() = dodgeForward + dodgeBack + dodgeCounter
+
+    val battlesPerHour: Double
+        get() = if (playtimeSeconds > 0L) battles * 3600.0 / playtimeSeconds else 0.0
+
+    val deathsPerBattle: Double
+        get() = if (battles > 0) deaths.toDouble() / battles else 0.0
+
+    val dodgesPerBattle: Double
+        get() = if (battles > 0) totalDodges.toDouble() / battles else 0.0
+
+    val echoSkillsPerBattle: Double
+        get() = if (battles > 0) echoSkillsUsed.toDouble() / battles else 0.0
+
+    val staminaPerBattle: Double
+        get() = if (battles > 0) staminaUsed.toDouble() / battles else 0.0
+
+    val playtimeHours: Double
+        get() = playtimeSeconds / 3600.0
+
     operator fun plus(other: BattleStats): BattleStats =
         BattleStats(
             battles = battles + other.battles,
@@ -36,5 +58,21 @@ data class BattleStats(
             monthCardRemainDays = maxOf(monthCardRemainDays, other.monthCardRemainDays),
             playerId = if (other.playerId.isNotEmpty()) other.playerId else playerId,
             logSizeBytes = logSizeBytes + other.logSizeBytes,
+            playtimeSeconds = playtimeSeconds + other.playtimeSeconds,
+            sessions = sessions + other.sessions,
         )
+}
+
+data class DailyBattleStats(
+    val date: String,
+    val stats: BattleStats,
+)
+
+data class BattleStatsSummary(
+    val total: BattleStats,
+    val daily: List<DailyBattleStats> = emptyList(),
+    val accountId: String = "",
+    val timestampMs: Long = 0L,
+) {
+    fun lastNDays(n: Int): List<DailyBattleStats> = daily.sortedBy { it.date }.takeLast(n)
 }

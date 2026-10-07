@@ -15,6 +15,7 @@ import com.wuwaconfig.app.config.ConfigGenerator
 import com.wuwaconfig.app.config.CvarDatabase
 import com.wuwaconfig.app.config.DeployHistoryStore
 import com.wuwaconfig.app.config.GameProfile
+import com.wuwaconfig.app.config.MaterialData
 import com.wuwaconfig.app.config.ProfileStore
 import com.wuwaconfig.app.config.TuningProfile
 import com.wuwaconfig.app.model.GamePaths
@@ -140,6 +141,11 @@ class WuWaConfigApp : Application() {
         // Nested tuning data (presets, classifiers, plugin paths). Separate asset
         // from game_profile.properties because it is not flat.
         TuningProfile.load(assets)
+        MaterialData.load(assets)
+        // Refresh the calculator tables from the remote JSON in the background.
+        // Silent and non-blocking: the calculator shows the bundled asset until a
+        // newer payload lands. See MaterialData.refresh for the failure contract.
+        MaterialData.refresh(this, appScope)
         cvarDatabase = CvarDatabase(assets)
         configGenerator = ConfigGenerator(cvarDatabase)
         // Disk stats + Downloads listing have no business on the main thread.

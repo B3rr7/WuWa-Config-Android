@@ -37,6 +37,7 @@ import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
 import com.wuwaconfig.app.nav.Backups
 import com.wuwaconfig.app.nav.BattleStats
+import com.wuwaconfig.app.nav.Calculator
 import com.wuwaconfig.app.nav.ConfigGen
 import com.wuwaconfig.app.nav.History
 import com.wuwaconfig.app.nav.Home
@@ -55,6 +56,7 @@ import com.wuwaconfig.app.nav.startDestination
 import com.wuwaconfig.app.nav.toEntries
 import com.wuwaconfig.app.service.AdbConnectionService
 import com.wuwaconfig.app.ui.BackupViewModel
+import com.wuwaconfig.app.ui.CalculatorViewModel
 import com.wuwaconfig.app.ui.CharacterViewModel
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.GachaViewModel
@@ -67,6 +69,7 @@ import com.wuwaconfig.app.ui.components.BackgroundSettings
 import com.wuwaconfig.app.ui.components.LocalBackgroundSettings
 import com.wuwaconfig.app.ui.screens.BackupScreen
 import com.wuwaconfig.app.ui.screens.BattleStatsScreen
+import com.wuwaconfig.app.ui.screens.CalculatorScreen
 import com.wuwaconfig.app.ui.screens.ConfigGenScreen
 import com.wuwaconfig.app.ui.screens.HistoryScreen
 import com.wuwaconfig.app.ui.screens.HomeScreen
@@ -118,6 +121,7 @@ class MainActivity : ComponentActivity() {
     private val logInsightsViewModel: LogInsightsViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
     private val iniEditorViewModel: IniEditorViewModel by viewModels()
+    private val calculatorViewModel: CalculatorViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -213,7 +217,7 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     } else {
-                        AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel, iniEditorViewModel, characterViewModel)
+                        AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel, iniEditorViewModel, characterViewModel, calculatorViewModel)
                     }
                 }
             }
@@ -311,6 +315,7 @@ fun AppNavigation(
     profileViewModel: ProfileViewModel,
     iniEditorViewModel: IniEditorViewModel,
     characterViewModel: CharacterViewModel,
+    calculatorViewModel: CalculatorViewModel,
 ) {
     // Every ViewModel is passed in rather than obtained inside its entry, and
     // that is load-bearing under Navigation 3. navigation3-runtime ships no
@@ -410,6 +415,7 @@ fun AppNavigation(
                     onNavigateToHistory = { navigator.navigate(History) },
                     onNavigateToIniEditor = { navigator.navigate(IniEditor) },
                     onNavigateToMyCharacter = { navigator.navigate(MyCharacter) },
+                    onNavigateToCalculator = { navigator.navigate(Calculator) },
                 )
             }
             entry<Backups> {
@@ -508,6 +514,12 @@ fun AppNavigation(
             entry<MyCharacter> {
                 MyCharacterScreen(
                     viewModel = characterViewModel,
+                    onBack = { navigator.goBack() },
+                )
+            }
+            entry<Calculator> {
+                CalculatorScreen(
+                    viewModel = calculatorViewModel,
                     onBack = { navigator.goBack() },
                 )
             }

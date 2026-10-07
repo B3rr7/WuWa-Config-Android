@@ -690,6 +690,77 @@ object LogParser {
         return stats.copy(logSizeBytes = text.toByteArray(Charsets.UTF_8).size.toLong())
     }
 
+    fun parseBattleStatsSummary(text: String): com.wuwaconfig.app.model.BattleStatsSummary {
+        val lines = text.lines()
+        val total = parseBattleStatsLines(lines)
+        val withBytes = total.copy(logSizeBytes = text.toByteArray(Charsets.UTF_8).size.toLong())
+
+        val timestamps = mutableListOf<Pair<String, Long>>()
+        for (line in lines) {
+            val m = LOG_TIMESTAMP_RE.find(line) ?: continue
+            val dateStr = m.groupValues[1]
+            val epochSec = parseLogTimestampToEpochSec(dateStr, m.groupValues[2])
+            if (epochSec != null) timestamps += dateStr to epochSec
+        }
+
+        val sessions = estimateSessions(timestamps)
+        val playtimeSeconds =
+            if (timestamps.size >= 2) {
+                val sorted = timestamps.sortedBy { it.second }
+                (sorted.last().second - sorted.first().second).coerceAtLeast(0L)
+            } else {
+                0L
+            }
+
+        val totalWithPlaytime = withBytes.copy(playtimeSeconds = playtimeSeconds, sessions = sessions)
+        val daily = buildDailyBreakdown(lines, timestamps)
+        return com.wuwaconfig.app.model.BattleStatsSummary(
+            total = totalWithPlaytime,
+            daily = daily,
+            accountId = totalWithPlaytime.playerId,
+            timestampMs = System.currentTimeMillis(),
+        )
+    }
+
+    private fun estimateSessions(timestamps: List<Pair<String, Long>>): Int {
+        if (timestamps.isEmpty()) return 0
+        val sorted = timestamps.sortedBy { it.second }
+        var sessions = 1
+        var prev = sorted.first().second
+        for ((_, epoch) in sorted.drop(1)) {
+            if (epoch - prev > SESSION_GAP_SECONDS) sessions++
+            prev = epoch
+        }
+        return sessions
+    }
+
+    private fun buildDailyBreakdown(
+        lines: List<String>,
+        timestamps: List<Pair<String, Long>>,
+    ): List<com.wuwaconfig.app.model.DailyBattleStats> {
+        if (timestamps.isEmpty()) return emptyList()
+        val dateOfLine = Array(lines.size) { i -> LOG_TIMESTAMP_RE.find(lines[i])?.groupValues?.get(1) }
+        val grouped = mutableMapOf<String, MutableList<String>>()
+        for (i in lines.indices) {
+            val date = dateOfLine[i] ?: continue
+            grouped.getOrPut(date) { mutableListOf() } += lines[i]
+        }
+        return grouped.entries.sortedBy { it.key }.map { (date, dayLines) ->
+            com.wuwaconfig.app.model.DailyBattleStats(date, parseBattleStatsLines(dayLines))
+        }
+    }
+
+    private fun parseLogTimestampToEpochSec(
+        datePart: String,
+        timePart: String,
+    ): Long? =
+        runCatching {
+            val fmt = java.text.SimpleDateFormat("yyyy.MM.dd-HH.mm.ss", java.util.Locale.US)
+            fmt.timeZone = java.util.TimeZone.getDefault()
+            val hhmmss = timePart.substringBefore(':')
+            fmt.parse("$datePart-$hhmmss")!!.time / 1000L
+        }.getOrNull()
+
     /** Maps an RHI CVar value (e.g. from `r.RHI`) to a normalized API name. */
     private fun apiFromRhiToken(token: String?): String? =
         when {
@@ -867,4 +938,8 @@ object LogParser {
     private val UPS_RE = Regex("""UPs:(\d+)""")
     private val REMAIN_DAYS_RE = Regex("""remainDays:\s*(\d+)""")
     private val PLAYER_ID_RE = Regex("""playerId:\s*(\d+)""")
+    private val LOG_TIMESTAMP_RE = Regex("""\[(\d{4}\.\d{2}\.\d{2})-(\d{2}\.\d{2}\.\d{2}:\d+)\]""")
+
+    /** A gap longer than this between log lines marks a new session. */
+    private const val SESSION_GAP_SECONDS = 30L * 60L
 }

@@ -25,6 +25,7 @@ ue4_commands.txt
 .codebase-memory/
 .vscode/
 graphify-out/
+__pycache__/
 
 .poolside/
 screenshots/

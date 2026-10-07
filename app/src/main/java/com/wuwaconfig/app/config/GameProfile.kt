@@ -174,6 +174,25 @@ class GameProfile internal constructor(
 
     val engineKeywords: List<String> get() = list(KEY_ENGINE_KEYWORDS, DEFAULT_ENGINE_KEYWORDS)
 
+    // ── calculator data ──
+
+    /**
+     * Where the app fethes the calculator's character/weapon/cost tables at
+     * runtime, so a new character or a retuned cost reaches the app without an
+     * app update.
+     *
+     * This is a `raw.githubusercontent.com` URL serving the JSON that
+     * `tools/update_calculator_data.json` publishes. The app never parses the
+     * wiki itself — the GitHub Action is the only thing that scrapes, and it
+     * embeds the wiki's last-edit timestamp into the payload as `sourceTimestamp`
+     * so the UI can show "data from …" without the app ever touching the wiki.
+     *
+     * Empty means "no remote source": the app uses only the bundled asset and
+     * never makes a network call. That is the safe default for a build where the
+     * publish step is not set up yet.
+     */
+    val calculatorDataUrl: String get() = str(KEY_CALCULATOR_DATA_URL, DEFAULT_CALCULATOR_DATA_URL)
+
     companion object {
         private const val ASSET_PATH = "config/game_profile.properties"
 
@@ -213,6 +232,7 @@ class GameProfile internal constructor(
         private const val KEY_FORBIDDEN_CVARS = "forbiddenCvars"
         private const val KEY_UE5_ONLY_CVARS = "ue5OnlyCvars"
         private const val KEY_ENGINE_KEYWORDS = "engineKeywords"
+        private const val KEY_CALCULATOR_DATA_URL = "calculatorDataUrl"
 
         // ── compiled-in defaults: the values this app shipped with. Every one of
         // these is also the value the corresponding asset key must contain, so a
@@ -337,6 +357,17 @@ class GameProfile internal constructor(
                 "GameThread",
                 "Log file open",
             )
+
+        /**
+         * The calculator data's home: the JSON that the scheduled GitHub Action
+         * regenerates from the wiki and commits to `tools/data/`. Served for free
+         * over HTTPS by `raw.githubusercontent.com`.
+         *
+         * This is the one URL the app fetches at runtime. It is stable config (like
+         * the gacha hosts), not data — the *contents* auto-update, the URL does not.
+         */
+        const val DEFAULT_CALCULATOR_DATA_URL =
+            "https://raw.githubusercontent.com/B3rr7/WuWa-Config-Android/main/tools/data/calculator_materials.json"
 
         @Volatile
         private var instance: GameProfile? = null

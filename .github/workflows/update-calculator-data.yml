@@ -1,0 +1,42 @@
+name: Update calculator data
+
+# Regenerates the calculator's character/weapon/cost tables from the Fandom wiki
+# and commits the result to tools/data/calculator_materials.json. The app
+# fetches that file at runtime (see MaterialData.refresh), so a new character or
+# a retuned cost reaches every install without an app update.
+#
+# The schedule matches the app's 6h TTL: the wiki is scraped up to 4x a day, and
+# each app install re-checks on its own 6h cadence. The script no-ops when the
+# wiki is unchanged, so this produces no empty commits.
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Regenerate calculator data
+        run: python3 tools/update_calculator_data.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- app/src/main/assets/config/calculator_materials.json tools/data/calculator_materials.json; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git add app/src/main/assets/config/calculator_materials.json tools/data/calculator_materials.json
+          git commit -m "chore(data): refresh calculator materials from wiki"
+          git push

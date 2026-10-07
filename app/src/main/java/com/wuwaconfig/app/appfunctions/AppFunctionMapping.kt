@@ -100,6 +100,8 @@ internal fun BattleStats.toInfo(): BattleStatsInfo =
         roleChanges = roleChanges,
         supplyCards = monthCards,
         supplyCardDaysRemaining = monthCardRemainDays,
+        playtimeSeconds = playtimeSeconds,
+        sessions = sessions,
     )
 
 /**

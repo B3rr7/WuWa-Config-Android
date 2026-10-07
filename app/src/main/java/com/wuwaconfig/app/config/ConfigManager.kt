@@ -617,6 +617,8 @@ class ConfigManager(
 
     suspend fun readBattleStats(onProgress: (Int) -> Unit = {}): Result<BattleStats> = profileExtractor.readBattleStats(onProgress)
 
+    suspend fun readBattleStatsSummary(onProgress: (Int) -> Unit = {}): Result<com.wuwaconfig.app.model.BattleStatsSummary> = profileExtractor.readBattleStatsSummary(onProgress)
+
     suspend fun readFullClientLogWithMetadata(): Result<Pair<String, LogParser.DecodeResult>> = profileExtractor.readFullClientLogWithMetadata()
 
     /**

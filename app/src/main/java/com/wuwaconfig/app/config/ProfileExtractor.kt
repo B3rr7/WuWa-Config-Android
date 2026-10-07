@@ -505,7 +505,7 @@ class ProfileExtractor(
      * where reading only the current log left the DEVICE and PERFORMANCE
      * sections empty for exactly the same reason.
      */
-    suspend fun readBattleStats(onProgress: (Int) -> Unit = {}): Result<BattleStats> =
+    suspend fun readBattleStatsSummary(onProgress: (Int) -> Unit = {}): Result<com.wuwaconfig.app.model.BattleStatsSummary> =
         withContext(Dispatchers.IO) {
             try {
                 onProgress(10)
@@ -514,28 +514,25 @@ class ProfileExtractor(
                 if (text.isBlank()) return@withContext Result.failure(Exception("Client.log is empty"))
 
                 onProgress(50)
-                // parseBattleStatsLines is stateful (the running stamina counter
-                // depends on the order of lines), so it must run single-threaded
-                // over the whole merged text. Parallel chunking restarted the
-                // counter per chunk and produced a result that varied by core count.
                 val lines = text.lines()
                 onProgress(80)
-                val stats = LogParser.parseBattleStatsLines(lines)
+                val summary = LogParser.parseBattleStatsSummary(text)
                 LogRepository.add(
-                    "readBattleStats: parsed ${lines.size} merged lines from ${merged.second.summary()}",
+                    "readBattleStatsSummary: parsed ${lines.size} merged lines from ${merged.second.summary()}",
                     LogLevel.INFO,
                 )
-                // logSizeBytes is deliberately NOT overwritten here. It is the
-                // merged byte count the parser recorded, and stamping it with the
-                // single current file's size made the same field mean two
-                // different things depending on which producer wrote it.
-                Result.success(stats)
+                Result.success(summary)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w("ProfileExtractor", "readBattleStats failed: ${e.message}")
+                Log.w("ProfileExtractor", "readBattleStatsSummary failed: ${e.message}")
                 Result.failure(e)
             }
+        }
+
+    suspend fun readBattleStats(onProgress: (Int) -> Unit = {}): Result<BattleStats> =
+        withContext(Dispatchers.IO) {
+            readBattleStatsSummary(onProgress).map { it.total }
         }
 
     /**

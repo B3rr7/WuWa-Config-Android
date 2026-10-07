@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +69,7 @@ import com.wuwaconfig.app.config.CharacterBuild
 import com.wuwaconfig.app.config.ChosenPlayer
 import com.wuwaconfig.app.config.Echo
 import com.wuwaconfig.app.config.OfficialCharacter
+import com.wuwaconfig.app.config.OfficialStatus
 import com.wuwaconfig.app.config.PlayerInfo
 import com.wuwaconfig.app.config.ResonanceLink
 import com.wuwaconfig.app.config.SkillInfo
@@ -88,6 +90,7 @@ import com.wuwaconfig.app.ui.theme.NeonPurple
 import com.wuwaconfig.app.ui.theme.NeonRed
 import com.wuwaconfig.app.ui.theme.elementAccent
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
  * The player's own character view, styled after Kuro's official Wuthering Waves guide.
@@ -340,7 +343,12 @@ private fun CharacterSlider(
         GlassCardHeader("CHARACTERS", NeonGreen)
         Spacer(Modifier.height(10.dp))
         when {
-            loading -> Text("Loading characters…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            loading ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = NeonGreen, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Loading characters…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             characters.isEmpty() ->
                 Text(
                     "No characters loaded yet.",
@@ -358,23 +366,47 @@ private fun CharacterSlider(
                 }
                 HorizontalPager(
                     state = pagerState,
-                    contentPadding = PaddingValues(horizontal = 52.dp),
-                    pageSpacing = 12.dp,
+                    contentPadding = PaddingValues(horizontal = 48.dp),
+                    pageSpacing = 10.dp,
                     modifier = Modifier.fillMaxWidth(),
                 ) { page ->
                     val character = characters[page]
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    val offset = (page - pagerState.currentPage) - pagerState.currentPageOffsetFraction
+                    val distance = abs(offset).coerceAtMost(1f)
+                    val scale = 1f - 0.14f * distance
+                    val alpha = 1f - 0.45f * distance
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer {
+                                    scaleX = scale
+                                    scaleY = scale
+                                    this.alpha = alpha
+                                },
+                        contentAlignment = Alignment.Center,
+                    ) {
                         CharacterCard(character, selectedId == character.roleGbId) { onSelect(character.roleGbId) }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    "${pagerState.currentPage + 1} / ${characters.size}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Spacer(Modifier.height(12.dp))
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
-                )
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    characters.forEachIndexed { index, _ ->
+                        val isActive = index == pagerState.currentPage
+                        Box(
+                            modifier =
+                                Modifier
+                                    .padding(horizontal = 2.5.dp)
+                                    .size(if (isActive) 7.dp else 5.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isActive) NeonGreen else NeonGreen.copy(alpha = 0.25f))
+                                    .clickable { if (!isActive) scope.launch { pagerState.animateScrollToPage(index) } },
+                        )
+                    }
+                }
             }
         }
     }
@@ -387,24 +419,30 @@ private fun CharacterCard(
     onClick: () -> Unit,
 ) {
     val accent = NeonGreen
+    val rarityTint =
+        when {
+            character.star >= 5 -> NeonGold
+            character.star == 4 -> NeonPurple
+            else -> Color.White
+        }
     Column(
         modifier =
             Modifier
-                .width(150.dp)
-                .clip(RoundedCornerShape(18.dp))
+                .width(168.dp)
+                .clip(RoundedCornerShape(20.dp))
                 .background(
                     brush =
                         Brush.verticalGradient(
                             listOf(
-                                if (isSelected) accent.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.07f),
+                                if (isSelected) accent.copy(alpha = 0.24f) else rarityTint.copy(alpha = 0.09f),
                                 Color.White.copy(alpha = 0.02f),
                             ),
                         ),
                 )
                 .border(
-                    1.dp,
-                    if (isSelected) accent.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.10f),
-                    RoundedCornerShape(18.dp),
+                    if (isSelected) 1.5.dp else 1.dp,
+                    if (isSelected) accent.copy(alpha = 0.7f) else rarityTint.copy(alpha = 0.22f),
+                    RoundedCornerShape(20.dp),
                 )
                 .clickable(onClick = onClick)
                 .padding(12.dp),
@@ -413,15 +451,21 @@ private fun CharacterCard(
         Box(
             modifier =
                 Modifier
-                    .size(108.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .size(140.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .background(Color.White.copy(alpha = 0.05f))
                     .border(
                         1.dp,
-                        if (isSelected) accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.08f),
-                        RoundedCornerShape(14.dp),
+                        if (isSelected) accent.copy(alpha = 0.45f) else rarityTint.copy(alpha = 0.30f),
+                        RoundedCornerShape(16.dp),
                     ),
         ) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(Brush.radialGradient(listOf(rarityTint.copy(alpha = 0.18f), Color.Transparent))),
+            )
             if (character.cardPictureUrl.isNotBlank()) {
                 RemoteImage(
                     url = character.cardPictureUrl,
@@ -430,17 +474,78 @@ private fun CharacterCard(
                     contentScale = ContentScale.Crop,
                 )
             }
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(34.dp)
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)))),
+            )
+            if (character.status == OfficialStatus.NEWLY_LAUNCHED || character.status == OfficialStatus.UP) {
+                StatusBadge(
+                    character.status,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                )
+            }
+            if (isSelected) {
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopStart)
+                            .padding(8.dp)
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(accent)
+                            .border(1.dp, Color.Black.copy(alpha = 0.30f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Check, contentDescription = "Selected", tint = Color.Black, modifier = Modifier.size(13.dp))
+                }
+            }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
             character.name,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             color = if (isSelected) accent else MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Text("★".repeat(character.star), style = MaterialTheme.typography.labelSmall, color = NeonGold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+            for (i in 1..5) {
+                Icon(
+                    Icons.Filled.Star,
+                    contentDescription = null,
+                    tint = if (i <= character.star) NeonGold else Color.White.copy(alpha = 0.18f),
+                    modifier = Modifier.size(11.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusBadge(
+    status: OfficialStatus,
+    modifier: Modifier = Modifier,
+) {
+    val (text, color) =
+        when (status) {
+            OfficialStatus.NEWLY_LAUNCHED -> "NEW" to NeonRed
+            OfficialStatus.UP -> "UP" to NeonGold
+            else -> return
+        }
+    Box(
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(5.dp))
+                .background(color.copy(alpha = 0.92f))
+                .padding(horizontal = 7.dp, vertical = 2.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall, color = Color.Black, fontWeight = FontWeight.Bold)
     }
 }
 

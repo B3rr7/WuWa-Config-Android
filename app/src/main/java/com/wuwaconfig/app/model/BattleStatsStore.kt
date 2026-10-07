@@ -13,6 +13,7 @@ object BattleStatsStore {
     data class CachedBattleStats(
         val stats: BattleStats,
         val timestamp: Long,
+        val summary: BattleStatsSummary? = null,
     )
 
     private fun CachedBattleStats.toTimedCache() = TimedCache(stats, timestamp)
@@ -24,8 +25,9 @@ object BattleStatsStore {
     fun save(
         context: Context,
         stats: BattleStats,
+        summary: BattleStatsSummary? = null,
     ) {
-        val cached = CachedBattleStats(stats, System.currentTimeMillis())
+        val cached = CachedBattleStats(stats, System.currentTimeMillis(), summary)
         // writeAtomic, not writeText: a kill mid-writeText leaves truncated JSON
         // and the next load() falls into the catch -> null branch, losing the
         // whole 24h cache.
@@ -38,6 +40,16 @@ object BattleStatsStore {
             ttlMs = CACHE_TTL_MS,
             now = System.currentTimeMillis(),
         ) { text -> gson.fromJson(text, CachedBattleStats::class.java)?.toTimedCache() }
+
+    fun loadSummary(context: Context): BattleStatsSummary? =
+        runCatching {
+            val file = File(context.filesDir, FILE_NAME)
+            if (!file.exists()) return null
+            val now = System.currentTimeMillis()
+            gson.fromJson(file.readText(), CachedBattleStats::class.java)
+                ?.takeIf { now - it.timestamp < CACHE_TTL_MS }
+                ?.summary
+        }.getOrNull()
 
     fun clear(context: Context) {
         File(context.filesDir, FILE_NAME).delete()

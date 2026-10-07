@@ -219,6 +219,10 @@ data class BattleStatsInfo(
     val supplyCards: Int,
     /** Days remaining on the supply card benefit. */
     val supplyCardDaysRemaining: Int,
+    /** Total playtime across all parsed log sessions, in seconds. */
+    val playtimeSeconds: Long = 0L,
+    /** Number of distinct play sessions estimated from log timestamps. */
+    val sessions: Int = 0,
 )
 
 /** The outcome of analysing a game log. */

@@ -1,0 +1,4137 @@
+{
+  "version": 1,
+  "source": "wutheringwaves.fandom.com",
+  "sourceTimestamp": "2026-10-01T22:42:08Z",
+  "characterAscensionPhases": [
+    {
+      "phase": 1,
+      "shellCredit": 5000,
+      "local": 0,
+      "common1": 4,
+      "common2": 0,
+      "common3": 0,
+      "common4": 0,
+      "boss": 0
+    },
+    {
+      "phase": 2,
+      "shellCredit": 10000,
+      "local": 4,
+      "common1": 0,
+      "common2": 4,
+      "common3": 0,
+      "common4": 0,
+      "boss": 3
+    },
+    {
+      "phase": 3,
+      "shellCredit": 15000,
+      "local": 8,
+      "common1": 0,
+      "common2": 8,
+      "common3": 0,
+      "common4": 0,
+      "boss": 6
+    },
+    {
+      "phase": 4,
+      "shellCredit": 20000,
+      "local": 12,
+      "common1": 0,
+      "common2": 0,
+      "common3": 4,
+      "common4": 0,
+      "boss": 9
+    },
+    {
+      "phase": 5,
+      "shellCredit": 40000,
+      "local": 16,
+      "common1": 0,
+      "common2": 0,
+      "common3": 8,
+      "common4": 0,
+      "boss": 12
+    },
+    {
+      "phase": 6,
+      "shellCredit": 80000,
+      "local": 20,
+      "common1": 0,
+      "common2": 0,
+      "common3": 0,
+      "common4": 4,
+      "boss": 16
+    }
+  ],
+  "skillMainCosts": [
+    {
+      "level": 1,
+      "credit": 1500,
+      "wsm1": 2,
+      "wsm2": 0,
+      "wsm3": 0,
+      "wsm4": 0,
+      "dwsm1": 2,
+      "dwsm2": 0,
+      "dwsm3": 0,
+      "dwsm4": 0,
+      "boss": 0,
+      "unlockRank": 2
+    },
+    {
+      "level": 2,
+      "credit": 2000,
+      "wsm1": 3,
+      "wsm2": 0,
+      "wsm3": 0,
+      "wsm4": 0,
+      "dwsm1": 3,
+      "dwsm2": 0,
+      "dwsm3": 0,
+      "dwsm4": 0,
+      "boss": 0
+    },
+    {
+      "level": 3,
+      "credit": 4500,
+      "wsm1": 0,
+      "wsm2": 2,
+      "wsm3": 0,
+      "wsm4": 0,
+      "dwsm1": 0,
+      "dwsm2": 2,
+      "dwsm3": 0,
+      "dwsm4": 0,
+      "boss": 0,
+      "unlockRank": 3
+    },
+    {
+      "level": 4,
+      "credit": 6000,
+      "wsm1": 0,
+      "wsm2": 3,
+      "wsm3": 0,
+      "wsm4": 0,
+      "dwsm1": 0,
+      "dwsm2": 3,
+      "dwsm3": 0,
+      "dwsm4": 0,
+      "boss": 0,
+      "unlockRank": 4
+    },
+    {
+      "level": 5,
+      "credit": 16000,
+      "wsm1": 0,
+      "wsm2": 0,
+      "wsm3": 3,
+      "wsm4": 0,
+      "dwsm1": 0,
+      "dwsm2": 0,
+      "dwsm3": 2,
+      "dwsm4": 0,
+      "boss": 0
+    },
+    {
+      "level": 6,
+      "credit": 30000,
+      "wsm1": 0,
+      "wsm2": 0,
+      "wsm3": 5,
+      "wsm4": 0,
+      "dwsm1": 0,
+      "dwsm2": 0,
+      "dwsm3": 3,
+      "dwsm4": 0,
+      "boss": 1,
+      "unlockRank": 5
+    },
+    {
+      "level": 7,
+      "credit": 50000,
+      "wsm1": 0,
+      "wsm2": 0,
+      "wsm3": 0,
+      "wsm4": 2,
+      "dwsm1": 0,
+      "dwsm2": 0,
+      "dwsm3": 0,
+      "dwsm4": 2,
+      "boss": 1
+    },
+    {
+      "level": 8,
+      "credit": 70000,
+      "wsm1": 0,
+      "wsm2": 0,
+      "wsm3": 0,
+      "wsm4": 3,
+      "dwsm1": 0,
+      "dwsm2": 0,
+      "dwsm3": 0,
+      "dwsm4": 3,
+      "boss": 1,
+      "unlockRank": 6
+    },
+    {
+      "level": 9,
+      "credit": 100000,
+      "wsm1": 0,
+      "wsm2": 0,
+      "wsm3": 0,
+      "wsm4": 6,
+      "dwsm1": 0,
+      "dwsm2": 0,
+      "dwsm3": 0,
+      "dwsm4": 4,
+      "boss": 1
+    }
+  ],
+  "skillInherentCosts": [
+    {
+      "level": 1,
+      "credit": 10000,
+      "wsm1": 3,
+      "wsm2": 0,
+      "wsm3": 0,
+      "wsm4": 0,
+      "dwsm1": 3,
+      "dwsm2": 0,
+      "dwsm3": 0,
+      "dwsm4": 0,
+      "boss": 1,
+      "unlockRank": 2
+    },
+    {
+      "level": 2,
+      "credit": 20000,
+      "wsm1": 0,
+      "wsm2": 3,
+      "wsm3": 0,
+      "wsm4": 0,
+      "dwsm1": 0,
+      "dwsm2": 3,
+      "dwsm3": 0,
+      "dwsm4": 0,
+      "boss": 1,
+      "unlockRank": 4
+    }
+  ],
+  "skillStatBonusCosts": [
+    {
+      "level": 1,
+      "credit": 50000,
+      "wsm1": 0,
+      "wsm2": 0,
+      "wsm3": 3,
+      "wsm4": 0,
+      "dwsm1": 0,
+      "dwsm2": 0,
+      "dwsm3": 3,
+      "dwsm4": 0,
+      "boss": 0,
+      "unlockRank": 3
+    },
+    {
+      "level": 2,
+      "credit": 100000,
+      "wsm1": 0,
+      "wsm2": 0,
+      "wsm3": 0,
+      "wsm4": 3,
+      "dwsm1": 0,
+      "dwsm2": 0,
+      "dwsm3": 0,
+      "dwsm4": 3,
+      "boss": 1,
+      "unlockRank": 4
+    }
+  ],
+  "weaponAscensionByRarity": {
+    "5": [
+      {
+        "phase": 1,
+        "shellCredit": 10000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 6,
+        "common2": 0,
+        "common3": 0,
+        "common4": 0
+      },
+      {
+        "phase": 2,
+        "shellCredit": 20000,
+        "ascension1": 6,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 6,
+        "common3": 0,
+        "common4": 0
+      },
+      {
+        "phase": 3,
+        "shellCredit": 40000,
+        "ascension1": 0,
+        "ascension2": 8,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 4,
+        "common4": 0
+      },
+      {
+        "phase": 4,
+        "shellCredit": 60000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 6,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 6,
+        "common4": 0
+      },
+      {
+        "phase": 5,
+        "shellCredit": 80000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 8,
+        "common1": 0,
+        "common2": 0,
+        "common3": 0,
+        "common4": 4
+      },
+      {
+        "phase": 6,
+        "shellCredit": 120000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 12,
+        "common1": 0,
+        "common2": 0,
+        "common3": 0,
+        "common4": 8
+      }
+    ],
+    "4": [
+      {
+        "phase": 1,
+        "shellCredit": 8000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 5,
+        "common2": 0,
+        "common3": 0,
+        "common4": 0
+      },
+      {
+        "phase": 2,
+        "shellCredit": 16000,
+        "ascension1": 5,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 5,
+        "common3": 0,
+        "common4": 0
+      },
+      {
+        "phase": 3,
+        "shellCredit": 32000,
+        "ascension1": 0,
+        "ascension2": 7,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 4,
+        "common4": 0
+      },
+      {
+        "phase": 4,
+        "shellCredit": 48000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 5,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 5,
+        "common4": 0
+      },
+      {
+        "phase": 5,
+        "shellCredit": 64000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 7,
+        "common1": 0,
+        "common2": 0,
+        "common3": 0,
+        "common4": 4
+      },
+      {
+        "phase": 6,
+        "shellCredit": 96000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 10,
+        "common1": 0,
+        "common2": 0,
+        "common3": 0,
+        "common4": 7
+      }
+    ],
+    "3": [
+      {
+        "phase": 1,
+        "shellCredit": 6000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 4,
+        "common2": 0,
+        "common3": 0,
+        "common4": 0
+      },
+      {
+        "phase": 2,
+        "shellCredit": 12000,
+        "ascension1": 4,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 4,
+        "common3": 0,
+        "common4": 0
+      },
+      {
+        "phase": 3,
+        "shellCredit": 24000,
+        "ascension1": 0,
+        "ascension2": 5,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 3,
+        "common4": 0
+      },
+      {
+        "phase": 4,
+        "shellCredit": 36000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 4,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 4,
+        "common4": 0
+      },
+      {
+        "phase": 5,
+        "shellCredit": 48000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 5,
+        "common1": 0,
+        "common2": 0,
+        "common3": 0,
+        "common4": 3
+      },
+      {
+        "phase": 6,
+        "shellCredit": 72000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 8,
+        "common1": 0,
+        "common2": 0,
+        "common3": 0,
+        "common4": 5
+      }
+    ],
+    "2": [
+      {
+        "phase": 1,
+        "shellCredit": 4000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 3,
+        "common2": 0,
+        "common3": 0,
+        "common4": 0
+      },
+      {
+        "phase": 2,
+        "shellCredit": 8000,
+        "ascension1": 3,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 3,
+        "common3": 0,
+        "common4": 0
+      },
+      {
+        "phase": 3,
+        "shellCredit": 16000,
+        "ascension1": 0,
+        "ascension2": 4,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 2,
+        "common4": 0
+      },
+      {
+        "phase": 4,
+        "shellCredit": 24000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 3,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 3,
+        "common4": 0
+      },
+      {
+        "phase": 5,
+        "shellCredit": 32000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 4,
+        "common1": 0,
+        "common2": 0,
+        "common3": 0,
+        "common4": 2
+      },
+      {
+        "phase": 6,
+        "shellCredit": 0,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 0,
+        "common4": 0
+      }
+    ],
+    "1": [
+      {
+        "phase": 1,
+        "shellCredit": 2000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 2,
+        "common2": 0,
+        "common3": 0,
+        "common4": 0
+      },
+      {
+        "phase": 2,
+        "shellCredit": 4000,
+        "ascension1": 2,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 2,
+        "common3": 0,
+        "common4": 0
+      },
+      {
+        "phase": 3,
+        "shellCredit": 8000,
+        "ascension1": 0,
+        "ascension2": 2,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 1,
+        "common4": 0
+      },
+      {
+        "phase": 4,
+        "shellCredit": 12000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 2,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 2,
+        "common4": 0
+      },
+      {
+        "phase": 5,
+        "shellCredit": 16000,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 2,
+        "common1": 0,
+        "common2": 0,
+        "common3": 0,
+        "common4": 1
+      },
+      {
+        "phase": 6,
+        "shellCredit": 0,
+        "ascension1": 0,
+        "ascension2": 0,
+        "ascension3": 0,
+        "ascension4": 0,
+        "common1": 0,
+        "common2": 0,
+        "common3": 0,
+        "common4": 0
+      }
+    ]
+  },
+  "characters": {
+    "Aalto": {
+      "rarity": 4,
+      "boss": "Roaring Rock Fist",
+      "local": "Wintry Bell",
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "wsm": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "dwsm": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "skillBoss": "Monument Bell"
+    },
+    "Aemeath": {
+      "rarity": 5,
+      "boss": "Our Choice",
+      "local": "Moss Amber",
+      "common": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "wsm": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "dwsm": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "skillBoss": "Gold in Memory"
+    },
+    "Augusta": {
+      "rarity": 5,
+      "boss": "Blighted Crown of Puppet King",
+      "local": "Luminous Calendula",
+      "common": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "wsm": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "dwsm": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "skillBoss": "When Irises Bloom"
+    },
+    "Baizhi": {
+      "rarity": 4,
+      "boss": "Sound-Keeping Tacet Core",
+      "local": "Lanternberry",
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "wsm": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "dwsm": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "skillBoss": "Monument Bell"
+    },
+    "Brant": {
+      "rarity": 5,
+      "boss": "Blazing Bone",
+      "local": "Golden Fleece",
+      "common": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "skillBoss": "The Netherworld's Stare"
+    },
+    "Buling": {
+      "rarity": 4,
+      "boss": "Blighted Crown of Puppet King",
+      "local": "Pecok Flower",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Curse of the Abyss"
+    },
+    "Calcharo": {
+      "rarity": 5,
+      "boss": "Thundering Tacet Core",
+      "local": "Iris",
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "wsm": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "dwsm": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "skillBoss": "Monument Bell"
+    },
+    "Camellya": {
+      "rarity": 5,
+      "boss": "Topological Confinement",
+      "local": "Nova",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Dreamless Feather"
+    },
+    "Cantarella": {
+      "rarity": 5,
+      "boss": "Cleansing Conch",
+      "local": "Seaside Cendrelis",
+      "common": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "wsm": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "dwsm": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "skillBoss": "When Irises Bloom"
+    },
+    "Carlotta": {
+      "rarity": 5,
+      "boss": "Platinum Core",
+      "local": "Sword Acorus",
+      "common": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "wsm": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "dwsm": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "skillBoss": "The Netherworld's Stare"
+    },
+    "Cartethyia": {
+      "rarity": 5,
+      "boss": "Unfading Glory",
+      "local": "Bamboo Iris",
+      "common": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "skillBoss": "When Irises Bloom"
+    },
+    "Changli": {
+      "rarity": 5,
+      "boss": "Rage Tacet Core",
+      "local": "Pavo Plum",
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "skillBoss": "Sentinel's Dagger"
+    },
+    "Chisa": {
+      "rarity": 5,
+      "boss": "Abyssal Husk",
+      "local": "Summer Flower",
+      "common": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "wsm": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "dwsm": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "skillBoss": "When Irises Bloom"
+    },
+    "Chixia": {
+      "rarity": 4,
+      "boss": "Rage Tacet Core",
+      "local": "Belle Poppy",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Monument Bell"
+    },
+    "Ciaccona": {
+      "rarity": 5,
+      "boss": "Blazing Bone",
+      "local": "Golden Fleece",
+      "common": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "wsm": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "dwsm": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "skillBoss": "When Irises Bloom"
+    },
+    "Danjin": {
+      "rarity": 4,
+      "boss": "Strife Tacet Core",
+      "local": "Belle Poppy",
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "skillBoss": "Dreamless Feather"
+    },
+    "Denia": {
+      "rarity": 5,
+      "boss": "Burning Judgment",
+      "local": "Dream of Stars",
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "wsm": [
+        "Spliced String",
+        "Broken String",
+        "Solidified String",
+        "Melodic String"
+      ],
+      "dwsm": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "skillBoss": "We Who Question"
+    },
+    "Encore": {
+      "rarity": 5,
+      "boss": "Rage Tacet Core",
+      "local": "Pecok Flower",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Unending Destruction"
+    },
+    "Galbrena": {
+      "rarity": 5,
+      "boss": "Blighted Crown of Puppet King",
+      "local": "Stone Rose",
+      "common": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "wsm": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "dwsm": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "skillBoss": "Curse of the Abyss"
+    },
+    "Hiyuki": {
+      "rarity": 5,
+      "boss": "Our Choice",
+      "local": "Redbell",
+      "common": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "wsm": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "dwsm": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "skillBoss": "We Who Question"
+    },
+    "Hsin": {
+      "rarity": 5,
+      "boss": "Solidarity's Loneflame",
+      "local": "Bloom of Hearkening",
+      "common": [
+        "LF Autopuppet Kernel",
+        "MF Autopuppet Kernel",
+        "HF Autopuppet Kernel",
+        "FF Autopuppet Kernel"
+      ],
+      "wsm": [
+        "Spliced String",
+        "Broken String",
+        "Solidified String",
+        "Melodic String"
+      ],
+      "dwsm": [
+        "LF Autopuppet Kernel",
+        "MF Autopuppet Kernel",
+        "HF Autopuppet Kernel",
+        "FF Autopuppet Kernel"
+      ],
+      "skillBoss": "Remnant of the Wheel"
+    },
+    "Iuno": {
+      "rarity": 5,
+      "boss": "Abyssal Husk",
+      "local": "Sliverglow Bloom",
+      "common": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "wsm": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "dwsm": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "skillBoss": "The Netherworld's Stare"
+    },
+    "Jianxin": {
+      "rarity": 5,
+      "boss": "Roaring Rock Fist",
+      "local": "Lanternberry",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Unending Destruction"
+    },
+    "Jingran": {
+      "rarity": 5,
+      "boss": "Forged Empyrean's Sigh",
+      "local": "Cloudperch Seed",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "LF Carved Crystal",
+        "MF Carved Crystal",
+        "HF Carved Crystal",
+        "FF Carved Crystal"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Skyward Glazed Heart"
+    },
+    "Jinhsi": {
+      "rarity": 5,
+      "boss": "Elegy Tacet Core",
+      "local": "Loong's Pearl",
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "wsm": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "dwsm": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "skillBoss": "Sentinel's Dagger"
+    },
+    "Jiyan": {
+      "rarity": 5,
+      "boss": "Roaring Rock Fist",
+      "local": "Pecok Flower",
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "wsm": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "dwsm": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "skillBoss": "Monument Bell"
+    },
+    "Lingyang": {
+      "rarity": 5,
+      "boss": "Sound-Keeping Tacet Core",
+      "local": "Coriolus",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Unending Destruction"
+    },
+    "Lumi": {
+      "rarity": 4,
+      "boss": "Thundering Tacet Core",
+      "local": "Terraspawn Fungus",
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "wsm": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "dwsm": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "skillBoss": "Sentinel's Dagger"
+    },
+    "Lupa": {
+      "rarity": 5,
+      "boss": "Unfading Glory",
+      "local": "Bloodleaf Viburnum",
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "wsm": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "dwsm": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "skillBoss": "The Netherworld's Stare"
+    },
+    "Lucilla": {
+      "rarity": 5,
+      "boss": "Suncoveter's Reach",
+      "local": "Forget-Me-Not",
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "wsm": [
+        "Spliced String",
+        "Broken String",
+        "Solidified String",
+        "Melodic String"
+      ],
+      "dwsm": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "skillBoss": "We Who Question"
+    },
+    "Lucy": {
+      "rarity": 5,
+      "boss": "Nightmare Flashdrive",
+      "local": "Past Reveries",
+      "common": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "wsm": [
+        "Incomplete Combustor",
+        "Aftertune Combustor",
+        "Remnant Combustor",
+        "Reverb Combustor"
+      ],
+      "dwsm": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "skillBoss": "Gold in Memory"
+    },
+    "Luuk Herssen": {
+      "rarity": 5,
+      "boss": "Suncoveter's Reach",
+      "local": "Edelschnee",
+      "common": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "wsm": [
+        "LF Waveworn Shard",
+        "MF Waveworn Shard",
+        "HF Waveworn Shard",
+        "FF Waveworn Shard"
+      ],
+      "dwsm": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "skillBoss": "Gold in Memory"
+    },
+    "Lynae": {
+      "rarity": 5,
+      "boss": "Suncoveter's Reach",
+      "local": "Rimewisp",
+      "common": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "wsm": [
+        "Incomplete Combustor",
+        "Aftertune Combustor",
+        "Remnant Combustor",
+        "Reverb Combustor"
+      ],
+      "dwsm": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "skillBoss": "Dreamless Feather"
+    },
+    "Mornye": {
+      "rarity": 5,
+      "boss": "Burning Judgment",
+      "local": "Gemini Spore",
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "wsm": [
+        "LF Carved Crystal",
+        "MF Carved Crystal",
+        "HF Carved Crystal",
+        "FF Carved Crystal"
+      ],
+      "dwsm": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "skillBoss": "The Netherworld's Stare"
+    },
+    "Mortefi": {
+      "rarity": 4,
+      "boss": "Rage Tacet Core",
+      "local": "Coriolus",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Monument Bell"
+    },
+    "Phoebe": {
+      "rarity": 5,
+      "boss": "Cleansing Conch",
+      "local": "Firecracker Jewelweed",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Sentinel's Dagger"
+    },
+    "Phrolova": {
+      "rarity": 5,
+      "boss": "Truth in Lies",
+      "local": "\"Afterlife\"",
+      "common": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "wsm": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "dwsm": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "skillBoss": "The Netherworld's Stare"
+    },
+    "Qiuyuan": {
+      "rarity": 5,
+      "boss": "Truth in Lies",
+      "local": "Wintry Bell",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Curse of the Abyss"
+    },
+    "Qingxiao": {
+      "rarity": 5,
+      "boss": "Forged Empyrean's Sigh",
+      "local": "Blade Blossom",
+      "common": [
+        "LF Autopuppet Kernel",
+        "MF Autopuppet Kernel",
+        "HF Autopuppet Kernel",
+        "FF Autopuppet Kernel"
+      ],
+      "wsm": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "dwsm": [
+        "LF Autopuppet Kernel",
+        "MF Autopuppet Kernel",
+        "HF Autopuppet Kernel",
+        "FF Autopuppet Kernel"
+      ],
+      "skillBoss": "We Who Question"
+    },
+    "Rebecca": {
+      "rarity": 5,
+      "boss": "Nightmare Flashdrive",
+      "local": "Past Reveries",
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "wsm": [
+        "Incomplete Combustor",
+        "Aftertune Combustor",
+        "Remnant Combustor",
+        "Reverb Combustor"
+      ],
+      "dwsm": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "skillBoss": "We Who Question"
+    },
+    "Roccia": {
+      "rarity": 5,
+      "boss": "Cleansing Conch",
+      "local": "Firecracker Jewelweed",
+      "common": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "wsm": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "dwsm": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "skillBoss": "The Netherworld's Stare"
+    },
+    "Rover-Aero": {
+      "rarity": 5,
+      "boss": "Mysterious Code",
+      "local": "Pecok Flower",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "LF Tidal Residuum",
+        "MF Tidal Residuum",
+        "HF Tidal Residuum",
+        "FF Tidal Residuum"
+      ],
+      "skillBoss": "When Irises Bloom"
+    },
+    "Rover-Electro": {
+      "rarity": 5,
+      "boss": "Mysterious Code",
+      "local": "Pecok Flower",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "We Who Question"
+    },
+    "Rover-Havoc": {
+      "rarity": 5,
+      "boss": "Mysterious Code",
+      "local": "Pecok Flower",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Dreamless Feather"
+    },
+    "Rover-Spectro": {
+      "rarity": 5,
+      "boss": "Mysterious Code",
+      "local": "Pecok Flower",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Unending Destruction"
+    },
+    "Sanhua": {
+      "rarity": 4,
+      "boss": "Sound-Keeping Tacet Core",
+      "local": "Wintry Bell",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Unending Destruction"
+    },
+    "Shorekeeper": {
+      "rarity": 5,
+      "boss": "Topological Confinement",
+      "local": "Nova",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Sentinel's Dagger"
+    },
+    "Sigrika": {
+      "rarity": 5,
+      "boss": "Our Choice",
+      "local": "Arithmetic Shell",
+      "common": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "wsm": [
+        "LF Waveworn Shard",
+        "MF Waveworn Shard",
+        "HF Waveworn Shard",
+        "FF Waveworn Shard"
+      ],
+      "dwsm": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "skillBoss": "Gold in Memory"
+    },
+    "Suisui": {
+      "rarity": 5,
+      "boss": "Solidarity's Loneflame",
+      "local": "Flowborne Dream",
+      "common": [
+        "LF Autopuppet Kernel",
+        "MF Autopuppet Kernel",
+        "HF Autopuppet Kernel",
+        "FF Autopuppet Kernel"
+      ],
+      "wsm": [
+        "Spliced String",
+        "Broken String",
+        "Solidified String",
+        "Melodic String"
+      ],
+      "dwsm": [
+        "LF Autopuppet Kernel",
+        "MF Autopuppet Kernel",
+        "HF Autopuppet Kernel",
+        "FF Autopuppet Kernel"
+      ],
+      "skillBoss": "Skyward Glazed Heart"
+    },
+    "Suoming": {
+      "rarity": 5,
+      "boss": "Forged Empyrean's Sigh",
+      "local": "Miasmic Branch",
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "wsm": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "dwsm": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "skillBoss": "Remnant of the Wheel"
+    },
+    "Taoqi": {
+      "rarity": 4,
+      "boss": "Gold-Dissolving Feather",
+      "local": "Iris",
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "wsm": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "dwsm": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "skillBoss": "Dreamless Feather"
+    },
+    "Verina": {
+      "rarity": 5,
+      "boss": "Elegy Tacet Core",
+      "local": "Belle Poppy",
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "wsm": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "dwsm": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "skillBoss": "Monument Bell"
+    },
+    "Xiangli Yao": {
+      "rarity": 5,
+      "boss": "Hidden Thunder Tacet Core",
+      "local": "Violet Coral",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Unending Destruction"
+    },
+    "Yangyang": {
+      "rarity": 4,
+      "boss": "Roaring Rock Fist",
+      "local": "Wintry Bell",
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "wsm": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "dwsm": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "skillBoss": "Unending Destruction"
+    },
+    "Yangyang: Xuanling": {
+      "rarity": 5,
+      "boss": "Solidarity's Loneflame",
+      "local": "Cloudperch Seed",
+      "common": [
+        "LF Autopuppet Kernel",
+        "MF Autopuppet Kernel",
+        "HF Autopuppet Kernel",
+        "FF Autopuppet Kernel"
+      ],
+      "wsm": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "dwsm": [
+        "LF Autopuppet Kernel",
+        "MF Autopuppet Kernel",
+        "HF Autopuppet Kernel",
+        "FF Autopuppet Kernel"
+      ],
+      "skillBoss": "Skyward Glazed Heart"
+    },
+    "Yinlin": {
+      "rarity": 5,
+      "boss": "Group Abomination Tacet Core",
+      "local": "Coriolus",
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "wsm": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "dwsm": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "skillBoss": "Dreamless Feather"
+    },
+    "Youhu": {
+      "rarity": 4,
+      "boss": "Topological Confinement",
+      "local": "Violet Coral",
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "wsm": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "dwsm": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "skillBoss": "Monument Bell"
+    },
+    "Yuanwu": {
+      "rarity": 4,
+      "boss": "Hidden Thunder Tacet Core",
+      "local": "Terraspawn Fungus",
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "wsm": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "dwsm": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "skillBoss": "Unending Destruction"
+    },
+    "Zani": {
+      "rarity": 5,
+      "boss": "Platinum Core",
+      "local": "Sword Acorus",
+      "common": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "wsm": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "dwsm": [
+        "LF Polygon Core",
+        "MF Polygon Core",
+        "HF Polygon Core",
+        "FF Polygon Core"
+      ],
+      "skillBoss": "The Netherworld's Stare"
+    },
+    "Zhezhi": {
+      "rarity": 5,
+      "boss": "Sound-Keeping Tacet Core",
+      "local": "Lanternberry",
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "wsm": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "dwsm": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "skillBoss": "Monument Bell"
+    }
+  },
+  "weapons": {
+    "Ages of Harvest": {
+      "rarity": 5,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Kumokiri": {
+      "rarity": 5,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Lustrous Razor": {
+      "rarity": 5,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Radiance Cleaver": {
+      "rarity": 5,
+      "ascension": [
+        "LF Carved Crystal",
+        "MF Carved Crystal",
+        "HF Carved Crystal",
+        "FF Carved Crystal"
+      ],
+      "common": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Starfield Calibrator": {
+      "rarity": 5,
+      "ascension": [
+        "LF Carved Crystal",
+        "MF Carved Crystal",
+        "HF Carved Crystal",
+        "FF Carved Crystal"
+      ],
+      "common": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Thunderflare Dominion": {
+      "rarity": 5,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Verdant Summit": {
+      "rarity": 5,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Wildfire Mark": {
+      "rarity": 5,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Aureate Zenith": {
+      "rarity": 4,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Autumntrace": {
+      "rarity": 4,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Broadblade#41": {
+      "rarity": 4,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Dauntless Evernight": {
+      "rarity": 4,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Discord": {
+      "rarity": 4,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Helios Cleaver": {
+      "rarity": 4,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Meditations on Mercy": {
+      "rarity": 4,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Waning Redshift": {
+      "rarity": 4,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Beguiling Melody": {
+      "rarity": 3,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Broadblade of Night": {
+      "rarity": 3,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Broadblade of Voyager": {
+      "rarity": 3,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Guardian Broadblade": {
+      "rarity": 3,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Originite: Type I": {
+      "rarity": 3,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Tyro Broadblade": {
+      "rarity": 2,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Training Broadblade": {
+      "rarity": 1,
+      "ascension": [
+        "Waveworn Residue 210",
+        "Waveworn Residue 226",
+        "Waveworn Residue 235",
+        "Waveworn Residue 239"
+      ],
+      "common": [
+        "LF Whisperin Core",
+        "MF Whisperin Core",
+        "HF Whisperin Core",
+        "FF Whisperin Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Azure Oath": {
+      "rarity": 5,
+      "ascension": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Blazing Brilliance": {
+      "rarity": 5,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Emerald of Genesis": {
+      "rarity": 5,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Emerald Sentence": {
+      "rarity": 5,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Everbright Polestar": {
+      "rarity": 5,
+      "ascension": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Frostburn": {
+      "rarity": 5,
+      "ascension": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Glint of Clouds": {
+      "rarity": 5,
+      "ascension": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Laser Shearer": {
+      "rarity": 5,
+      "ascension": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Red Spring": {
+      "rarity": 5,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Unflickering Valor": {
+      "rarity": 5,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Commando of Conviction": {
+      "rarity": 4,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Endless Collapse": {
+      "rarity": 4,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Feather Edge": {
+      "rarity": 4,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Fables of Wisdom": {
+      "rarity": 4,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Lumingloss": {
+      "rarity": 4,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Lunar Cutter": {
+      "rarity": 4,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Overture": {
+      "rarity": 4,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Somnoire Anchor": {
+      "rarity": 4,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Sword#18": {
+      "rarity": 4,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Guardian Sword": {
+      "rarity": 3,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Originite: Type II": {
+      "rarity": 3,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Sword of Night": {
+      "rarity": 3,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Sword of Voyager": {
+      "rarity": 3,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Tyro Sword": {
+      "rarity": 2,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Training Sword": {
+      "rarity": 1,
+      "ascension": [
+        "Inert Metallic Drip",
+        "Reactive Metallic Drip",
+        "Polarized Metallic Drip",
+        "Heterized Metallic Drip"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Lux & Umbra": {
+      "rarity": 5,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Phasic Homogenizer": {
+      "rarity": 5,
+      "ascension": [
+        "Incomplete Combustor",
+        "Aftertune Combustor",
+        "Remnant Combustor",
+        "Reverb Combustor"
+      ],
+      "common": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Skull Thrasher": {
+      "rarity": 5,
+      "ascension": [
+        "Incomplete Combustor",
+        "Aftertune Combustor",
+        "Remnant Combustor",
+        "Reverb Combustor"
+      ],
+      "common": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Spectral Trigger": {
+      "rarity": 5,
+      "ascension": [
+        "Incomplete Combustor",
+        "Aftertune Combustor",
+        "Remnant Combustor",
+        "Reverb Combustor"
+      ],
+      "common": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Spectrum Blaster": {
+      "rarity": 5,
+      "ascension": [
+        "Incomplete Combustor",
+        "Aftertune Combustor",
+        "Remnant Combustor",
+        "Reverb Combustor"
+      ],
+      "common": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Static Mist": {
+      "rarity": 5,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "The Last Dance": {
+      "rarity": 5,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Woodland Aria": {
+      "rarity": 5,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Cadenza": {
+      "rarity": 4,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Novaburst": {
+      "rarity": 4,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Pistols#26": {
+      "rarity": 4,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Relativistic Jet": {
+      "rarity": 4,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Romance in Farewell": {
+      "rarity": 4,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Solar Flame": {
+      "rarity": 4,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Thunderbolt": {
+      "rarity": 4,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Undying Flame": {
+      "rarity": 4,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Guardian Pistols": {
+      "rarity": 3,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Originite: Type III": {
+      "rarity": 3,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Pistols of Night": {
+      "rarity": 3,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Pistols of Voyager": {
+      "rarity": 3,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Tyro Pistols": {
+      "rarity": 2,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Training Pistols": {
+      "rarity": 1,
+      "ascension": [
+        "Impure Phlogiston",
+        "Extracted Phlogiston",
+        "Refined Phlogiston",
+        "Flawless Phlogiston"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Abyss Surges": {
+      "rarity": 5,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Blazing Justice": {
+      "rarity": 5,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Pulsation Bracer": {
+      "rarity": 5,
+      "ascension": [
+        "LF Waveworn Shard",
+        "MF Waveworn Shard",
+        "HF Waveworn Shard",
+        "FF Waveworn Shard"
+      ],
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Solsworn Ciphers": {
+      "rarity": 5,
+      "ascension": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
+      ],
+      "common": [
+        "LF Waveworn Shard",
+        "MF Waveworn Shard",
+        "HF Waveworn Shard",
+        "FF Waveworn Shard"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Tragicomedy": {
+      "rarity": 5,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Aether Strike": {
+      "rarity": 4,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Amity Accord": {
+      "rarity": 4,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Celestial Spiral": {
+      "rarity": 4,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Gauntlets#21D": {
+      "rarity": 4,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Hollow Mirage": {
+      "rarity": 4,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Legend of Drunken Hero": {
+      "rarity": 4,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Marcato": {
+      "rarity": 4,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Stonard": {
+      "rarity": 4,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Gauntlets of Night": {
+      "rarity": 3,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Gauntlets of Voyager": {
+      "rarity": 3,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Guardian Gauntlets": {
+      "rarity": 3,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Originite: Type IV": {
+      "rarity": 3,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Tyro Gauntlets": {
+      "rarity": 2,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Training Gauntlets": {
+      "rarity": 1,
+      "ascension": [
+        "Cadence Seed",
+        "Cadence Bud",
+        "Cadence Leaf",
+        "Cadence Blossom"
+      ],
+      "common": [
+        "LF Howler Core",
+        "MF Howler Core",
+        "HF Howler Core",
+        "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Blooming Jadehaven": {
+      "rarity": 5,
+      "ascension": [
+        "Spliced String",
+        "Broken String",
+        "Solidified String",
+        "Melodic String"
+      ],
+      "common": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Boson Astrolabe": {
+      "rarity": 5,
+      "ascension": [
+        "Spliced String",
+        "Broken String",
+        "Solidified String",
+        "Melodic String"
+      ],
+      "common": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Cosmic Ripples": {
+      "rarity": 5,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Forged Dwarf Star": {
+      "rarity": 5,
+      "ascension": [
+        "Spliced String",
+        "Broken String",
+        "Solidified String",
+        "Melodic String"
+      ],
+      "common": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Freeze Frame": {
+      "rarity": 5,
+      "ascension": [
+        "Spliced String",
+        "Broken String",
+        "Solidified String",
+        "Melodic String"
+      ],
+      "common": [
+        "LF Exoswarm Core",
+        "MF Exoswarm Core",
+        "HF Exoswarm Core",
+        "FF Exoswarm Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Lethean Elegy": {
+      "rarity": 5,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Luminous Hymn": {
+      "rarity": 5,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Rime-Draped Sprouts": {
+      "rarity": 5,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Stellar Symphony": {
+      "rarity": 5,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Stringmaster": {
+      "rarity": 5,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Whispers of Sirens": {
+      "rarity": 5,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Augment": {
+      "rarity": 4,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Call of the Abyss": {
+      "rarity": 4,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Comet Flare": {
+      "rarity": 4,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Fusion Accretion": {
+      "rarity": 4,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Jinzhou Keeper": {
+      "rarity": 4,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Radiant Dawn": {
+      "rarity": 4,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Rectifier#25": {
+      "rarity": 4,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Variation": {
+      "rarity": 4,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Waltz in Masquerade": {
+      "rarity": 4,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Guardian Rectifier": {
+      "rarity": 3,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Originite: Type V": {
+      "rarity": 3,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Rectifier of Night": {
+      "rarity": 3,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Rectifier of Voyager": {
+      "rarity": 3,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Tyro Rectifier": {
+      "rarity": 2,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Training Rectifier": {
+      "rarity": 1,
+      "ascension": [
+        "Lento Helix",
+        "Adagio Helix",
+        "Andante Helix",
+        "Presto Helix"
+      ],
+      "common": [
+        "Crude Ring",
+        "Basic Ring",
+        "Improved Ring",
+        "Tailored Ring"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    }
+  }
+}

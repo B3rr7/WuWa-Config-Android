@@ -40,6 +40,7 @@ fun BattleStatsScreen(
     onBack: () -> Unit,
 ) {
     val stats by viewModel.battleStats.collectAsStateWithLifecycle()
+    val summary by viewModel.battleStatsSummary.collectAsStateWithLifecycle()
     val loading by viewModel.battleStatsLoading.collectAsStateWithLifecycle()
     val progress by viewModel.battleStatsProgress.collectAsStateWithLifecycle()
     val fromCache by viewModel.battleStatsFromCache.collectAsStateWithLifecycle()
@@ -111,6 +112,11 @@ fun BattleStatsScreen(
                         }
                     }
                     BattleStatsHeader(s)
+                    if (summary != null) {
+                        BattleStatsPlaytime(summary!!)
+                        BattleStatsDailyChart(summary!!)
+                    }
+                    BattleStatsDerived(s)
                     BattleStatsContent(s)
                 }
 
@@ -236,6 +242,84 @@ private fun BattleStatsContent(stats: BattleStats) {
         Spacer(Modifier.height(8.dp))
         StatCell(Icons.Default.Storage, "Log Size", formatBytes(stats.logSizeBytes), NeonGreen, Modifier.fillMaxWidth())
     }
+}
+
+@Composable
+private fun BattleStatsPlaytime(summary: com.wuwaconfig.app.model.BattleStatsSummary) {
+    val s = summary.total
+    GlassCard(accentColor = NeonCyan) {
+        Text("PLAYTIME", style = MaterialTheme.typography.labelMedium, color = NeonCyan.copy(alpha = 0.7f), letterSpacing = 2.sp)
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatCell(Icons.Default.Schedule, "Total", formatPlaytime(s.playtimeSeconds), NeonCyan, Modifier.weight(1f))
+            StatCell(Icons.Default.Today, "Sessions", "${s.sessions}", NeonCyan.copy(alpha = 0.7f), Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun BattleStatsDailyChart(summary: com.wuwaconfig.app.model.BattleStatsSummary) {
+    val last7 = summary.lastNDays(7)
+    if (last7.isEmpty()) return
+    GlassCard(accentColor = NeonGreen) {
+        Text("LAST 7 DAYS — BATTLES", style = MaterialTheme.typography.labelMedium, color = NeonGreen.copy(alpha = 0.7f), letterSpacing = 2.sp)
+        Spacer(Modifier.height(10.dp))
+        val maxBattles = last7.maxOfOrNull { it.stats.battles }?.coerceAtLeast(1) ?: 1
+        last7.forEach { day ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    day.date.takeLast(5),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(48.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                val fraction = day.stats.battles.toFloat() / maxBattles
+                Box(
+                    modifier =
+                        Modifier
+                            .height(12.dp)
+                            .weight(fraction.coerceIn(0.02f, 1f))
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(NeonGreen.copy(alpha = 0.6f)),
+                )
+                Spacer(Modifier.weight((1f - fraction).coerceAtLeast(0f)))
+                Text(
+                    "${day.stats.battles}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NeonGreen,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+    }
+}
+
+@Composable
+private fun BattleStatsDerived(stats: BattleStats) {
+    GlassCard(accentColor = NeonPurple) {
+        Text("PERFORMANCE", style = MaterialTheme.typography.labelMedium, color = NeonPurple.copy(alpha = 0.7f), letterSpacing = 2.sp)
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatCell(Icons.Default.Speed, "Battles/hr", String.format("%.1f", stats.battlesPerHour), NeonPurple, Modifier.weight(1f))
+            StatCell(Icons.Default.SwapHoriz, "Dodges/battle", String.format("%.1f", stats.dodgesPerBattle), NeonPurple.copy(alpha = 0.7f), Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatCell(Icons.Default.Warning, "Deaths/battle", String.format("%.1f", stats.deathsPerBattle), NeonRed.copy(alpha = 0.7f), Modifier.weight(1f))
+            StatCell(Icons.Default.AutoAwesome, "Skills/battle", String.format("%.1f", stats.echoSkillsPerBattle), NeonAmber, Modifier.weight(1f))
+        }
+    }
+}
+
+private fun formatPlaytime(seconds: Long): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    return if (h > 0) "${h}h ${m}m" else "${m}m"
 }
 
 @Composable
