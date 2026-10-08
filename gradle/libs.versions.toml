@@ -19,7 +19,7 @@ coroutines = "1.11.0"
 # process kill during a slider drag.
 datastore = "1.1.7"
 shizuku = "13.1.5"
-documentfile = "1.0.1"
+documentfile = "1.1.0"
 # androidx.security:security-crypto is the deprecated artifact family; Google
 # steered new work to the platform KeyStore API, and adb/AdbKeyVault.kt now does
 # exactly that (AndroidKeyStore AES-256-GCM) for all key writes.
