@@ -8,6 +8,7 @@ import android.graphics.Shader
 import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
@@ -17,6 +18,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,6 +48,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -90,6 +93,8 @@ import com.wuwaconfig.app.ui.theme.*
 import com.wuwaconfig.app.util.isLocalOnlyImageUri
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.random.Random
 
 /**
@@ -105,11 +110,12 @@ import kotlin.random.Random
 fun GlassCard(
     modifier: Modifier = Modifier,
     accentColor: Color = NeonCyan,
-    shape: Shape = RoundedCornerShape(8.dp),
+    shape: Shape = RoundedCornerShape(LocalThemeShapeTokens.current.cardCorner),
     blurRadius: Int = 6,
-    glowWidth: Float = 0.5f,
+    glowWidth: Float = LocalThemeShapeTokens.current.glowWidth,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val tokens = LocalThemeShapeTokens.current
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
 
     if (isLight) {
@@ -122,8 +128,12 @@ fun GlassCard(
         return
     }
 
-    val cardStart = accentColor.copy(alpha = 0.06f)
-    val cardEnd = Color.White.copy(alpha = 0.02f)
+    // Translucent fills are the glass effect itself, so they follow the style's
+    // blur flag rather than the palette: LIQUID_GLASS is translucent on any
+    // colour scheme, and MATERIAL_YOU is opaque on any palette.
+    val translucency = if (tokens.useBlurEffects) 1f else 0.55f
+    val cardStart = accentColor.copy(alpha = 0.06f * translucency)
+    val cardEnd = Color.White.copy(alpha = 0.02f * translucency)
     val borderColor = accentColor.copy(alpha = 0.15f)
 
     Card(
@@ -154,23 +164,31 @@ fun GlassCard(
                             ),
                         shape = shape,
                     )
-                    .border(glowWidth.dp, borderColor, shape),
+                    .then(
+                        if (tokens.useCardBorder) {
+                            Modifier.border(maxOf(glowWidth.dp, 0.5f.dp), borderColor, shape)
+                        } else {
+                            Modifier
+                        },
+                    ),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .matchParentSize()
-                        .background(
-                            brush =
-                                Brush.linearGradient(
-                                    colors = listOf(accentColor.copy(alpha = 0.04f), Color.Transparent),
-                                    start = androidx.compose.ui.geometry.Offset.Zero,
-                                    end = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                                ),
-                            shape = shape,
-                        ),
-            )
-            Column(modifier = Modifier.padding(16.dp)) {
+            if (tokens.useBlurEffects) {
+                Box(
+                    modifier =
+                        Modifier
+                            .matchParentSize()
+                            .background(
+                                brush =
+                                    Brush.linearGradient(
+                                        colors = listOf(accentColor.copy(alpha = 0.04f), Color.Transparent),
+                                        start = androidx.compose.ui.geometry.Offset.Zero,
+                                        end = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                                    ),
+                                shape = shape,
+                            ),
+                )
+            }
+            Column(modifier = Modifier.padding(tokens.cardPadding)) {
                 content()
             }
         }
@@ -226,7 +244,8 @@ private fun NeumorphicCard(
     shape: Shape,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val corner = 22.dp
+    val tokens = LocalThemeShapeTokens.current
+    val corner = if (tokens.useBlurEffects) 22.dp else tokens.cardCorner
     val roundShape = RoundedCornerShape(corner)
     // Insets match the dark GlassCard branch exactly (both draw with no extra
     // padding) so card padding does not differ by 10dp between themes. Callers
@@ -236,7 +255,10 @@ private fun NeumorphicCard(
             Modifier
                 .fillMaxWidth()
                 .then(modifier)
-                .neumorphic(cornerRadius = corner)
+                // Neumorphism is a soft-shadow treatment; a hard-edged style has
+                // no business drawing it, so RETRO_HANDHELD gets a flat panel
+                // instead of a square card with rounded shadows.
+                .then(if (tokens.useBlurEffects) Modifier.neumorphic(cornerRadius = corner) else Modifier)
                 .clip(roundShape),
     ) {
         Box(
@@ -602,6 +624,7 @@ fun GlassButton(
     height: Dp = 52.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
+    val tokens = LocalThemeShapeTokens.current
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val buttonContainer = if (isLight) accentColor.copy(alpha = 0.20f) else accentColor.copy(alpha = 0.12f)
     val disabledContainer = if (isLight) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.04f)
@@ -615,11 +638,12 @@ fun GlassButton(
         label = "btnScale",
     )
 
+    val buttonShape = RoundedCornerShape(tokens.buttonCorner)
     Button(
         onClick = onClick,
         modifier = modifier.height(height).graphicsLayer(scaleX = scale, scaleY = scale),
         enabled = enabled,
-        shape = RoundedCornerShape(8.dp),
+        shape = buttonShape,
         interactionSource = interactionSource,
         colors =
             ButtonDefaults.buttonColors(
@@ -643,9 +667,19 @@ fun GlassButton(
                             Brush.horizontalGradient(
                                 colors = listOf(accentColor.copy(alpha = 0.08f), Color.Transparent),
                             ),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = buttonShape,
                     )
-                    .border(0.5.dp, accentColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                    .then(
+                        if (tokens.useCardBorder) {
+                            Modifier.border(
+                                maxOf(tokens.borderStrokeWidth, 0.5f.dp),
+                                accentColor.copy(alpha = 0.2f),
+                                buttonShape,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
                     .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
@@ -663,6 +697,7 @@ fun GlassOutlinedButton(
     height: Dp = 52.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
+    val tokens = LocalThemeShapeTokens.current
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val disabledContent = if (isLight) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f) else Color.White.copy(alpha = 0.25f)
     val borderColor = if (isLight) accentColor.copy(alpha = 0.65f) else accentColor.copy(alpha = 0.3f)
@@ -678,14 +713,14 @@ fun GlassOutlinedButton(
         onClick = onClick,
         modifier = modifier.height(height).graphicsLayer(scaleX = scale, scaleY = scale),
         enabled = enabled,
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(tokens.buttonCorner),
         interactionSource = interactionSource,
         colors =
             ButtonDefaults.outlinedButtonColors(
                 contentColor = accentColor,
                 disabledContentColor = disabledContent,
             ),
-        border = BorderStroke(1.dp, borderColor),
+        border = BorderStroke(maxOf(tokens.borderStrokeWidth, 0.5f.dp), borderColor),
     ) {
         Row(
             modifier =
@@ -942,21 +977,83 @@ fun GradientBackground(content: @Composable () -> Unit) {
                         ),
             )
         } else {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush =
-                                Brush.verticalGradient(
-                                    colors = listOf(themeBg, surface),
-                                ),
-                        ),
-            )
+            // AURORA_FLUID is the one style whose identity is the backdrop, so it
+            // gets animated layers; every other style keeps the cheap static
+            // gradient it always had. The branch is on the enum rather than on a
+            // token because "is this backdrop animated" is not a dimension.
+            if (LocalUiStyle.current == UiStyle.AURORA_FLUID) {
+                AuroraBackdrop()
+            } else {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush =
+                                    Brush.verticalGradient(
+                                        colors = listOf(themeBg, surface),
+                                    ),
+                            ),
+                )
+            }
         }
         Box(modifier = Modifier.fillMaxSize()) { content() }
     }
 }
+
+/**
+ * Three large, slowly drifting radial colour blobs behind a translucent wash.
+ *
+ * Drawn rather than composed from `Box`es so the whole backdrop is one draw and
+ * one layer: three overlapping translucent Boxes would each force their own
+ * offscreen pass, which on the low-end GPUs this app targets is the difference
+ * between a smooth background and a dropped frame on every animation.
+ *
+ * Driven by [rememberInfiniteTransition] rather than a coroutine + StateFlow, so
+ * it stops producing frames the moment nothing is observing the composition —
+ * a continuous `setState` loop here would keep the screen awake.
+ */
+@Composable
+private fun AuroraBackdrop() {
+    val primary = MaterialTheme.colorScheme.primary
+    val secondary = MaterialTheme.colorScheme.secondary
+    val tertiary = MaterialTheme.colorScheme.tertiary
+    val themeBg = MaterialTheme.colorScheme.background
+    val transition = rememberInfiniteTransition(label = "aurora")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 18_000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+        label = "auroraPhase",
+    )
+
+    Canvas(modifier = Modifier.fillMaxSize().background(themeBg)) {
+        // Fixed blob geometry; only the phase moves. Scaled off the canvas size
+        // so the composition reads the same on a phone and a tablet.
+        val w = size.width
+        val h = size.height
+        val unit = minOf(w, h)
+        val blobs =
+            listOf(
+                Triple(primary, Offset(w * (0.25f + 0.18f * sin(phase * TWO_PI)), h * (0.20f + 0.14f * cos(phase * TWO_PI))), unit * 0.85f),
+                Triple(secondary, Offset(w * (0.75f + 0.15f * cos(phase * TWO_PI + 1f)), h * (0.35f + 0.16f * sin(phase * TWO_PI + 2f))), unit * 0.75f),
+                Triple(tertiary, Offset(w * (0.50f + 0.20f * sin(phase * TWO_PI + 3f)), h * (0.78f + 0.12f * cos(phase * TWO_PI + 4f))), unit * 0.70f),
+            )
+        blobs.forEach { (color, center, radius) ->
+            drawCircle(
+                brush = Brush.radialGradient(colors = listOf(color.copy(alpha = 0.22f), Color.Transparent), center = center, radius = radius),
+                radius = radius,
+                center = center,
+            )
+        }
+    }
+}
+
+private const val TWO_PI = 6.2831855f
 
 @Composable
 // `UnstableApi` is an `androidx.annotation.RequiresOptIn` marker, NOT a
@@ -1156,6 +1253,7 @@ fun GlassDialog(
     dismissButton: @Composable (() -> Unit)? = null,
     properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
 ) {
+    val tokens = LocalThemeShapeTokens.current
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val activity = LocalView.current.context as? Activity
     DisposableEffect(isLight, activity) {
@@ -1168,7 +1266,7 @@ fun GlassDialog(
         onDismissRequest = onDismissRequest,
         properties = properties,
     ) {
-        val shape = RoundedCornerShape(28.dp)
+        val shape = RoundedCornerShape(tokens.dialogCorner)
         val titleColor = accentColor
         val bodyColor =
             if (isLight) Color(0xFF1C1B1F).copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
@@ -1247,7 +1345,7 @@ private fun GlassDialogContent(
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable (() -> Unit)?,
 ) {
-    Column(modifier = Modifier.padding(24.dp)) {
+    Column(modifier = Modifier.padding(LocalThemeShapeTokens.current.dialogPadding)) {
         icon?.let {
             Box(
                 modifier =

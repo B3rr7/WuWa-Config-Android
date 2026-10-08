@@ -50,6 +50,7 @@ import com.wuwaconfig.app.nav.Profile
 import com.wuwaconfig.app.nav.ReviewTune
 import com.wuwaconfig.app.nav.Settings
 import com.wuwaconfig.app.nav.Setup
+import com.wuwaconfig.app.nav.ThemeSettings
 import com.wuwaconfig.app.nav.UserGuide
 import com.wuwaconfig.app.nav.rememberNavigationState
 import com.wuwaconfig.app.nav.startDestination
@@ -65,6 +66,7 @@ import com.wuwaconfig.app.ui.LogInsightsViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.ProfileViewModel
 import com.wuwaconfig.app.ui.SettingsViewModel
+import com.wuwaconfig.app.ui.ThemeViewModel
 import com.wuwaconfig.app.ui.components.BackgroundSettings
 import com.wuwaconfig.app.ui.components.LocalBackgroundSettings
 import com.wuwaconfig.app.ui.screens.BackupScreen
@@ -82,9 +84,9 @@ import com.wuwaconfig.app.ui.screens.ReviewTuneScreen
 import com.wuwaconfig.app.ui.screens.SettingsScreen
 import com.wuwaconfig.app.ui.screens.SetupScreen
 import com.wuwaconfig.app.ui.screens.TermsScreen
+import com.wuwaconfig.app.ui.screens.ThemeSettingsScreen
 import com.wuwaconfig.app.ui.screens.UserGuideScreen
 import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
-import com.wuwaconfig.app.ui.theme.setNeonSaturation
 import kotlinx.coroutines.launch
 import android.provider.Settings as AndroidSettings
 
@@ -122,6 +124,7 @@ class MainActivity : ComponentActivity() {
     private val settingsViewModel: SettingsViewModel by viewModels()
     private val iniEditorViewModel: IniEditorViewModel by viewModels()
     private val calculatorViewModel: CalculatorViewModel by viewModels()
+    private val themeViewModel: ThemeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -146,11 +149,18 @@ class MainActivity : ComponentActivity() {
         } else {
             Log.i("MainActivity", "FLAG_SECURE off: screenshots and screencap are allowed in this build")
         }
-        // Seed the neon palette BEFORE the first composition. Doing it from a
-        // LaunchedEffect made the first frame render at the previous process's
-        // saturation and then visibly snap.
+        // Seed the accent layer at the DEFAULT palette before the first
+        // composition, so frame 1 is never rendered with a stale accent set from
+        // a previous process (the original bug this replaced: a LaunchedEffect
+        // meant frame 1 used the old saturation and then visibly snapped).
+        //
+        // WuWaConfigTheme repoints the accents from the resolved palette in a
+        // LaunchedEffect, so a user who picked MATRIX_GREEN still sees one frame
+        // of the default accents on a cold start before DataStore lands. That is
+        // accepted rather than fixed: reading the persisted config synchronously
+        // would mean a blocking disk read on the main thread, and the two values
+        // involved are both defaults on a cold start, so no flash is visible.
         requestNotificationPermissionIfNeeded()
-        setNeonSaturation(settingsViewModel.colorSaturation.value)
         // Device mutations (deploys, auto-backups) refresh the backup list.
         deployHistoryViewModel.onDeviceMutated = { backupViewModel.refreshBackups() }
 
@@ -180,18 +190,15 @@ class MainActivity : ComponentActivity() {
             val gachaViewModel: GachaViewModel = viewModel()
             val profileViewModel: ProfileViewModel = viewModel()
             val characterViewModel: CharacterViewModel = viewModel()
-            val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
-            val textOpacity by settingsViewModel.textOpacity.collectAsStateWithLifecycle()
-            val fontFamilyName by settingsViewModel.fontFamilyName.collectAsStateWithLifecycle()
-            val fontScale by settingsViewModel.fontScale.collectAsStateWithLifecycle()
-            val colorSaturation by settingsViewModel.colorSaturation.collectAsStateWithLifecycle()
             var showTerms by rememberSaveable { mutableStateOf(mainViewModel.needsTermsAccept()) }
 
-            // Keeps the palette in step with the saturation slider. The first
-            // value is applied in onCreate() so frame 1 is already correct.
-            LaunchedEffect(colorSaturation) {
-                setNeonSaturation(colorSaturation)
-            }
+            // The single source for every theme input. The per-setting flows on
+            // SettingsViewModel are deliberately NOT collected here: they are
+            // backed by SharedPreferences, which WuWaConfigTheme no longer reads,
+            // so subscribing to them would put a second writer on the accent
+            // state that races WuWaConfigTheme's own setAccentPalette. See the
+            // seed note in onCreate().
+            val themeConfig by themeViewModel.themeConfig.collectAsStateWithLifecycle()
             val backgroundImageUri by settingsViewModel.backgroundImageUri.collectAsStateWithLifecycle()
             val backgroundVideoUri by settingsViewModel.backgroundVideoUri.collectAsStateWithLifecycle()
             val backgroundOpacity by settingsViewModel.backgroundOpacity.collectAsStateWithLifecycle()
@@ -199,11 +206,14 @@ class MainActivity : ComponentActivity() {
                 LocalBackgroundSettings provides BackgroundSettings(backgroundImageUri, backgroundVideoUri, backgroundOpacity),
             ) {
                 WuWaConfigTheme(
-                    themeMode = themeMode,
-                    textOpacity = textOpacity,
-                    fontFamilyName = fontFamilyName,
-                    fontScale = fontScale,
-                    colorSaturation = colorSaturation,
+                    themeMode = themeConfig.themeMode,
+                    dynamicColor = themeConfig.dynamicColor,
+                    textOpacity = themeConfig.textOpacity,
+                    fontFamilyName = themeConfig.fontFamilyName,
+                    fontScale = themeConfig.fontScale,
+                    colorSaturation = themeConfig.colorSaturation,
+                    uiStyle = themeConfig.uiStyle,
+                    colorPalette = themeConfig.colorPalette,
                 ) {
                     if (showTerms) {
                         TermsScreen(
@@ -217,7 +227,7 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     } else {
-                        AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel, iniEditorViewModel, characterViewModel, calculatorViewModel)
+                        AppNavigation(mainViewModel, deployHistoryViewModel, backupViewModel, logInsightsViewModel, settingsViewModel, gachaViewModel, profileViewModel, iniEditorViewModel, characterViewModel, calculatorViewModel, themeViewModel)
                     }
                 }
             }
@@ -316,6 +326,7 @@ fun AppNavigation(
     iniEditorViewModel: IniEditorViewModel,
     characterViewModel: CharacterViewModel,
     calculatorViewModel: CalculatorViewModel,
+    themeViewModel: ThemeViewModel,
 ) {
     // Every ViewModel is passed in rather than obtained inside its entry, and
     // that is load-bearing under Navigation 3. navigation3-runtime ships no
@@ -462,6 +473,14 @@ fun AppNavigation(
                     gameConfigDir = com.wuwaconfig.app.model.GamePaths.TARGET_DIR,
                     backupStorageDir = backupViewModel.backupStorageDirFlow.collectAsStateWithLifecycle().value,
                     onChangeBackupDir = { newDir -> backupViewModel.changeBackupDir(newDir) },
+                    onNavigateToTheme = { navigator.navigate(ThemeSettings) },
+                    themeViewModel = themeViewModel,
+                )
+            }
+            entry<ThemeSettings> {
+                ThemeSettingsScreen(
+                    viewModel = themeViewModel,
+                    onBack = { navigator.goBack() },
                 )
             }
             entry<UserGuide> {

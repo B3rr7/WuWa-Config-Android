@@ -53,14 +53,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         application as? WuWaConfigApp
             ?: throw IllegalStateException("SettingsViewModel requires WuWaConfigApp application")
 
-    val themeMode: StateFlow<String> = app.themeMode
     val deployHistoryEnabled: StateFlow<Boolean> = app.deployHistoryEnabled
     val colorfulUi: StateFlow<Boolean> = app.colorfulUi
     val hashMonitorEnabled: StateFlow<Boolean> = app.hashMonitorEnabled
-    val textOpacity: StateFlow<Float> = app.textOpacity
-    val fontFamilyName: StateFlow<String> = app.fontFamilyName
-    val fontScale: StateFlow<Float> = app.fontScale
-    val colorSaturation: StateFlow<Float> = app.colorSaturation
     val forceCSharpEnv: StateFlow<Boolean> = app.forceCSharpEnv
 
     // Read by MainActivity, which feeds them into LocalBackgroundSettings so
@@ -86,8 +81,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val ops get() = app.deviceOps
 
     private var csharpEnvJob: Job? = null
-
-    fun setThemeMode(mode: String) = app.setThemeMode(mode)
 
     fun setDeployHistoryEnabled(enabled: Boolean) = app.setDeployHistoryEnabled(enabled)
 
@@ -142,14 +135,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
         }
     }
-
-    fun setTextOpacity(value: Float) = app.setTextOpacity(value)
-
-    fun setFontFamily(name: String) = app.setFontFamily(name)
-
-    fun setFontScale(value: Float) = app.setFontScale(value)
-
-    fun setColorSaturation(value: Float) = app.setColorSaturation(value)
 
     fun setBackgroundImageUri(uri: String?) {
         app.backgroundImageUri.value = uri

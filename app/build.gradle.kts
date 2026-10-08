@@ -237,6 +237,10 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
 
+    // Theme engine persistence. The only DataStore in the project — see the
+    // `datastore` version comment in gradle/libs.versions.toml for why.
+    implementation(libs.androidx.datastore.preferences)
+
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
 

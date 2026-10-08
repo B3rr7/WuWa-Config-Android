@@ -41,6 +41,21 @@ data object ReviewTune : NavKey
 @Serializable
 data object Settings : NavKey
 
+/**
+ * The theme engine's own picker.
+ *
+ * Separate from [Settings] rather than a section inside it, because it is the
+ * one screen that must be reachable *while previewing a change*: switching back
+ * to Settings to look at the result means navigating twice per tweak. The
+ * screen is also the only consumer of `ThemeViewModel`.
+ *
+ * The serial name is pinned in DestinationsTest. Renaming it is a saved-state
+ * format change — `rememberNavBackStack` persists the stack, so a restored
+ * entry would stop matching.
+ */
+@Serializable
+data object ThemeSettings : NavKey
+
 @Serializable
 data object UserGuide : NavKey
 
@@ -86,6 +101,7 @@ val ALL_DESTINATIONS: List<NavKey> =
         ConfigGen,
         ReviewTune,
         Settings,
+        ThemeSettings,
         UserGuide,
         Pity,
         Profile,

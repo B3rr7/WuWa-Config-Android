@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -47,11 +48,13 @@ import com.wuwaconfig.app.backend.AccessMethod
 import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.config.ChipsetDetector.ChipsetInfo
 import com.wuwaconfig.app.ui.SettingsViewModel
+import com.wuwaconfig.app.ui.ThemeViewModel
 import com.wuwaconfig.app.ui.UpdateState
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassCardHeader
 import com.wuwaconfig.app.ui.components.GlassDialog
+import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
@@ -69,7 +72,14 @@ fun SettingsScreen(
     gameConfigDir: String,
     backupStorageDir: String,
     onChangeBackupDir: (String) -> Unit,
+    onNavigateToTheme: () -> Unit = {},
+    themeViewModel: ThemeViewModel,
 ) {
+    // Collected once and destructured, because WuWaConfigTheme reads all five as
+    // one unit. Five separate subscriptions to the same StateFlow would each be
+    // a valid but redundant read of the same object.
+    val themeConfig by themeViewModel.themeConfig.collectAsStateWithLifecycle()
+
     var showBackupDirDialog by remember { mutableStateOf(false) }
     var newBackupDir by remember { mutableStateOf(backupStorageDir) }
     var showRemoveBgDialog by remember { mutableStateOf(false) }
@@ -179,7 +189,7 @@ fun SettingsScreen(
                 GlassCard(accentColor = NeonGreen) {
                     GlassCardHeader("Theme", NeonGreen)
                     Spacer(Modifier.height(8.dp))
-                    val currentTheme by viewModel.themeMode.collectAsStateWithLifecycle()
+                    val currentTheme = themeConfig.themeMode
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -187,7 +197,7 @@ fun SettingsScreen(
                         listOf("system" to "System", "dark" to "Dark", "light" to "Light").forEach { (value, label) ->
                             val selected = currentTheme == value
                             Button(
-                                onClick = { viewModel.setThemeMode(value) },
+                                onClick = { themeViewModel.setThemeMode(value) },
                                 modifier = Modifier.weight(1f),
                                 colors =
                                     ButtonDefaults.buttonColors(
@@ -205,8 +215,27 @@ fun SettingsScreen(
                             ) { Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) }
                         }
                     }
+                    Spacer(Modifier.height(12.dp))
+                    // The light/dark row above is the mode toggle only. The
+                    // structural skin and the colour palette live in the theme
+                    // engine's own screen: they are a product of 6x6 combinations,
+                    // so enumerating them inline here would be a flat list of
+                    // arbitrary pairs rather than two independent choices.
+                    GlassOutlinedButton(
+                        onClick = onNavigateToTheme,
+                        accentColor = NeonGreen,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(
+                            Icons.Filled.Palette,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("UI Style & Color Palettes")
+                    }
                     Spacer(Modifier.height(16.dp))
-                    val textOpacity by viewModel.textOpacity.collectAsStateWithLifecycle()
+                    val textOpacity = themeConfig.textOpacity
                     Text(
                         "Text Depth",
                         style = MaterialTheme.typography.bodyMedium,
@@ -233,7 +262,7 @@ fun SettingsScreen(
                         Slider(
                             value = textOpacityDraft,
                             onValueChange = { textOpacityDraft = it },
-                            onValueChangeFinished = { viewModel.setTextOpacity(textOpacityDraft) },
+                            onValueChangeFinished = { themeViewModel.setTextOpacity(textOpacityDraft) },
                             valueRange = 0.5f..1f,
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                             colors =
@@ -256,7 +285,7 @@ fun SettingsScreen(
                         color = NeonGreen,
                     )
                     Spacer(Modifier.height(16.dp))
-                    val colorSaturation by viewModel.colorSaturation.collectAsStateWithLifecycle()
+                    val colorSaturation = themeConfig.colorSaturation
                     Text(
                         "Color Saturation",
                         style = MaterialTheme.typography.bodyMedium,
@@ -277,7 +306,7 @@ fun SettingsScreen(
                         Slider(
                             value = colorSaturationDraft,
                             onValueChange = { colorSaturationDraft = it },
-                            onValueChangeFinished = { viewModel.setColorSaturation(colorSaturationDraft) },
+                            onValueChangeFinished = { themeViewModel.setColorSaturation(colorSaturationDraft) },
                             valueRange = 0.5f..1.6f,
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                             colors =
@@ -304,8 +333,8 @@ fun SettingsScreen(
                 GlassCard(accentColor = NeonPurple) {
                     GlassCardHeader("Font", NeonPurple)
                     Spacer(Modifier.height(8.dp))
-                    val fontFamilyName by viewModel.fontFamilyName.collectAsStateWithLifecycle()
-                    val fontScale by viewModel.fontScale.collectAsStateWithLifecycle()
+                    val fontFamilyName = themeConfig.fontFamilyName
+                    val fontScale = themeConfig.fontScale
                     Text(
                         "Family",
                         style = MaterialTheme.typography.bodyMedium,
@@ -338,7 +367,7 @@ fun SettingsScreen(
                                         // "selected" state the bare clickable lacked.
                                         .selectable(
                                             selected = selected,
-                                            onClick = { viewModel.setFontFamily(option) },
+                                            onClick = { themeViewModel.setFontFamily(option) },
                                             role = Role.RadioButton,
                                         ).padding(vertical = 10.dp),
                                 contentAlignment = Alignment.Center,
@@ -378,7 +407,7 @@ fun SettingsScreen(
                         Slider(
                             value = fontScaleDraft,
                             onValueChange = { fontScaleDraft = it },
-                            onValueChangeFinished = { viewModel.setFontScale(fontScaleDraft) },
+                            onValueChangeFinished = { themeViewModel.setFontScale(fontScaleDraft) },
                             valueRange = 0.85f..1.4f,
                             steps = 10,
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
