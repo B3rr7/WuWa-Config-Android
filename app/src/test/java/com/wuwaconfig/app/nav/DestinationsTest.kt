@@ -41,6 +41,7 @@ class DestinationsTest {
             "com.wuwaconfig.app.nav.ConfigGen",
             "com.wuwaconfig.app.nav.ReviewTune",
             "com.wuwaconfig.app.nav.Settings",
+            "com.wuwaconfig.app.nav.ThemeSettings",
             "com.wuwaconfig.app.nav.UserGuide",
             "com.wuwaconfig.app.nav.Pity",
             "com.wuwaconfig.app.nav.Profile",
