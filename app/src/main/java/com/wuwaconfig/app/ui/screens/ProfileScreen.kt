@@ -225,7 +225,19 @@ private fun GameProgressSection(profile: PlayerProfile) {
             ProgressChip(
                 if (profile.battlePassPurchased) Icons.Default.LockOpen else Icons.Default.Lock,
                 "Battle Pass",
-                if (profile.battlePassPurchased) "Purchased" else "Free",
+                // "guess", not a fact. The only local key is
+                // `BattlePassPayButton_<uid>`, and its value is the game's shared
+                // boolean-true sentinel `"___1B___"` — the same token used by ~40
+                // unrelated keys (NotFirstTimeOpenPush, FirstOpenShop,
+                // PayShopRechargeRedDot, ...). It records that the pay button has
+                // been *seen*, not that it was paid for, and no purchase flag
+                // exists anywhere in LocalStorage; that state is server-side.
+                // Verified on-device against all 161 keys.
+                //
+                // The label is deliberately hedged rather than shown as a plain
+                // "Purchased", because "Purchased" is a financial claim the local
+                // data cannot support.
+                if (profile.battlePassPurchased) "Paid (guess)" else "Free (guess)",
                 if (profile.battlePassPurchased) NeonGold else NeonAmber,
                 Modifier.weight(1f),
             )
@@ -315,119 +327,131 @@ private fun InfoChip(
 
 @Composable
 private fun DeviceSection(profile: PlayerProfile) {
-    val hasData =
-        profile.gpu != null ||
-            profile.socName != null ||
-            profile.androidVersion != null ||
-            profile.ramMb != null ||
-            profile.resolution != null ||
-            profile.renderApi != null ||
-            profile.vulkanStatus != null
     GlassCard(accentColor = NeonCyan) {
         SectionHeader("DEVICE", NeonCyan)
         Spacer(Modifier.height(10.dp))
-        if (!hasData) {
+        // Same treatment as PERFORMANCE: render the fields unconditionally and
+        // use `deviceLogRead` to decide whether an empty value is worth
+        // explaining. The old `hasData` gate here was what hid the section
+        // entirely, and it stayed false on a perfectly readable log whenever the
+        // only populated field was the one this screen could not source from the
+        // log (the chipset).
+        if (!profile.deviceLogRead) {
             Text(
-                "No device data in the game log. Play the game once, then tap Refresh — startup GPU/RAM details are only written when the game boots.",
+                "Could not read the game log, so these values are unknown. Close the " +
+                    "game, play it once, then tap Refresh.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
-            return@GlassCard
+            Spacer(Modifier.height(10.dp))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoChip(Icons.Default.Memory, "GPU", profile.gpu ?: "—", NeonCyan, Modifier.weight(1f))
-            InfoChip(Icons.Default.DeveloperBoard, "Chipset", profile.socName ?: "—", NeonPurple, Modifier.weight(1f))
+            InfoChip(Icons.Default.Memory, "GPU", profile.gpu ?: NOT_REPORTED, NeonCyan, Modifier.weight(1f))
+            InfoChip(Icons.Default.DeveloperBoard, "Chipset", profile.socName ?: NOT_REPORTED, NeonPurple, Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoChip(Icons.Default.Storage, "RAM", profile.ramMb?.let { formatRam(it) } ?: "—", NeonPink, Modifier.weight(1f))
-            InfoChip(Icons.Default.Android, "Android", profile.androidVersion ?: "—", NeonGreen, Modifier.weight(1f))
+            InfoChip(Icons.Default.Storage, "RAM", profile.ramMb?.let { formatRam(it) } ?: NOT_REPORTED, NeonPink, Modifier.weight(1f))
+            InfoChip(Icons.Default.Android, "Android", profile.androidVersion ?: NOT_REPORTED, NeonGreen, Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoChip(Icons.Default.AspectRatio, "Resolution", profile.resolution ?: "—", NeonAmber, Modifier.weight(1f))
-            InfoChip(Icons.Default.Hub, "Render API", profile.renderApi ?: "—", NeonGold, Modifier.weight(1f))
+            InfoChip(Icons.Default.AspectRatio, "Resolution", profile.resolution ?: NOT_REPORTED, NeonAmber, Modifier.weight(1f))
+            InfoChip(Icons.Default.Hub, "Render API", profile.renderApi ?: NOT_REPORTED, NeonGold, Modifier.weight(1f))
         }
-        if (!profile.vulkanStatus.isNullOrBlank()) {
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoChip(Icons.Default.CheckCircle, "Vulkan", profile.vulkanStatus!!, NeonCyan, Modifier.weight(1f))
-            }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Was conditional on `isNullOrBlank()`. The game does not always emit
+            // a Vulkan verdict — it names Vulkan and then falls back to OpenGL ES
+            // — so "absent" here genuinely means "the log did not say", which is
+            // the same thing the other chips in this section mean.
+            InfoChip(
+                Icons.Default.CheckCircle,
+                "Vulkan",
+                profile.vulkanStatus?.takeIf { it.isNotBlank() } ?: NOT_REPORTED,
+                NeonCyan,
+                Modifier.weight(1f),
+            )
         }
     }
 }
 
 @Composable
 private fun PerformanceSection(profile: PlayerProfile) {
-    val hasData =
-        profile.fpsActual != null ||
-            profile.fpsCap != null ||
-            profile.screenPct != null ||
-            profile.shadowQ != null ||
-            profile.qualityMode != null ||
-            profile.thermalEvents > 0 ||
-            profile.gpuOom > 0 ||
-            profile.dropFrames > 0 ||
-            profile.textureErrors > 0 ||
-            profile.forbiddenCvars > 0
     GlassCard(accentColor = NeonAmber) {
         SectionHeader("PERFORMANCE", NeonAmber)
         Spacer(Modifier.height(10.dp))
-        if (!hasData) {
+        // No `hasData` gate. Every field below is nullable-or-zero, so a healthy
+        // session that simply logged no OOM/thermal/drop events looked exactly
+        // like a failed read — the old code collapsed the whole section in both
+        // cases. Only `deviceLogRead` tells them apart now.
+        if (!profile.deviceLogRead) {
             Text(
-                "No performance data in the game log. Play the game once, then tap Refresh — FPS and frame stats are only written while it runs.",
+                "Could not read the game log, so these values are unknown. Close the game, " +
+                    "play it once, then tap Refresh.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
-            return@GlassCard
+            Spacer(Modifier.height(10.dp))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             InfoChip(
                 Icons.Default.Speed,
                 "Avg FPS",
-                profile.fpsActual?.let { "%.1f".format(it) } ?: "—",
+                profile.fpsActual?.let { "%.1f".format(it) } ?: NOT_REPORTED,
                 NeonAmber,
                 Modifier.weight(1f),
             )
-            InfoChip(Icons.Default.Speed, "FPS Cap", profile.fpsCap?.toString() ?: "—", NeonCyan, Modifier.weight(1f))
+            InfoChip(Icons.Default.Speed, "FPS Cap", profile.fpsCap?.toString() ?: NOT_REPORTED, NeonCyan, Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             InfoChip(
                 Icons.Default.ZoomIn,
                 "Screen %",
-                profile.screenPct?.toInt()?.let { "$it%" } ?: "—",
+                profile.screenPct?.toInt()?.let { "$it%" } ?: NOT_REPORTED,
                 NeonPink,
                 Modifier.weight(1f),
             )
-            InfoChip(Icons.Default.Shield, "Shadow Q", profile.shadowQ?.toString() ?: "—", NeonPurple, Modifier.weight(1f))
+            InfoChip(Icons.Default.Shield, "Shadow Q", profile.shadowQ?.toString() ?: NOT_REPORTED, NeonPurple, Modifier.weight(1f))
         }
-        if (!profile.qualityMode.isNullOrBlank()) {
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoChip(Icons.Default.Tune, "Quality", profile.qualityMode!!, NeonGreen, Modifier.weight(1f))
-            }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoChip(Icons.Default.Tune, "Quality", profile.qualityMode ?: NOT_REPORTED, NeonGreen, Modifier.weight(1f))
         }
 
-        if (profile.thermalEvents > 0 ||
-            profile.gpuOom > 0 ||
-            profile.dropFrames > 0 ||
-            profile.textureErrors > 0 ||
-            profile.forbiddenCvars > 0
-        ) {
-            Spacer(Modifier.height(14.dp))
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NeonAmber.copy(alpha = 0.15f)))
-            Spacer(Modifier.height(10.dp))
-            Text("DIAGNOSTICS", style = MaterialTheme.typography.labelMedium, color = NeonAmber.copy(alpha = 0.7f), letterSpacing = 2.sp)
-            Spacer(Modifier.height(8.dp))
-            DiagnosticRow("Thermal events", profile.thermalEvents)
-            DiagnosticRow("GPU OOM", profile.gpuOom)
-            DiagnosticRow("Dropped frames", profile.dropFrames)
-            DiagnosticRow("Texture errors", profile.textureErrors)
-            DiagnosticRow("Forbidden CVars", profile.forbiddenCvars)
-        }
+        Spacer(Modifier.height(14.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NeonAmber.copy(alpha = 0.15f)))
+        Spacer(Modifier.height(10.dp))
+        Text("DIAGNOSTICS", style = MaterialTheme.typography.labelMedium, color = NeonAmber.copy(alpha = 0.7f), letterSpacing = 2.sp)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Counted from the game log. Zero means nothing was recorded, which on a " +
+                "healthy session is the expected result — not a missing reading.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        )
+        Spacer(Modifier.height(8.dp))
+        // Always rendered. These used to be hidden unless one was non-zero, which
+        // meant a clean profile showed no diagnostics block at all and gave the
+        // user no way to tell that apart from an unread log.
+        DiagnosticRow("Thermal events", profile.thermalEvents)
+        DiagnosticRow("GPU OOM", profile.gpuOom)
+        DiagnosticRow("Dropped frames", profile.dropFrames)
+        DiagnosticRow("Texture errors", profile.textureErrors)
+        DiagnosticRow("Forbidden CVars", profile.forbiddenCvars)
     }
 }
+
+/**
+ * Shown in place of a value the game never reported.
+ *
+ * `—` alone was ambiguous: it is what a failed read produces, what a field the
+ * game does not emit produces, and what a genuinely absent optional produces.
+ * "Avg FPS" is permanently in this state — the game's log has no `AverageFPS`
+ * line (that is a desktop-UE stat), confirmed across three 3.7.0 sessions.
+ */
+private const val NOT_REPORTED = "not reported"
 
 @Composable
 private fun DiagnosticRow(

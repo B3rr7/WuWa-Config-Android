@@ -509,8 +509,29 @@ class ProfileExtractor(
                     } else {
                         baseProfile
                     }
+
+                // The chipset is a property of the *phone*, not of the game log,
+                // so it is resolved independently of whether the log read
+                // succeeded. Deliberately outside the `if (deviceInfo != null)`
+                // branch above: that branch means "the log was unreadable", and a
+                // device we can see perfectly well still has a chipset.
+                //
+                // This is the fallback that makes the DEVICE section's Chipset
+                // chip work at all. The log-derived value is null on every current
+                // build — SOC_RE only matches vendor names the game never emits
+                // (see LogParser.SOC_RE), and the game logs `CPU: <device model>`,
+                // which is the model, not the SoC. It is kept as the first choice
+                // so a future build that names the SoC still wins.
+                val soc = deviceInfo?.socName?.takeIf { it.isNotBlank() } ?: detectLocalSocName()
+                val finalProfile =
+                    (if (soc.isNullOrBlank()) profile else profile.copy(socName = soc))
+                        // Recorded whether or not the SoC resolved above — it tracks
+                        // the log read, which is what the UI needs to tell "clean
+                        // session" from "could not read the log".
+                        .copy(deviceLogRead = deviceInfo != null)
+
                 onProgress(100)
-                Result.success(profile)
+                Result.success(finalProfile)
             } catch (e: Exception) {
                 Log.w("ProfileExtractor", "readProfile failed: ${e.message}")
                 Result.failure(e)
@@ -860,3 +881,21 @@ internal fun backupLogSortKey(path: String): Long {
  * failure it guards against would be silent.
  */
 internal fun journalPathFor(dbPath: String): String = "$dbPath-journal"
+
+/**
+ * The device's own chipset string, or "" when the platform reports none.
+ *
+ * Split out of [readProfile] and `runCatching`-wrapped because it is the one
+ * profile field that does not come from the device's game data at all: it is
+ * read from this phone's own `Build` statics. A ROM that hides or blanks those
+ * must not take the whole profile read down with it — every other field would
+ * be lost to render a dash, which is the failure this field exists to remove.
+ *
+ * Returns "" rather than null so the caller can `isNullOrBlank()` it and leave
+ * the model field null, which is what the UI's "not reported" path expects.
+ */
+private fun detectLocalSocName(): String =
+    runCatching { ChipsetDetector.detect().socName }
+        .getOrNull()
+        ?.takeIf { it.isNotBlank() }
+        ?: ""

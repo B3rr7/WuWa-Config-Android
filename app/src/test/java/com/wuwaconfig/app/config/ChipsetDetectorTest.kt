@@ -206,4 +206,49 @@ class ChipsetDetectorTest {
         assertEquals(direct, ChipsetDetector.classify(soc, board, manufacturer))
         assertTrue(direct.isSnapdragon)
     }
+
+    // ── hardware as a classification field ──
+    //
+    // detect() now passes Build.SOC_MODEL as the `soc` argument and
+    // Build.HARDWARE as a fourth `hardware` field. On a real Qualcomm phone
+    // Build.HARDWARE is the bare vendor string "qcom" (verified on a moto g(60),
+    // whose actual SoC is SM7150 / SM6150) — carrying it separately means the
+    // "qcom" match keeps working even when SOC_MODEL gives a part number that
+    // does not itself contain a vendor token.
+
+    @Test
+    fun `hardware is a classification field in its own right`() {
+        // Calls the production `classify`, not this class's 3-arg `classify`
+        // helper above — that helper shadows the name and cannot pass `hardware`.
+        assertOnly(
+            ChipsetDetector.classify("sm7150", "unknown", "unknown", hardware = "qcom"),
+            snapdragon = true,
+        )
+    }
+
+    @Test
+    fun `a part number alone still classifies without the hardware field`() {
+        // Guards against the two fields being conflated: SM7150 matches on its
+        // own, so nothing depends on hardware being threaded through.
+        assertOnly(ChipsetDetector.classify("sm7150", "unknown", "unknown"), snapdragon = true)
+    }
+
+    @Test
+    fun `hardware defaults to empty so existing three-arg callers are unchanged`() {
+        // The parameter is defaulted precisely so the many existing three-arg
+        // call sites — including every test above — keep their old behaviour.
+        assertEquals(
+            ChipsetDetector.classify("sm8250", "kalama", "qualcomm"),
+            ChipsetDetector.classify("sm8250", "kalama", "qualcomm", hardware = ""),
+        )
+    }
+
+    @Test
+    fun `detectSocName returns empty rather than throwing off-device`() {
+        // Under isReturnDefaultValues = true Build.SOC_MODEL is null and
+        // Build.BOARD is null. detectSocName must fall through to the BOARD
+        // read and come back total — the Profile screen calls it on the read
+        // path, so a throw here would fail the whole profile read.
+        assertEquals("", ChipsetDetector.detectSocNameInternal())
+    }
 }
