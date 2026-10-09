@@ -6,6 +6,222 @@ import com.wuwaconfig.app.model.LogLevel
 import com.wuwaconfig.app.model.LogRepository
 import java.nio.charset.Charset
 
+/**
+ * The line currently under inspection, as index bounds into one log's text.
+ *
+ * One instance per log rather than one per line, so the zero-allocation scan costs
+ * a single short-lived object. Handing the bounds around as three separate
+ * arguments instead made every helper a three-parameter function, which ktlint
+ * forces multiline and then rejects in this file.
+ */
+private const val BATTLE_MUSIC = "切换玩家战斗音乐状态: 进入战斗"
+private const val BATTLE_DAMAGE = "切换玩家状态: 进入战斗造成伤害"
+private const val ECHO_TAME = "初次幻象收服"
+private const val ECHO_CATCH = "初次幻象捕捉"
+private const val DODGE_FORWARD = "极限闪避前闪"
+private const val DODGE_BACK = "极限闪避后闪"
+private const val DODGE_COUNTER = "极限闪避反击"
+private const val DEATH_LOGIC = "执行角色死亡逻辑"
+private const val DEATH_SWITCH = "前台角色死亡进行切人"
+private const val ROLE_EXIT = "角色下场"
+private const val TELEPORT = "传送:"
+private const val DONE = "完成"
+private const val DOWNED = "进入倒地状态"
+private const val ECHO_SKILL = "召唤系幻象的出生特效"
+private const val ECHO_TRANSFORM = "变身幻象"
+private const val MONTH_CARD = "月卡每日奖励"
+private const val MONTH_CARD_PUSH = "【月卡每日奖励】信息推送"
+private const val STAMINA_KEY = "当前体力数据"
+
+private val UPS_RE = Regex("""UPs:(\d+)""")
+private val REMAIN_DAYS_RE = Regex("""remainDays:\s*(\d+)""")
+private val PLAYER_ID_RE = Regex("""playerId:\s*(\d+)""")
+
+private class LineScanner(val text: String) {
+    var start = 0
+    var stop = 0
+
+    /**
+     * Whether [p] occurs anywhere in the current line.
+     *
+     * A bounded search rather than [String.indexOf], which has no end bound and
+     * would scan the remaining ~19MB of the log for every pattern of every line.
+     * Naive is fine at line lengths (~170 chars) and allocates nothing, which is
+     * the entire point of this loop.
+     */
+    fun contains(p: String): Boolean {
+        val n = p.length
+        val first = p[0]
+        val last = stop - n
+        var i = start
+        while (i <= last) {
+            if (text[i] == first) {
+                var j = 1
+                while (j < n && text[i + j] == p[j]) j++
+                if (j == n) return true
+            }
+            i++
+        }
+        return false
+    }
+
+    /** Index of the first occurrence of [p] in the current line, or -1. */
+    fun indexOf(p: String): Int {
+        val n = p.length
+        val first = p[0]
+        val last = stop - n
+        var i = start
+        while (i <= last) {
+            if (text[i] == first) {
+                var j = 1
+                while (j < n && text[i + j] == p[j]) j++
+                if (j == n) return i
+            }
+            i++
+        }
+        return -1
+    }
+}
+
+private class BattleCounters {
+    var battles = 0
+    var echoesCollected = 0
+    var dodgeForward = 0
+    var dodgeBack = 0
+    var dodgeCounter = 0
+    var deaths = 0
+    var roleChanges = 0
+    var teleports = 0
+    var staggers = 0
+    var staminaUsed = 0
+    var echoSkillsUsed = 0
+    var echoTransformUsed = 0
+    var monthCards = 0
+    var monthCardRemainDays = 0
+    var playerId = ""
+
+    /** Carried across lines so stamina is a delta between consecutive samples. */
+    var currentStrength = 0
+
+    fun accept(line: String) {
+        when {
+            "切换玩家战斗音乐状态: 进入战斗" in line ||
+                "切换玩家状态: 进入战斗造成伤害" in line -> battles++
+            "初次幻象收服" in line || "初次幻象捕捉" in line -> echoesCollected++
+            "极限闪避前闪" in line -> dodgeForward++
+            "极限闪避后闪" in line -> dodgeBack++
+            "极限闪避反击" in line -> dodgeCounter++
+            "执行角色死亡逻辑" in line || "前台角色死亡进行切人" in line -> deaths++
+            "角色下场" in line -> roleChanges++
+            ("传送:" in line && "完成" in line) || "传送:完成" in line -> teleports++
+            "进入倒地状态" in line -> staggers++
+            "召唤系幻象的出生特效" in line -> echoSkillsUsed++
+            "变身幻象" in line -> echoTransformUsed++
+            "月卡每日奖励" in line || "【月卡每日奖励】信息推送" in line -> {
+                monthCards++
+                val m = REMAIN_DAYS_RE.find(line)
+                if (m != null) monthCardRemainDays = m.groupValues[1].toIntOrNull() ?: monthCardRemainDays
+            }
+            "SetUserId [playerId:" in line -> {
+                val m = PLAYER_ID_RE.find(line)
+                if (m != null) playerId = m.groupValues[1]
+            }
+            "当前体力数据" in line -> {
+                val m = UPS_RE.find(line)
+                if (m != null) {
+                    val v = m.groupValues[1].toIntOrNull() ?: 0
+                    if (v < currentStrength) staminaUsed += currentStrength - v
+                    currentStrength = v
+                }
+            }
+        }
+    }
+
+/**
+     * [accept] for a line occupying `text[start until stop)`, matched in place.
+     *
+     * Only the first matching branch is taken, exactly as [accept] does, so a line
+     * carrying two patterns is still counted once.
+     */
+    fun acceptRange(scan: LineScanner) {
+        fun has(p: String) = scan.contains(p)
+        when {
+            has(BATTLE_MUSIC) || has(BATTLE_DAMAGE) -> battles++
+            has(ECHO_TAME) || has(ECHO_CATCH) -> echoesCollected++
+            has(DODGE_FORWARD) -> dodgeForward++
+            has(DODGE_BACK) -> dodgeBack++
+            has(DODGE_COUNTER) -> dodgeCounter++
+            has(DEATH_LOGIC) || has(DEATH_SWITCH) -> deaths++
+            has(ROLE_EXIT) -> roleChanges++
+            has(TELEPORT) && has(DONE) -> teleports++
+            has(DOWNED) -> staggers++
+            has(ECHO_SKILL) -> echoSkillsUsed++
+            has(ECHO_TRANSFORM) -> echoTransformUsed++
+            has(MONTH_CARD) || has(MONTH_CARD_PUSH) -> {
+                monthCards++
+                monthCardRemainDays = intAfter(scan, "remainDays:") ?: monthCardRemainDays
+            }
+            has("SetUserId [playerId:") -> intAfter(scan, "playerId:")?.let { playerId = it.toString() }
+            has(STAMINA_KEY) -> {
+                val v = intAfter(scan, "UPs:") ?: 0
+                if (v < currentStrength) staminaUsed += currentStrength - v
+                currentStrength = v
+            }
+        }
+    }
+
+    /** First run of digits after [key] within the line, or null. */
+    private fun intAfter(
+        scan: LineScanner,
+        key: String,
+    ): Int? {
+        val text = scan.text
+        val from = scan.indexOf(key)
+        if (from < 0) return null
+        var i = from + key.length
+        // The source regexes were `key:\s*(\d+)`, and the live log does emit a
+        // space - `SetUserId [playerId: 700670069]` - so skipping blanks is what
+        // keeps this equivalent to them.
+        while (i < scan.stop && (text[i] == ' ' || text[i] == '\t')) i++
+        var v = 0
+        var digits = 0
+        while (i < scan.stop) {
+            val c = text[i]
+            if (c < '0' || c > '9') break
+            v = v * 10 + (c - '0')
+            digits++
+            i++
+        }
+        return if (digits > 0) v else null
+    }
+
+    fun toStats(
+        logSizeBytes: Long = 0L,
+        playtimeSeconds: Long = 0L,
+        sessions: Int = 0,
+    ): BattleStats =
+        BattleStats(
+            battles = battles,
+            echoesCollected = echoesCollected,
+            dodgeForward = dodgeForward,
+            dodgeBack = dodgeBack,
+            dodgeCounter = dodgeCounter,
+            deaths = deaths,
+            roleChanges = roleChanges,
+            teleports = teleports,
+            staggers = staggers,
+            staminaUsed = staminaUsed,
+            echoSkillsUsed = echoSkillsUsed,
+            echoTransformUsed = echoTransformUsed,
+            monthCards = monthCards,
+            monthCardRemainDays = monthCardRemainDays,
+            playerId = playerId,
+            logSizeBytes = logSizeBytes,
+            playtimeSeconds = playtimeSeconds,
+            sessions = sessions,
+        )
+}
+
 object LogParser {
     enum class DecodeResult {
         DECRYPTED,
@@ -614,74 +830,9 @@ object LogParser {
     }
 
     fun parseBattleStatsLines(lines: List<String>): BattleStats {
-        var battles = 0
-        var echoesCollected = 0
-        var dodgeForward = 0
-        var dodgeBack = 0
-        var dodgeCounter = 0
-        var deaths = 0
-        var roleChanges = 0
-        var teleports = 0
-        var staggers = 0
-        var staminaUsed = 0
-        var echoSkillsUsed = 0
-        var echoTransformUsed = 0
-        var monthCards = 0
-        var monthCardRemainDays = 0
-        var playerId = ""
-        var currentStrength = 0
-
-        for (line in lines) {
-            when {
-                "切换玩家战斗音乐状态: 进入战斗" in line ||
-                    "切换玩家状态: 进入战斗造成伤害" in line -> battles++
-                "初次幻象收服" in line || "初次幻象捕捉" in line -> echoesCollected++
-                "极限闪避前闪" in line -> dodgeForward++
-                "极限闪避后闪" in line -> dodgeBack++
-                "极限闪避反击" in line -> dodgeCounter++
-                "执行角色死亡逻辑" in line || "前台角色死亡进行切人" in line -> deaths++
-                "角色下场" in line -> roleChanges++
-                ("传送:" in line && "完成" in line) || "传送:完成" in line -> teleports++
-                "进入倒地状态" in line -> staggers++
-                "召唤系幻象的出生特效" in line -> echoSkillsUsed++
-                "变身幻象" in line -> echoTransformUsed++
-                "月卡每日奖励" in line || "【月卡每日奖励】信息推送" in line -> {
-                    monthCards++
-                    val m = REMAIN_DAYS_RE.find(line)
-                    if (m != null) monthCardRemainDays = m.groupValues[1].toIntOrNull() ?: monthCardRemainDays
-                }
-                "SetUserId [playerId:" in line -> {
-                    val m = PLAYER_ID_RE.find(line)
-                    if (m != null) playerId = m.groupValues[1]
-                }
-                "当前体力数据" in line -> {
-                    val m = UPS_RE.find(line)
-                    if (m != null) {
-                        val v = m.groupValues[1].toIntOrNull() ?: 0
-                        if (v < currentStrength) staminaUsed += currentStrength - v
-                        currentStrength = v
-                    }
-                }
-            }
-        }
-
-        return BattleStats(
-            battles = battles,
-            echoesCollected = echoesCollected,
-            dodgeForward = dodgeForward,
-            dodgeBack = dodgeBack,
-            dodgeCounter = dodgeCounter,
-            deaths = deaths,
-            roleChanges = roleChanges,
-            teleports = teleports,
-            staggers = staggers,
-            staminaUsed = staminaUsed,
-            echoSkillsUsed = echoSkillsUsed,
-            echoTransformUsed = echoTransformUsed,
-            monthCards = monthCards,
-            monthCardRemainDays = monthCardRemainDays,
-            playerId = playerId,
-        )
+        val counters = BattleCounters()
+        for (line in lines) counters.accept(line)
+        return counters.toStats()
     }
 
     fun parseBattleStats(text: String): BattleStats {
@@ -690,76 +841,245 @@ object LogParser {
         return stats.copy(logSizeBytes = text.toByteArray(Charsets.UTF_8).size.toLong())
     }
 
-    fun parseBattleStatsSummary(text: String): com.wuwaconfig.app.model.BattleStatsSummary {
-        val lines = text.lines()
-        val total = parseBattleStatsLines(lines)
-        val withBytes = total.copy(logSizeBytes = text.toByteArray(Charsets.UTF_8).size.toLong())
+    /**
+     * Zero-allocation scan of [text], one line at a time.
+     *
+     * Same counting rules as [BattleCounters.accept], reached without building a
+     * `String` per line. The obvious implementations each allocate per line — a
+     * line substring, `MatchResult.groupValues`' list, the `substringBefore(':')`
+     * and the cache key — and on a phone whose whole heap is `192m`
+     * (`dalvik.vm.heapgrowthlimit`) a 19MB log times ~55k lines of that garbage
+     * spends its time in GC, not parsing: measured 8-30s per log on a moto g60
+     * against 0.4s for the identical work on the JVM.
+     *
+     * `String.regionMatches` compares in place, so matching a pattern against a
+     * line costs no allocation at all, and the timestamp is read digit by digit
+     * out of the existing buffer rather than captured into substrings.
+     *
+     * Patterns never span a newline (none contains one), so comparing against the
+     * line's own index range keeps this exactly equivalent to per-line matching.
+     */
+    private fun scanSummary(
+        text: String,
+        byteLengthHint: Long,
+    ): com.wuwaconfig.app.model.BattleStatsSummary {
+        val total = BattleCounters()
+        val perDay = HashMap<Long, BattleCounters>()
+        var firstEpoch = 0L
+        var lastEpoch = 0L
+        var sessions = 0
+        var seen = false
 
-        val timestamps = mutableListOf<Pair<String, Long>>()
-        for (line in lines) {
-            val m = LOG_TIMESTAMP_RE.find(line) ?: continue
-            val dateStr = m.groupValues[1]
-            val epochSec = parseLogTimestampToEpochSec(dateStr, m.groupValues[2])
-            if (epochSec != null) timestamps += dateStr to epochSec
+        val scan = LineScanner(text)
+        var start = 0
+        val len = text.length
+        while (start <= len) {
+            var end = text.indexOf('\n', start)
+            if (end < 0) end = len
+            val stop = if (end > start && text[end - 1] == '\r') end - 1 else end
+            if (stop > start) {
+                scan.start = start
+                scan.stop = stop
+                total.acceptRange(scan)
+
+                val packed = stampAt(scan)
+                if (packed != 0L) {
+                    val epoch = epochOfPacked(packed)
+                    if (epoch != null) {
+                        perDay.getOrPut(packed shr 29) { BattleCounters() }.acceptRange(scan)
+                        // Same rule as the reference parser: playtime is the span
+                        // from the earliest to the latest stamp, and a gap wider than
+                        // SESSION_GAP_SECONDS starts another session. A backwards step
+                        // only widens the span, so the two agree on chronological logs
+                        // without materialising and sorting every timestamp.
+                        if (!seen) {
+                            firstEpoch = epoch
+                            lastEpoch = epoch
+                            seen = true
+                            sessions = 1
+                        } else {
+                            if (epoch - lastEpoch > SESSION_GAP_SECONDS) sessions++
+                            if (epoch > lastEpoch) lastEpoch = epoch
+                            if (epoch < firstEpoch) firstEpoch = epoch
+                        }
+                    }
+                }
+            }
+            if (end == len) break
+            start = end + 1
         }
 
-        val sessions = estimateSessions(timestamps)
-        val playtimeSeconds =
-            if (timestamps.size >= 2) {
-                val sorted = timestamps.sortedBy { it.second }
-                (sorted.last().second - sorted.first().second).coerceAtLeast(0L)
-            } else {
-                0L
-            }
+        val sizeBytes = if (byteLengthHint >= 0L) byteLengthHint else text.toByteArray(Charsets.UTF_8).size.toLong()
+        val playtime = if (seen) (lastEpoch - firstEpoch).coerceAtLeast(0L) else 0L
 
-        val totalWithPlaytime = withBytes.copy(playtimeSeconds = playtimeSeconds, sessions = sessions)
-        val daily = buildDailyBreakdown(lines, timestamps)
         return com.wuwaconfig.app.model.BattleStatsSummary(
-            total = totalWithPlaytime,
-            daily = daily,
-            accountId = totalWithPlaytime.playerId,
+            total = total.toStats(sizeBytes, playtime, sessions),
+            daily =
+                perDay.entries.sortedBy { it.key }.map { (date, c) ->
+                    com.wuwaconfig.app.model.DailyBattleStats(dateOf(date), c.toStats())
+                },
+            accountId = total.playerId,
             timestampMs = System.currentTimeMillis(),
         )
     }
 
-    private fun estimateSessions(timestamps: List<Pair<String, Long>>): Int {
-        if (timestamps.isEmpty()) return 0
-        val sorted = timestamps.sortedBy { it.second }
-        var sessions = 1
-        var prev = sorted.first().second
-        for ((_, epoch) in sorted.drop(1)) {
-            if (epoch - prev > SESSION_GAP_SECONDS) sessions++
-            prev = epoch
+    /** A `yyyy.MM.dd` date plus its `HH.mm.ss` time packed into a Long. */
+    private class Stamp(val date: String, val packed: Long)
+
+/**
+     * Reads `[2026.10.09-09.39.39:824]` from the line starting at [from].
+     *
+     * Digits are read straight out of the buffer into a packed key, so the only
+     * String allocated per stamped line is the date — which doubles as the daily
+     * bucket key and so is already needed. Returns null when the line does not
+     * start with a well-formed stamp.
+     */
+    private fun stampAt(scan: LineScanner): Long {
+        val text = scan.text
+        val from = scan.start
+        val stop = scan.stop
+        // `[2026.10.09-09.39.39:824]`; offsets below are absolute from `from`.
+        if (stop - from < 25) return 0L
+        if (text[from] != '[') return 0L
+        if (text[from + 5] != '.' || text[from + 8] != '.') return 0L
+        if (text[from + 11] != '-') return 0L
+        if (text[from + 14] != '.' || text[from + 17] != '.') return 0L
+
+        var year = 0
+        for (i in 1..4) {
+            val c = text[from + i]
+            if (c < '0' || c > '9') return 0L
+            year = year * 10 + (c - '0')
         }
-        return sessions
+
+        fun pair(at: Int): Int {
+            val hi = text[from + at]
+            val lo = text[from + at + 1]
+            if (hi < '0' || hi > '9' || lo < '0' || lo > '9') return -1
+            return (hi - '0') * 10 + (lo - '0')
+        }
+
+        val month = pair(6)
+        val day = pair(9)
+        val hour = pair(12)
+        val minute = pair(15)
+        val second = pair(18)
+        if (month < 1 || month > 12) return 0L
+        if (day < 1 || day > 31) return 0L
+        if (hour > 23 || minute > 59 || second > 59) return 0L
+
+        return (year.toLong() shl 40) or (month.toLong() shl 34) or (day.toLong() shl 29) or
+            (hour.toLong() shl 24) or (minute.toLong() shl 18) or (second.toLong() shl 12)
     }
 
-    private fun buildDailyBreakdown(
-        lines: List<String>,
-        timestamps: List<Pair<String, Long>>,
-    ): List<com.wuwaconfig.app.model.DailyBattleStats> {
-        if (timestamps.isEmpty()) return emptyList()
-        val dateOfLine = Array(lines.size) { i -> LOG_TIMESTAMP_RE.find(lines[i])?.groupValues?.get(1) }
-        val grouped = mutableMapOf<String, MutableList<String>>()
-        for (i in lines.indices) {
-            val date = dateOfLine[i] ?: continue
-            grouped.getOrPut(date) { mutableListOf() } += lines[i]
-        }
-        return grouped.entries.sortedBy { it.key }.map { (date, dayLines) ->
-            com.wuwaconfig.app.model.DailyBattleStats(date, parseBattleStatsLines(dayLines))
-        }
+    /**
+     * `yyyy.MM.dd` for a date key, which is a stamp shifted down to `year<<11 |
+     * month<<5 | day` — everything above the time fields, so it is one value per
+     * calendar day and nothing else.
+     */
+    private fun dateOf(dateKey: Long): String {
+        val year = (dateKey shr 11).toInt()
+        val month = ((dateKey shr 5) and 0xF).toInt()
+        val day = (dateKey and 0x1F).toInt()
+        return "$year.${"%02d".format(month)}.${"%02d".format(day)}"
     }
+
+    fun parseBattleStatsSummary(
+        text: String,
+        byteLengthHint: Long = -1L,
+    ): com.wuwaconfig.app.model.BattleStatsSummary = scanSummary(text, byteLengthHint)
+
+    internal fun parseBattleStatsSummaryReference(
+        text: String,
+        byteLengthHint: Long = -1L,
+    ): com.wuwaconfig.app.model.BattleStatsSummary {
+        val total = BattleCounters()
+        val perDay = HashMap<String, BattleCounters>()
+
+        var firstEpoch = 0L
+        var lastEpoch = 0L
+        var sessions = 0
+        var hasTimestamp = false
+
+        for (line in text.lineSequence()) {
+            total.accept(line)
+
+            val m = LOG_TIMESTAMP_RE.find(line) ?: continue
+            val epoch = parseLogTimestampToEpochSec(m.groupValues[1], m.groupValues[2]) ?: continue
+            val date = m.groupValues[1]
+
+            perDay.getOrPut(date) { BattleCounters() }.accept(line)
+
+            if (!hasTimestamp) {
+                firstEpoch = epoch
+                lastEpoch = epoch
+                hasTimestamp = true
+                sessions = 1
+            } else {
+                if (epoch < lastEpoch) {
+                    // A backwards step means a new log was concatenated after this one.
+                    sessions++
+                } else if (epoch - lastEpoch > SESSION_GAP_SECONDS) {
+                    sessions++
+                }
+                lastEpoch = maxOf(lastEpoch, epoch)
+            }
+        }
+
+        val sizeBytes = if (byteLengthHint >= 0L) byteLengthHint else text.toByteArray(Charsets.UTF_8).size.toLong()
+        val playtime = if (hasTimestamp) (lastEpoch - (firstEpoch ?: lastEpoch)).coerceAtLeast(0L) else 0L
+
+        return com.wuwaconfig.app.model.BattleStatsSummary(
+            total = total.toStats(sizeBytes, playtime, sessions),
+            daily =
+                perDay.entries.sortedBy { it.key }.map { (date, counters) ->
+                    com.wuwaconfig.app.model.DailyBattleStats(date, counters.toStats())
+                },
+            accountId = total.playerId,
+            timestampMs = System.currentTimeMillis(),
+        )
+    }
+
+/**
+     * Second-resolution stamp -> epoch seconds.
+     *
+     * Every log line carries a timestamp and each one used to cost a fresh
+     * `SimpleDateFormat` construction plus a `parse()`. A single 10MB log has ~56k
+     * lines, so one battle-stats read built ~56k formatters — measurably 13.5s on a
+     * real device, against ~0.4s for the same work on the JVM. Formatters are now
+     * reused, and because the stamp is second-resolution, consecutive lines share a
+     * key, so the cache absorbs almost all of the parsing.
+     */
+    private val EPOCH_CACHE = HashMap<String, Long>()
+
+    private const val EPOCH_CACHE_MAX = 200_000
+
+    private val STAMP_FORMAT: ThreadLocal<java.text.SimpleDateFormat> =
+        ThreadLocal.withInitial {
+            java.text.SimpleDateFormat("yyyy.MM.dd-HH.mm.ss", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getDefault()
+                isLenient = false
+            }
+        }
 
     private fun parseLogTimestampToEpochSec(
         datePart: String,
         timePart: String,
-    ): Long? =
-        runCatching {
-            val fmt = java.text.SimpleDateFormat("yyyy.MM.dd-HH.mm.ss", java.util.Locale.US)
-            fmt.timeZone = java.util.TimeZone.getDefault()
-            val hhmmss = timePart.substringBefore(':')
-            fmt.parse("$datePart-$hhmmss")!!.time / 1000L
-        }.getOrNull()
+    ): Long? {
+        val key = "$datePart $timePart"
+        EPOCH_CACHE[key]?.let { return it }
+        val hhmmss = timePart.substringBefore(':')
+        val parsed =
+            runCatching { STAMP_FORMAT.get().parse("$datePart-$hhmmss")!!.time / 1000L }.getOrNull()
+        if (parsed != null) {
+            // Bounded: keys are second-resolution stamps, so a long-lived install
+            // reading years of logs would otherwise grow this without limit. Dropping
+            // the cache wholesale only costs one re-parse per stamp afterwards.
+            if (EPOCH_CACHE.size >= EPOCH_CACHE_MAX) EPOCH_CACHE.clear()
+            EPOCH_CACHE[key] = parsed
+        }
+        return parsed
+    }
 
     /** Maps an RHI CVar value (e.g. from `r.RHI`) to a normalized API name. */
     private fun apiFromRhiToken(token: String?): String? =
@@ -935,9 +1255,59 @@ object LogParser {
     private val RHI_RE =
         Regex("""LogRHI:\s*Initializing\s+(\S+(?:\s+\S+)*?)\s*RHI""", RegexOption.IGNORE_CASE)
 
-    private val UPS_RE = Regex("""UPs:(\d+)""")
-    private val REMAIN_DAYS_RE = Regex("""remainDays:\s*(\d+)""")
-    private val PLAYER_ID_RE = Regex("""playerId:\s*(\d+)""")
+    /**
+     * Days since 1970-01-01 for a proleptic Gregorian date.
+     *
+     * Howard Hinnant's `days_from_civil`: no `Calendar`, no `TimeZone`, no allocation.
+     * It replaced a reused `java.util.Calendar`, whose retained state made successive
+     * `clear()`+`set()`+`getTimeInMillis()` calls disagree with a fresh parser — a
+     * battle-stat read over 20 logs was assigning timestamps to the wrong day and
+     * reporting 11 hours of playtime for a 23-hour span.
+     */
+    private fun daysFromCivil(
+        year: Int,
+        month: Int,
+        day: Int,
+    ): Long {
+        val y = year - if (month <= 2) 1 else 0
+        val era = (if (y >= 0) y else y - 399) / 400
+        val yoe = y - era * 400
+        val doy = (153 * (month + if (month > 2) -3 else 9) + 2) / 5 + day - 1
+        val doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+        return era.toLong() * 146097 + doe - 719468
+    }
+
+/**
+     * Packed stamp -> epoch seconds, for [epochOfPacked].
+     *
+     * Separate from the object's own cache because that one is keyed by the raw
+     * substrings and still serves the reference parser.
+     */
+    private val PACKED_EPOCH_CACHE = HashMap<Long, Long>()
+
+    private const val PACKED_EPOCH_CACHE_MAX = 200_000
+
+/** Epoch seconds of a packed stamp, memoised — stamps repeat within a second. */
+    private fun epochOfPacked(packed: Long): Long? {
+        PACKED_EPOCH_CACHE[packed]?.let { return it }
+        val year = (packed shr 40).toInt()
+        val month = ((packed shr 34) and 0xF).toInt()
+        val day = ((packed shr 29) and 0x1F).toInt()
+        val hour = ((packed shr 24) and 0x1F).toInt()
+        val minute = ((packed shr 18) and 0x3F).toInt()
+        val second = ((packed shr 12) and 0x3F).toInt()
+        if (month !in 1..12 || day !in 1..31 || hour > 23 || minute > 59 || second > 59) return null
+
+        val wall = daysFromCivil(year, month, day) * 86_400L + hour * 3600L + minute * 60L + second
+        // Resolve the offset against the instant itself so DST is honoured the way a
+        // Calendar would: guess at UTC, ask the zone what it would be there, correct.
+        val guessMillis = wall * 1000L
+        val epoch = (guessMillis - java.util.TimeZone.getDefault().getOffset(guessMillis)) / 1000L
+        if (PACKED_EPOCH_CACHE.size >= PACKED_EPOCH_CACHE_MAX) PACKED_EPOCH_CACHE.clear()
+        PACKED_EPOCH_CACHE[packed] = epoch
+        return epoch
+    }
+
     private val LOG_TIMESTAMP_RE = Regex("""\[(\d{4}\.\d{2}\.\d{2})-(\d{2}\.\d{2}\.\d{2}:\d+)\]""")
 
     /** A gap longer than this between log lines marks a new session. */

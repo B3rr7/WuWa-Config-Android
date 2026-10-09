@@ -286,7 +286,7 @@ private fun BattleStatsDailyChart(summary: com.wuwaconfig.app.model.BattleStatsS
                             .clip(RoundedCornerShape(6.dp))
                             .background(NeonGreen.copy(alpha = 0.6f)),
                 )
-                Spacer(Modifier.weight((1f - fraction).coerceAtLeast(0f)))
+                Spacer(Modifier.weight((1f - fraction).coerceIn(0f, 1f) + 0.001f))
                 Text(
                     "${day.stats.battles}",
                     style = MaterialTheme.typography.labelSmall,

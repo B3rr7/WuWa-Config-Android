@@ -15,6 +15,7 @@ import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.util.formatBytes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
@@ -52,6 +53,16 @@ class ProfileExtractor(
         // three version fields silently came back null.
         internal val LOCAL_STORAGE_TABLE: String = gameProfile().localStorageTable
         internal val DEVICE_STORAGE_TABLE: String = gameProfile().deviceStorageTable
+
+        /**
+         * How many logs a battle-stats read will open, newest first.
+         *
+         * A bound is required because each is copied whole and decoded in memory;
+         * a device with a long history would otherwise try to decode every backup
+         * it has ever kept. The newest-first order means truncating the tail drops
+         * the oldest playtime, which is the least surprising thing to lose.
+         */
+        const val MAX_LOGS_FOR_BATTLE_STATS = 24
     }
 
     suspend fun readClientLogContent(onProgress: (Int) -> Unit = {}): Result<String> =
@@ -193,7 +204,20 @@ class ProfileExtractor(
     private suspend fun readRemoteLogToText(
         path: String,
         onProgress: (Int) -> Unit = {},
-    ): Result<Pair<String, LogParser.DecodeResult>> {
+    ): Result<Pair<String, LogParser.DecodeResult>> = readRemoteLogToTextWithSize(path, onProgress).map { it.first }
+
+    /**
+     * As [readRemoteLogToText], plus the log's size on disk.
+     *
+     * Callers that report LOG SIZE want the byte count, and re-deriving it from the
+     * decoded text means re-encoding up to 19MB back to UTF-8 — a large transient
+     * allocation per log against a 192MB heap. The count is already known: it is how
+     * many bytes were read.
+     */
+    private suspend fun readRemoteLogToTextWithSize(
+        path: String,
+        onProgress: (Int) -> Unit = {},
+    ): Result<Pair<Pair<String, LogParser.DecodeResult>, Long>> {
         val cacheDir = context.cacheDir.absolutePath
         // UUID, not currentTimeMillis(): two concurrent reads landing in the same
         // millisecond shared a path, and one `finally { delete() }` yanked the file
@@ -215,7 +239,7 @@ class ProfileExtractor(
 
             val (text, decodeResult) = LogParser.decodeLogBytes(rawBytes)
             onProgress(95)
-            return Result.success(text to decodeResult)
+            return Result.success((text to decodeResult) to rawBytes.size.toLong())
         } catch (e: Exception) {
             Log.w("ProfileExtractor", "readRemoteLogToText failed: ${e.message}")
             return Result.failure(e)
@@ -338,6 +362,12 @@ class ProfileExtractor(
             val skipped = mutableListOf<String>()
             val parts = mutableListOf<String>()
             var bytes = 0L
+            // Budget for BACKUP reads only. It used to include the current log, whose
+            // full length runs 9-20MB against an 8MB budget — so the very first
+            // `bytes >= totalBudgetBytes` check was already true and every backup was
+            // skipped, reducing the merge to the single file it exists to complement.
+            // Observed on-device as "Merged 1 log(s), 9.2 MB (skipped 20)".
+            var backupBytes = 0L
 
             val currentPath = "${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}"
             val current = readRemoteLogToText(currentPath)
@@ -357,7 +387,7 @@ class ProfileExtractor(
                     skipped += "${path.substringAfterLast("/")} (over the $maxBackupLogs backup limit)"
                     continue
                 }
-                if (bytes >= totalBudgetBytes) {
+                if (backupBytes >= totalBudgetBytes) {
                     skipped += "${path.substringAfterLast("/")} (over the byte budget)"
                     continue
                 }
@@ -373,6 +403,7 @@ class ProfileExtractor(
                 }
                 parts += text
                 bytes += text.length
+                backupBytes += text.length
                 used += path.substringAfterLast("/")
             }
 
@@ -492,42 +523,73 @@ class ProfileExtractor(
         }
 
     /**
-     * Battle stats across **all** retained sessions, not just the current log.
+     * Battle stats across **every** retained log, read in full.
      *
-     * This used to read only `Client.log`, which made the screen's own claim
-     * ("Data from all game sessions is cumulative") false: the game rotates the
-     * log at ~20 MB, so the current file is often just a post-rotation tail and
-     * TOTAL BATTLES silently dropped to the newest session. It also disagreed
-     * with the analysis path, which does merge — so the same screen could show
-     * two different totals depending on which producer ran last.
+     * The previous implementation merged each backup as a 256KB *head*, which is
+     * the part of a log that contains no gameplay at all: it is pak mounting and
+     * shader compilation. Verified on-device — the first 256KB of a 10MB log holds
+     * 0 of the 23 `进入战斗` lines, which all sit deeper in. So 215MB of retained
+     * backups contributed nothing, and the screen reported one session's numbers
+     * while claiming to be cumulative.
      *
-     * [readMergedClientLog] is the same fix already applied to [readProfile],
-     * where reading only the current log left the DEVICE and PERFORMANCE
-     * sections empty for exactly the same reason.
+     * Each log is therefore copied whole ([readRemoteLogToText] runs `cp` *on the
+     * device*, so the bytes never cross the binder), parsed on its own, merged, and
+     * dropped before the next one is read. Merging summaries rather than
+     * concatenating text is what keeps that affordable: 225MB of logs can never be
+     * one String, but one 20MB log at a time can be.
      */
     suspend fun readBattleStatsSummary(onProgress: (Int) -> Unit = {}): Result<com.wuwaconfig.app.model.BattleStatsSummary> =
         withContext(Dispatchers.IO) {
-            try {
-                onProgress(10)
-                val merged = readMergedClientLog().getOrThrow()
-                val text = merged.first
-                if (text.isBlank()) return@withContext Result.failure(Exception("Client.log is empty"))
+            val paths =
+                buildList {
+                    add("${GamePaths.LOG_DIR}/${GamePaths.LOG_FILE_NAME}")
+                    addAll(listBackupLogsNewestFirst())
+                }.take(MAX_LOGS_FOR_BATTLE_STATS)
 
-                onProgress(50)
-                val lines = text.lines()
-                onProgress(80)
-                val summary = LogParser.parseBattleStatsSummary(text)
-                LogRepository.add(
-                    "readBattleStatsSummary: parsed ${lines.size} merged lines from ${merged.second.summary()}",
-                    LogLevel.INFO,
-                )
-                Result.success(summary)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w("ProfileExtractor", "readBattleStatsSummary failed: ${e.message}")
-                Result.failure(e)
+            var merged: com.wuwaconfig.app.model.BattleStatsSummary? = null
+            var used = 0
+            val skipped = mutableListOf<String>()
+
+            for ((index, path) in paths.withIndex()) {
+                ensureActive()
+                val label = path.substringAfterLast("/")
+                val read = readRemoteLogToTextWithSize(path)
+                if (read.isFailure) {
+                    skipped += "$label (${read.exceptionOrNull()?.message})"
+                    continue
+                }
+                val decoded = read.getOrThrow()
+                val text = decoded.first.first
+                val rawSize = decoded.second
+                if (text.isBlank()) {
+                    skipped += "$label (empty)"
+                    continue
+                }
+                onProgress(((index + 1) * 90 / paths.size).coerceIn(0, 90))
+                // One log failing must not discard the ones already merged — a
+                // decode or parse throw here used to take the whole read with it.
+                val perLog =
+                    try {
+                        LogParser.parseBattleStatsSummary(text, byteLengthHint = rawSize)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        skipped += "$label (${e.javaClass.simpleName}: ${e.message})"
+                        continue
+                    }
+                merged = (merged ?: com.wuwaconfig.app.model.BattleStatsSummary(BattleStats())) + perLog
+                used++
             }
+
+            onProgress(100)
+            val result = merged ?: return@withContext Result.failure(Exception("No readable Client.log found"))
+            LogRepository.add(
+                "readBattleStatsSummary: $used/${paths.size} log(s) read in full, " +
+                    "${formatBytes(result.total.logSizeBytes)}, ${result.daily.size} day(s), ${result.total.sessions} session(s)" +
+                    if (skipped.isEmpty()) "" else " — skipped ${skipped.joinToString(", ")}",
+                LogLevel.INFO,
+            )
+            Result.success(result)
         }
 
     suspend fun readBattleStats(onProgress: (Int) -> Unit = {}): Result<BattleStats> =

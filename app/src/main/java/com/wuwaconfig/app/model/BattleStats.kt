@@ -75,4 +75,28 @@ data class BattleStatsSummary(
     val timestampMs: Long = 0L,
 ) {
     fun lastNDays(n: Int): List<DailyBattleStats> = daily.sortedBy { it.date }.takeLast(n)
+
+    /**
+     * Merges another summary in, summing counters and folding same-dated days together.
+     *
+     * Sums [BattleStats.playtimeSeconds] and [BattleStats.sessions] rather than
+     * recomputing them from a combined timestamp span. Summing per-log durations is
+     * what makes the number mean "time actually played": each log covers one
+     * contiguous stretch, so the spans are disjoint. Taking `last - first` across a
+     * concatenation instead includes every gap between sessions — the idle hours
+     * between closing the game and reopening it — and reported 66 hours of playtime
+     * for a log set spanning three weeks.
+     */
+    operator fun plus(other: BattleStatsSummary): BattleStatsSummary {
+        val byDate = LinkedHashMap<String, BattleStats>()
+        for (entry in daily + other.daily) {
+            byDate[entry.date] = (byDate[entry.date] ?: BattleStats()) + entry.stats
+        }
+        return BattleStatsSummary(
+            total = total + other.total,
+            daily = byDate.entries.sortedBy { it.key }.map { DailyBattleStats(it.key, it.value) },
+            accountId = accountId.ifEmpty { other.accountId },
+            timestampMs = maxOf(timestampMs, other.timestampMs),
+        )
+    }
 }
