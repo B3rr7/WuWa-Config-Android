@@ -1,6 +1,9 @@
 // Bump CACHE_VERSION whenever SHELL changes, or returning visitors keep the old
 // precache forever. Cleaned up by the `activate` handler below.
-const CACHE_VERSION = 'v2';
+// Also bump it when ANY same-origin static asset changes value at the same URL:
+// `cacheFirst` below never revalidates a hit, so a replaced screenshots/screen-0N.webp
+// would otherwise stay frozen at the old build for every returning visitor.
+const CACHE_VERSION = 'v3';
 const SHELL_CACHE = `wuwacfg-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `wuwacfg-assets-${CACHE_VERSION}`;
 

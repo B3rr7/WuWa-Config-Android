@@ -69,12 +69,13 @@ Unreal Engine INI configs for Wuthering Waves — no root, no PC, no telemetry.
   assistant can query presets, analyse logs and read deploy history.
 
 <p align="center">
-  <img src="screenshots/screen-01.webp" width="180" alt="Home screen with backend connection status and quick actions">
-  <img src="screenshots/screen-02.webp" width="180" alt="Config generator with SmartBrain device analysis and preset selection">
-  <img src="screenshots/screen-03.webp" width="180" alt="Gacha pity tracker with pull history and next 5-star prediction">
-  <img src="screenshots/screen-04.webp" width="180" alt="Player profile with UID, server and tower progress">
-  <img src="screenshots/screen-05.webp" width="180" alt="Battle stats analyzer with combat and exploration cards">
-  <img src="screenshots/screen-06.webp" width="180" alt="Settings with theme options and backup directory">
+  <img src="screenshots/screen-01.webp?v=1.1.7" width="180" alt="Home screen with backend connection status and quick actions">
+  <img src="screenshots/screen-02.webp?v=1.1.7" width="180" alt="Config generator with device analysis and preset selection">
+  <img src="screenshots/screen-03.webp?v=1.1.7" width="180" alt="Gacha pity tracker with pull history and rarity breakdown">
+  <img src="screenshots/screen-04.webp?v=1.1.7" width="180" alt="Player profile with account level, season progress and device info">
+  <img src="screenshots/screen-05.webp?v=1.1.7" width="180" alt="Battle stats analyzer with combat and exploration cards">
+  <img src="screenshots/screen-06.webp?v=1.1.7" width="180" alt="Appearance screen with the UI Style Engine and colour palettes">
+  <img src="screenshots/screen-07.webp?v=1.1.7" width="180" alt="Character view with a Kuro-synced roster, equipped weapon and resonance">
 </p>
 
 ---
