@@ -1,10 +1,11 @@
+<!-- prettier-ignore -->
 <div align="center">
 
 <img src="app_icon.png" width="120" alt="WuWaConfig logo">
 
 # WuWaConfig
 
-### Boost FPS · Tune Graphics · Analyze Device · Track Pity · Stay Private
+**Boost FPS · Tune graphics · Analyze device · Track pity · Stay private**
 
 [![Release](https://img.shields.io/github/v/release/B3rr7/WuWa-Config-Android?label=Download&color=purple)](https://github.com/B3rr7/WuWa-Config-Android/releases)
 [![Stars](https://img.shields.io/github/stars/B3rr7/WuWa-Config-Android?style=flat&logo=github)](https://github.com/B3rr7/WuWa-Config-Android/stargazers)
@@ -16,7 +17,7 @@
 A free, open-source Android toolkit that generates, optimizes and deploys
 Unreal Engine INI configs for Wuthering Waves — no root, no PC, no telemetry.
 
-[Features](#features) • [Quick start](#quick-start) • [Backends](#backends) • [Presets](#presets) • [Build](#building-from-source) • [Architecture](#architecture)
+[Features](#features) · [Quick start](#quick-start) · [Backends](#backends) · [Presets](#presets) · [Build](#building-from-source) · [Architecture](#architecture)
 
 </div>
 
@@ -37,29 +38,34 @@ Unreal Engine INI configs for Wuthering Waves — no root, no PC, no telemetry.
 
 ## Features
 
-- **Config generator** — Writes five INI files (`Engine.ini`, `Scalability.ini`,
+- **Config generator** — writes five INI files (`Engine.ini`, `Scalability.ini`,
   `GameUserSettings.ini`, `DeviceProfiles.ini`, `Hardware.ini`) tuned to your chipset
   across Snapdragon, Dimensity, Exynos and Tensor. Sets `FullscreenMode=0` to dodge the
   Android windowed-viewport bug.
-- **SmartBrain device scoring** — A 0–100 score derived from GPU tier, RAM, resolution,
+- **SmartBrain device scoring** — a 0–100 score derived from GPU tier, RAM, resolution,
   Vulkan support, thermal behaviour and logged frame drops, mapped to a recommended preset.
 - **8 quality presets** — `potato` → `cinematic`, each on its own detail rank. Every tier
   actually differs in screen percentage, shadow resolution, SSR, mip bias, streaming
   multiplier, view distance, foliage LOD, LOD bias and grass culling.
-- **CVar database** — 5,889 engine CVars plus 735 monitored keys. Redundant, unknown and
+- **CVar database** — 5,372 engine CVars plus 735 monitored keys. Redundant, unknown and
   platform-dead CVars are commented out with a `; [CVarDB] <reason>` marker. A restricted
   mode strips 31 CVars known to destabilise this build.
-- **Engine generation detection** — Reads the `++UE4+…` / `++UE5+…` banner out of
+- **Engine generation detection** — reads the `++UE4+…` / `++UE5+…` banner out of
   `Client.log` and suppresses UE5-only CVars that are inert on a UE4 build.
-- **Gacha pity tracker** — All 11 convene pools, no cap on tracked pulls, with
+- **Gacha pity tracker** — all 11 convene pools, no cap on tracked pulls, with
   guaranteed/50-50 state per banner and next-5★ prediction.
-- **Battle stats & player profile** — Decrypts and parses `Client.log` for combat,
-  dodge, movement and echo-skill figures, plus a read-only UID, server and tower readout.
-- **Backup, restore & hash monitor** — Automatic pre-write backup, MD5 snapshot/reconcile
+- **Battle stats & player profile** — decrypts and parses `Client.log` for combat, dodge,
+  movement and echo-skill figures, plus a read-only UID, server and tower readout.
+- **Character build guide** — Kuro passport login, in-game account choice, character
+  selection, and per-character builds (equipped gear plus official recommendations) from
+  Kuro's own guide API.
+- **Material calculator** — character and weapon progression costs (level, ascension and
+  skill levels) from wiki-sourced lookup tables, with a "Shell Credit" total.
+- **Backup, restore & hash monitor** — automatic pre-write backup, MD5 snapshot/reconcile
   to survive the game rewriting files under you, and one-tap restore.
-- **INI editor & log viewer** — Monospace editor with line diff, search and pre-deploy
+- **INI editor & log viewer** — monospace editor with line diff, search and pre-deploy
   hash verification; colour-coded log view with 5 MB rotation.
-- **System agent surface** — 9 read-only [AppFunctions](#appfunctions) so an on-device
+- **System agent surface** — 13 read-only [AppFunctions](#appfunctions) so an on-device
   assistant can query presets, analyse logs and read deploy history.
 
 <p align="center">
@@ -125,7 +131,7 @@ adb usb
 > [!IMPORTANT]
 > **Android 11+ and Chinese ROMs (Xiaomi/HyperOS, vivo, OPPO)** deny the `shell` user
 > writes into `Android/data/`. A `Permission denied` triggers an automatic `run-as` retry.
-> If the game is not debuggable, the retry cannot work — switch to **?** or **Root**.
+> If the game is not debuggable, the retry cannot work — switch to **SAF** or **Root**.
 
 ### Shizuku — Binder IPC
 
@@ -208,7 +214,7 @@ cd WuWa-Config-Android
 
 ./gradlew ktlintCheck        # style gate (CI enforces this)
 ./gradlew lint               # Android Lint
-./gradlew testDebugUnitTest  # 30 pure-logic test classes
+./gradlew testDebugUnitTest  # 66 test classes, 988 tests
 ./gradlew assembleDebug      # app/build/outputs/apk/debug/WuWaConfig-debug.apk
 ```
 
@@ -245,7 +251,7 @@ other way around.
 | Language | Kotlin 2.2.20, JDK 17, AGP 9.4.0, KSP 2.3.12 |
 | UI | Jetpack Compose, Material 3, BOM 2026.04.01 |
 | Navigation | Navigation 3 (`navigation3-runtime` / `-ui` 1.1.7), type-safe `@Serializable` route keys |
-| Architecture | MVVM — 8 `AndroidViewModel`s + `StateFlow`, service-locator `Application` |
+| Architecture | MVVM — 11 `AndroidViewModel`s + `StateFlow`, service-locator `Application` |
 | Async | kotlinx-coroutines 1.11.0 |
 | Media | Coil 3.3.0, Media3 ExoPlayer 1.7.1 |
 | Security | Platform `AndroidKeyStore` (AES-256-GCM), Shizuku UserService, DocumentFile |
@@ -264,18 +270,18 @@ WuWaConfigApp (Application)  — service locator, no DI framework
 │                   ├── ShizukuBackend  ShellUserService Binder IPC, script-file fallback
 │                   ├── RootBackend     su -c
 │                   └── SafBackend      DocumentFile, persistable tree URI
-├── CvarDatabase    5,889 CVars, async-loaded from assets
+├── CvarDatabase    5,372 CVars, async-loaded from assets
 ├── ConfigGenerator 8 presets → 5 INIs
 └── LogRepository   ring buffer, 1 000 entries
 
 MainActivity — single Activity, Navigation 3
-├── 14 type-safe destinations (nav/Destinations.kt)
-└── 8 ViewModels (all Activity-scoped)
+├── 16 type-safe destinations (nav/Destinations.kt)
+└── 11 ViewModels (all Activity-scoped)
     └── Screens → Components → Theme
 ```
 
 <details>
-<summary><b>Source tree — all 87 Kotlin files</b></summary>
+<summary><b>Package map — 122 Kotlin source files</b></summary>
 
 ```
 app/src/main/java/com/wuwaconfig/app/
@@ -302,7 +308,9 @@ app/src/main/java/com/wuwaconfig/app/
 │   ├── ConfigGenerator.kt        PresetProfile, the 8 PRESETS, the 5 INI builders
 │   ├── ConfigGenUtil.kt          dedupe, entry parsing, CVar overrides, dead-CVar marking
 │   ├── ConfigManager.kt          facade over BackupStore / ProfileExtractor / HashMonitor
-│   ├── CvarDatabase.kt           5,889 CVars from assets, optimizeIniText rewriter
+│   ├── TuningProfile.kt          externalised tuning data (presets, paths, classifier patterns)
+│   ├── GameProfile.kt            externalised game knowledge (paths, log names, CVar lists, pity)
+│   ├── CvarDatabase.kt           5,372 CVars from assets, optimizeIniText rewriter
 │   ├── CvarCategorizer.kt        3-level prefix/substring matching → 19 categories
 │   ├── CvarOptimizer.kt          GPU-tier regex → tuned profile for the current device
 │   ├── CvarPlatformScope.kt      OS × API-level × engine-generation CVar applicability
@@ -316,9 +324,21 @@ app/src/main/java/com/wuwaconfig/app/
 │   ├── BackupStore.kt            backup CRUD, backup/public dirs, Client.log persistence
 │   ├── GachaApi.kt               convene history fetch, 11 pools, pity computation
 │   ├── GachaHistoryStore.kt      gacha_history.json, 12h TTL
+│   ├── GachaStats.kt             lifetime gacha aggregates (pulls, avg pity, 50/50 rate)
 │   ├── DeployHistoryStore.kt     deploy_history.json, 20 records
 │   ├── ProfileStore.kt           player_profile.json
+│   ├── KuroClient.kt             HTTP client for Kuro's guide + gacha endpoints
+│   ├── KuroGuide.kt              official character guide + featured-character flags
+│   ├── KuroSession.kt            Kuro passport session (login, account, token)
+│   ├── KuroSessionStore.kt       persisted Kuro session
+│   ├── CharacterBuild.kt         equipped gear + recommended build for one character
+│   ├── PlayerRoster.kt           the player's owned characters and their builds
+│   ├── BuildSummary.kt           aggregate build summary
+│   ├── MaterialCalculator.kt     character/weapon progression cost lookup
+│   ├── MaterialData.kt           material tables loaded from calculator_materials.json
 │   └── ChipsetDetector.kt        Snapdragon / MediaTek / Exynos / Tensor identification
+│
+├── data/                         theme engine persistence (the project's only DataStore)
 │
 ├── model/                        data classes, stores and the log buffer
 │   ├── PresetModels.kt           GameMode, CvarEntry, GeneratorOptions (29 fields), GeneratedIni
@@ -334,10 +354,12 @@ app/src/main/java/com/wuwaconfig/app/
 │   ├── ConfigPreset.kt           ConfigFile, ConfigBackup
 │   ├── DeployRecord.kt           DeployRecord, DeployComparison
 │   ├── GachaRecord.kt            GachaPoolType (11 pools), GachaData, pity state
+│   ├── CalculatorModels.kt       CalculatorCharacter/Weapon/Result, MaterialGroup/Item
+│   ├── CacheTtl.kt               TTL helper shared by the cached stores
 │   └── VerificationReport.kt     CvarCategory (19), CvarDetail, VerificationReport
 │
 ├── nav/                          Navigation 3
-│   ├── Destinations.kt           14 @Serializable NavKey objects, ALL_DESTINATIONS, startDestination
+│   ├── Destinations.kt           16 @Serializable NavKey objects, ALL_DESTINATIONS, startDestination
 │   ├── NavigationState.kt        wraps a single rememberNavBackStack
 │   └── Navigator.kt              the only code allowed to mutate the back stack
 │
@@ -345,9 +367,10 @@ app/src/main/java/com/wuwaconfig/app/
 │   ├── AdbConnectionService.kt   dataSync foreground service holding the ADB socket
 │   └── ShellUserService.kt       Binder hosted by Shizuku's UserService process
 │
-├── appfunctions/                 system-agent surface
-│   ├── BaseWuWaAppFunctionService.kt   9 @AppFunction entry points
-│   └── AppFunctionModels.kt            the deliberately reduced @AppFunctionSerializable DTOs
+├── appfunctions/                 system-agent surface (13 read-only functions)
+│   ├── BaseWuWaAppFunctionService.kt   the @AppFunction entry points
+│   ├── AppFunctionModels.kt            the deliberately reduced @AppFunctionSerializable DTOs
+│   └── AppFunctionMapping.kt           wire↔domain mappings, frame caps, preset blurbs
 │
 ├── ui/
 │   ├── MainViewModel.kt          primary shared state holder
@@ -358,38 +381,45 @@ app/src/main/java/com/wuwaconfig/app/
 │   ├── LogInsightsViewModel.kt   log analysis, SmartBrain, battle stats
 │   ├── IniEditorViewModel.kt     editor document, search, diff
 │   ├── SettingsViewModel.kt      theme, prefs, update state, C# env probe
+│   ├── ThemeViewModel.kt         theme picker state
+│   ├── CalculatorViewModel.kt    material / progression calculator
+│   ├── CharacterViewModel.kt     Kuro passport login, character selection, builds
 │   ├── DeviceOps.kt              app-scoped mutex serializing every device-touching operation
 │   ├── components/Components.kt  GlassCard, GlassButton, GradientBackground, GlitchText, LogViewer
 │   ├── theme/
 │   │   ├── Color.kt              single immutable neon palette behind one state holder
 │   │   ├── Theme.kt              Material 3 schemes, edge-to-edge, dynamic colour
 │   │   └── Type.kt               Rajdhani, serif and monospace families + Typography
-│   └── screens/                  14 screens
+│   └── screens/                  16 screens
 │       ├── SetupScreen.kt            onboarding
 │       ├── TermsScreen.kt            terms of use
 │       ├── UserGuideScreen.kt        local HTML guide in a WebView
 │       ├── HomeScreen.kt             connection status, quick actions, SAF picker
 │       ├── ConfigGenScreen.kt        preset selection and generation
-│       ├── ReviewTuneScreen.kt        diff, inline edit, deploy
-│       ├── IniEditorScreen.kt         full-screen monospace editor with search
+│       ├── ReviewTuneScreen.kt       diff, inline edit, deploy
+│       ├── IniEditorScreen.kt        full-screen monospace editor with search
 │       ├── BackupScreen.kt           backups and restore
 │       ├── HistoryScreen.kt          deploy history
 │       ├── PityScreen.kt             gacha pity tracker
 │       ├── ProfileScreen.kt          player profile
 │       ├── BattleStatsScreen.kt      battle stats
 │       ├── LogsScreen.kt             colour-coded log viewer
-│       └── SettingsScreen.kt         preferences, theme, updates
+│       ├── SettingsScreen.kt         preferences, theme, updates
+│       ├── ThemeSettingsScreen.kt    style × palette × mode picker
+│       ├── MyCharacterScreen.kt      Kuro character view: login, builds, gear
+│       └── CalculatorScreen.kt       material / progression calculator
 │
 ├── util/
 │   ├── LineDiff.kt           DiffLine/DiffResult, LineDiff.compute, Hashing.md5Of
 │   ├── AtomicFile.kt         temp + fsync + rename(2), so a crash can't truncate a store
+│   ├── Format.kt             formatBytes() — 1024-based byte-count display
 │   ├── LocalOnlyImage.kt     asserts a Coil URI is a content:// the user picked
 │   ├── SensitiveClipboard.kt clipboard copies marked EXTRA_IS_SENSITIVE
 │   └── RomBackgroundSettings.kt  deep-links the ROM's background-process settings
 │
 ├── update/UpdateManager.kt   GitHub release check; refuses an APK whose cert differs
 │
-└── assets/cvars/              libUE4_cvars.txt (5,889) + config_monitor_{cvars,values}.txt (735 each)
+└── assets/cvars/              libUE4_cvars.txt (5,372 active) + config_monitor_{cvars,values}.txt (735 each)
 ```
 
 </details>
@@ -400,7 +430,7 @@ app/src/main/java/com/wuwaconfig/app/
   `NavKey` objects, so a typo in `navigate()` is a compile error rather than a silent no-op.
   `DestinationsTest` pins each key's serial name: `rememberNavBackStack` persists the stack
   through saved state, so renaming a key would break back-stack restore across an update.
-- **All 8 ViewModels are hoisted to `MainActivity`.** `navigation3-runtime` ships no
+- **All 11 ViewModels are hoisted to `MainActivity`.** `navigation3-runtime` ships no
   per-entry `ViewModelStoreOwner` decorator, so `viewModel()` inside an `entry` would
   silently fall through to the Activity anyway — this makes the scope explicit.
 - **A separate Shizuku `UserService` process.** `WuWaConfigApp.onCreate()` therefore runs
@@ -413,10 +443,11 @@ app/src/main/java/com/wuwaconfig/app/
 
 ### AppFunctions
 
-`BaseWuWaAppFunctionService` exposes nine read-only functions to system agents —
+`BaseWuWaAppFunctionService` exposes thirteen read-only functions to system agents —
 `listPresets`, `generateConfig`, `getDeviceProfile`, `recommendPreset`, `analyzeGameLog`,
-`getCachedLogAnalysis`, `getCachedBattleStats`, `getDeployHistory`, `getDeployOutcome`.
-KSP generates the service subclass and its assets schema at compile time.
+`getCachedLogAnalysis`, `getCachedBattleStats`, `getDeployHistory`, `getDeployOutcome`,
+`getGachaPrediction`, `getGachaStats`, `lookupCvar`, `listBackups`. KSP generates the
+service subclass and its assets schema at compile time.
 
 Inspect the surface on a connected device:
 
@@ -457,6 +488,26 @@ adb shell cmd app_function execute-app-function \
   any installed app could walk away with the live Shizuku binder.
 - **Hardened release build.** R8 with `isShrinkResources`; `Log.d` / `Log.v` are stripped
   and the keep rules are narrowed to what reflection actually needs.
+
+See [SECURITY.md](SECURITY.md) for the full security policy — to report a
+vulnerability, open a private [GitHub Security Advisory](https://github.com/B3rr7/WuWa-Config-Android/security/advisories/new) and do not include sensitive data in issue reports.
+
+---
+
+## Credits
+
+- **Kuro Games** — [Wuthering Waves](https://wutheringwaves.kurogames.com/), its
+  official guide, SDK and gacha APIs (character builds, featured-character flags,
+  passport login, player roster, convene history), and the character, weapon and
+  item art bundled in `gacha_avatars/` (181 files) and `material_icons/`
+  (148 files). All game names, character art and in-game data are Kuro's; every
+  API call is user-initiated and the app holds no Kuro credentials of its own.
+- **Wuthering Waves Fandom Wiki** — the source the bundled art and the calculator's
+  material-cost tables are fetched from, kept current by
+  `tools/download_gacha_avatars.py`, `tools/download_material_icons.py` and
+  `tools/update_calculator_data.py`.
+- **Rajdhani Bold** (Indian Type Foundry, [SIL OFL 1.1](https://scripts.sil.org/OFL)) —
+  the bundled UI typeface.
 
 ---
 

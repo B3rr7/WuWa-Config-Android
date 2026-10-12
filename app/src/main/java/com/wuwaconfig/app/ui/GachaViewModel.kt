@@ -57,16 +57,6 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
         LogRepository.add(message, level)
     }
 
-    init {
-        // JSON file read + Gson parse — keep off the main thread.
-        viewModelScope.launch(Dispatchers.IO) {
-            val loaded = GachaHistoryStore.load(getApplication())
-            _gachaHistory.value = loaded
-            _gachaHistoryAge.value = loaded?.let { GachaHistoryStore.ageHours(it) }
-            _gachaHistoryStale.value = loaded?.let { GachaHistoryStore.isStale(it) } ?: false
-        }
-    }
-
     fun clearGachaHistory() {
         viewModelScope.launch(Dispatchers.IO) { GachaHistoryStore.delete(getApplication()) }
         _gachaHistory.value = null
@@ -100,6 +90,18 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _gachaHistoryStale = MutableStateFlow(false)
     val gachaHistoryIsStaleFlow: StateFlow<Boolean> = _gachaHistoryStale.asStateFlow()
+
+    init {
+        // JSON file read + Gson parse — keep off the main thread.
+        // Must run after the StateFlow declarations above — Kotlin initializes
+        // properties in declaration order, so referencing them earlier NPEs.
+        viewModelScope.launch(Dispatchers.IO) {
+            val loaded = GachaHistoryStore.load(getApplication())
+            _gachaHistory.value = loaded
+            _gachaHistoryAge.value = loaded?.let { GachaHistoryStore.ageHours(it) }
+            _gachaHistoryStale.value = loaded?.let { GachaHistoryStore.isStale(it) } ?: false
+        }
+    }
 
     fun refreshGachaHistoryAge() {
         _gachaHistoryAge.value = gachaHistoryAgeHours()
