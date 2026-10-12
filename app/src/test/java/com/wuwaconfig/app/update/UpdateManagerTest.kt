@@ -123,6 +123,66 @@ class UpdateManagerTest {
         apk.delete()
     }
 
+    // ── release asset selection ──
+    // parseRelease used to match the package-archive content type FIRST. Both the
+    // release APK and the sibling WuWaConfig-debug.apk carry that content type, and
+    // GitHub returns assets in upload order — so OTA downloaded the debug-signed
+    // APK and verifySignatureMatchesInstalled rejected it with "signature
+    // mismatch". These pin that the exact release asset name wins.
+
+    private fun releaseJson(
+        versionName: String,
+        vararg assetNames: String,
+    ) = buildString {
+        append("""{"tag_name":"v$versionName","body":"notes","assets":[""")
+        append(
+            assetNames.joinToString(",") { name ->
+                """{"name":"$name","content_type":"application/vnd.android.package-archive",""" +
+                    """"browser_download_url":"https://example.test/$name"}"""
+            },
+        )
+        append("]}")
+    }
+
+    @Test
+    fun `release asset is chosen over a debug sibling listed first`() {
+        val json =
+            releaseJson(
+                "1.1.7",
+                "WuWaConfig-debug.apk",
+                "WuWaConfig-v1.1.7-release.apk",
+            )
+        val info = UpdateManager.parseRelease(json).getOrThrow()
+        assertEquals("https://example.test/WuWaConfig-v1.1.7-release.apk", info.apkUrl)
+    }
+
+    @Test
+    fun `release asset is chosen when it is the only apk`() {
+        val json = releaseJson("1.1.7", "WuWaConfig-v1.1.7-release.apk")
+        val info = UpdateManager.parseRelease(json).getOrThrow()
+        assertEquals("https://example.test/WuWaConfig-v1.1.7-release.apk", info.apkUrl)
+    }
+
+    @Test
+    fun `the content type fallback never selects a debug apk`() {
+        // A release whose asset is NOT named the way build.gradle.kts names it —
+        // the fallback must still skip the debug sibling rather than downloading it.
+        val json =
+            releaseJson(
+                "1.1.7",
+                "WuWaConfig-debug.apk",
+                "some-other-name.apk",
+            )
+        val info = UpdateManager.parseRelease(json).getOrThrow()
+        assertEquals("https://example.test/some-other-name.apk", info.apkUrl)
+    }
+
+    @Test
+    fun `a debug-only release is refused rather than silently installed`() {
+        val json = releaseJson("1.1.7", "WuWaConfig-debug.apk")
+        assertTrue(UpdateManager.parseRelease(json).isFailure)
+    }
+
     // ── pre-release version ordering ──
     // parseVersion used to split on "." and "-" and keep digits only, so "1.2.0-rc1"
     // collapsed to [1,2,0] — byte-identical to the final release. An RC was therefore never

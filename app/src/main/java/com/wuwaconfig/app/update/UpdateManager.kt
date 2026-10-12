@@ -194,14 +194,20 @@ object UpdateManager {
 
             @Suppress("UNCHECKED_CAST")
             val assets = (map["assets"] as? List<Map<String, Any?>>) ?: emptyList()
-            // Prefer the declared package-archive content type. The fallback is
-            // the EXACT release asset name emitted by app/build.gradle.kts —
-            // a generic ".apk" suffix match would happily accept a decoy
-            // sibling such as the WuWaConfig-debug.apk this repo also builds.
+            // Prefer the EXACT release asset name emitted by app/build.gradle.kts.
+            // Both the release AND the sibling WuWaConfig-debug.apk share the
+            // package-archive content type, and GitHub returns them in upload
+            // order — so matching content_type first would happily download the
+            // debug-signed APK and trip the signature check in
+            // [verifySignatureMatchesInstalled]. The content_type match stays only
+            // as a fallback, and skips any debug-named asset.
             val expectedAssetName = "WuWaConfig-v$versionName-release.apk"
             val apkAsset =
-                assets.firstOrNull { (it["content_type"] as? String) == APK_CONTENT_TYPE }
-                    ?: assets.firstOrNull { (it["name"] as? String) == expectedAssetName }
+                assets.firstOrNull { (it["name"] as? String) == expectedAssetName }
+                    ?: assets.firstOrNull {
+                        (it["content_type"] as? String) == APK_CONTENT_TYPE &&
+                            !(it["name"] as? String).orEmpty().contains("debug", ignoreCase = true)
+                    }
             val apkUrl = (apkAsset?.get("browser_download_url") as? String).orEmpty()
             if (apkUrl.isBlank()) return Result.failure(Exception("No APK asset in latest release"))
 
