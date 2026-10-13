@@ -294,15 +294,21 @@ private fun CharacterTab(
         Spacer(Modifier.height(10.dp))
         PhaseRangeSlider(
             label = "Skill",
-            fromPhase = skillFrom - 1,
-            toPhase = skillTo - 1,
-            valueOffset = 1,
+            // Skills are 1..10 and the slider range is 1..10, so the slider value
+            // IS the skill level. It used to pass `skillFrom - 1` against a 1..10
+            // range, which clamped the whole control to 2..10 and made level 1
+            // unreachable. `valueOffset` only affects the printed label.
+            fromPhase = skillFrom,
+            toPhase = skillTo,
+            valueOffset = 0,
             minLevel = 1,
             maxLevel = 10,
             onFrom = { skillFrom = it.coerceAtMost(skillTo) },
             onTo = { skillTo = it.coerceAtLeast(skillFrom) },
             // Skills cap at 10, so the character level table must not be shown here.
-            note = { level -> "max Lv ${level + 1}" },
+            // Takes the level straight: it used to add 1 to compensate for the
+            // removed offset, which would now over-report by one.
+            note = { level -> "max Lv $level" },
         )
         Spacer(Modifier.height(12.dp))
         GlassButton(

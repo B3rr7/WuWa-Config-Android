@@ -18,7 +18,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.GamePaths
+import com.wuwaconfig.app.nav.InnerBackRegistrar
 import com.wuwaconfig.app.ui.IniEditorViewModel
 import com.wuwaconfig.app.ui.components.BouncingOrb
 import com.wuwaconfig.app.ui.components.GlassCard
@@ -70,14 +70,22 @@ private val INI_SEARCH_CURRENT = SpanStyle(background = Color(0xFF6B5300))
 fun IniEditorScreen(
     viewModel: IniEditorViewModel,
     onBack: () -> Unit,
+    // Installs/clears the destination's inner back handler. Defaulted to a no-op
+    // so previews and tests can render the screen without a Navigator.
+    onSetInnerBackHandler: InnerBackRegistrar = InnerBackRegistrar.None,
 ) {
     val editingFileName by viewModel.editingFileName.collectAsStateWithLifecycle()
     val iniContent by viewModel.iniEditorContent.collectAsStateWithLifecycle()
     val isLoading by viewModel.iniEditorLoading.collectAsStateWithLifecycle()
     val errorMessage by viewModel.iniEditorError.collectAsStateWithLifecycle()
     val successMessage by viewModel.iniEditorSuccess.collectAsStateWithLifecycle()
+    val draftFile by viewModel.iniEditorDraftFile.collectAsStateWithLifecycle()
 
-    var editorText by rememberSaveable { mutableStateOf("") }
+    // The edit buffer lives in the ViewModel, NOT in `rememberSaveable`: a
+    // generated INI is tens of KB and saving it would blow the ~500KB Binder
+    // transaction limit with a TransactionTooLargeException on rotation. The
+    // ViewModel survives configuration change for free.
+    val editorText by viewModel.iniEditorDraft.collectAsStateWithLifecycle()
     var showSearch by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var currentMatch by remember { mutableIntStateOf(0) }
@@ -103,6 +111,27 @@ fun IniEditorScreen(
         showSearch = false
         query = ""
         currentMatch = 0
+    }
+
+    // System back must mirror the toolbar arrow: while a file is open, back
+    // returns to the file grid (guarding unsaved edits) instead of popping the
+    // whole destination and landing on Home. This sub-state lives in the
+    // ViewModel, not the back stack, so NavDisplay cannot see it on its own.
+    // Keyed on editingFileName only; isDirty is read through a snapshot state so
+    // that dirtying the buffer does not churn the registration.
+    val currentIsDirty by rememberUpdatedState(isDirty)
+    DisposableEffect(editingFileName) {
+        val handler =
+            if (editingFileName != null) {
+                {
+                    if (currentIsDirty) showDiscardDialog = true else goBackToGrid()
+                    true
+                }
+            } else {
+                null
+            }
+        onSetInnerBackHandler.set(handler)
+        onDispose { onSetInnerBackHandler.set(null) }
     }
 
     // Keyed on the match SET only. `safeMatch` used to be a key, so every
@@ -134,18 +163,19 @@ fun IniEditorScreen(
     LaunchedEffect(Unit) {
         viewModel.syncConfigHashes()
     }
-    var lastLoadedFile by rememberSaveable { mutableStateOf<String?>(null) }
+    // Seed the draft once per file-open. `iniEditorDraftFile` (not a local) decides
+    // this: on rotation it still names the file the surviving draft belongs to, so
+    // unsaved edits are kept; after process death it is null and the draft reloads.
     LaunchedEffect(editingFileName, iniContent) {
         val content = iniContent
-        if (content != null && editingFileName != lastLoadedFile) {
-            editorText = content
-            lastLoadedFile = editingFileName
+        val fileName = editingFileName
+        if (content != null && fileName != null && fileName != draftFile) {
+            viewModel.setIniEditorDraft(fileName, content)
         }
     }
     LaunchedEffect(editingFileName) {
         if (editingFileName == null) {
-            lastLoadedFile = null
-            editorText = ""
+            viewModel.clearIniEditorDraft()
         }
     }
     LaunchedEffect(successMessage) {
@@ -334,7 +364,7 @@ fun IniEditorScreen(
                                 ) {
                                     BasicTextField(
                                         value = editorText,
-                                        onValueChange = { editorText = it },
+                                        onValueChange = { viewModel.setIniEditorDraft(editingFileName ?: "", it) },
                                         textStyle =
                                             MaterialTheme.typography.bodySmall.copy(
                                                 fontFamily = FontFamily.Monospace,

@@ -36,6 +36,8 @@ import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.config.gameProfile
 import com.wuwaconfig.app.model.GameMode
 import com.wuwaconfig.app.model.GeneratorOptions
+import com.wuwaconfig.app.model.LogLevel
+import com.wuwaconfig.app.model.LogRepository
 import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.LogInsightsViewModel
@@ -51,6 +53,7 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.formatRam
 import com.wuwaconfig.app.ui.theme.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -169,6 +172,9 @@ fun ConfigGenScreen(
 
     val scope = rememberCoroutineScope()
     var isGenerating by remember { mutableStateOf(false) }
+    // Generation failures (a bad preset, a malformed asset) land here instead of
+    // escaping the coroutine and killing the process.
+    var deployError by remember { mutableStateOf<String?>(null) }
 
     val logPickerLauncher =
         rememberLauncherForActivityResult(
@@ -400,6 +406,21 @@ fun ConfigGenScreen(
 
                 item(key = "actions") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Shown instead of an uncaught crash: the generate path is the
+                        // one thing that must always work, so its failure is reported.
+                        deployError?.let { err ->
+                            GlassCard(accentColor = NeonRed) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Error, contentDescription = null, tint = NeonRed, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Generation failed: $err",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = NeonRed,
+                                    )
+                                }
+                            }
+                        }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             GlassOutlinedButton(
                                 onClick = onBack,
@@ -455,6 +476,16 @@ fun ConfigGenScreen(
                                             deployHistoryViewModel.clearVerificationReport()
                                             viewModel.openReviewTune(payload, opts)
                                             onNavigateToReviewTune()
+                                        } catch (e: CancellationException) {
+                                            throw e
+                                        } catch (e: Exception) {
+                                            // Without this the throw escapes the coroutine
+                                            // uncaught and kills the process. A generator that
+                                            // fails on one preset, or a malformed tuning.json
+                                            // asset, must surface as a message — generation is
+                                            // the one thing that always has to work.
+                                            deployError = e.message ?: e::class.java.simpleName
+                                            LogRepository.add("Config generation failed: ${e.message}", LogLevel.ERROR)
                                         } finally {
                                             isGenerating = false
                                         }
@@ -566,8 +597,11 @@ fun ConfigGenScreen(
             confirmButton = {
                 GlassButton(
                     onClick = { showDeployDialog = false },
-                    accentColor = NeonGreen,
-                    contentColor = Color.Black,
+                    // Follows the same success/failure split as the dialog chrome.
+                    // Hardcoding green here put the success colour on the confirm
+                    // button of "✗ Deploy Failed".
+                    accentColor = deployDialogAccent,
+                    contentColor = if (deployDialogSucceeded) Color.Black else Color.White,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 ) { Text("OK", fontWeight = FontWeight.Bold) }
             },

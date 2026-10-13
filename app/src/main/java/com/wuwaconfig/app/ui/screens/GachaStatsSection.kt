@@ -168,10 +168,15 @@ private fun RarityDonut(
                     var startAngle = -90f
                     slices.forEach { (_, count, color) ->
                         val sweep = 360f * count / total
+                        // The 1.5 degree gap is a separator, so it must never eat
+                        // more than the slice itself: a thin slice (a rare rarity in
+                        // a large history — 5 pulls in 5000 is 0.36 degrees) used to
+                        // produce a NEGATIVE sweep, drawing the arc backwards over
+                        // its neighbour. Clamp instead of subtracting blind.
                         drawArc(
                             color = color,
                             startAngle = startAngle,
-                            sweepAngle = sweep - 1.5f,
+                            sweepAngle = (sweep - 1.5f).coerceAtLeast(0f),
                             useCenter = false,
                             topLeft = Offset(inset, inset),
                             size = arcSize,

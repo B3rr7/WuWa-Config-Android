@@ -29,6 +29,38 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
     private val _iniEditorContent = MutableStateFlow<String?>(null)
     val iniEditorContent: StateFlow<String?> = _iniEditorContent.asStateFlow()
 
+    // The in-progress edit buffer. This lives here, not in the screen's
+    // `rememberSaveable`, for a reason that is not stylistic: a generated INI is
+    // tens of KB (larger still after CVarDB optimisation), and `rememberSaveable`
+    // writes the whole string into `savedInstanceState` on every
+    // `onSaveInstanceState`. That exceeds the ~500KB Binder transaction limit and
+    // throws TransactionTooLargeException on rotation. A ViewModel keeps the draft
+    // across configuration change without ever putting it in a Bundle.
+    private val _iniEditorDraft = MutableStateFlow("")
+    val iniEditorDraft: StateFlow<String> = _iniEditorDraft.asStateFlow()
+
+    // Which file [_iniEditorDraft] belongs to. The screen seeds the draft from the
+    // loaded content exactly once per file-open, and it needs to know which file
+    // the *existing* draft is for to make that decision: on rotation this ViewModel
+    // survives and the draft is still the user's unsaved work, so re-seeding would
+    // silently discard it; after process death the ViewModel is new, this is null,
+    // and re-seeding is exactly right.
+    private val _iniEditorDraftFile = MutableStateFlow<String?>(null)
+    val iniEditorDraftFile: StateFlow<String?> = _iniEditorDraftFile.asStateFlow()
+
+    fun setIniEditorDraft(
+        fileName: String,
+        value: String,
+    ) {
+        _iniEditorDraft.value = value
+        _iniEditorDraftFile.value = fileName
+    }
+
+    fun clearIniEditorDraft() {
+        _iniEditorDraft.value = ""
+        _iniEditorDraftFile.value = null
+    }
+
     private val _iniEditorLoading = MutableStateFlow(false)
     val iniEditorLoading: StateFlow<Boolean> = _iniEditorLoading.asStateFlow()
 
@@ -87,6 +119,7 @@ class IniEditorViewModel(application: Application) : AndroidViewModel(applicatio
     fun returnToFileList() {
         _editingFileName.value = null
         _iniEditorContent.value = null
+        clearIniEditorDraft()
         _iniEditorError.value = null
     }
 

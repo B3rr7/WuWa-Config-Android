@@ -42,6 +42,7 @@ import com.wuwaconfig.app.nav.ConfigGen
 import com.wuwaconfig.app.nav.History
 import com.wuwaconfig.app.nav.Home
 import com.wuwaconfig.app.nav.IniEditor
+import com.wuwaconfig.app.nav.InnerBackRegistrar
 import com.wuwaconfig.app.nav.Logs
 import com.wuwaconfig.app.nav.MyCharacter
 import com.wuwaconfig.app.nav.Navigator
@@ -528,6 +529,7 @@ fun AppNavigation(
                 IniEditorScreen(
                     viewModel = iniEditorViewModel,
                     onBack = { navigator.goBack() },
+                    onSetInnerBackHandler = InnerBackRegistrar { navigator.setInnerBackHandler(IniEditor, it) },
                 )
             }
             entry<MyCharacter> {

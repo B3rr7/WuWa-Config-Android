@@ -87,4 +87,64 @@ class NavigatorTest {
         navigator.replaceAllWith(Home)
         assertEquals(listOf(Home), backStack.toList())
     }
+
+    // -- inner back handlers -------------------------------------------------
+    //
+    // The INI Editor's file grid and its open file share one NavKey; only the
+    // ViewModel tells them apart, so NavDisplay's onBack used to pop the whole
+    // destination and jump to Home instead of returning to the grid.
+
+    @Test
+    fun `an inner handler consumes the press so the stack is untouched`() {
+        val (navigator, backStack) = navigatorStartingAt(Home)
+        navigator.navigate(IniEditor)
+        var consumed = 0
+        navigator.setInnerBackHandler(IniEditor) {
+            consumed++
+            true
+        }
+        navigator.goBack()
+        assertEquals(1, consumed)
+        assertEquals(listOf(Home, IniEditor), backStack.toList())
+    }
+
+    @Test
+    fun `an inner handler returning false lets the stack pop normally`() {
+        val (navigator, backStack) = navigatorStartingAt(Home)
+        navigator.navigate(IniEditor)
+        navigator.setInnerBackHandler(IniEditor) { false }
+        navigator.goBack()
+        assertEquals(listOf(Home), backStack.toList())
+    }
+
+    @Test
+    fun `clearing the handler restores plain pop behaviour`() {
+        // The screen disposes the registration on its way out; a leaked handler
+        // would keep swallowing back presses for a destination the user left.
+        val (navigator, backStack) = navigatorStartingAt(Home)
+        navigator.navigate(IniEditor)
+        navigator.setInnerBackHandler(IniEditor) { true }
+        navigator.setInnerBackHandler(IniEditor, null)
+        navigator.goBack()
+        assertEquals(listOf(Home), backStack.toList())
+    }
+
+    @Test
+    fun `a handler only applies to its own destination`() {
+        // Keyed by NavKey so a stale registration cannot hijack the next screen.
+        val (navigator, backStack) = navigatorStartingAt(Home)
+        navigator.navigate(IniEditor)
+        navigator.setInnerBackHandler(IniEditor) { true }
+        navigator.navigate(Settings)
+        navigator.goBack()
+        assertEquals(listOf(Home, IniEditor), backStack.toList())
+    }
+
+    @Test
+    fun `an inner handler still cannot empty the stack at the root`() {
+        val (navigator, backStack) = navigatorStartingAt(Home)
+        navigator.setInnerBackHandler(Home) { false }
+        navigator.goBack()
+        assertEquals(listOf(Home), backStack.toList())
+    }
 }
