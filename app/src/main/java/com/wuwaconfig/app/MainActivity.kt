@@ -15,13 +15,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -87,6 +80,7 @@ import com.wuwaconfig.app.ui.screens.SetupScreen
 import com.wuwaconfig.app.ui.screens.TermsScreen
 import com.wuwaconfig.app.ui.screens.ThemeSettingsScreen
 import com.wuwaconfig.app.ui.screens.UserGuideScreen
+import com.wuwaconfig.app.ui.theme.Motion
 import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import kotlinx.coroutines.launch
 import android.provider.Settings as AndroidSettings
@@ -350,26 +344,17 @@ fun AppNavigation(
     // Navigation 3 types transitions as one ContentTransform (enter togetherWith
     // exit) against a Scene receiver, where Navigation 2 had separate
     // EnterTransition?/ExitTransition? properties against a NavBackStackEntry
-    // receiver. The values below are unchanged; only the pairing is different.
+    // receiver. The durations and curves live in Motion so the push, the pop
+    // and the Setup cross-fade cannot drift apart.
+    //
+    // `Motion` reads each container's own width from the slide offset lambda,
+    // which stays correct when the entering and leaving screens differ in size
+    // during a predictive-back scrub.
     val pushTransition: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
-        (
-            slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
-                fadeIn(animationSpec = tween(300))
-        )
-            .togetherWith(
-                slideOutHorizontally(targetOffsetX = { -it / 3 }, animationSpec = tween(250)) +
-                    fadeOut(animationSpec = tween(250)),
-            )
+        Motion.push()
     }
     val popTransition: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
-        (
-            slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) +
-                fadeIn(animationSpec = tween(300))
-        )
-            .togetherWith(
-                slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(250)) +
-                    fadeOut(animationSpec = tween(250)),
-            )
+        Motion.pop()
     }
 
     // Setup was the one destination with cross-fades instead of slides. Nav3's
@@ -394,12 +379,12 @@ fun AppNavigation(
     val pushTransitionSpec =
         setupAware(
             normal = pushTransition,
-            setup = { fadeIn(animationSpec = tween(400)).togetherWith(fadeOut(animationSpec = tween(300))) },
+            setup = { Motion.crossFade() },
         )
     val popTransitionSpec =
         setupAware(
             normal = popTransition,
-            setup = { fadeIn(animationSpec = tween(300)).togetherWith(fadeOut(animationSpec = tween(300))) },
+            setup = { Motion.crossFade() },
         )
 
     val entryProvider =
