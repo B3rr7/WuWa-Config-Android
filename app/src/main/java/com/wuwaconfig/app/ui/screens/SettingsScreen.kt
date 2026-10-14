@@ -138,9 +138,10 @@ fun SettingsScreen(
             },
             containerColor = Color.Transparent,
         ) { padding ->
+            val spacing = LocalSpacing.current
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize().padding(padding).padding(spacing.lg).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(spacing.lg),
             ) {
                 GlassCard(accentColor = NeonAmber) {
                     GlassCardHeader("Access Method", NeonAmber)

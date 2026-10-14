@@ -205,16 +205,17 @@ fun HomeScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
         ) { padding ->
+            val spacing = LocalSpacing.current
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(spacing.md),
                 contentPadding =
                     PaddingValues(
                         top = padding.calculateTopPadding(),
                         bottom = 80.dp + padding.calculateBottomPadding(),
                     ),
             ) {
-                item { Spacer(Modifier.height(8.dp)) }
+                item { Spacer(Modifier.height(LocalSpacing.current.sm)) }
 
                 // --- Backend Status ---
                 item {
@@ -250,7 +251,7 @@ fun HomeScreen(
                 }
                 item {
                     if (!backendStatus.connected) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
                             GlassButton(
                                 onClick = { deployHistoryViewModel.connect() },
                                 modifier = Modifier.weight(1f),
@@ -327,7 +328,7 @@ fun HomeScreen(
                             }
                         }
                     } else {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
                             GlassButton(
                                 onClick = { deployHistoryViewModel.connect() },
                                 modifier = Modifier.weight(1f),

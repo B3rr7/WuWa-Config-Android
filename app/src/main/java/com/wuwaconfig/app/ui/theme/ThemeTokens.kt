@@ -3,6 +3,7 @@ package com.wuwaconfig.app.ui.theme
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 /**
  * How a surface is *built*, independent of its colour and radius.
@@ -114,6 +115,23 @@ data class ThemeShapeTokens(
 )
 
 /**
+ * Spacing scale for consistent layout.
+ * Use these values for padding, margins, and spacing between elements.
+ */
+data class Spacing(
+    val xs: Dp = 4.dp,
+    val sm: Dp = 8.dp,
+    val md: Dp = 12.dp,
+    val lg: Dp = 16.dp,
+    val xl: Dp = 20.dp,
+    val xxl: Dp = 24.dp,
+    val xxxl: Dp = 32.dp,
+    val section: Dp = 16.dp,
+    val item: Dp = 8.dp,
+    val card: Dp = 16.dp,
+)
+
+/**
  * The active [UiStyle]'s shape tokens.
  *
  * `compositionLocalOf` rather than `staticCompositionLocalOf`, and this is a
@@ -127,6 +145,9 @@ data class ThemeShapeTokens(
  * access, which is irrelevant at this scale.
  */
 val LocalThemeShapeTokens = compositionLocalOf { MaterialYouTokens }
+
+/** The active spacing scale. */
+val LocalSpacing = compositionLocalOf { Spacing() }
 
 /**
  * The active [UiStyle].

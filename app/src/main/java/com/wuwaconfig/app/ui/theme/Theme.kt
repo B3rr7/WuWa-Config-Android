@@ -353,6 +353,7 @@ fun WuWaConfigTheme(
         val scaledDensity = remember(density, scale) { Density(density.density, scale) }
         CompositionLocalProvider(
             LocalThemeShapeTokens provides uiStyle.tokens,
+            LocalSpacing provides Spacing(),
             LocalUiStyle provides uiStyle,
             LocalColorPalette provides colorPalette,
             LocalDensity provides scaledDensity,

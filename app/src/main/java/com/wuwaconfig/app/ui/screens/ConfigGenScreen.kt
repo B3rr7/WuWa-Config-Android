@@ -244,12 +244,13 @@ fun ConfigGenScreen(
             },
             containerColor = Color.Transparent,
         ) { padding ->
+            val spacing = LocalSpacing.current
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(spacing.md),
                 contentPadding =
                     PaddingValues(
-                        top = 8.dp + padding.calculateTopPadding(),
+                        top = spacing.sm + padding.calculateTopPadding(),
                         bottom = 80.dp + padding.calculateBottomPadding(),
                     ),
             ) {
