@@ -1,8 +1,11 @@
 package com.wuwaconfig.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
+import com.wuwaconfig.app.ui.components.surfaceFillFor
+import com.wuwaconfig.app.ui.components.tonalStepsFor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -299,10 +302,28 @@ class ThemeEngineTest {
     fun `container ramp is derived from the palette not from stock material`() {
         val source = MatrixDark
         val scheme = source.toColorScheme()
-        assertEquals(source.surfaceVariant, scheme.surfaceContainer)
-        assertEquals(source.surfaceVariant, scheme.surfaceContainerHigh)
         assertEquals(source.background, scheme.surfaceContainerLowest)
         assertEquals(source.surface, scheme.surfaceContainerLow)
+
+        // The three raised steps are interpolated between the palette's own
+        // surface and outline. Pinned as *fractions*, not exact colours: the
+        // property that matters is that they are derived from this palette and
+        // are distinct from each other, so a palette edit is allowed to move
+        // them. Asserting exact hex here would break every future palette tweak
+        // while catching nothing that `tonal steps` below does not.
+        for (fraction in listOf(0.34f, 0.55f, 0.76f)) {
+            val expected = lerp(source.surface, source.outline, fraction)
+            val actual =
+                when (fraction) {
+                    0.34f -> scheme.surfaceContainer
+                    0.55f -> scheme.surfaceContainerHigh
+                    else -> scheme.surfaceContainerHighest
+                }
+            assertEquals("container ramp is not derived at $fraction", expected, actual)
+            // ...and must differ from the surface it started from.
+            assertNotEquals("step at $fraction equals surface", source.surface, expected)
+        }
+
         // Monotone: each step must be no darker than the one below it.
         val ramp =
             listOf(
@@ -310,6 +331,7 @@ class ThemeEngineTest {
                 scheme.surfaceContainerLow,
                 scheme.surfaceContainer,
                 scheme.surfaceContainerHigh,
+                scheme.surfaceContainerHighest,
             )
         ramp.zipWithNext { lower, higher ->
             assertTrue(
@@ -435,6 +457,161 @@ class ThemeEngineTest {
         assertTrue("expected $dim below $full", dim < full)
         // And it must not go to zero, or the slider would be a mute button.
         assertTrue("dimmed text lost all contrast", dim >= 1.5f)
+    }
+
+    // ── Surface / edge treatment ──────────────────────────────────────────────
+
+    /**
+     * Every style must be *distinguishable* from the others, not merely legal.
+     *
+     * The bug this pins: a [UiStyle] could previously express only corner radius
+     * and stroke weight, so four of the six styles drew the same flat surface and
+     * differed by radius alone — a card grid wearing a costume. On device the six
+     * read as one design with three roundedness settings.
+     *
+     * Asserted on `(surfaceMode, edgeMode)` because that pair is what the renderer
+     * actually branches on. Radius is deliberately *not* included: two styles
+     * sharing a surface treatment but differing by radius are still legitimately
+     * different, and demanding a unique radius per style would assert the absence
+     * of a design decision rather than its presence.
+     */
+    @Test
+    fun `every style declares a distinct surface and edge treatment`() {
+        // Radius is included, because it is the one property every style can
+        // always differ on and a duplicate here really is indistinguishable. The
+        // glass pair is a known, deliberate exception: AURORA_FLUID and
+        // LIQUID_GLASS differ only by backdrop, which `GradientBackground` reads
+        // off the enum directly. Asserting they diverge as *cards* would mean
+        // inventing a token that duplicates the backdrop decision.
+        val knownSharedTreatment = setOf(UiStyle.LIQUID_GLASS to UiStyle.AURORA_FLUID)
+        val treatments =
+            UiStyle.entries.map { style ->
+                style.name to Triple(style.tokens.surfaceMode, style.tokens.edgeMode, style.tokens.cardCorner)
+            }
+        val groups = treatments.groupBy { it.second }.filterValues { it.size > 1 }
+        for ((treatment, group) in groups) {
+            val names = group.map { it.first }.toSet()
+            assertTrue(
+                "styles rendering identically: $names (treatment $treatment)",
+                names == knownSharedTreatment,
+            )
+        }
+    }
+
+    /**
+     * A glass style must draw an edge, whatever mode it is in.
+     *
+     * This is the light-mode trap: white at low alpha over a near-white
+     * background is invisible, so a translucent panel with no outline simply
+     * disappears. Apple hits the same constraint and answers it with a specular
+     * edge.
+     */
+    @Test
+    fun `glass styles always draw an edge`() {
+        for (style in UiStyle.entries.filter { it.tokens.surfaceMode == SurfaceMode.GLASS }) {
+            assertNotEquals(
+                "${style.name} is glass but draws no edge; it will vanish in light mode",
+                EdgeMode.NONE,
+                style.tokens.edgeMode,
+            )
+        }
+    }
+
+    /**
+     * MATERIAL_YOU is the one style that must not draw an outline.
+     *
+     * Material 3 expresses elevation as a change in surface tone, so an outline
+     * on a tonal surface says "flat panel with a border" — the opposite of what
+     * the style is named for. Every other style is allowed an edge.
+     */
+    @Test
+    fun `tonal styles draw no outline because tone is the edge`() {
+        for (style in UiStyle.entries.filter { it.tokens.surfaceMode == SurfaceMode.TONAL }) {
+            assertEquals("${style.name} is tonal so must not draw a border", EdgeMode.NONE, style.tokens.edgeMode)
+            assertFalse("${style.name} must not set useCardBorder", style.tokens.useCardBorder)
+        }
+    }
+
+    /**
+     * Tonal elevation has to actually change the fill, or it is decoration.
+     *
+     * `surfaceFillFor` is pure, so this is reachable — which matters because
+     * tonal elevation is a claim about nesting depth that no other test observes.
+     */
+    @Test
+    fun `tonal fill steps with depth and saturates at the top of the ramp`() {
+        val scheme = CyberDark.toColorScheme()
+        val step0 = surfaceFillFor(SurfaceMode.TONAL, 0, scheme)
+        val step1 = surfaceFillFor(SurfaceMode.TONAL, 1, scheme)
+        val step2 = surfaceFillFor(SurfaceMode.TONAL, 2, scheme)
+        assertNotEquals("depth 0 and 1 must differ", step0, step1)
+        assertNotEquals("depth 1 and 2 must differ", step1, step2)
+        // Past the end of the ramp it clamps rather than throwing or wrapping.
+        assertEquals(step2, surfaceFillFor(SurfaceMode.TONAL, 99, scheme))
+        assertEquals(step0, surfaceFillFor(SurfaceMode.TONAL, -1, scheme))
+    }
+
+    /**
+     * And it must move *away* from the background, in both modes.
+     *
+     * In light mode elevated means darker; in dark, lighter. If a palette's
+     * container ramp is inverted or flat, a nested card appears to sink instead of
+     * rise — exactly the silent failure a palette edit would introduce.
+     */
+    @Test
+    fun `tonal ramp moves away from the background in both modes`() {
+        for (palette in ColorPalette.entries) {
+            for (isDark in listOf(true, false)) {
+                val scheme = palette.colorsForResolved(isDark).toColorScheme()
+                val steps = tonalStepsFor(scheme).map { it.luminance() }
+                val label = "${palette.name}/${if (isDark) "dark" else "light"}"
+
+                // Direction comes from the background, not the mode: a pure-black
+                // surface on a black page must climb lighter even in "light" mode.
+                val climbLighter = scheme.background.luminance() < 0.5f
+                for (i in 1 until steps.size) {
+                    val movedAway =
+                        if (climbLighter) {
+                            steps[i] >= steps[i - 1] - 0.001f
+                        } else {
+                            steps[i] <= steps[i - 1] + 0.001f
+                        }
+                    assertTrue(
+                        "$label step $i (${steps[i]}) does not move away from step ${i - 1} (${steps[i - 1]})",
+                        movedAway,
+                    )
+                }
+
+                // And the steps must actually be *distinguishable* — the whole
+                // point of a tonal ramp. A palette that runs out of tonal range
+                // (OLED, whose light and dark are both pure black) is allowed to
+                // stop moving, but only after the first step.
+                assertNotEquals(
+                    "$label depth 0 and 1 are identical, so elevation is invisible",
+                    steps[0],
+                    steps[1],
+                )
+            }
+        }
+    }
+
+    /**
+     * Glass transmits; flat and outlined do not.
+     *
+     * Guards the property that separates the two families, and that light mode
+     * depends on: an opaque style must not have quietly become translucent.
+     */
+    @Test
+    fun `only glass transmits its backdrop`() {
+        val scheme = LightFallbackColors.toColorScheme()
+        for (style in UiStyle.entries) {
+            val fill = surfaceFillFor(style.tokens.surfaceMode, 0, scheme)
+            if (style.tokens.surfaceMode == SurfaceMode.GLASS) {
+                assertTrue("${style.name} is glass but its fill is opaque", fill.alpha < 1f)
+            } else {
+                assertEquals("${style.name} is ${style.tokens.surfaceMode} but its fill is translucent", 1f, fill.alpha, 0.01f)
+            }
+        }
     }
 
     // ── Shape tokens ──────────────────────────────────────────────────────────

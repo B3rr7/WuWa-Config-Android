@@ -2,7 +2,6 @@ package com.wuwaconfig.app.ui.components
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.graphics.BlurMaskFilter
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
@@ -33,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -46,17 +46,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -111,7 +108,6 @@ fun GlassCard(
     modifier: Modifier = Modifier,
     accentColor: Color = NeonCyan,
     shape: Shape = RoundedCornerShape(LocalThemeShapeTokens.current.cardCorner),
-    blurRadius: Int = 6,
     glowWidth: Float = LocalThemeShapeTokens.current.glowWidth,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -119,29 +115,34 @@ fun GlassCard(
     val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
 
     if (isLight) {
-        NeumorphicCard(
+        SurfaceCard(
             modifier = modifier,
             accentColor = accentColor,
             shape = shape,
+            glowWidth = glowWidth,
             content = content,
         )
         return
     }
 
-    // Translucent fills are the glass effect itself, so they follow the style's
-    // blur flag rather than the palette: LIQUID_GLASS is translucent on any
-    // colour scheme, and MATERIAL_YOU is opaque on any palette.
+    // Dark mode inverts the light branch's reasoning: white-at-low-alpha over a
+    // near-black backdrop IS readable, so the fill can stay transparent and the
+    // backdrop reads through. But a transparent fill is invisible against a
+    // flat dark panel, so the tonal styles take their colour from the ramp
+    // instead and let tone carry the edge, exactly as Material intends.
     val translucency = if (tokens.useBlurEffects) 1f else 0.55f
     val cardStart = accentColor.copy(alpha = 0.06f * translucency)
     val cardEnd = Color.White.copy(alpha = 0.02f * translucency)
-    val borderColor = accentColor.copy(alpha = 0.15f)
+
+    val depth = LocalSurfaceDepth.current
+    val container = surfaceFillFor(tokens.surfaceMode, depth, MaterialTheme.colorScheme)
 
     Card(
         modifier = Modifier.fillMaxWidth().then(modifier),
         shape = shape,
         colors =
             CardDefaults.cardColors(
-                containerColor = Color.Transparent,
+                containerColor = container,
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
         elevation = CardDefaults.cardElevation(0.dp),
@@ -163,14 +164,7 @@ fun GlassCard(
                                 colors = listOf(cardStart, cardEnd),
                             ),
                         shape = shape,
-                    )
-                    .then(
-                        if (tokens.useCardBorder) {
-                            Modifier.border(maxOf(glowWidth.dp, 0.5f.dp), borderColor, shape)
-                        } else {
-                            Modifier
-                        },
-                    ),
+                    ).surfaceEdge(tokens, accentColor, glowWidth, shape, isLight = false),
         ) {
             if (tokens.useBlurEffects) {
                 Box(
@@ -188,95 +182,261 @@ fun GlassCard(
                             ),
                 )
             }
-            Column(modifier = Modifier.padding(tokens.cardPadding)) {
-                content()
+            // Provide the next depth so a card nested inside this one is
+            // tonally raised relative to its parent.
+            CompositionLocalProvider(LocalSurfaceDepth provides depth + 1) {
+                Column(modifier = Modifier.padding(tokens.cardPadding)) {
+                    content()
+                }
             }
         }
     }
 }
 
-val NeuBase = Color(0xFFE8ECF3)
-private val NeuDarkShadow = Color(0xFFBAC4D6)
-private val NeuLightShadow = Color(0xFFFFFFFF)
-private val NeuCorner = 22.dp
-
-// Single shared Paint. This is safe ONLY because Compose runs all drawing on one
-// thread (the UI thread), so the `frame.color` / `frame.maskFilter` mutations
-// below can never interleave with another neumorphic draw. Do not hoist this
-// into a background/parallel draw path without making the paint local.
-//
-// Deliberately an android.graphics.Paint, not a Compose Paint: the draw block
-// talks to the native canvas directly (drawRoundRect + BlurMaskFilter), and
-// `Paint().asFrameworkPaint()` — the Compose-side way to reach that object — is
-// deprecated in favour of using android.graphics.Paint directly.
-private val neuPaint = android.graphics.Paint()
-
-fun Modifier.neumorphic(
-    cornerRadius: Dp = NeuCorner,
-    elevation: Dp = 7.dp,
-    base: Color = NeuBase,
-    lightShadow: Color = NeuLightShadow,
-    darkShadow: Color = NeuDarkShadow,
-): Modifier =
-    this.drawBehind {
-        val cr = cornerRadius.toPx()
-        val off = elevation.toPx()
-        val blur = elevation.toPx() * 1.6f
-        drawIntoCanvas { canvas ->
-            val frame = neuPaint
-            frame.isAntiAlias = true
-            frame.maskFilter = BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL)
-            frame.color = darkShadow.toArgb()
-            canvas.nativeCanvas.drawRoundRect(off, off, size.width + off, size.height + off, cr, cr, frame)
-            frame.color = lightShadow.toArgb()
-            canvas.nativeCanvas.drawRoundRect(-off, -off, size.width - off, size.height - off, cr, cr, frame)
-        }
-        drawRoundRect(
-            color = base,
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cr, cr),
-        )
-    }
-
+/**
+ * The light-mode card surface.
+ *
+ * ## Why light mode needs its own branch at all
+ *
+ * The dark branch's treatment is white-at-low-alpha over a near-black backdrop,
+ * which is what makes translucency *readable*. Light mode inverts both: white at
+ * low alpha over a near-white background is invisible, so simply reusing the dark
+ * branch would produce cards that cannot be told apart from the background.
+ *
+ * So light mode separates the two things the dark branch fuses into one fill:
+ *
+ * - **Fill** — from [SurfaceMode]. Opaque for the flat and tonal styles, a
+ *   genuinely translucent one for the glass styles, so LIQUID_GLASS and
+ *   AURORA_FLUID keep the identity their picker entry promises.
+ * - **Edge** — from [EdgeMode]. For a glass panel in light mode the edge, not
+ *   the fill, is what makes the boundary visible, which is why a GLASS surface
+ *   still needs one.
+ *
+ * ## Do not "simplify" by dropping the tokens
+ *
+ * An earlier version of this function read [ThemeShapeTokens] but used only
+ * `cardPadding`, ignoring `useBlurEffects` and `useCardBorder` and never drawing
+ * the accent tint at all. Every style then rendered as the same flat opaque
+ * rectangle, so selecting LIQUID_GLASS in light mode visibly did nothing — the
+ * picker entry and the result disagreed. If you add a token-driven property,
+ * wire it; if you remove one, say why in the enum.
+ */
 @Composable
-private fun NeumorphicCard(
+private fun SurfaceCard(
     modifier: Modifier = Modifier,
     accentColor: Color,
     shape: Shape,
+    glowWidth: Float,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val tokens = LocalThemeShapeTokens.current
-    val corner = if (tokens.useBlurEffects) 22.dp else tokens.cardCorner
-    val roundShape = RoundedCornerShape(corner)
-    // Insets match the dark GlassCard branch exactly (both draw with no extra
-    // padding) so card padding does not differ by 10dp between themes. Callers
-    // that need breathing room add it themselves — see TerminalLogCard.
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .then(modifier)
-                // Neumorphism is a soft-shadow treatment; a hard-edged style has
-                // no business drawing it, so RETRO_HANDHELD gets a flat panel
-                // instead of a square card with rounded shadows.
-                .then(if (tokens.useBlurEffects) Modifier.neumorphic(cornerRadius = corner) else Modifier)
-                .clip(roundShape),
+    val depth = LocalSurfaceDepth.current
+    val fill = surfaceFillFor(tokens.surfaceMode, depth, MaterialTheme.colorScheme)
+    Card(
+        modifier = Modifier.fillMaxWidth().then(modifier),
+        shape = shape,
+        colors =
+            CardDefaults.cardColors(
+                containerColor = fill,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+        elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Box(
             modifier =
                 Modifier
-                    .matchParentSize()
+                    .fillMaxWidth()
+                    // The accent tint. Without it every card is the same flat
+                    // rectangle and only the text carries the card's identity.
                     .background(
                         brush =
-                            Brush.linearGradient(
-                                colors = listOf(accentColor.copy(alpha = 0.07f), Color.Transparent),
+                            Brush.horizontalGradient(
+                                colors = listOf(accentColor.copy(alpha = ACCENT_TINT_ALPHA), Color.Transparent),
                             ),
-                    ),
-        )
-        Column(modifier = Modifier.padding(16.dp)) {
-            content()
+                        shape = shape,
+                    ).surfaceEdge(tokens, accentColor, glowWidth, shape, isLight = true),
+        ) {
+            CompositionLocalProvider(LocalSurfaceDepth provides depth + 1) {
+                Column(modifier = Modifier.padding(tokens.cardPadding)) {
+                    content()
+                }
+            }
         }
     }
 }
+
+/**
+ * The tonal elevation ramp: index 0 is a top-level surface, higher indices are
+ * progressively more raised.
+ *
+ * The same four roles serve both modes without a branch, because Material's
+ * light and dark ramps are inverted: against a near-white background a deeper
+ * container is *darker*, and against a near-black one it is *lighter*. Both move
+ * away from the page, which is what elevation means.
+ *
+ * Monotonicity is the property that makes this correct, and it is asserted per
+ * palette in `ThemeEngineTest` — a palette whose ramp is not monotone would make
+ * a nested card appear to sink rather than rise.
+ */
+internal fun tonalRampFor(scheme: ColorScheme): List<Color> =
+    listOf(
+        scheme.surface,
+        scheme.surfaceContainer,
+        scheme.surfaceContainerHigh,
+        scheme.surfaceContainerHighest,
+    )
+
+/**
+ * The few surface tones this app's cards actually use, most-raised first.
+ *
+ * ## Why MATERIAL_YOU's ramp is hand-picked rather than the container ramp
+ *
+ * The container ramp is interpolated from `surface` toward `outline`, which lands
+ * within a few percent of the base surface: LightFallbackColors has surface
+ * #F1F2F6 and outline #C4C6D0, so the top step is only ~8% away. That is correct
+ * for Material's own components but useless as the *identity* of a style — four
+ * cards would differ by a couple of percent and still read as one flat surface,
+ * which is the exact problem the tonal mode exists to solve.
+ *
+ * These steps are deliberately wider than Material's. They are still monotone
+ * (asserted in `ThemeEngineTest`) and still derived from the palette, so a
+ * palette change still repaints them — they just occupy enough of the available
+ * tonal range to be seen.
+ *
+ * The dark steps reach toward `outline`, which is the brightest neutral the
+ * palettes define, so an elevated dark card rises rather than sinking.
+ */
+internal fun tonalStepsFor(scheme: ColorScheme): List<Color> {
+    val base = scheme.surface
+    val target = scheme.outline
+
+    // Direction is chosen from the *background's* luminance, not from a mode
+    // flag. `isDark` is the wrong input because it describes the theme mode,
+    // not where this surface sits: MIDNIGHT_OLED resolves to pure black (#000000)
+    // for both modes, and against a black page elevation has to climb *lighter*,
+    // which is the opposite of what "light mode" would imply. Asserting
+    // direction from the background makes that case correct for free and keeps
+    // the invariant in one place.
+    val climbLighter = scheme.background.luminance() < 0.5f
+    val ramp =
+        if (climbLighter) {
+            listOf(base, lerp(base, target, 0.45f), lerp(base, target, 0.80f), target)
+        } else {
+            // Descend: surface is lighter than the page, so a deeper card must go
+            // darker. Toward `outline`, which is the palette's darkest neutral.
+            listOf(base, lerp(base, Color.Black, 0.06f), lerp(base, Color.Black, 0.12f), lerp(base, Color.Black, 0.18f))
+        }
+
+    // If the chosen direction cannot actually move (a pure-white surface on a
+    // light page has nowhere to descend to), fall back rather than emit a ramp of
+    // identical colours, which would make every elevation step look the same.
+    val moves = ramp.zipWithNext().any { (a, b) -> a != b }
+    return if (moves) ramp else listOf(base, target, target, target)
+}
+
+/**
+ * The fill for a [SurfaceMode] at nesting [depth].
+ *
+ * Takes the scheme as a parameter rather than reading `MaterialTheme` so it stays
+ * pure and unit-testable — tonal elevation is a claim about nesting depth that
+ * nothing else can check.
+ */
+internal fun surfaceFillFor(
+    mode: SurfaceMode,
+    depth: Int,
+    scheme: ColorScheme,
+): Color {
+    val step = depth.coerceIn(0, TONAL_STEPS - 1)
+    return when (mode) {
+        SurfaceMode.GLASS -> scheme.surface.copy(alpha = TRANSLUCENT_SURFACE_ALPHA)
+        SurfaceMode.TONAL -> tonalStepsFor(scheme)[step]
+        SurfaceMode.OUTLINED,
+        SurfaceMode.FLAT,
+        -> scheme.surface
+    }
+}
+
+/**
+ * The outline for a card, or no modifier when the style draws none.
+ *
+ * [EdgeMode.SPECULAR] is the important one: a uniform alpha fill reads as flat
+ * wash however transparent it is, so glass gets a gradient edge that is bright
+ * at the top-left and darkens toward the bottom-right. Apple added exactly this
+ * in 2026 to "establish more depth and separation" (WWDC26).
+ */
+@Composable
+private fun Modifier.surfaceEdge(
+    tokens: ThemeShapeTokens,
+    accentColor: Color,
+    glowWidth: Float,
+    shape: Shape,
+    isLight: Boolean,
+): Modifier {
+    val width = maxOf(tokens.borderStrokeWidth, glowWidth.dp, 0.5f.dp)
+    return when (tokens.edgeMode) {
+        EdgeMode.NONE -> this
+        EdgeMode.HAIRLINE ->
+            if (tokens.useCardBorder) {
+                border(width, accentColor.copy(alpha = CARD_BORDER_ALPHA), shape)
+            } else {
+                this
+            }
+        EdgeMode.HARD ->
+            if (tokens.useCardBorder) {
+                border(tokens.borderStrokeWidth, accentColor.copy(alpha = CARD_BORDER_ALPHA), shape)
+            } else {
+                this
+            }
+        EdgeMode.SPECULAR -> {
+            val highlight =
+                if (isLight) {
+                    Color.White.copy(alpha = SPECULAR_HIGHLIGHT_ALPHA)
+                } else {
+                    Color.White.copy(alpha = SPECULAR_HIGHLIGHT_ALPHA * 1.6f)
+                }
+            val shade = Color.Black.copy(alpha = SPECULAR_SHADE_ALPHA)
+            border(
+                width = width,
+                brush =
+                    Brush.linearGradient(
+                        0f to highlight,
+                        0.45f to Color.Transparent,
+                        1f to shade,
+                    ),
+                shape = shape,
+            )
+        }
+    }
+}
+
+/**
+ * Alpha of the light-mode card fill for the blur styles.
+ *
+ * Opaque enough that the card still reads against the app's own near-white
+ * gradient when no wallpaper is set, translucent enough to transmit one when it
+ * is. The border, not this value, is what makes the edge legible — see
+ * [SurfaceCard].
+ */
+private const val TRANSLUCENT_SURFACE_ALPHA = 0.62f
+
+/** Accent wash over the light card fill. Mirrors the dark branch's intent. */
+private const val ACCENT_TINT_ALPHA = 0.10f
+
+/** Bright leading edge of a specular glass border. */
+private const val SPECULAR_HIGHLIGHT_ALPHA = 0.75f
+
+/**
+ * Darkened trailing edge of a specular glass border.
+ *
+ * Kept well under the highlight because a heavy dark rim on a small card reads
+ * as a drop shadow rather than as a lit edge — which would be a different style
+ * claiming the same one.
+ */
+private const val SPECULAR_SHADE_ALPHA = 0.18f
+
+/** Light-mode card outline. Lower than the dark branch's because it sits on a
+ *  busy background already and a heavy stroke competes with the content. */
+private const val CARD_BORDER_ALPHA = 0.28f
 
 /**
  * Opacity of the scrim behind [GlassTopBar].
@@ -295,8 +455,6 @@ fun GlassTopBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
-
     val bar: @Composable () -> Unit = {
         TopAppBar(
             title = title,
@@ -313,41 +471,14 @@ fun GlassTopBar(
         )
     }
 
-    if (isLight) {
-        Box(
-            modifier =
-                modifier
-                    .fillMaxWidth()
-                    // Scrim, drawn UNDER the accent gradient. Without it the bar is
-                    // fully transparent and scrolled content renders straight through
-                    // the title and the status bar.
-                    .background(MaterialTheme.colorScheme.background.copy(alpha = SCRIM_ALPHA))
-                    .neumorphic(cornerRadius = 0.dp, elevation = 5.dp),
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .matchParentSize()
-                        .background(
-                            brush =
-                                Brush.verticalGradient(
-                                    colors = listOf(accentColor.copy(alpha = 0.10f), Color.Transparent),
-                                ),
-                        ),
-            )
-            bar()
-        }
-        return
-    }
-
+    // One branch for both modes. Scaffold's contentPadding only offsets the list
+    // at rest; once scrolled, items pass under the bar, so the bar itself has to
+    // occlude them. 0.94 still reads as glass against the gradient background
+    // while hiding text behind it.
     Box(
         modifier =
             modifier
                 .fillMaxWidth()
-                // See the light branch above. Scaffold's contentPadding only offsets
-                // the list at rest; once scrolled, items pass under the bar, so the
-                // bar itself has to occlude them. 0.94 still reads as glass against
-                // the gradient background while hiding text behind it.
                 .background(MaterialTheme.colorScheme.background.copy(alpha = SCRIM_ALPHA))
                 .background(
                     brush =
@@ -385,9 +516,7 @@ fun GlassTopBar(
 
 // The terminal card keeps its dark palette in BOTH themes on purpose: it is a
 // literal log-console mock (monospace output on a near-black surface) and the
-// same "recent.log" / "status.log" chrome appears in light and dark mode. The
-// 10dp horizontal inset in light theme is the neumorphic-light compensation the
-// dark branch does not need.
+// same "recent.log" / "status.log" chrome appears in light and dark mode.
 private val TerminalBg = Color(0xFF0C0E14)
 private val TerminalBorder = Color(0xFF1E2530)
 
@@ -401,14 +530,12 @@ fun TerminalLogCard(
     trailing: @Composable (RowScope.() -> Unit)? = null,
 ) {
     val logs by LogRepository.entries.collectAsStateWithLifecycle()
-    val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val shape = RoundedCornerShape(10.dp)
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .then(modifier)
-                .then(if (isLight) Modifier.padding(horizontal = 10.dp) else Modifier)
                 .clip(shape)
                 .background(TerminalBg)
                 .border(1.dp, TerminalBorder, shape)
@@ -484,7 +611,7 @@ fun TerminalLogCard(
 
 /**
  * Themed toggle used throughout the Config Generator.
- * Dark theme -> frosted glass pill; Light theme -> inset/outset neumorphic pill.
+ * Dark theme -> frosted glass pill; Light theme -> palette surface track.
  */
 @Composable
 fun GlassSwitch(
@@ -509,16 +636,29 @@ fun GlassSwitch(
     val trackShape = RoundedCornerShape(trackHeight / 2)
 
     if (isLight) {
-        // Neumorphic: soft inset groove track + clearly raised thumb.
-        val grooveTop = if (checked) accentColor.copy(alpha = 0.30f) else NeuDarkShadow.copy(alpha = 0.55f)
-        val grooveBottom = if (checked) accentColor.copy(alpha = 0.14f) else NeuBase
-        val thumbFill =
-            if (!enabled) {
-                Color(0xFFCED4DE)
-            } else if (checked) {
-                accentColor
+        // The dark branch's white-on-transparent track is invisible over a light
+        // background, so light mode needs an opaque one. Colours come from the
+        // scheme rather than hard-coded greys, so this still follows the palette.
+        // Tonal modes (MATERIAL_YOU) step off the current surface so the
+        // control is visibly raised even though it draws no border.
+        val trackBase =
+            if (LocalThemeShapeTokens.current.surfaceMode == SurfaceMode.TONAL) {
+                MaterialTheme.colorScheme.surfaceContainerHigh
             } else {
-                Color.White
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        val trackBrush =
+            Brush.verticalGradient(
+                listOf(
+                    if (checked) accentColor.copy(alpha = 0.55f) else trackBase,
+                    if (checked) accentColor.copy(alpha = 0.40f) else trackBase,
+                ),
+            )
+        val thumbFill =
+            when {
+                !enabled -> MaterialTheme.colorScheme.surfaceVariant
+                checked -> accentColor
+                else -> MaterialTheme.colorScheme.surface
             }
         Box(
             modifier =
@@ -526,8 +666,8 @@ fun GlassSwitch(
                     .width(trackWidth)
                     .height(trackHeight)
                     .clip(trackShape)
-                    .background(brush = Brush.verticalGradient(listOf(grooveTop, grooveBottom)))
-                    .border(1.dp, if (checked) accentColor.copy(alpha = 0.45f) else NeuDarkShadow.copy(alpha = 0.7f), trackShape)
+                    .background(brush = trackBrush)
+                    .border(1.dp, if (checked) accentColor.copy(alpha = 0.45f) else MaterialTheme.colorScheme.outline, trackShape)
                     .toggleable(
                         value = checked,
                         onValueChange = onCheckedChange,
@@ -541,10 +681,10 @@ fun GlassSwitch(
                     Modifier
                         .offset(x = thumbOffset)
                         .size(thumbSize)
-                        .shadow(5.dp, CircleShape, clip = false)
+                        .shadow(3.dp, CircleShape, clip = false)
                         .clip(CircleShape)
                         .background(thumbFill)
-                        .border(1.dp, if (checked) Color.White.copy(alpha = 0.7f) else NeuDarkShadow.copy(alpha = 0.5f), CircleShape),
+                        .border(1.dp, if (checked) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.outline, CircleShape),
             )
         }
         return
@@ -890,6 +1030,40 @@ fun OrbLoadingCard(
 }
 
 /**
+ * Scrim alphas laid over a user-supplied wallpaper.
+ *
+ * ## Why this exists
+ *
+ * The wallpaper used to be scrimmed at **0.15 alpha**, which is decorative rather
+ * than protective. On a bright photo that left body text sitting directly on the
+ * image: on a device with a light wallpaper the login screen's Kuro email and
+ * password fields were effectively unreadable, and every list row fought the
+ * picture behind it. The app stopped looking like WuWaConfig and started looking
+ * like a wallpaper with text on it.
+ *
+ * A wallpaper is a *backdrop*. It has to stay recognisable — that is the point of
+ * setting one — while never competing with text that sits on top of it. The scrim
+ * achieves that on its own: the image still supplies its colour and composition,
+ * but far less of its detail competes with the foreground.
+ *
+ * A blur was tried here as well and **removed** — it was judged to flatten the
+ * wallpaper too much. The scrim alone is enough to carry contrast, which is the
+ * only job this layer has.
+ *
+ * Deliberately **not** scaled by [BackgroundSettings.opacity]. That setting is the
+ * user's "how much wallpaper do I want", and honouring it here would let a
+ * legitimate choice for legibility be undone by a slider meant for taste. The
+ * scrim is the floor; `opacity` shapes what shows through it.
+ *
+ * Top is heavier because the app bar and the first two cards sit there, which is
+ * where the foreground/background contest is tightest; the bottom is lighter so
+ * the wallpaper still reads as a backdrop rather than being erased.
+ */
+private const val WALLPAPER_SCRIM_TOP = 0.82f
+
+private const val WALLPAPER_SCRIM_BOTTOM = 0.66f
+
+/**
  * App-scoped background preference holder. Exposed as a CompositionLocal rather
  * than reaching into the `WuWaConfigApp.instance` global, so [GradientBackground]
  * has no hidden dependency on `Application.onCreate` having already run (and no
@@ -903,6 +1077,27 @@ data class BackgroundSettings(
 )
 
 val LocalBackgroundSettings = staticCompositionLocalOf { BackgroundSettings(null, null, 1f) }
+
+/**
+ * The legibility layer over a wallpaper.
+ *
+ * Scrim only. Applied just when the user has chosen a wallpaper — the default
+ * gradient needs nothing, and this is not worth paying for otherwise.
+ */
+@Composable
+private fun Modifier.wallpaperTreatment(): Modifier {
+    val themeBg = MaterialTheme.colorScheme.background
+    return this.background(
+        brush =
+            Brush.verticalGradient(
+                colors =
+                    listOf(
+                        themeBg.copy(alpha = WALLPAPER_SCRIM_TOP),
+                        themeBg.copy(alpha = WALLPAPER_SCRIM_BOTTOM),
+                    ),
+            ),
+    )
+}
 
 @Composable
 fun GradientBackground(content: @Composable () -> Unit) {
@@ -921,18 +1116,9 @@ fun GradientBackground(content: @Composable () -> Unit) {
             VideoBackground(
                 videoUri = videoUri!!,
                 alpha = bgAlpha,
-                modifier = Modifier.fillMaxSize(),
-            )
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush =
-                                Brush.verticalGradient(
-                                    colors = listOf(themeBg.copy(alpha = 0.15f), surface.copy(alpha = 0.15f)),
-                                ),
-                        ),
+                // Video and image are treated identically now: a scrim carries
+                // the contrast and neither is blurred.
+                modifier = Modifier.fillMaxSize().wallpaperTreatment(),
             )
         } else if (hasImage) {
             val bgImageContext = LocalContext.current
@@ -962,19 +1148,10 @@ fun GradientBackground(content: @Composable () -> Unit) {
             Image(
                 painter = painter,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().graphicsLayer(alpha = bgAlpha),
+                // The scrim is applied by `wallpaperTreatment`; `bgAlpha` is the
+                // user's own "how much wallpaper" slider and still applies.
+                modifier = Modifier.fillMaxSize().graphicsLayer(alpha = bgAlpha).wallpaperTreatment(),
                 contentScale = ContentScale.Crop,
-            )
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush =
-                                Brush.verticalGradient(
-                                    colors = listOf(themeBg.copy(alpha = 0.15f), surface.copy(alpha = 0.15f)),
-                                ),
-                        ),
             )
         } else {
             // AURORA_FLUID is the one style whose identity is the backdrop, so it
@@ -1272,13 +1449,16 @@ fun GlassDialog(
             if (isLight) Color(0xFF1C1B1F).copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
 
         if (isLight) {
+            // Opaque scheme surface: a dialog has to occlude what is behind it,
+            // and the dark branch's translucent white gradients cannot do that
+            // over a light window background.
             Box(
                 modifier =
                     Modifier
                         .widthIn(min = 260.dp, max = 380.dp)
-                        .padding(14.dp)
-                        .neumorphic(cornerRadius = 28.dp, elevation = 9.dp)
+                        .shadow(24.dp, shape, clip = false)
                         .clip(shape)
+                        .background(MaterialTheme.colorScheme.surface, shape)
                         .border(1.dp, accentColor.copy(alpha = 0.18f), shape),
             ) {
                 GlassDialogContent(accentColor, isLight, titleColor, bodyColor, icon, title, text, confirmButton, dismissButton)

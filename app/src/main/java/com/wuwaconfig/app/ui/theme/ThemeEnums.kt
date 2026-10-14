@@ -32,9 +32,14 @@ enum class UiStyle(
     /** Follows the device. Rounded-but-neutral, no decorative blur or glow. */
     MATERIAL_YOU(
         displayName = "Material You",
-        description = "Native Android look. Follows your wallpaper colours and the system shape scale.",
+        description = "Native Android look. Cards step up in tone as they nest, the way Material 3 does elevation.",
         tokens =
             ThemeShapeTokens(
+                // The one style whose identity is Material's tonal-elevation
+                // mechanism rather than a decoration, so it is the only one
+                // that must draw no outline: the tone *is* the edge.
+                surfaceMode = SurfaceMode.TONAL,
+                edgeMode = EdgeMode.NONE,
                 cardCorner = 16.dp,
                 buttonCorner = 20.dp,
                 dialogCorner = 28.dp,
@@ -53,9 +58,11 @@ enum class UiStyle(
     /** The app's existing glassmorphism layer: translucent fills, hairline glow. */
     LIQUID_GLASS(
         displayName = "Liquid Glass",
-        description = "Translucent panels with soft accent glow. The original WuWa look.",
+        description = "Translucent panels with a specular edge that catches the light.",
         tokens =
             ThemeShapeTokens(
+                surfaceMode = SurfaceMode.GLASS,
+                edgeMode = EdgeMode.SPECULAR,
                 cardCorner = 8.dp,
                 buttonCorner = 8.dp,
                 dialogCorner = 28.dp,
@@ -77,6 +84,8 @@ enum class UiStyle(
         description = "Extra rounded modular tiles. Dense metrics split into separate blocks.",
         tokens =
             ThemeShapeTokens(
+                surfaceMode = SurfaceMode.OUTLINED,
+                edgeMode = EdgeMode.HAIRLINE,
                 cardCorner = 24.dp,
                 buttonCorner = 16.dp,
                 dialogCorner = 32.dp,
@@ -98,6 +107,8 @@ enum class UiStyle(
         description = "Hard edges and flat pixel panels. No blur, no shadow, no glow.",
         tokens =
             ThemeShapeTokens(
+                surfaceMode = SurfaceMode.OUTLINED,
+                edgeMode = EdgeMode.HARD,
                 cardCorner = 0.dp,
                 buttonCorner = 0.dp,
                 dialogCorner = 0.dp,
@@ -119,6 +130,16 @@ enum class UiStyle(
         description = "Slow drifting gradient layers behind soft translucent panels.",
         tokens =
             ThemeShapeTokens(
+                // Shares its surface and edge treatment with LIQUID_GLASS, and
+                // deliberately so: the aurora backdrop is animated, so a visible
+                // fill would fight it and no *static* property distinguishes the
+                // two cards. What separates them is the backdrop — see
+                // `GradientBackground`, which branches on this enum directly. The
+                // styles are told apart by what is *behind* them, not what is on
+                // them, so a per-card token would be decoration that duplicates
+                // the backdrop decision.
+                surfaceMode = SurfaceMode.GLASS,
+                edgeMode = EdgeMode.SPECULAR,
                 cardCorner = 20.dp,
                 buttonCorner = 20.dp,
                 dialogCorner = 28.dp,
@@ -151,6 +172,8 @@ enum class UiStyle(
         description = "Restrained flat panels with no glow. Pair with the OLED palette below for an all-black screen.",
         tokens =
             ThemeShapeTokens(
+                surfaceMode = SurfaceMode.FLAT,
+                edgeMode = EdgeMode.HAIRLINE,
                 cardCorner = 12.dp,
                 buttonCorner = 12.dp,
                 dialogCorner = 24.dp,

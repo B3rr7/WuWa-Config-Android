@@ -9,7 +9,7 @@ import org.junit.Test
  * Pins the serial name of every destination key, plus the start-destination
  * rule.
  *
- * Why the serial name and not "the graph has 13 entries": a pure JVM test
+ * Why the serial name and not "the graph has 16 entries": a pure JVM test
  * cannot see inside the entryProvider, so any assertion about the set of
  * registered destinations would be self-referential. The serial name is the
  * thing that actually has to stay stable across versions, and it is testable —

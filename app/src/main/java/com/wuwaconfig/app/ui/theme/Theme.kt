@@ -71,7 +71,7 @@ private const val MAX_CONTRAST_SHIFT = 0.4f
  *
  * Note the polarity: it returns `true` for a **light** colour. Every caller wants
  * "is this a light background", so naming it that way is the only way the call
- * sites stay readable — `if (isLight) NeumorphicCard() else …` is the existing
+ * sites stay readable — `if (isLight) SurfaceCard() else …` is the existing
  * idiom in `GlassCard`, and this is the same test.
  */
 internal fun Color.isLight(): Boolean = luminance() > 0.5f
@@ -157,9 +157,24 @@ internal fun PaletteColors.toColorScheme(): ColorScheme =
         // modes instead.
         surfaceBright = surfaceVariant,
         surfaceDim = background,
-        surfaceContainer = surfaceVariant,
-        surfaceContainerHigh = surfaceVariant,
-        surfaceContainerHighest = outlineVariant,
+        // The container ramp is derived, not copied. Material 3 expresses
+        // elevation as a step in surface tone, so the four raised steps have to
+        // be distinct and monotone away from the background — a ramp with two
+        // identical entries makes a nested card look flat.
+        //
+        // Interpolating from the palette's own `surface` toward `outline` gives
+        // four distinct steps in both modes without inventing hues, and moves
+        // away from the page in each because `outline` sits further from
+        // `background` than `surface` does.
+        //
+        // `outlineVariant` is deliberately NOT used here. It is a *border* token,
+        // and its relationship to `surfaceVariant` varies per palette: NORD_ICE
+        // has outlineVariant #3B4252, which is DARKER than its surfaceVariant
+        // #434C5E, so using it produced a ramp that ran backwards and made an
+        // elevated card appear to sink.
+        surfaceContainer = lerp(surface, outline, 0.34f),
+        surfaceContainerHigh = lerp(surface, outline, 0.55f),
+        surfaceContainerHighest = lerp(surface, outline, 0.76f),
         surfaceContainerLow = surface,
         surfaceContainerLowest = background,
     )
