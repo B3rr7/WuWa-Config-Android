@@ -190,6 +190,37 @@ android {
         // (Log.d) and friends need default no-op returns instead.
         unitTests.isReturnDefaultValues = true
     }
+
+    // NOTE: there is deliberately NO `java { toolchain { ... } }` block here, and
+    // that is a decision, not an oversight.
+    //
+    // `sourceCompatibility`/`targetCompatibility`/`jvmTarget` are all 17 above,
+    // but those set the *bytecode target* only — they do not choose the JVM that
+    // Gradle launches on, and so do not choose the JVM that runs the tests.
+    // Without a toolchain block the test JVM is simply whatever started Gradle.
+    //
+    // That matters because on JDK 25 the Mockito 5.11.0 inline mock maker cannot
+    // retransform java.lang.Object:
+    //
+    //   MockitoException: Could not modify all classes
+    //       [class android.content.pm.Signature, interface android.os.Parcelable,
+    //        class java.lang.Object]
+    //
+    // …which fails 146 of the 1016 tests in 8 classes (SmartBrainTest,
+    // HashSyncTest, CacheStoresTest, GachaHistoryStoreTest, HashMonitorTest,
+    // CvarDatabaseTest, ConfigManagerTest, UpdateManagerTest). Measured on a dev
+    // box: JDK 21 → 1016/1016 green, JDK 25 → 146 failures. A `git stash` A/B
+    // showed the same 146 failing with and without local changes, so they are
+    // environmental and never indicate a regression in your own code.
+    //
+    // If you see a wall of Mockito failures, run `java -version` BEFORE reading
+    // any of them as real. CI is unaffected — .github/workflows/{ci,build}.yml pin
+    // Temurin 17.
+    //
+    // Why not just pin it? Declaring `languageVersion = 21` here would make CI
+    // (which runs 17) try to *download* a JDK, requiring a toolchain resolver
+    // plugin — trading a working pipeline for a purely local problem. Pin
+    // `JAVA_HOME` locally, or install openjdk-17-jdk, instead.
 }
 
 // Fail loudly on a release build with no signing material — but ONLY when a

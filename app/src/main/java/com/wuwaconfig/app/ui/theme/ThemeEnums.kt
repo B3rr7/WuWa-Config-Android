@@ -78,10 +78,19 @@ enum class UiStyle(
             ),
     ),
 
-    /** Oversized radii and heavier separation between independent panels. */
+    /**
+     * Oversized radii and heavier separation between independent panels.
+     *
+     * The description used to claim "dense metrics split into separate blocks",
+     * which no code implements. A bento grid is fundamentally a *layout* system —
+     * varied cell sizes where size encodes importance — and this enum only
+     * controls a surface. Making that promise true means relaying out every
+     * screen, which is a separate change from theming; until then the copy says
+     * what the tokens actually do rather than promising a grid.
+     */
     BENTO_GRID(
         displayName = "Bento Grid",
-        description = "Extra rounded modular tiles. Dense metrics split into separate blocks.",
+        description = "Extra rounded modular tiles with a clear outline on each panel.",
         tokens =
             ThemeShapeTokens(
                 surfaceMode = SurfaceMode.OUTLINED,
