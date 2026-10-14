@@ -1,10 +1,12 @@
 package com.wuwaconfig.app.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,12 +16,14 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -332,6 +336,58 @@ private fun PlayerRow(
 
 // -- character slider --------------------------------------------------------
 
+/** Width of one character card. Shared by the card and the pager's page slot. */
+private val CHARACTER_CARD_WIDTH = 168.dp
+
+/**
+ * Position indicator for the character carousel.
+ *
+ * A dot per character was correct when the roster was short and quietly wrong as
+ * it grew: at ~40 entries the dots overflowed the card width, so the tail was
+ * clipped and could not be tapped to jump to a character. This is a single track
+ * whose filled portion tracks `currentPage + offsetFraction`, which stays
+ * meaningful for one character or a hundred.
+ */
+@Composable
+private fun CarouselTrack(
+    pageCount: Int,
+    currentPage: Int,
+    offsetFraction: Float,
+    accent: Color,
+) {
+    if (pageCount <= 1) return
+    val progress by animateFloatAsState(
+        targetValue = (currentPage + offsetFraction).coerceIn(0f, (pageCount - 1).toFloat()),
+        label = "carouselTrack",
+    )
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // A "one page visible" segment. The 12dp floor keeps it from becoming a
+        // sub-pixel sliver on a 40-character roster.
+        val segment = (maxWidth / pageCount).coerceAtLeast(12.dp)
+        val travel = (maxWidth - segment).coerceAtLeast(0.dp)
+        val t = if (pageCount > 1) progress / (pageCount - 1) else 0f
+
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(CircleShape)
+                    .background(accent.copy(alpha = 0.22f)),
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .width(segment)
+                        .fillMaxHeight()
+                        .offset(x = travel * t)
+                        .clip(CircleShape)
+                        .background(accent),
+            )
+        }
+    }
+}
+
 @Composable
 private fun CharacterSlider(
     characters: List<OfficialCharacter>,
@@ -364,49 +420,63 @@ private fun CharacterSlider(
                         scope.launch { pagerState.animateScrollToPage(index) }
                     }
                 }
-                HorizontalPager(
-                    state = pagerState,
-                    contentPadding = PaddingValues(horizontal = 48.dp),
-                    pageSpacing = 10.dp,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { page ->
-                    val character = characters[page]
-                    val offset = (page - pagerState.currentPage) - pagerState.currentPageOffsetFraction
-                    val distance = abs(offset).coerceAtMost(1f)
-                    val scale = 1f - 0.14f * distance
-                    val alpha = 1f - 0.45f * distance
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .graphicsLayer {
-                                    scaleX = scale
-                                    scaleY = scale
-                                    this.alpha = alpha
-                                },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CharacterCard(character, selectedId == character.roleGbId) { onSelect(character.roleGbId) }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    characters.forEachIndexed { index, _ ->
-                        val isActive = index == pagerState.currentPage
+                // The page slot must be sized to the CARD, not to the viewport.
+                //
+                // With `pageSize` left at Fill, every page slot was the full pager
+                // width minus the content padding, while CharacterCard is a fixed
+                // 168dp. The card therefore floated in the middle of a much wider
+                // slot, the neighbouring pages were pushed a whole viewport-width
+                // away, and only about 14dp of them peeked in at each edge - so
+                // the "carousel" rendered as one card alone in black space with no
+                // hint that it swiped. Pinning the slot to card + peek is what
+                // makes the neighbours visible and turns it back into a carousel.
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val peek = 52.dp
+                    val pageWidth = CHARACTER_CARD_WIDTH + peek
+                    // Centre the run of pages: leading padding must equal
+                    // (viewport - pageWidth) / 2 or the "current" page sits left
+                    // of centre.
+                    val sidePad = ((maxWidth - pageWidth) / 2).coerceAtLeast(0.dp)
+                    HorizontalPager(
+                        state = pagerState,
+                        pageSize = PageSize.Fixed(pageWidth),
+                        contentPadding = PaddingValues(horizontal = sidePad),
+                        pageSpacing = 0.dp,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { page ->
+                        val character = characters[page]
+                        val offset = (page - pagerState.currentPage) - pagerState.currentPageOffsetFraction
+                        val distance = abs(offset).coerceAtMost(1f)
+                        val scale = 1f - 0.10f * distance
+                        val alpha = 1f - 0.35f * distance
                         Box(
                             modifier =
                                 Modifier
-                                    .padding(horizontal = 2.5.dp)
-                                    .size(if (isActive) 7.dp else 5.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isActive) NeonGreen else NeonGreen.copy(alpha = 0.25f))
-                                    .clickable { if (!isActive) scope.launch { pagerState.animateScrollToPage(index) } },
-                        )
+                                    .fillMaxWidth()
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                        this.alpha = alpha
+                                    },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CharacterCard(character, selectedId == character.roleGbId) { onSelect(character.roleGbId) }
+                        }
                     }
                 }
+                Spacer(Modifier.height(12.dp))
+                // A single slim track rather than one dot per character.
+                //
+                // The roster runs to ~40 entries, and 40 dots overflowed the card
+                // width outright - the last few were clipped and unreachable, so
+                // they could neither be seen nor tapped. A proportional track
+                // stays correct at any roster size and does not grow.
+                CarouselTrack(
+                    pageCount = characters.size,
+                    currentPage = pagerState.currentPage,
+                    offsetFraction = pagerState.currentPageOffsetFraction,
+                    accent = NeonGreen,
+                )
             }
         }
     }
@@ -428,7 +498,7 @@ private fun CharacterCard(
     Column(
         modifier =
             Modifier
-                .width(168.dp)
+                .width(CHARACTER_CARD_WIDTH)
                 .clip(RoundedCornerShape(20.dp))
                 .background(
                     brush =
