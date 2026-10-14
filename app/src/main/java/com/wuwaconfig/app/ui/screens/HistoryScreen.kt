@@ -2,7 +2,7 @@ package com.wuwaconfig.app.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -136,7 +136,10 @@ fun HistoryScreen(
                             }
                         }
                     }
-                    itemsIndexed(deployRecords) { _, record ->
+                    // Keyed on the stable record id: an unkeyed list re-composes
+                    // every card when any one of them changes (or on connect/
+                    // disconnect, which flips `isConnected` for all of them).
+                    items(deployRecords, key = { it.id }) { record ->
                         DeployHistoryCard(
                             record = record,
                             isConnected = backendStatus.connected && !isApplying,

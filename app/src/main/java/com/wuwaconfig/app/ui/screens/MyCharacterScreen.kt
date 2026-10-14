@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -149,8 +150,16 @@ private fun LoginSection(
     val busy by viewModel.loginBusy.collectAsStateWithLifecycle()
     val error by viewModel.loginError.collectAsStateWithLifecycle()
     val prefill by viewModel.storedEmail.collectAsStateWithLifecycle()
-    var email by remember { mutableStateOf(prefill ?: "") }
+    // `prefill` is an async StateFlow, so a plain `remember` captured whatever the
+    // first composition saw and silently dropped a later emission — the saved
+    // email never pre-filled. Seed once, only while the field is untouched, so a
+    // user edit is never clobbered and the value survives rotation.
+    var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    LaunchedEffect(prefill) {
+        val seed = prefill
+        if (seed != null && email.isEmpty()) email = seed
+    }
 
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),

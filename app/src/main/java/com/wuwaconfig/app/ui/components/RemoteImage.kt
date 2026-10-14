@@ -55,7 +55,11 @@ fun RemoteImage(
 ) {
     var bitmap by remember(url) { mutableStateOf(imageCache.get(url)) }
     var failed by remember(url) { mutableStateOf(false) }
-    val resolvedScale = if (contentScale == ContentScale.Fit) ContentScale.Crop else contentScale
+    // No Fit -> Crop coercion here. That line made `contentScale` a parameter
+    // none of the icon call sites could honour: they all pass `ContentScale.Fit`
+    // and silently got `Crop`, so square weapon/echo/skill icons were cropped
+    // instead of fitted. The default stays Crop for the banner call sites.
+    val resolvedScale = contentScale
 
     LaunchedEffect(url) {
         if (bitmap != null) return@LaunchedEffect

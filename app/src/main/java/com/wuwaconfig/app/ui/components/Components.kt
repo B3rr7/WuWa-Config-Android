@@ -266,27 +266,6 @@ private fun SurfaceCard(
 }
 
 /**
- * The tonal elevation ramp: index 0 is a top-level surface, higher indices are
- * progressively more raised.
- *
- * The same four roles serve both modes without a branch, because Material's
- * light and dark ramps are inverted: against a near-white background a deeper
- * container is *darker*, and against a near-black one it is *lighter*. Both move
- * away from the page, which is what elevation means.
- *
- * Monotonicity is the property that makes this correct, and it is asserted per
- * palette in `ThemeEngineTest` — a palette whose ramp is not monotone would make
- * a nested card appear to sink rather than rise.
- */
-internal fun tonalRampFor(scheme: ColorScheme): List<Color> =
-    listOf(
-        scheme.surface,
-        scheme.surfaceContainer,
-        scheme.surfaceContainerHigh,
-        scheme.surfaceContainerHighest,
-    )
-
-/**
  * The few surface tones this app's cards actually use, most-raised first.
  *
  * ## Why MATERIAL_YOU's ramp is hand-picked rather than the container ramp
@@ -760,7 +739,11 @@ fun GlassButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     accentColor: Color = NeonCyan,
-    contentColor: Color = Color.Black,
+    // White, not black: in dark mode the container is `accentColor` at 0.12 alpha
+    // over a near-black page, so a black label is unreadable. In light mode
+    // `resolvedContentColor` ignores this and uses the accent, so the default is
+    // only ever reached by dark mode — where it must be light.
+    contentColor: Color = Color.White,
     height: Dp = 52.dp,
     content: @Composable RowScope.() -> Unit,
 ) {

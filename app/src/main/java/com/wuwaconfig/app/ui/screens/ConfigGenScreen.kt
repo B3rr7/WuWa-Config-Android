@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Speed
@@ -409,6 +410,8 @@ fun ConfigGenScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Shown instead of an uncaught crash: the generate path is the
                         // one thing that must always work, so its failure is reported.
+                        // Dismissable — without an exit this card stuck for the life
+                        // of the destination even after the user moved on.
                         deployError?.let { err ->
                             GlassCard(accentColor = NeonRed) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -418,7 +421,17 @@ fun ConfigGenScreen(
                                         "Generation failed: $err",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = NeonRed,
+                                        modifier = Modifier.weight(1f),
                                     )
+                                    Spacer(Modifier.width(4.dp))
+                                    IconButton(onClick = { deployError = null }) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Dismiss",
+                                            tint = NeonRed.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
                                 }
                             }
                         }

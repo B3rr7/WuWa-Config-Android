@@ -85,10 +85,15 @@ fun LogsScreen(
         )
     }
 
+    // Clear BEFORE showing, not after: showSnackbar suspends for the full
+    // duration, so a second message arriving inside one `Short` window would
+    // cancel this effect while `logsFeedback` still holds the first value, and
+    // the first message would be re-displayed later. Same fix as
+    // BackupScreen/HomeScreen.
     LaunchedEffect(logsFeedback) {
         logsFeedback?.let {
-            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
             viewModel.clearLogsFeedback()
+            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
         }
     }
 

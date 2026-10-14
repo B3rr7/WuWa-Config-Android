@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -32,9 +33,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +60,7 @@ import com.wuwaconfig.app.util.copySensitive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /** The five generated INIs, from the single source of truth in [GamePaths]. */
 private val ReviewMonitoredFiles = GamePaths.MONITORED_FILES
@@ -539,32 +543,54 @@ private fun EditorPane(
     // Sanitize for render: null chars / control chars from a corrupted device file
     // (or user paste) crash BasicTextField's text layout engine. Strip them here
     // so the editor always receives clean text.
-    val safeText = sanitizeForRender(text).first
-    val lineCount = safeText.count { it == '\n' } + 1
+    // Both are `remember`ed on the text: `sanitizeForRender` allocates a whole new
+    // string and `count` walks it again, so doing that in composition re-paid the
+    // full-string cost on every recomposition — including every keystroke, since
+    // `text` is the parameter that changes.
+    val safeText = remember(text) { sanitizeForRender(text).first }
+    val lineCount = remember(safeText) { safeText.count { it == '\n' } + 1 }
+    // The gutter is a LazyColumn for the same reason IniEditorScreen's is: an eager
+    // `Column` in a `verticalScroll` composes and measures one Text node per line,
+    // so a large file meant that many text nodes re-laid out on every keystroke.
+    // It needs its own LazyListState, kept in step with the text field's scroll
+    // below — both use a 16.sp line height, so the pixel offset maps 1:1 to a
+    // line index.
+    val gutterScroll = rememberLazyListState()
+    val lineHeightPx = with(LocalDensity.current) { 16.sp.toPx() }
+    LaunchedEffect(scroll) {
+        snapshotFlow { scroll.value }.collect { offset ->
+            val first = (offset / lineHeightPx).roundToInt().coerceIn(0, (lineCount - 1).coerceAtLeast(0))
+            if (first != gutterScroll.firstVisibleItemIndex) {
+                gutterScroll.scrollToItem(first)
+            }
+        }
+    }
     Row(
         modifier =
             Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFF1A1A2E))
-                .border(width = 1.dp, color = accent.copy(alpha = 0.4f), shape = RoundedCornerShape(8.dp))
-                .verticalScroll(scroll),
+                .border(width = 1.dp, color = accent.copy(alpha = 0.4f), shape = RoundedCornerShape(8.dp)),
     ) {
-        Column(
+        LazyColumn(
+            state = gutterScroll,
             modifier =
                 Modifier
                     .width(48.dp)
+                    .fillMaxHeight()
                     .background(Color(0xFF11111F))
                     .padding(top = 8.dp, end = 6.dp, bottom = 8.dp),
-            horizontalAlignment = Alignment.End,
         ) {
-            for (i in 1..lineCount) {
+            items(count = lineCount) { i ->
                 Text(
-                    "$i",
+                    "${i + 1}",
                     fontSize = 10.sp,
                     lineHeight = 16.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -584,6 +610,8 @@ private fun EditorPane(
             modifier =
                 Modifier
                     .weight(1f)
+                    .fillMaxHeight()
+                    .verticalScroll(scroll)
                     .padding(start = 4.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         )
     }

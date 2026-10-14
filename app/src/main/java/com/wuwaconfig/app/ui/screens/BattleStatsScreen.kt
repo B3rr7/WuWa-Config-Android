@@ -24,12 +24,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.ui.LogInsightsViewModel
-import com.wuwaconfig.app.ui.components.BouncingOrb
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
+import com.wuwaconfig.app.ui.components.OrbLoadingCard
 import com.wuwaconfig.app.ui.theme.*
 import com.wuwaconfig.app.util.formatBytes
 
@@ -81,7 +81,12 @@ fun BattleStatsScreen(
 
                 if (stats == null) {
                     if (loading) {
-                        BattleStatsLoadingAnimation("Reading Client.log for battle stats...", progress)
+                        OrbLoadingCard(
+                            text = "Reading Client.log for battle stats...",
+                            accentColor = NeonGreen,
+                            colors = listOf(NeonGreen, NeonRed, NeonCyan),
+                            progress = progress,
+                        )
                     } else {
                         GlassButton(
                             onClick = { viewModel.loadBattleStats() },
@@ -355,43 +360,5 @@ private fun StatCell(
         Spacer(Modifier.height(2.dp))
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = accent)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-    }
-}
-
-@Composable
-private fun BattleStatsLoadingAnimation(
-    text: String,
-    progress: Int = 0,
-) {
-    GlassCard(accentColor = NeonGreen) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val orbs = listOf(NeonGreen, NeonRed, NeonCyan)
-                orbs.forEachIndexed { index, color ->
-                    BouncingOrb(color, index)
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (progress > 0) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "$progress%",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = NeonGreen,
-                )
-            }
-        }
     }
 }

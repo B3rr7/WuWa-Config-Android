@@ -143,9 +143,10 @@ object GachaAvatar {
  * broken-image icon or a failed request", which was false in exactly this case.
  *
  * So the bundled asset is preferred and the official URL is the fallback: the first
- * is always loadable, and the second still wins for any character the bundle does
- * not cover. If `coil-network` is ever added, swap the two — that is the only change
- * needed, and this ordering is what makes it a safe swap in the meantime.
+ * is always loadable, the second is *not* today and is filtered out by
+ * [isCoilLoadable] before it reaches Coil — so a character the bundle does not
+ * cover draws its coloured initial rather than an empty circle. If `coil-network`
+ * is ever added, [isCoilLoadable] is the only thing that has to change.
  *
  * Pure and Context-free so the ordering is unit-testable. Deriving the asset
  * filename needs a `Context` (it lists `assets/`), which under
@@ -156,6 +157,21 @@ internal fun portraitModel(
     bundledAsset: String?,
     officialUrl: String?,
 ): String? = bundledAsset?.let { "$ASSET_URI_PREFIX${GachaAvatar.ASSET_DIR}/$it" } ?: officialUrl
+
+/**
+ * Whether [model] is something Coil can actually resolve.
+ *
+ * `coil-network` is deliberately not a dependency, so the only models with a
+ * registered fetcher are bundled `file:///android_asset/` ones. Handing
+ * [AsyncImage] anything else produces an unresolvable load with no error
+ * drawable — an empty circle — and because [GachaAvatar] only falls back to
+ * `AvatarInitial` when the model is null, the initials are suppressed too.
+ *
+ * So the URL is not "wrong", it is unloadable: this is the predicate that keeps
+ * it out of Coil until a fetcher exists. When `coil-network` lands, this is the
+ * one place that changes.
+ */
+internal fun isCoilLoadable(model: String?): Boolean = model != null && model.startsWith(ASSET_URI_PREFIX)
 
 /** The model Coil should load, or a coloured initial when none resolves. */
 @Composable
@@ -169,8 +185,10 @@ fun GachaAvatar(
     val official = remember(name, resourceType) { GachaAvatar.officialArtFor(name, resourceType) }
     val bundled = remember(name, resourceType) { GachaAvatar.assetFile(context, name, resourceType) }
     val model = remember(name, resourceType, bundled, official) { portraitModel(bundled, official) }
-
-    if (model != null) {
+    // Guard on loadability, not on null: a URL Coil has no fetcher for must fall
+    // back to the initial, not render an empty circle with the initials
+    // suppressed. See isCoilLoadable.
+    if (isCoilLoadable(model)) {
         AsyncImage(
             model = model,
             contentDescription = name,

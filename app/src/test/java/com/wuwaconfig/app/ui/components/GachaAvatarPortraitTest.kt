@@ -1,7 +1,9 @@
 package com.wuwaconfig.app.ui.components
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -50,6 +52,37 @@ class GachaAvatarPortraitTest {
             "file:///android_asset/gacha_avatars/weapon_broadblade41.webp",
             portraitModel(bundledAsset = "weapon_broadblade41.webp", officialUrl = null),
         )
+    }
+
+    // ─────────── the binary constraint the composable now honours ───────────
+
+    @Test
+    fun `an official url is not coil loadable so the initial is drawn instead`() {
+        // portraitModel still *returns* the URL (that ordering is what makes a
+        // future coil-network swap a one-line change), but the composable must not
+        // hand it to AsyncImage: there is no fetcher, so it would render an empty
+        // circle and suppress the initials. This pins the filter, not the order.
+        assertFalse(
+            isCoilLoadable(portraitModel(bundledAsset = null, officialUrl = official)),
+        )
+    }
+
+    @Test
+    fun `a bundled asset is coil loadable`() {
+        assertTrue(
+            isCoilLoadable(portraitModel(bundledAsset = "hsin.webp", officialUrl = official)),
+        )
+    }
+
+    @Test
+    fun `a null model is not coil loadable`() {
+        assertFalse(isCoilLoadable(null))
+    }
+
+    @Test
+    fun `a remote url is not coil loadable even when it is not https`() {
+        // Fail closed on anything that is not the bundled-asset prefix.
+        assertFalse(isCoilLoadable("content://media/external/images/1"))
     }
 
     // ─────────── the fallbacks, unchanged ───────────

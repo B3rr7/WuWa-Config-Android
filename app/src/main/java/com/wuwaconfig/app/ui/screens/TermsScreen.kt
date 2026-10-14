@@ -153,10 +153,14 @@ fun TermsScreen(onAccept: () -> Unit) {
                                         "sends the ID from a gacha URL you paste in to the game's own official " +
                                         "server, and the update check contacts GitHub. Nothing else is transmitted.",
                                 )
+                                // Do NOT re-add "screenshots are blocked" here. `SECURE_SCREENSHOTS`
+                                // is false for every variant (see build.gradle.kts), so FLAG_SECURE
+                                // is never set and screenshots, screencap and the recents thumbnail
+                                // all work. This sentence was false once already.
                                 BulletPoint(
                                     "If you use the Save/Export action on the Logs screen, a copy of the log is " +
                                         "written to your Downloads folder. The clipboard is marked sensitive so " +
-                                        "keyboards do not keep a copy, and screenshots are blocked.",
+                                        "keyboards do not keep a copy.",
                                 )
                                 BulletPoint(
                                     "This app requests elevated storage and Shizuku/Root access only to reach the " +

@@ -25,13 +25,13 @@ import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.ui.ProfileViewModel
-import com.wuwaconfig.app.ui.components.BouncingOrb
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
+import com.wuwaconfig.app.ui.components.OrbLoadingCard
 import com.wuwaconfig.app.ui.components.formatRam
 import com.wuwaconfig.app.ui.modifyCountLabel
 import com.wuwaconfig.app.ui.theme.*
@@ -84,7 +84,12 @@ fun ProfileScreen(
                 }
 
                 if (profileLoading && profile == null) {
-                    ProfileLoadingAnimation("Reading game data from device...", profileProgress)
+                    OrbLoadingCard(
+                        text = "Reading game data from device...",
+                        accentColor = NeonGreen,
+                        colors = listOf(NeonGreen, NeonCyan, NeonGold),
+                        progress = profileProgress,
+                    )
                 }
 
                 if (profile != null) {
@@ -605,42 +610,4 @@ private fun SectionHeader(
     accent: Color,
 ) {
     Text(text, style = MaterialTheme.typography.labelMedium, color = accent.copy(alpha = 0.7f), letterSpacing = 2.sp)
-}
-
-@Composable
-private fun ProfileLoadingAnimation(
-    text: String,
-    progress: Int = 0,
-) {
-    GlassCard(accentColor = NeonGreen) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val orbs = listOf(NeonGreen, NeonCyan, NeonGold)
-                orbs.forEachIndexed { index, color ->
-                    BouncingOrb(color, index)
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (progress > 0) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "$progress%",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = NeonGreen,
-                )
-            }
-        }
-    }
 }

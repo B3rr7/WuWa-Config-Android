@@ -16,10 +16,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,15 +30,14 @@ import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.GachaPoolType
 import com.wuwaconfig.app.model.GachaRecord
-import com.wuwaconfig.app.model.SsrInterval
 import com.wuwaconfig.app.ui.GachaViewModel
-import com.wuwaconfig.app.ui.components.BouncingOrb
 import com.wuwaconfig.app.ui.components.GachaAvatar
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
+import com.wuwaconfig.app.ui.components.OrbLoadingCard
 import com.wuwaconfig.app.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -164,8 +161,10 @@ fun PityScreen(
 
                 if (conveneUrlLoading || gachaLoading) {
                     item {
-                        PityLoadingAnimation(
-                            if (conveneUrlLoading) "Reading Client.log for Convene URL..." else "Fetching pull history from Kuro servers...",
+                        OrbLoadingCard(
+                            text = if (conveneUrlLoading) "Reading Client.log for Convene URL..." else "Fetching pull history from Kuro servers...",
+                            accentColor = NeonPurple,
+                            colors = listOf(NeonCyan, NeonGold, NeonPurple),
                         )
                     }
                 }
@@ -477,12 +476,6 @@ private fun PoolHistoryHeader(
     }
 }
 
-// NOT @Composable: these read no composition state, so the annotation only made
-// every call site an (incorrect) composable call.
-private fun formatCost(cost: Long): String {
-    return formatNumber(cost) + " Astrites"
-}
-
 /**
  * Groups a number into thousands.
  *
@@ -497,72 +490,6 @@ internal fun formatNumber(number: Long): String {
         "%.1fK".format(number / 1000.0)
     } else {
         number.toString()
-    }
-}
-
-@Composable
-private fun SsrIntervalsTable(intervals: List<SsrInterval>) {
-    GlassCard(accentColor = NeonGold) {
-        Text(
-            "★5 PULL INTERVALS",
-            style = MaterialTheme.typography.labelMedium,
-            color = NeonGold.copy(alpha = 0.8f),
-            letterSpacing = 2.sp,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.height(12.dp))
-
-        // Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("#", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(32.dp))
-            Text("5★ Name", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            Text("Pity", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(50.dp))
-            Text("Date", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(90.dp))
-        }
-        Spacer(Modifier.height(6.dp))
-
-        // Rows
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            intervals.forEachIndexed { index, interval ->
-                val pityColor = if (interval.pity >= 75) NeonRed else if (interval.pity >= 66) NeonAmber else NeonGold
-                val nameColor = if (interval.pity >= 75) NeonRed else if (interval.pity >= 66) NeonAmber else NeonGold
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("${index + 1}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(32.dp))
-                    Text(
-                        interval.name,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = nameColor,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        "${interval.pity}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = pityColor,
-                        modifier = Modifier.width(50.dp),
-                    )
-                    Text(
-                        if (interval.time.length >= 10) interval.time.substring(0, 10) else interval.time,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(90.dp),
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -687,61 +614,6 @@ private fun RecordRow(record: GachaRecord) {
 }
 
 @Composable
-private fun PityProgressBar(
-    pulls: Int,
-    hardPity: Int,
-    softThreshold: Int,
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    val fillFrac = (pulls.toFloat() / hardPity).coerceIn(0f, 1f)
-    val softFrac = (softThreshold.toFloat() / hardPity).coerceIn(0f, 1f)
-    Box(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(14.dp)
-                .clip(RoundedCornerShape(7.dp))
-                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.18f)),
-    ) {
-        Box(
-            Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxWidth(1f - softFrac)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(NeonAmber.copy(alpha = 0.22f), NeonAmber.copy(alpha = 0.45f)),
-                    ),
-                ),
-        )
-        Box(
-            Modifier
-                .align(Alignment.CenterStart)
-                .fillMaxWidth(fillFrac)
-                .background(
-                    Brush.horizontalGradient(listOf(accent.copy(alpha = 0.65f), accent)),
-                    RoundedCornerShape(7.dp),
-                ),
-        )
-    }
-}
-
-@Composable
-private fun StatusPill(
-    text: String,
-    color: Color,
-) {
-    Box(
-        Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(color.copy(alpha = 0.15f))
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-    ) {
-        Text(text, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
-    }
-}
-
-@Composable
 private fun HeroStat(
     value: String,
     label: String,
@@ -751,31 +623,5 @@ private fun HeroStat(
         Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = accent)
         Spacer(Modifier.height(2.dp))
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun PityLoadingAnimation(text: String) {
-    GlassCard(accentColor = NeonPurple) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val orbs = listOf(NeonCyan, NeonGold, NeonPurple)
-                orbs.forEachIndexed { index, color ->
-                    BouncingOrb(color, index)
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }

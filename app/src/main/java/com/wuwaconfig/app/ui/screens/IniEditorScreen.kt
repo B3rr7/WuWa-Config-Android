@@ -44,11 +44,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.nav.InnerBackRegistrar
 import com.wuwaconfig.app.ui.IniEditorViewModel
-import com.wuwaconfig.app.ui.components.BouncingOrb
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassDialog
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
+import com.wuwaconfig.app.ui.components.OrbLoadingCard
 import com.wuwaconfig.app.ui.theme.*
 
 private val LINE_HEIGHT = 20.sp
@@ -284,8 +284,10 @@ fun IniEditorScreen(
                         modifier = Modifier.fillMaxSize().padding(padding),
                         contentAlignment = Alignment.Center,
                     ) {
-                        IniLoadingAnimation(
-                            if (editingFileName != null) "Saving $editingFileName..." else "Loading...",
+                        OrbLoadingCard(
+                            text = if (editingFileName != null) "Saving $editingFileName..." else "Loading...",
+                            accentColor = NeonCyan,
+                            colors = listOf(NeonCyan, NeonPurple, NeonGreen),
                         )
                     }
                 }
@@ -825,29 +827,3 @@ private fun highlightIni(
             lineStart = lineEnd + 1
         }
     }
-
-@Composable
-private fun IniLoadingAnimation(text: String) {
-    GlassCard(accentColor = NeonCyan) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val orbs = listOf(NeonCyan, NeonPurple, NeonGreen)
-                orbs.forEachIndexed { index, color ->
-                    BouncingOrb(color, index)
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
