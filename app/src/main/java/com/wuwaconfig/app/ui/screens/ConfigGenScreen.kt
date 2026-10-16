@@ -44,6 +44,9 @@ import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.LogInsightsViewModel
 import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.anim.LogBrainAnimation
+import com.wuwaconfig.app.ui.anim.LogReadResult
+import com.wuwaconfig.app.ui.anim.toBrainLines
 import com.wuwaconfig.app.ui.components.CancelledBanner
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
@@ -137,6 +140,34 @@ fun ConfigGenScreen(
     var experimentalCvars by rememberSaveable { mutableStateOf(false) }
 
     var gameMode by rememberSaveable { mutableStateOf(GameMode.Overworld) }
+
+    // --- Brain read animation -------------------------------------------------
+    // Plays the client.log -> SmartBrain canvas overlay (ui.anim.LogBrainAnimation)
+    // while the device log is being pulled/parsed, delivers the finished LogInfo as
+    // brain lines, plays the success (or shatter) sequence, then dismisses itself on
+    // settle. Reduced-motion users never see it and keep the glitching percentage
+    // text inside AnalysisPanel. Trigger is insights readingProgress (10..98), never
+    // the shared isApplying flag alone — deploy ops also set that, and a deploy must
+    // not open the brain overlay.
+    val reducedMotion = rememberReducedMotion()
+    var logBrainShown by rememberSaveable { mutableStateOf(false) }
+    var logBrainResult by remember { mutableStateOf<LogReadResult?>(null) }
+    LaunchedEffect(isApplying, analysisProgress, logInfo) {
+        val info = logInfo
+        when {
+            analysisProgress > 0 && info == null -> {
+                if (!reducedMotion && !logBrainShown) {
+                    logBrainResult = null
+                    logBrainShown = true
+                }
+            }
+            logBrainShown && logBrainResult == null && info != null ->
+                logBrainResult = LogReadResult.Success(info.toBrainLines())
+            logBrainShown && logBrainResult == null && info == null && analysisProgress == 0 && !isApplying ->
+                logBrainResult = LogReadResult.Failed(reason = "client.log read failed")
+            else -> {}
+        }
+    }
     // Apply the persisted options once, as soon as the off-main load resolves.
     // The individual states keep their rememberSaveable initialisers, so this
     // effect only re-runs on a fresh entry into the screen.
@@ -534,6 +565,22 @@ fun ConfigGenScreen(
                     }
                 }
             }
+        }
+    }
+
+    // The brain overlay is a sibling of the Scaffold inside the same
+    // GradientBackground, so it covers the top bar too and needs no scrim
+    // dialog plumbing. Dismisses itself via onSettled.
+    if (logBrainShown) {
+        Box(Modifier.fillMaxSize().background(Color(0xE6060A12))) {
+            LogBrainAnimation(
+                result = logBrainResult,
+                modifier = Modifier.fillMaxSize().padding(10.dp),
+                onSettled = {
+                    logBrainShown = false
+                    logBrainResult = null
+                },
+            )
         }
     }
 

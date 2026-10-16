@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +27,8 @@ import com.wuwaconfig.app.backend.BackendStatus
 import com.wuwaconfig.app.model.GamePaths
 import com.wuwaconfig.app.model.PlayerProfile
 import com.wuwaconfig.app.ui.ProfileViewModel
+import com.wuwaconfig.app.ui.anim.LoadFileAnimation
+import com.wuwaconfig.app.ui.anim.LoadOutcome
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassOutlinedButton
@@ -48,6 +51,30 @@ fun ProfileScreen(
     val profileLoading by viewModel.profileLoading.collectAsStateWithLifecycle()
     val profileProgress by viewModel.profileProgress.collectAsStateWithLifecycle()
     val configModifyCounts by viewModel.configModifyCounts.collectAsStateWithLifecycle()
+
+    // Load animation (ui.anim.LoadFileAnimation): the binary-file drop / progress
+    // / matrix scene driven by the real profileProgress (0..100). State lives here,
+    // not in the card's `profileLoading && profile == null` branch, so the success
+    // deck (or failure boom) keeps playing after loading drops. Reduced-motion
+    // users never see it — their branch falls back to the OrbLoadingCard below.
+    val reducedMotion = rememberReducedMotion()
+    var loadAnimVisible by rememberSaveable { mutableStateOf(false) }
+    var loadAnimOutcome by remember { mutableStateOf<LoadOutcome?>(null) }
+    LaunchedEffect(profileLoading, profile) {
+        when {
+            profileLoading && profile == null -> {
+                if (!reducedMotion && !loadAnimVisible) {
+                    loadAnimOutcome = null
+                    loadAnimVisible = true
+                }
+            }
+            loadAnimVisible && loadAnimOutcome == null && profile != null ->
+                loadAnimOutcome = LoadOutcome.Success
+            loadAnimVisible && loadAnimOutcome == null && !profileLoading && profile == null ->
+                loadAnimOutcome = LoadOutcome.Failed("profile load failed")
+            else -> {}
+        }
+    }
 
     LaunchedEffect(backendStatus.connected) {
         if (backendStatus.connected && profile == null && !profileLoading) {
@@ -84,7 +111,40 @@ fun ProfileScreen(
                     )
                 }
 
-                if (profileLoading && profile == null) {
+                if (loadAnimVisible) {
+                    GlassCard(accentColor = NeonGreen) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(340.dp),
+                        ) {
+                            LoadFileAnimation(
+                                progress = profileProgress / 100f,
+                                outcome = loadAnimOutcome,
+                                onSettled = {
+                                    loadAnimVisible = false
+                                    loadAnimOutcome = null
+                                },
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            when {
+                                loadAnimOutcome is LoadOutcome.Failed -> "Load failed — check the log below"
+                                else -> "Reading game data from device..."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color =
+                                if (loadAnimOutcome is LoadOutcome.Failed) {
+                                    NeonRed
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                        )
+                    }
+                } else if (profileLoading && profile == null) {
+                    // Reduced-motion fallback (and any animation-skip keyed state).
                     OrbLoadingCard(
                         text = "Reading game data from device...",
                         accentColor = NeonGreen,
