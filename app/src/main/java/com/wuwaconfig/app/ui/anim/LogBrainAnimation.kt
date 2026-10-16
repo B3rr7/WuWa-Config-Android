@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import com.wuwaconfig.app.config.BrainRecommendation
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.ceil
@@ -92,10 +93,27 @@ fun LogBrainAnimation(
     result: LogReadResult?,
     modifier: Modifier = Modifier,
     secondsPerLine: Float = 0.5f,
+    /**
+     * The app's REAL log-read progress (0..100, `LogInsightsViewModel.readingProgress`)
+     * while the pull/parse is still running. The WAIT phase renders this instead of
+     * its old fake `t*1.1` scan so the percent the user sees is the percent the
+     * device actually reports. null = unknown; the neutral scan continues.
+     */
+    readProgress: Int? = null,
+    /**
+     * The actual SmartBrain recommendation for THIS log. Shown in the DONE epilogue
+     * ("recommended <preset> · score N") instead of the old hardcoded fictional
+     * status lines; null falls back to a factual records-learned line.
+     */
+    recommendation: BrainRecommendation? = null,
     onSettled: (success: Boolean) -> Unit = {},
 ) {
     val pal = rememberAnimTheme()
     val sim = remember { BrainSim(secondsPerLine, pal) }
+    // Values can land after deliver() (the VM computes the recommendation one
+    // line after the analysis), so the sim reads them live from these fields.
+    sim.waitProgress = readProgress
+    sim.recommendation = recommendation
     val settled by rememberUpdatedState(onSettled)
     sim.onSettled = { settled(it) }
 
@@ -320,6 +338,10 @@ private class Ring(var r: Float, var a: Float, val hue: Float, val onFile: Boole
 
 internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
     var onSettled: (Boolean) -> Unit = {}
+
+    /** Live inputs from the host: real read progress and the real recommendation. */
+    internal var waitProgress: Int? = null
+    internal var recommendation: BrainRecommendation? = null
     private val pal: AnimTheme = pal
     private val rnd = Random(System.nanoTime())
 
@@ -560,7 +582,15 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
 
         when (phase) {
             Phase.WAIT -> {
-                prog = (t * 1.1f) % N
+                val rp = waitProgress
+                prog =
+                    if (rp != null && rp > 0) {
+                        // The scan reflects what the device actually reported (10..98).
+                        // It sits just under a full row so it never fakes a completed read.
+                        (rp.coerceAtMost(97) / 100f * N).coerceAtLeast(0.15f)
+                    } else {
+                        (t * 1.1f) % N
+                    }
                 if (rnd.nextFloat() < dt * 3f) fire(rnd.nextInt(nodes.size), pal.idleHue, 1, learn = false)
             }
             Phase.READ -> {
@@ -1142,9 +1172,16 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
         val sub: String
         when (phase) {
             Phase.WAIT -> {
-                pct = 0
+                // Show the number the device actually reported; unknown stays 0.
+                val rp = waitProgress
+                pct = rp?.coerceIn(0, 100) ?: 0
                 lb = "ANALYZING client.log"
-                sub = "scanning for device, GPU, graphics API and cvars"
+                sub =
+                    if (rp != null && rp > 0) {
+                        "pulling encrypted logs from your device"
+                    } else {
+                        "scanning for device, GPU, graphics API and cvars"
+                    }
             }
             Phase.READ -> {
                 pct = if (fail) failPct else okPct
@@ -1157,17 +1194,31 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                 sub = "client.log is corrupted"
             }
             Phase.DONE -> {
-                val msgs =
-                    listOf(
-                        "optimizing graphics profile",
-                        "tuning r.ScreenPercentage for GPU",
-                        "selecting Vulkan render path",
-                        "balancing shadows and MSAA",
-                        "locking stable 60 FPS",
-                    )
                 pct = 100
                 lb = if (tp < 1.2f) "BRAIN SYNCED" else "NEURAL NETWORK ACTIVE"
-                sub = (if (tp < 1.2f) "$m records learned" else msgs[((tp - 1.2f) / 1.7f).toInt() % msgs.size]) + "  ·  $fires spikes"
+                // Only real data. The old hardcoded fiction ("tuning r.ScreenPercentage
+                // for GPU", "selecting Vulkan render path"...) never matched the actual
+                // device; what shows now is the actual SmartBrain recommendation.
+                val rec = recommendation
+                val detail =
+                    when {
+                        tp < 1.2f -> "$m records learned"
+                        rec != null ->
+                            buildString {
+                                append("recommended ")
+                                append(rec.preset)
+                                append(" · score ")
+                                append(rec.score)
+                                // A real warning outranks a supporting signal.
+                                val note = rec.warnings.firstOrNull() ?: rec.signals.firstOrNull()
+                                note?.let { sig ->
+                                    append(" · ")
+                                    append(sig)
+                                }
+                            }
+                        else -> "$m records learned"
+                    }
+                sub = "$detail  ·  $fires spikes"
             }
             Phase.DEAD -> {
                 pct = failPct
@@ -1178,7 +1229,9 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
         val da = if (dead) eo(cl((tp - .3f) / .6f)) else 1f
         val col = hsl(hue, 85f, 58f, da)
         txt(lb, sx, sy, 11f, hsl(hue, 70f, 72f, .95f * da), true, 3f, Paint.Align.CENTER)
-        if (phase != Phase.WAIT) txt("$pct%", sx, sy + 36f, 30f, Color(.95f, .965f, 1f, da), true, 1f, Paint.Align.CENTER)
+        // Percent shows whenever it is a real number: during the read, or in WAIT
+        // once the device started reporting (previously WAIT hid the pct entirely).
+        if (phase != Phase.WAIT || pct > 0) txt("$pct%", sx, sy + 36f, 30f, Color(.95f, .965f, 1f, da), true, 1f, Paint.Align.CENTER)
         val barY = sy + 50f
         drawRoundRect(Color(0x14FFFFFF), Offset(sx - 100f, barY), Size(200f, 4f), CornerRadius(2f))
         if (phase == Phase.WAIT) {

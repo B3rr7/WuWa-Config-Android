@@ -575,6 +575,11 @@ fun ConfigGenScreen(
         Box(Modifier.fillMaxSize().background(Color(0xE6060A12))) {
             LogBrainAnimation(
                 result = logBrainResult,
+                // Both inputs are the app's real state: the device-reported read
+                // percentage while the pull runs, and the actual SmartBrain
+                // recommendation for the epilogue once scoring completes.
+                readProgress = analysisProgress.takeIf { it > 0 && logBrainResult == null },
+                recommendation = brain,
                 modifier = Modifier.fillMaxSize().padding(10.dp),
                 onSettled = {
                     logBrainShown = false
