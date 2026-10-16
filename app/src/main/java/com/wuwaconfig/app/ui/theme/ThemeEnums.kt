@@ -49,7 +49,6 @@ enum class UiStyle(
                 dialogPadding = 24.dp,
                 cardSpacing = 12.dp,
                 glowWidth = 0f,
-                dividerThickness = 1.dp,
                 useBlurEffects = false,
                 useCardBorder = false,
             ),
@@ -72,7 +71,6 @@ enum class UiStyle(
                 dialogPadding = 24.dp,
                 cardSpacing = 12.dp,
                 glowWidth = 0.5f,
-                dividerThickness = 1.dp,
                 useBlurEffects = true,
                 useCardBorder = true,
             ),
@@ -104,7 +102,6 @@ enum class UiStyle(
                 dialogPadding = 26.dp,
                 cardSpacing = 14.dp,
                 glowWidth = 0f,
-                dividerThickness = 1.dp,
                 useBlurEffects = false,
                 useCardBorder = true,
             ),
@@ -127,7 +124,6 @@ enum class UiStyle(
                 dialogPadding = 16.dp,
                 cardSpacing = 8.dp,
                 glowWidth = 0f,
-                dividerThickness = 2.dp,
                 useBlurEffects = false,
                 useCardBorder = true,
             ),
@@ -158,7 +154,6 @@ enum class UiStyle(
                 dialogPadding = 24.dp,
                 cardSpacing = 14.dp,
                 glowWidth = 0.25f,
-                dividerThickness = 1.dp,
                 useBlurEffects = true,
                 useCardBorder = true,
             ),
@@ -175,10 +170,16 @@ enum class UiStyle(
      * Verified on device: selecting this from the UI Style list while on any
      * light palette renders a light UI with 12dp corners. So the description
      * must not promise darkness, which is why it points at the palette instead.
+     *
+     * The copy says "pair with", not "pair with the palette below". These
+     * descriptions are read in exactly one place today (the Appearance screen),
+     * but they are enum-level strings, and "below" is a layout fact rather than
+     * a property of the style — an agent reading [UiStyle] through AppFunctions
+     * has no list for "below" to point into.
      */
     MIDNIGHT_OLED(
         displayName = "Midnight OLED",
-        description = "Restrained flat panels with no glow. Pair with the OLED palette below for an all-black screen.",
+        description = "Restrained flat panels with no glow. Pair with the OLED palette for an all-black screen.",
         tokens =
             ThemeShapeTokens(
                 surfaceMode = SurfaceMode.FLAT,
@@ -192,7 +193,6 @@ enum class UiStyle(
                 dialogPadding = 22.dp,
                 cardSpacing = 12.dp,
                 glowWidth = 0f,
-                dividerThickness = 1.dp,
                 useBlurEffects = false,
                 useCardBorder = true,
             ),

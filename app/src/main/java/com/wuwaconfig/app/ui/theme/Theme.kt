@@ -355,7 +355,6 @@ fun WuWaConfigTheme(
             LocalThemeShapeTokens provides uiStyle.tokens,
             LocalSpacing provides Spacing(),
             LocalUiStyle provides uiStyle,
-            LocalColorPalette provides colorPalette,
             LocalDensity provides scaledDensity,
             LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = family),
         ) {

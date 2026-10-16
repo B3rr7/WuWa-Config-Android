@@ -1,7 +1,6 @@
 package com.wuwaconfig.app.ui.theme
 
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -78,11 +77,15 @@ enum class EdgeMode {
  * a stock Material 3 app would get. A component rendered in a preview, a test, or
  * anywhere outside [WuWaConfigTheme] therefore gets a sensible phone layout
  * rather than a zero-sized one.
+ *
+ * Verified against the enum rather than by trust: [UiStyle.MATERIAL_YOU] is the
+ * `DEFAULT`, so a drift between these defaults and its tokens would put a
+ * preview and the real app on different surfaces, and nothing compiles
+ * differently because every [UiStyle] constant passes both explicitly.
  */
-
 data class ThemeShapeTokens(
     /** How surfaces are filled. See [SurfaceMode]. */
-    val surfaceMode: SurfaceMode = SurfaceMode.FLAT,
+    val surfaceMode: SurfaceMode = SurfaceMode.TONAL,
     /** How surfaces are outlined. See [EdgeMode]. */
     val edgeMode: EdgeMode = EdgeMode.NONE,
     /** Corner radius of cards and panels. */
@@ -106,8 +109,6 @@ data class ThemeShapeTokens(
      * already multiplies by its shadow elevation. 0 disables the glow pass.
      */
     val glowWidth: Float,
-    /** Thickness of dividers. Also the snap-grid unit for RETRO_HANDHELD. */
-    val dividerThickness: Dp,
     /** Whether translucent fills and background blur may be drawn. */
     val useBlurEffects: Boolean,
     /** Whether cards draw an outline at all. False means surface-only. */
@@ -115,20 +116,25 @@ data class ThemeShapeTokens(
 )
 
 /**
- * Spacing scale for consistent layout.
- * Use these values for padding, margins, and spacing between elements.
+ * The spacing scale.
+ *
+ * Deliberately four steps, not ten. A scale earns a step only when something
+ * actually reads it, and every step below is in live use; an unused `xxl` is
+ * not a placeholder but an invitation to reach for a value no layout has
+ * validated. The four cover the app's real granularity — a half-gap, a gap
+ * between stacked cards, a card's inner padding, and a screen's gutter — and
+ * half of them are read through [LocalSpacing] rather than written as
+ * `RoundedCornerShape`-style literals at the call sites.
  */
 data class Spacing(
+    /** Half a gap: icon-to-label, dot-to-text. */
     val xs: Dp = 4.dp,
+    /** Between stacked cards, and between items in a row. */
     val sm: Dp = 8.dp,
+    /** A card's inner padding and the gap above a section body. */
     val md: Dp = 12.dp,
+    /** Screen gutter and the gap between sections. */
     val lg: Dp = 16.dp,
-    val xl: Dp = 20.dp,
-    val xxl: Dp = 24.dp,
-    val xxxl: Dp = 32.dp,
-    val section: Dp = 16.dp,
-    val item: Dp = 8.dp,
-    val card: Dp = 16.dp,
 )
 
 /**
@@ -160,18 +166,6 @@ val LocalSpacing = compositionLocalOf { Spacing() }
 val LocalUiStyle = compositionLocalOf { UiStyle.MATERIAL_YOU }
 
 /**
- * The active [ColorPalette].
- *
- * Static is safe *only* for the same reason it is unsafe above: nothing in the
- * app needs to recompose purely because the palette changed — every reader also
- * reads [androidx.compose.material3.MaterialTheme.colorScheme], which is itself
- * a new object when the palette changes and already invalidates them. Kept as a
- * composition local anyway so screens (the palette picker in particular) can read
- * the active value without recomputing the scheme.
- */
-val LocalColorPalette = staticCompositionLocalOf { ColorPalette.SYSTEM_DEFAULT }
-
-/**
  * How many tonal surfaces deep the current card is, 0 for a top-level one.
  *
  * Material 3 expresses elevation as a step in surface tone, so a card has to
@@ -196,6 +190,14 @@ val LocalSurfaceDepth = compositionLocalOf { 0 }
  * Material's own container ramp is six steps (`surfaceContainer` through
  * `surfaceContainerHighest`), but the app nests at most a card or two deep, so
  * a short ramp is enough and every step stays visibly distinct.
+ *
+ * This must equal the length of the ramp
+ * [com.wuwaconfig.app.ui.components.tonalStepsFor] builds, and the two are the
+ * same number on purpose: `surfaceFillFor` indexes with
+ * `depth.coerceIn(0, TONAL_STEPS - 1)`, so a ramp longer than this silently
+ * discards its tail — and the ramp's own monotonicity test would keep asserting
+ * over a step nothing renders. Raise this and the ramp together, or the extra
+ * step is dead weight rather than an available one.
  */
 const val TONAL_STEPS = 3
 

@@ -1,6 +1,5 @@
 package com.wuwaconfig.app.ui.screens
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -8,6 +7,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,11 +38,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -57,6 +60,7 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.ColorPalette
 import com.wuwaconfig.app.ui.theme.DarkFallbackColors
+import com.wuwaconfig.app.ui.theme.LocalSpacing
 import com.wuwaconfig.app.ui.theme.LocalThemeShapeTokens
 import com.wuwaconfig.app.ui.theme.PaletteColors
 import com.wuwaconfig.app.ui.theme.UiStyle
@@ -76,6 +80,7 @@ fun ThemeSettingsScreen(
 ) {
     val config by viewModel.themeConfig.collectAsStateWithLifecycle()
     val tokens = LocalThemeShapeTokens.current
+    val spacing = LocalSpacing.current
 
     // GradientBackground is NOT optional. WuWaConfigTheme deliberately stopped
     // calling window.setBackgroundDrawable(), on the understanding that every
@@ -101,12 +106,12 @@ fun ThemeSettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(tokens.cardSpacing),
             ) {
                 item {
-                    GlassCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    GlassCard(modifier = Modifier.padding(horizontal = spacing.lg, vertical = spacing.sm)) {
                         UiStyleSection(selected = config.uiStyle, onSelect = viewModel::setUiStyle)
                     }
                 }
                 item {
-                    GlassCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    GlassCard(modifier = Modifier.padding(horizontal = spacing.lg)) {
                         ColorPaletteSection(
                             selected = config.colorPalette,
                             onSelect = viewModel::setColorPalette,
@@ -114,7 +119,7 @@ fun ThemeSettingsScreen(
                     }
                 }
                 item {
-                    GlassCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    GlassCard(modifier = Modifier.padding(horizontal = spacing.lg)) {
                         ResetSection(onReset = viewModel::resetToDefaults)
                     }
                 }
@@ -140,17 +145,80 @@ private fun UiStyleSection(
     onSelect: (UiStyle) -> Unit,
 ) {
     val tokens = LocalThemeShapeTokens.current
-    GlassCardHeader("UI Style Engine", MaterialTheme.colorScheme.primary)
+    val spacing = LocalSpacing.current
+    SectionHeader(title = "UI Style Engine", hint = "Structure: corners, strokes, depth")
     Spacer(Modifier.height(tokens.cardSpacing / 2))
+    // Where the separator starts: past the dot and its gap, so the rules sit
+    // under the text and the radio column stays visually quiet. Derived from the
+    // same two values the row uses — a literal `44.dp` here would drift the
+    // moment the row's inner padding or its dot width changed.
+    val ruleInset = SELECTION_DOT_SIZE + spacing.md * 2
     UiStyle.entries.forEach { style ->
         UiStyleRow(
             style = style,
             isSelected = style == selected,
             onClick = { onSelect(style) },
         )
+        if (style != UiStyle.entries.last()) {
+            // A hairline between rows, not a card per row. Six boxes would make
+            // the list read as six competing surfaces; one continuous column with
+            // separators reads as one decision. The rule is *inside* the card and
+            // taken from the scheme's own outline token, so it follows the style
+            // theme rather than imposing Material's.
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = ruleInset)
+                    .height(1.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            )
+            Spacer(Modifier.height(spacing.xs))
+        }
     }
 }
 
+/**
+ * One section's title and its subtitle.
+ *
+ * The subtitle is the point. "UI Style Engine" names the axis but not what it
+ * changes; without "Structure: corners, strokes, depth" a user has no way to
+ * know that picking Bento Grid will not recolour the app. Both axes answer a
+ * different question, so both say which one.
+ */
+@Composable
+private fun SectionHeader(
+    title: String,
+    hint: String,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        GlassCardHeader(title, MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        )
+    }
+}
+
+/** Diameter of [SelectionDot]. Also the inset the section-A separators use. */
+private val SELECTION_DOT_SIZE = 20.dp
+
+/**
+ * One structural style.
+ *
+ * The selected row animates three things, and each has a reason:
+ *
+ * - **fill alpha**, spring — so switching styles feels like the app answering
+ *   rather than snapping. It was a hard `if (isSelected)` branch before, which
+ *   is the single most common cause of a picker feeling cheap.
+ * - **press scale**, spring, 0.98 — the row is pressable, and an interactive
+ *   element that gives no feedback on touch reads as broken. The platform ripple
+ *   stays on; the scale is additive feedback, not a replacement.
+ * - **the ring**, whose alpha rides the same spring as the fill. The border is
+ *   0dp wide when unselected, so the alpha only earns its keep during the
+ *   transition.
+ */
 @Composable
 private fun UiStyleRow(
     style: UiStyle,
@@ -158,10 +226,23 @@ private fun UiStyleRow(
     onClick: () -> Unit,
 ) {
     val tokens = LocalThemeShapeTokens.current
-    val ringAlpha by animateFloatAsState(
+    val spacing = LocalSpacing.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    // One animation, not two. `fillAlpha` and `ringAlpha` were separate
+    // `animateFloatAsState` states with identical targets and identical specs —
+    // two animation objects driving one bit of "is this row selected". They are
+    // interpolated at different weights below, but they must never be allowed to
+    // disagree, so they share a single source value.
+    val selectedAlpha by animateFloatAsState(
         targetValue = if (isSelected) 1f else 0f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "styleRing",
+        label = "styleSelection",
+    )
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.98f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessHigh),
+        label = "stylePress",
     )
     val accent = MaterialTheme.colorScheme.primary
     val shape = RoundedCornerShape(tokens.fieldCorner)
@@ -170,32 +251,38 @@ private fun UiStyleRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(vertical = 2.dp)
+                .graphicsLayer {
+                    scaleX = pressScale
+                    scaleY = pressScale
+                }
                 .clip(shape)
-                .background(if (isSelected) accent.copy(alpha = 0.10f) else Color.Transparent)
+                .background(accent.copy(alpha = 0.10f * selectedAlpha))
                 .border(
                     // coerceAtLeast so an unselected row never draws a hairline
                     // even in styles whose border token is non-zero: RETRO_HANDHELD
                     // wants a 2dp border on real surfaces, not on every list row.
                     width = if (isSelected) tokens.borderStrokeWidth.coerceAtLeast(1.dp) else 0.dp,
-                    color = accent.copy(alpha = ringAlpha * 0.45f),
+                    color = accent.copy(alpha = 0.45f * selectedAlpha),
                     shape = shape,
-                ).clickable(
+                )
+                .clickable(
+                    interactionSource = interactionSource,
                     role = Role.RadioButton,
                     onClick = onClick,
                 ).semantics {
                     contentDescription = "${style.displayName}. ${style.description}"
                     stateDescription = if (isSelected) "Selected" else "Not selected"
-                }.padding(horizontal = 12.dp, vertical = 10.dp),
+                }.padding(horizontal = spacing.md, vertical = 10.dp),
         verticalAlignment = Alignment.Top,
     ) {
         SelectionDot(isSelected = isSelected, accent = accent)
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(spacing.md))
         Column(Modifier.weight(1f)) {
             Text(
                 text = style.displayName,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) accent else MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = style.description,
@@ -220,14 +307,15 @@ private fun ColorPaletteSection(
     onSelect: (ColorPalette) -> Unit,
 ) {
     val tokens = LocalThemeShapeTokens.current
-    GlassCardHeader("Color Palettes", MaterialTheme.colorScheme.secondary)
+    val spacing = LocalSpacing.current
+    SectionHeader(title = "Color Palettes", hint = "Pigment: every app colour, both modes")
     Spacer(Modifier.height(tokens.cardSpacing / 2))
 
     // Every palette is previewed against dark. The neon/terminal/accent-heavy
     // schemes are judged in dark, and rendering all six against one fixed
     // backdrop keeps the strip comparable left to right instead of having each
     // circle flip polarity mid-row.
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm + spacing.xs / 2)) {
         items(ColorPalette.entries, key = { it.name }) { palette ->
             PaletteCircle(
                 palette = palette,
@@ -248,6 +336,12 @@ private fun ColorPaletteSection(
 /**
  * One palette swatch: a multi-colour sweep clipped to a circle, with an
  * animated ring and scale when selected.
+ *
+ * The press scale mirrors [UiStyleRow]'s so the two sections feel like one
+ * surface rather than two widgets that happen to share a screen. The ring fades
+ * on `Modifier.alpha` rather than by animating the stroke colour, so the
+ * transition rides the render node; it was a hard `if (isSelected)` before, which
+ * made selection snap on — the exact cheapness [UiStyleRow] avoids.
  */
 @Composable
 private fun PaletteCircle(
@@ -255,20 +349,25 @@ private fun PaletteCircle(
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isSelected) 1.12f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "paletteScale",
+    )
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.97f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessHigh),
+        label = "palettePress",
     )
     val ringAlpha by animateFloatAsState(
         targetValue = if (isSelected) 1f else 0f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "paletteRing",
     )
-    val ringColor by animateColorAsState(
-        targetValue = MaterialTheme.colorScheme.primary,
-        label = "paletteRingColor",
-    )
+    val combinedScale = scale * pressScale
+    val ringColor = MaterialTheme.colorScheme.primary
     val swatches = palettePreviewSwatches(palette)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -276,9 +375,10 @@ private fun PaletteCircle(
             modifier =
                 Modifier
                     .size(58.dp)
-                    .scale(scale)
+                    .scale(combinedScale)
                     .clip(CircleShape)
                     .clickable(
+                        interactionSource = interactionSource,
                         role = Role.RadioButton,
                         onClick = onClick,
                     ).semantics {
@@ -293,14 +393,19 @@ private fun PaletteCircle(
                 // would hide two of the palette's own slots.
                 drawCircle(brush = Brush.sweepGradient(colors = swatches, center = center))
             }
-            if (isSelected) {
-                Canvas(Modifier.fillMaxSize()) {
-                    drawCircle(
-                        color = ringColor.copy(alpha = ringAlpha),
-                        style = Stroke(width = 3.dp.toPx()),
-                        radius = size.minDimension / 2f - 2.dp.toPx(),
-                    )
-                }
+            // Always composed, gated by alpha: drawing one circle at alpha 0 is
+            // free next to the sweep gradient underneath it, and composing it
+            // unconditionally is what lets the fade run in *both* directions.
+            Canvas(
+                Modifier
+                    .fillMaxSize()
+                    .alpha(ringAlpha),
+            ) {
+                drawCircle(
+                    color = ringColor,
+                    style = Stroke(width = 3.dp.toPx()),
+                    radius = size.minDimension / 2f - 2.dp.toPx(),
+                )
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -361,7 +466,7 @@ private fun SelectionDot(
         modifier =
             Modifier
                 .padding(top = 2.dp)
-                .size(20.dp)
+                .size(SELECTION_DOT_SIZE)
                 .clip(CircleShape)
                 .border(width = 2.dp, color = accent, shape = CircleShape),
         contentAlignment = Alignment.Center,
@@ -380,7 +485,7 @@ private fun SelectionDot(
 @Composable
 private fun ResetSection(onReset: () -> Unit) {
     val tokens = LocalThemeShapeTokens.current
-    GlassCardHeader("Reset", MaterialTheme.colorScheme.error)
+    SectionHeader(title = "Reset", hint = "Back to Material You with system colours")
     Spacer(Modifier.height(tokens.cardSpacing / 2))
     Text(
         text = "Return every appearance setting to its default: Material You with system colours.",

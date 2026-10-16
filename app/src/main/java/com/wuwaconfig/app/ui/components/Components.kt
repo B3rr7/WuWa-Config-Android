@@ -296,21 +296,29 @@ internal fun tonalStepsFor(scheme: ColorScheme): List<Color> {
     // which is the opposite of what "light mode" would imply. Asserting
     // direction from the background makes that case correct for free and keeps
     // the invariant in one place.
+    //
+    // Exactly TONAL_STEPS entries, and that coupling is load-bearing:
+    // `surfaceFillFor` indexes with `depth.coerceIn(0, TONAL_STEPS - 1)`, so a
+    // longer ramp would silently drop its tail — while the ramp's own
+    // monotonicity test asserted over every entry, i.e. over a step no card can
+    // ever be drawn with.
     val climbLighter = scheme.background.luminance() < 0.5f
     val ramp =
         if (climbLighter) {
-            listOf(base, lerp(base, target, 0.45f), lerp(base, target, 0.80f), target)
+            listOf(base, lerp(base, target, 0.45f), lerp(base, target, 0.80f))
         } else {
             // Descend: surface is lighter than the page, so a deeper card must go
-            // darker. Toward `outline`, which is the palette's darkest neutral.
-            listOf(base, lerp(base, Color.Black, 0.06f), lerp(base, Color.Black, 0.12f), lerp(base, Color.Black, 0.18f))
+            // darker. Toward black, because `outline` is the palette's *darkest*
+            // neutral only on a dark scheme — on a light one it is darker than
+            // surfaceVariant and would run the ramp backwards.
+            listOf(base, lerp(base, Color.Black, 0.06f), lerp(base, Color.Black, 0.12f))
         }
 
     // If the chosen direction cannot actually move (a pure-white surface on a
     // light page has nowhere to descend to), fall back rather than emit a ramp of
     // identical colours, which would make every elevation step look the same.
     val moves = ramp.zipWithNext().any { (a, b) -> a != b }
-    return if (moves) ramp else listOf(base, target, target, target)
+    return if (moves) ramp else listOf(base, target, target)
 }
 
 /**

@@ -596,6 +596,41 @@ class ThemeEngineTest {
     }
 
     /**
+     * The two numbers must agree, or the ramp silently outlives the clamp.
+     *
+     * `surfaceFillFor` indexes the ramp with `depth.coerceIn(0, TONAL_STEPS - 1)`,
+     * so a ramp *longer* than [TONAL_STEPS] has a tail nothing renders while the
+     * assertion above still judges every entry — the test would go on guarding a
+     * step no card can reach. A ramp *shorter* is worse: an
+     * IndexOutOfBounds on the deepest card. The ramp used to build four steps
+     * against a clamp of three, so its fourth entry was computed every call and
+     * asserted over, and never rendered. This is what stops the two drifting
+     * apart the next time either is retuned.
+     */
+    @Test
+    fun `the tonal ramp is exactly as long as TONAL_STEPS allows`() {
+        for (palette in ColorPalette.entries) {
+            for (isDark in listOf(true, false)) {
+                val scheme = palette.colorsForResolved(isDark).toColorScheme()
+                val label = "${palette.name}/${if (isDark) "dark" else "light"}"
+
+                assertEquals(
+                    "$label builds ${tonalStepsFor(scheme).size} steps but surfaceFillFor clamps depth to TONAL_STEPS=$TONAL_STEPS",
+                    TONAL_STEPS,
+                    tonalStepsFor(scheme).size,
+                )
+
+                // And every depth a card can reach must resolve rather than throw,
+                // including depths past the end of the ramp that the clamp flattens.
+                for (depth in 0 until TONAL_STEPS + 4) {
+                    val fill = surfaceFillFor(SurfaceMode.TONAL, depth, scheme)
+                    assertNotNull("$label depth $depth did not resolve", fill)
+                }
+            }
+        }
+    }
+
+    /**
      * Glass transmits; flat and outlined do not.
      *
      * Guards the property that separates the two families, and that light mode
@@ -615,6 +650,37 @@ class ThemeEngineTest {
     }
 
     // ── Shape tokens ──────────────────────────────────────────────────────────
+
+    /**
+     * The data class's own defaults must describe the DEFAULT style, because its
+     * KDoc promises exactly that: "Defaults are [UiStyle.MATERIAL_YOU]'s tokens …
+     * a component rendered in a preview, a test, or anywhere outside
+     * [WuWaConfigTheme] therefore gets a sensible phone layout".
+     *
+     * They did not: `surfaceMode` defaulted to FLAT while MATERIAL_YOU — the
+     * `DEFAULT` — is TONAL. Nothing compiled differently, because every
+     * [UiStyle] constant passes both explicitly, so the only thing that could
+     * have caught it is a test comparing the two.
+     */
+    @Test
+    fun `ThemeShapeTokens defaults match the DEFAULT style, as its kdoc claims`() {
+        val defaults =
+            ThemeShapeTokens(
+                cardCorner = 0.dp,
+                buttonCorner = 0.dp,
+                dialogCorner = 0.dp,
+                fieldCorner = 0.dp,
+                borderStrokeWidth = 0.dp,
+                cardPadding = 0.dp,
+                dialogPadding = 0.dp,
+                cardSpacing = 0.dp,
+                glowWidth = 0f,
+                useBlurEffects = false,
+                useCardBorder = false,
+            )
+        assertEquals(UiStyle.DEFAULT.tokens.surfaceMode, defaults.surfaceMode)
+        assertEquals(UiStyle.DEFAULT.tokens.edgeMode, defaults.edgeMode)
+    }
 
     @Test
     fun `retro handheld is the only fully square style`() {
