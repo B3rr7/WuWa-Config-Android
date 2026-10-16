@@ -58,6 +58,7 @@ import com.wuwaconfig.app.ui.components.GlassDialog
 import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
+import com.wuwaconfig.app.ui.components.StatusChip
 import com.wuwaconfig.app.ui.theme.*
 import com.wuwaconfig.app.ui.theme.NeonBlue
 import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
@@ -154,17 +155,9 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("Current: ${backendStatus.method.name}", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            if (backendStatus.connected) "Connected" else "Disconnected",
-                            style = MaterialTheme.typography.bodySmall,
-                            color =
-                                if (backendStatus.connected) {
-                                    NeonGreen
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                        alpha = 0.7f,
-                                    )
-                                },
+                        StatusChip(
+                            label = if (backendStatus.connected) "Connected" else "Disconnected",
+                            isActive = backendStatus.connected,
                         )
                     }
                     Spacer(Modifier.height(8.dp))

@@ -53,6 +53,7 @@ import com.wuwaconfig.app.ui.components.GlassOutlinedButton
 import com.wuwaconfig.app.ui.components.GlassSwitch
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
+import com.wuwaconfig.app.ui.components.ProgressRing
 import com.wuwaconfig.app.ui.components.formatRam
 import com.wuwaconfig.app.ui.theme.*
 import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
@@ -862,31 +863,27 @@ private fun AnalysisPanel(
                 Spacer(Modifier.height(8.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Smart Brain", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = NeonPurple)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        rec.preset.uppercase(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
+                    // Animated gauge instead of the flat "X/100" + bar row: the
+                    // score is the one number users screenshot, so it earns a
+                    // hero treatment. Ring sweeps in via ProgressRing's own
+                    // animation; ties to the preset colour for continuity.
+                    ProgressRing(
+                        progress = rec.score / 100f,
+                        label = "${rec.score}",
+                        sublabel = "SCORE",
                         color = presetColor(rec.preset),
+                        ringSize = 72.dp,
                     )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "(${rec.score}/100)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.height(6.dp))
-
-                val barColor = presetColor(rec.preset)
-                val barWidth = (rec.score.coerceIn(0, 100) / 100f)
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(barColor.copy(alpha = 0.12f)),
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(barWidth).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(barColor),
-                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Smart Brain", style = MaterialTheme.typography.labelMedium, color = NeonPurple)
+                        Text(
+                            rec.preset.uppercase(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = presetColor(rec.preset),
+                        )
+                    }
                 }
                 Spacer(Modifier.height(6.dp))
 

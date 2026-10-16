@@ -589,7 +589,7 @@ private fun ConfigBar(
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(RoundedCornerShape(3.dp))
-                    .background(Color.White.copy(alpha = 0.08f)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
             Box(
                 modifier =

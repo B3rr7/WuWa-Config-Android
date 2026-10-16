@@ -51,6 +51,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -1153,17 +1155,26 @@ fun GradientBackground(content: @Composable () -> Unit) {
             if (LocalUiStyle.current == UiStyle.AURORA_FLUID) {
                 AuroraBackdrop()
             } else {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush =
-                                    Brush.verticalGradient(
-                                        colors = listOf(themeBg, surface),
-                                    ),
-                            ),
-                )
+                // Cached, not rebuilt: the backdrop renders on every screen, and a
+                // fresh Brush allocation per recomposition of the root composable
+                // was pure garbage churn. 3-stop ramp: bg -> an accent-tinted mid
+                // (the "resonance" wash, ~4% of primary) -> surface. 40% of screen
+                // height for the tint, then it fades before content begins.
+                val accent = MaterialTheme.colorScheme.primary
+                val backdropBrush =
+                    remember(themeBg, surface, accent) {
+                        val mid = lerp(themeBg, surface, 0.45f)
+                        Brush.verticalGradient(
+                            colorStops =
+                                arrayOf(
+                                    0f to themeBg,
+                                    0.4f to lerp(mid, accent, 0.04f),
+                                    0.75f to lerp(mid, accent, 0.06f),
+                                    1f to surface,
+                                ),
+                        )
+                    }
+                Box(modifier = Modifier.fillMaxSize().background(brush = backdropBrush))
             }
         }
         Box(modifier = Modifier.fillMaxSize()) { content() }
@@ -1602,8 +1613,7 @@ fun StatusChip(
     label: String,
     isActive: Boolean,
     modifier: Modifier = Modifier,
-) {
-    // Container/on-container pairs from the scheme, not raw accent paints:
+) { // Container/on-container pairs from the scheme, not raw accent paints:
     // `NeonGreen` on its own 20% tint over white measured 2.95:1 in light mode
     // — under the AA floor. The scheme slots are the ones the palette already
     // guarantees contrast for, in both modes.
@@ -1638,6 +1648,79 @@ fun EmptyState(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * Animated ring gauge for a 0..1 progress value (SmartBrain score, pity count,
+ * task completion).
+ *
+ * Drawn as two arcs on one small Canvas — a full-circle track and the swept
+ * foreground — so the gauge stays one layer and one draw pass, cheap on the
+ * low-end GPUs this app targets. The sweep animates on first appearance and on
+ * every change; the track is a flat scheme colour, not alpha-composited, so it
+ * reads identically in both modes.
+ */
+@Composable
+fun ProgressRing(
+    progress: Float,
+    label: String,
+    sublabel: String? = null,
+    modifier: Modifier = Modifier,
+    color: Color = NeonCyan,
+    ringSize: Dp = 96.dp,
+) {
+    val coerced = progress.coerceIn(0f, 1f)
+    val animated by animateFloatAsState(
+        targetValue = coerced,
+        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+        label = "progressRing",
+    )
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    Box(modifier = modifier.size(ringSize), contentAlignment = Alignment.Center) {
+        Canvas(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(4.dp),
+        ) {
+            val stroke = this.size.minDimension * 0.09f
+            val inset = stroke / 2f
+            val arcSize = androidx.compose.ui.geometry.Size(this.size.width - stroke, this.size.height - stroke)
+            drawArc(
+                color = trackColor,
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = arcSize,
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+            drawArc(
+                brush = Brush.sweepGradient(listOf(color.copy(alpha = 0.55f), color)),
+                startAngle = -90f,
+                sweepAngle = 360f * animated,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = arcSize,
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+            )
+            if (sublabel != null) {
+                Text(
+                    text = sublabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -1709,6 +1792,28 @@ private fun StatusChipDarkPreview() {
         Row {
             StatusChip("Connected", isActive = true)
             StatusChip("Disconnected", isActive = false)
+        }
+    }
+}
+
+@Preview(name = "ProgressRing Light", showBackground = true)
+@Composable
+private fun ProgressRingLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            ProgressRing(progress = 0.72f, label = "72", sublabel = "SCORE")
+            ProgressRing(progress = 0.44f, label = "44", sublabel = "PITY", color = NeonAmber)
+        }
+    }
+}
+
+@Preview(name = "ProgressRing Dark", showBackground = true)
+@Composable
+private fun ProgressRingDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            ProgressRing(progress = 0.72f, label = "72", sublabel = "SCORE")
+            ProgressRing(progress = 0.44f, label = "44", sublabel = "PITY", color = NeonAmber)
         }
     }
 }

@@ -228,18 +228,18 @@ fun HomeScreen(
             ) {
                 item { Spacer(Modifier.height(LocalSpacing.current.sm)) }
 
-                // --- Backend Status ---
+                // --- Hero: identity + one-line value, then the live status card.
                 item {
-                    GlassCard(accentColor = NeonPurple) {
-                        Column(Modifier.fillMaxWidth()) {
+                    GlassCard(accentColor = NeonCyan) {
+                        Column {
                             Text(
                                 "Wuthering Waves",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
-                                "Manage configs, backups, and device tuned presets.",
-                                style = MaterialTheme.typography.bodyMedium,
+                                "Tune, deploy and track — one panel.",
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
                         }
