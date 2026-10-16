@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,6 +55,7 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.formatRam
 import com.wuwaconfig.app.ui.theme.*
+import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -1056,3 +1058,23 @@ private fun presetColor(preset: String): Color =
         "cinematic" -> NeonCyan
         else -> NeonCyan
     }
+
+@Preview(name = "ConfigGen Light", showBackground = true)
+@Composable
+private fun ConfigGenScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("ConfigGen Preview")
+        }
+    }
+}
+
+@Preview(name = "ConfigGen Dark", showBackground = true)
+@Composable
+private fun ConfigGenScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("ConfigGen Preview")
+        }
+    }
+}

@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.adb.PortScanner
@@ -35,6 +36,7 @@ import com.wuwaconfig.app.ui.SettingsViewModel
 import com.wuwaconfig.app.ui.components.*
 import com.wuwaconfig.app.ui.components.CancelledBanner
 import com.wuwaconfig.app.ui.theme.*
+import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import kotlinx.coroutines.launch
 
 private data class PickedFile(
@@ -1178,4 +1180,24 @@ private fun RecentLogCard(onNavigateToLogs: () -> Unit) {
             )
         },
     )
+}
+
+@Preview(name = "Home Light", showBackground = true)
+@Composable
+private fun HomeScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("Home Preview")
+        }
+    }
+}
+
+@Preview(name = "Home Dark", showBackground = true)
+@Composable
+private fun HomeScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("Home Preview")
+        }
+    }
 }
