@@ -48,7 +48,6 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import com.wuwaconfig.app.config.BrainRecommendation
 import kotlin.math.abs
-import kotlin.math.atan2
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.exp
@@ -170,7 +169,13 @@ internal fun eo(t: Float) = 1f - (1f - t).pow(3)
 
 internal fun eio(t: Float) = if (t < .5f) 2f * t * t else 1f - (-2f * t + 2f).pow(2) / 2f
 
-private fun rr(t: Float) = 1f + .07f * sin(5f * t + .5f) + .05f * sin(8f * t + 2f) + .03f * sin(13f * t)
+/**
+ * The brain-shell silhouette. Once .07/.05/.03 harmonics — random-beach-ball
+ * wobble that read as an ameba with the scattered node cloud. Calmed to a
+ * subtle organic wallow that says "brain", not "blob"; the collapse shards
+ * still follow it.
+ */
+private fun rr(t: Float) = 1f + .04f * sin(4f * t + .5f) + .025f * sin(9f * t + 2f) + .015f * sin(13f * t)
 
 internal fun hashI(
     a: Int,
@@ -353,25 +358,69 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
     private val py = FloatArray(64)
 
     init {
-        val g = Random(11)
-        var tries = 0
-        while (nodes.size < 44 && tries++ < 5000) {
-            val u = (g.nextFloat() * 2f - 1f) * 1.18f
-            val v = (g.nextFloat() * 2f - 1f) * .9f
-            val a = atan2(v / .9f, u / 1.18f)
-            val d = hypot(u / 1.18f, v / .9f)
-            if (d > .84f * rr(a) || nodes.any { hypot(it.u - u, it.v - v) < .17f }) continue
-            nodes.add(Node(u, v))
-        }
-        for (i in nodes.indices) for (j in i + 1 until nodes.size) {
-            val d = hypot(nodes[i].u - nodes[j].u, nodes[i].v - nodes[j].v)
-            if (d < .42f) {
-                edges.add(Edge(i, j, d))
-                nodes[i].nb.add(j)
-                nodes[j].nb.add(i)
+        // Structured organoid instead of the old Random point cloud. The scattered
+        // shape + sub-0.42 proximity edges read as a wobbling ameba; pulses travelled
+        // a hairball with no layering. One hub plus three angularly-even, jittered
+        // density shells, wired with ring adjacency, hub spokes, shell-anchoring
+        // links and sparse chords: stable silhouette, real paths to propagate.
+        val jit = Random(7)
+
+        fun shell(
+            rad: Float,
+            count: Int,
+            phase: Float,
+        ): Pair<Int, Int> {
+            val start = nodes.size
+            for (n in 0 until count) {
+                val a = phase + n * (6.2832f / count) + (jit.nextFloat() - .5f) * .3f / count * 6.2832f
+                val r = rad + (jit.nextFloat() - .5f) * .06f
+                nodes.add(Node(cos(a) * 1.18f * r, sin(a) * .9f * r))
             }
+            return start to count
         }
-        entry = nodes.indices.minByOrNull { hypot(nodes[it].u + 1.1f, nodes[it].v) } ?: 0
+
+        nodes.add(Node(0f, 0f))
+        val r1 = shell(.32f, 6, .5f)
+        val r2 = shell(.62f, 12, 0f)
+        val r3 = shell(.94f, 25, .25f)
+
+        fun wire(
+            i: Int,
+            j: Int,
+        ) {
+            if (i == j) return
+            val d = hypot(nodes[i].u - nodes[j].u, nodes[i].v - nodes[j].v)
+            edges.add(Edge(i, j, d))
+            nodes[i].nb.add(j)
+            nodes[j].nb.add(i)
+        }
+
+        fun shellArc(
+            start: Int,
+            count: Int,
+        ) {
+            for (n in 0 until count) wire(start + n, start + (n + 1) % count)
+        }
+
+        fun anchors(
+            start: Int,
+            count: Int,
+            innerStart: Int,
+            innerCount: Int,
+        ) {
+            for (n in 0 until count) wire(start + n, innerStart + (n * innerCount / count) % innerCount)
+        }
+
+        for (n in 0 until r1.second) wire(0, r1.first + n)
+        shellArc(r1.first, r1.second)
+        shellArc(r2.first, r2.second)
+        anchors(r2.first, r2.second, r1.first, r1.second)
+        shellArc(r3.first, r3.second)
+        anchors(r3.first, r3.second, r2.first, r2.second)
+        for (n in 0 until r3.second step 4) wire(r3.first + n, r3.first + (n + 8) % r3.second)
+
+        // The reading chip enters from the outer shell on the file's side.
+        entry = (r3.first until r3.first + r3.second).minByOrNull { nodes[it].u } ?: 0
     }
 
     // timeline
@@ -380,6 +429,10 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
     private var tp = 0f
     private var hue = pal.idleHue
     private var prog = 0f
+
+    // WAIT-phase scan cursor: anchors to the real reported row and sweeps the
+    // remaining file instead of sitting pinned to one row.
+    private var scanPos = 2f
     private var readDelay = 0f
     private var entries: List<BrainLine> = emptyList()
     private var m = 0
@@ -585,12 +638,18 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                 val rp = waitProgress
                 prog =
                     if (rp != null && rp > 0) {
-                        // The scan reflects what the device actually reported (10..98).
-                        // It sits just under a full row so it never fakes a completed read.
+                        // The scan's floor reflects what the device actually reported
+                        // (10..98). It sits just under a full row so it never fakes a
+                        // completed read.
                         (rp.coerceAtMost(97) / 100f * N).coerceAtLeast(0.15f)
                     } else {
                         (t * 1.1f) % N
                     }
+                // The laser sweeps the remaining rows and bounces back — the file
+                // keeps looking scanned between the coarse progress taps (10→60→75)
+                // without ever overtaking the real position again.
+                val unscanned = (N - prog).coerceAtLeast(.2f)
+                scanPos = prog + (.5f + .5f * sin(t * 1.4f)) * unscanned
                 if (rnd.nextFloat() < dt * 3f) fire(rnd.nextInt(nodes.size), pal.idleHue, 1, learn = false)
             }
             Phase.READ -> {
@@ -889,12 +948,15 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                 fail -> failRow + 1f
                 else -> m.toFloat()
             }
+        // WAIT drives the scan from the sweeping cursor; every real phase (READ,
+        // GLITCH...) keeps linear prog so the laser always matches delivered rows.
+        val scanRow = if (phase == Phase.WAIT) scanPos else prog
         val tick = floor(t * 14f).toInt()
         clipPath(path) {
             txt("client.log", fx - FW / 2f + 16f, fy - FH / 2f + 26f, 11f, hsl(hue, 70f, 75f, .85f), true, 1.5f)
             drawRect(Color(0x14FFFFFF), Offset(fx - FW / 2f, fy - FH / 2f + 34f), Size(FW, 1f))
-            val ai = floor(prog).toInt()
-            if (prog > 0f && prog < laserEnd && (phase == Phase.READ || phase == Phase.WAIT) && ai < N) {
+            val ai = floor(scanRow).toInt()
+            if (scanRow > 0f && scanRow < laserEnd && (phase == Phase.READ || phase == Phase.WAIT) && ai < N) {
                 drawRect(
                     Brush.horizontalGradient(
                         0f to hsl(hue, 85f, 58f, 0f),
@@ -919,7 +981,7 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                 val catHue = if (!isF && i < m) entries[i].category.hue else hue
                 var rp = if (phase == Phase.WAIT) 0f else cl(prog - i)
                 if (isF) rp = min(rp, .55f)
-                val waitActive = phase == Phase.WAIT && floor(prog).toInt() == i
+                val waitActive = phase == Phase.WAIT && floor(scanRow).toInt() == i
                 val y = rowsTop + i * RH + RH - 4f
                 val x0 = fx - FW / 2f + 14f
                 val glRow = phase == Phase.GLITCH && hashI(i, tick) % 5 == 0
@@ -956,10 +1018,10 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
         drawPath(pathB, col, style = Stroke(1.5f))
 
         // laser
-        if (prog > 0f && prog < laserEnd && phase != Phase.DONE) {
+        if (scanRow > 0f && scanRow < laserEnd && phase != Phase.DONE) {
             val jit = if (phase == Phase.GLITCH) (rnd.nextFloat() - .5f) * 5f else 0f
-            val ly = rowsTop + prog * RH + jit
-            val fade = cl(prog * 3f) * cl((laserEnd - prog) * 3f)
+            val ly = rowsTop + scanRow * RH + jit
+            val fade = cl(scanRow * 3f) * cl((laserEnd - scanRow) * 3f)
             clipPath(filePath(pathA, fx, fy, FW, FH, FOLD)) {
                 drawRect(
                     Brush.verticalGradient(listOf(hsl(hue, 90f, 60f, 0f), hsl(hue, 90f, 60f, .28f * fade)), ly - 34f, ly),
