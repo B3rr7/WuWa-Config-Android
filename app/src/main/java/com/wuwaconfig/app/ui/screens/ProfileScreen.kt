@@ -513,7 +513,7 @@ private fun ConfigSummarySection(
         Spacer(Modifier.height(8.dp))
         ConfigBar("Scalability.ini", profile.scalabilitySettingCount, maxCount, NeonAmber)
         Spacer(Modifier.height(8.dp))
-        ConfigBar("Hardware.ini", profile.hardwareSettingCount, maxCount, Color(0xFFAA88FF))
+        ConfigBar("Hardware.ini", profile.hardwareSettingCount, maxCount, NeonBlue)
 
         // Always rendered. A block that vanishes and reappears reads as a
         // rendering glitch; an explicit "unavailable" line reads as missing data.

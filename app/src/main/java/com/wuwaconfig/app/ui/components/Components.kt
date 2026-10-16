@@ -62,6 +62,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1331,37 +1332,55 @@ fun GlitchText(
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    LaunchedEffect(names, intervalMs) {
+    val context = LocalContext.current
+    val reduceMotion =
+        remember(context) {
+            try {
+                val scale =
+                    android.provider.Settings.Global.getFloat(
+                        context.contentResolver,
+                        android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                        1f,
+                    )
+                scale == 0f
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+    LaunchedEffect(names, intervalMs, reduceMotion) {
         currentIndex = 0
         displayText = names.getOrElse(0) { "" }
-        // repeatOnLifecycle replaces the old 500ms poll of currentState — no
-        // timer wakeups while the screen is stopped, and the effect is torn down
-        // by the framework instead of a hand-rolled isActive loop.
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (isActive) {
                 delay(intervalMs)
                 if (names.size < 2) continue
                 val nextIndex = (currentIndex + 1) % names.size
+                val target = names[nextIndex]
+                if (reduceMotion) {
+                    displayText = target
+                    currentIndex = nextIndex
+                    continue
+                }
                 glitchActive = true
                 shakeOffsetX = Random.nextFloat() * 4f - 2f
-                val target = names[nextIndex]
 
                 val len = maxOf(displayText.length, target.length)
                 val scrambleStart = System.currentTimeMillis()
-                while (System.currentTimeMillis() - scrambleStart < 600) {
+                while (System.currentTimeMillis() - scrambleStart < 300) {
                     val sb = StringBuilder()
                     for (i in 0 until len) {
                         when {
                             i >= target.length -> sb.append('█')
-                            Random.nextFloat() < 0.3f -> {
-                                val chars = "!@#$%^&*{}[]|\\/~`\"':;?><"
+                            Random.nextFloat() < 0.25f -> {
+                                val chars = "!@#$%^&*{}[]|\\/~`"
                                 sb.append(chars[Random.nextInt(chars.length)])
                             }
                             else -> sb.append(target[i])
                         }
                     }
                     displayText = sb.toString()
-                    delay(50 + Random.nextLong(80))
+                    delay(40)
                 }
 
                 displayText = target
@@ -1575,3 +1594,129 @@ private fun GlassDialogContent(
  * different whole number of gigabytes.
  */
 fun formatRam(ramMb: Int): String = "%.1f GB".format(ramMb / 1024.0)
+
+@Composable
+fun SectionHeader(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = color,
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun StatusChip(
+    label: String,
+    isActive: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val backgroundColor = if (isActive) NeonGreen.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (isActive) NeonGreen else MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        color = backgroundColor,
+        contentColor = contentColor,
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.padding(LocalSpacing.current.xs),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+        )
+    }
+}
+
+@Composable
+fun EmptyState(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(LocalSpacing.current.lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.md),
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+fun ErrorState(
+    message: String,
+    onRetry: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(LocalSpacing.current.lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.md),
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = NeonRed,
+        )
+        if (onRetry != null) {
+            GlassButton(onClick = onRetry) {
+                Text("Retry")
+            }
+        }
+    }
+}
+
+@Composable
+fun LoadingState(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxWidth().padding(LocalSpacing.current.lg),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(color = NeonCyan)
+    }
+}
+
+@Preview(name = "SectionHeader Light", showBackground = true)
+@Composable
+private fun SectionHeaderLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        SectionHeader("Section Title")
+    }
+}
+
+@Preview(name = "SectionHeader Dark", showBackground = true)
+@Composable
+private fun SectionHeaderDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        SectionHeader("Section Title")
+    }
+}
+
+@Preview(name = "StatusChip Light", showBackground = true)
+@Composable
+private fun StatusChipLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        Row {
+            StatusChip("Connected", isActive = true)
+            StatusChip("Disconnected", isActive = false)
+        }
+    }
+}
+
+@Preview(name = "StatusChip Dark", showBackground = true)
+@Composable
+private fun StatusChipDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        Row {
+            StatusChip("Connected", isActive = true)
+            StatusChip("Disconnected", isActive = false)
+        }
+    }
+}

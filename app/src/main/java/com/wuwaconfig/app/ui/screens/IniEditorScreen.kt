@@ -406,7 +406,7 @@ fun IniEditorScreen(
                             Modifier.fillMaxWidth().padding(12.dp).clickable {
                                 viewModel.clearIniEditorError()
                             },
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF4A1E8A).copy(alpha = 0.95f)),
+                        colors = CardDefaults.cardColors(containerColor = NeonRed.copy(alpha = 0.2f)),
                     ) {
                         Text(
                             msg,

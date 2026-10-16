@@ -181,16 +181,37 @@ fun HomeScreen(
                     },
                     accentColor = NeonPurple,
                     actions = {
-                        val infiniteTransition = rememberInfiniteTransition()
-                        val rotation by infiniteTransition.animateFloat(
-                            initialValue = 0f,
-                            targetValue = 360f,
-                            animationSpec =
-                                infiniteRepeatable(
-                                    animation = tween(2000, easing = LinearEasing),
-                                    repeatMode = RepeatMode.Restart,
-                                ),
-                        )
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        val reduceMotion =
+                            remember(context) {
+                                try {
+                                    val scale =
+                                        android.provider.Settings.Global.getFloat(
+                                            context.contentResolver,
+                                            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                                            1f,
+                                        )
+                                    scale == 0f
+                                } catch (_: Exception) {
+                                    false
+                                }
+                            }
+                        val rotation =
+                            if (reduceMotion) {
+                                0f
+                            } else {
+                                val infiniteTransition = rememberInfiniteTransition()
+                                val r by infiniteTransition.animateFloat(
+                                    initialValue = 0f,
+                                    targetValue = 360f,
+                                    animationSpec =
+                                        infiniteRepeatable(
+                                            animation = tween(2000, easing = LinearEasing),
+                                            repeatMode = RepeatMode.Restart,
+                                        ),
+                                )
+                                r
+                            }
                         IconButton(onClick = onNavigateToSettings) {
                             Icon(
                                 Icons.Default.Settings,

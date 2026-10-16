@@ -132,9 +132,11 @@ data class Spacing(
     /** Between stacked cards, and between items in a row. */
     val sm: Dp = 8.dp,
     /** A card's inner padding and the gap above a section body. */
-    val md: Dp = 12.dp,
+    val md: Dp = 16.dp,
     /** Screen gutter and the gap between sections. */
-    val lg: Dp = 16.dp,
+    val lg: Dp = 24.dp,
+    /** Major section separation. */
+    val xl: Dp = 32.dp,
 )
 
 /**
