@@ -25,6 +25,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.LogLevel
@@ -402,5 +403,25 @@ private fun buildHighlightedMessage(
             start = idx + q.length
         }
         pop()
+    }
+}
+
+@Preview(name = "Logs Light", showBackground = true)
+@Composable
+private fun LogsScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("Logs Preview")
+        }
+    }
+}
+
+@Preview(name = "Logs Dark", showBackground = true)
+@Composable
+private fun LogsScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("Logs Preview")
+        }
     }
 }

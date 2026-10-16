@@ -47,7 +47,6 @@
 <meta content="Engine.ini" property="article:tag"/>
 <meta content="Android Optimization" property="article:tag"/>
 <meta content="Config Optimizer" property="article:tag"/>
-<meta content="Android Optimization" property="article:tag"/>
 <meta content="2024-11-15T00:00:00+00:00" property="article:published_time"/>
 <meta content="2026-09-18T00:00:00+00:00" property="article:modified_time"/>
 
@@ -86,7 +85,7 @@
 
 
 <link href="styles.css" rel="stylesheet"/>
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "HowTo", "name": "Fix Wuthering Waves lag and FPS drops on Android", "step": [{"@type": "HowToStep", "position": 1, "name": "Identify the symptom", "text": "Find your issue in the troubleshooting table."}, {"@type": "HowToStep", "position": 2, "name": "Pick a quick-fix preset", "text": "Potato/Endurance for heat and OOM; Balanced/Competitive for FPS drops."}, {"@type": "HowToStep", "position": 3, "name": "Generate and deploy", "text": "Generate the config in WuWaConfig and deploy via ADB, Shizuku, Root or SAF."}, {"@type": "HowToStep", "position": 4, "name": "Verify and step down if needed", "text": "Pull a fresh Client.log; if still unstable, step down one preset."}]}</script></head><body><noscript><style>.reveal{opacity:1!important;transform:none!important}.js-only{display:none!important}</style></noscript><script>document.documentElement.classList.add('js')</script><a class="skip" href="#main">Skip to content</a><div id="progress"></div><svg aria-hidden="true" height="0" style="position:absolute" width="0"><defs>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Fix Wuthering Waves lag and FPS drops on Android", "description": "Symptom-to-fix troubleshooting guide for Wuthering Waves Android performance: FPS drops, thermal throttling, GPU OOM, texture errors and deploy failures, each mapped to a config preset.", "author": {"@type": "Person", "name": "Player42"}, "hasPart": [{"@type": "Article", "position": 1, "name": "Identify the symptom", "text": "Find your issue in the troubleshooting table."}, {"@type": "Article", "position": 2, "name": "Pick a quick-fix preset", "text": "Potato/Endurance for heat and OOM; Balanced/Competitive for FPS drops."}, {"@type": "Article", "position": 3, "name": "Generate and deploy", "text": "Generate the config in WuWaConfig and deploy via ADB, Shizuku, Root or SAF."}, {"@type": "Article", "position": 4, "name": "Verify and step down if needed", "text": "Pull a fresh Client.log; if still unstable, step down one preset."}]}</script></head><body><noscript><style>.reveal{opacity:1!important;transform:none!important}.js-only{display:none!important}</style></noscript><script>document.documentElement.classList.add('js')</script><a class="skip" href="#main">Skip to content</a><div id="progress"></div><svg aria-hidden="true" height="0" style="position:absolute" width="0"><defs>
 <symbol id="i-bolt" viewbox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"></path></symbol>
 <symbol id="i-cpu" viewbox="0 0 24 24"><rect height="16" rx="2" width="16" x="4" y="4"></rect><rect height="6" width="6" x="9" y="9"></rect><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3"></path></symbol>
 <symbol id="i-target" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></symbol>
@@ -135,8 +134,8 @@
 <div class="container">
 <div class="sec-head reveal">
 <span class="kicker">01.5 / Troubleshooting</span>
-<h2>Fix Common <em>Performance Issues</em></h2>
-<p>Wuthering Waves stuttering, FPS drops, thermal throttling, GPU OOM, or texture errors? SmartBrain reads your Client.log, identifies the bottleneck, and tunes your configs.</p>
+<h2>Why Does Wuthering Waves <em>Lag on Android?</em></h2>
+<p>Wuthering Waves lags on Android when render scale, shadows or texture streaming exceed what the chipset can sustain, or when heat throttles the GPU mid-fight. SmartBrain reads your Client.log, scores the bottleneck across 20+ signals, and maps your device to the preset that holds frame times flat — Potato or Endurance for heat and GPU OOM, Balanced or Competitive for FPS drops. Every fix below states its cause, config change and verifying signal.</p>
 </div>
 <div class="tbl-wrap reveal">
 <table>

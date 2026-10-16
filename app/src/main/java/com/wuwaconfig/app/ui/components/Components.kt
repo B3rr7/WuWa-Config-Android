@@ -51,6 +51,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -62,6 +64,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1152,17 +1155,26 @@ fun GradientBackground(content: @Composable () -> Unit) {
             if (LocalUiStyle.current == UiStyle.AURORA_FLUID) {
                 AuroraBackdrop()
             } else {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush =
-                                    Brush.verticalGradient(
-                                        colors = listOf(themeBg, surface),
-                                    ),
-                            ),
-                )
+                // Cached, not rebuilt: the backdrop renders on every screen, and a
+                // fresh Brush allocation per recomposition of the root composable
+                // was pure garbage churn. 3-stop ramp: bg -> an accent-tinted mid
+                // (the "resonance" wash, ~4% of primary) -> surface. 40% of screen
+                // height for the tint, then it fades before content begins.
+                val accent = MaterialTheme.colorScheme.primary
+                val backdropBrush =
+                    remember(themeBg, surface, accent) {
+                        val mid = lerp(themeBg, surface, 0.45f)
+                        Brush.verticalGradient(
+                            colorStops =
+                                arrayOf(
+                                    0f to themeBg,
+                                    0.4f to lerp(mid, accent, 0.04f),
+                                    0.75f to lerp(mid, accent, 0.06f),
+                                    1f to surface,
+                                ),
+                        )
+                    }
+                Box(modifier = Modifier.fillMaxSize().background(brush = backdropBrush))
             }
         }
         Box(modifier = Modifier.fillMaxSize()) { content() }
@@ -1331,37 +1343,43 @@ fun GlitchText(
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    LaunchedEffect(names, intervalMs) {
+    // One shared source of truth for "user asked for less motion" — see the
+    // helper's doc for why it reads all three animation scales, not just one.
+    val reduceMotion = rememberReducedMotion()
+
+    LaunchedEffect(names, intervalMs, reduceMotion) {
         currentIndex = 0
         displayText = names.getOrElse(0) { "" }
-        // repeatOnLifecycle replaces the old 500ms poll of currentState — no
-        // timer wakeups while the screen is stopped, and the effect is torn down
-        // by the framework instead of a hand-rolled isActive loop.
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (isActive) {
                 delay(intervalMs)
                 if (names.size < 2) continue
                 val nextIndex = (currentIndex + 1) % names.size
+                val target = names[nextIndex]
+                if (reduceMotion) {
+                    displayText = target
+                    currentIndex = nextIndex
+                    continue
+                }
                 glitchActive = true
                 shakeOffsetX = Random.nextFloat() * 4f - 2f
-                val target = names[nextIndex]
 
                 val len = maxOf(displayText.length, target.length)
                 val scrambleStart = System.currentTimeMillis()
-                while (System.currentTimeMillis() - scrambleStart < 600) {
+                while (System.currentTimeMillis() - scrambleStart < 300) {
                     val sb = StringBuilder()
                     for (i in 0 until len) {
                         when {
                             i >= target.length -> sb.append('█')
-                            Random.nextFloat() < 0.3f -> {
-                                val chars = "!@#$%^&*{}[]|\\/~`\"':;?><"
+                            Random.nextFloat() < 0.25f -> {
+                                val chars = "!@#$%^&*{}[]|\\/~`"
                                 sb.append(chars[Random.nextInt(chars.length)])
                             }
                             else -> sb.append(target[i])
                         }
                     }
                     displayText = sb.toString()
-                    delay(50 + Random.nextLong(80))
+                    delay(40)
                 }
 
                 displayText = target
@@ -1575,3 +1593,227 @@ private fun GlassDialogContent(
  * different whole number of gigabytes.
  */
 fun formatRam(ramMb: Int): String = "%.1f GB".format(ramMb / 1024.0)
+
+@Composable
+fun SectionHeader(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = color,
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun StatusChip(
+    label: String,
+    isActive: Boolean,
+    modifier: Modifier = Modifier,
+) { // Container/on-container pairs from the scheme, not raw accent paints:
+    // `NeonGreen` on its own 20% tint over white measured 2.95:1 in light mode
+    // — under the AA floor. The scheme slots are the ones the palette already
+    // guarantees contrast for, in both modes.
+    val backgroundColor = if (isActive) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (isActive) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        color = backgroundColor,
+        contentColor = contentColor,
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+        )
+    }
+}
+
+@Composable
+fun EmptyState(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(LocalSpacing.current.lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.md),
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Animated ring gauge for a 0..1 progress value (SmartBrain score, pity count,
+ * task completion).
+ *
+ * Drawn as two arcs on one small Canvas — a full-circle track and the swept
+ * foreground — so the gauge stays one layer and one draw pass, cheap on the
+ * low-end GPUs this app targets. The sweep animates on first appearance and on
+ * every change; the track is a flat scheme colour, not alpha-composited, so it
+ * reads identically in both modes.
+ */
+@Composable
+fun ProgressRing(
+    progress: Float,
+    label: String,
+    sublabel: String? = null,
+    modifier: Modifier = Modifier,
+    color: Color = NeonCyan,
+    ringSize: Dp = 96.dp,
+) {
+    val coerced = progress.coerceIn(0f, 1f)
+    val animated by animateFloatAsState(
+        targetValue = coerced,
+        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+        label = "progressRing",
+    )
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    Box(modifier = modifier.size(ringSize), contentAlignment = Alignment.Center) {
+        Canvas(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(4.dp),
+        ) {
+            val stroke = this.size.minDimension * 0.09f
+            val inset = stroke / 2f
+            val arcSize = androidx.compose.ui.geometry.Size(this.size.width - stroke, this.size.height - stroke)
+            drawArc(
+                color = trackColor,
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = arcSize,
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+            drawArc(
+                brush = Brush.sweepGradient(listOf(color.copy(alpha = 0.55f), color)),
+                startAngle = -90f,
+                sweepAngle = 360f * animated,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = arcSize,
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+            )
+            if (sublabel != null) {
+                Text(
+                    text = sublabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ErrorState(
+    message: String,
+    onRetry: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(LocalSpacing.current.lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.md),
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = NeonRed,
+        )
+        if (onRetry != null) {
+            GlassButton(onClick = onRetry) {
+                Text("Retry")
+            }
+        }
+    }
+}
+
+@Composable
+fun LoadingState(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxWidth().padding(LocalSpacing.current.lg),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(color = NeonCyan)
+    }
+}
+
+@Preview(name = "SectionHeader Light", showBackground = true)
+@Composable
+private fun SectionHeaderLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        SectionHeader("Section Title")
+    }
+}
+
+@Preview(name = "SectionHeader Dark", showBackground = true)
+@Composable
+private fun SectionHeaderDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        SectionHeader("Section Title")
+    }
+}
+
+@Preview(name = "StatusChip Light", showBackground = true)
+@Composable
+private fun StatusChipLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        Row {
+            StatusChip("Connected", isActive = true)
+            StatusChip("Disconnected", isActive = false)
+        }
+    }
+}
+
+@Preview(name = "StatusChip Dark", showBackground = true)
+@Composable
+private fun StatusChipDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        Row {
+            StatusChip("Connected", isActive = true)
+            StatusChip("Disconnected", isActive = false)
+        }
+    }
+}
+
+@Preview(name = "ProgressRing Light", showBackground = true)
+@Composable
+private fun ProgressRingLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            ProgressRing(progress = 0.72f, label = "72", sublabel = "SCORE")
+            ProgressRing(progress = 0.44f, label = "44", sublabel = "PITY", color = NeonAmber)
+        }
+    }
+}
+
+@Preview(name = "ProgressRing Dark", showBackground = true)
+@Composable
+private fun ProgressRingDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            ProgressRing(progress = 0.72f, label = "72", sublabel = "SCORE")
+            ProgressRing(progress = 0.44f, label = "44", sublabel = "PITY", color = NeonAmber)
+        }
+    }
+}

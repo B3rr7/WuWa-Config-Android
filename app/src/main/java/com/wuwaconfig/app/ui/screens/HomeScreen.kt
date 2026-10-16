@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.adb.PortScanner
@@ -35,6 +36,7 @@ import com.wuwaconfig.app.ui.SettingsViewModel
 import com.wuwaconfig.app.ui.components.*
 import com.wuwaconfig.app.ui.components.CancelledBanner
 import com.wuwaconfig.app.ui.theme.*
+import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import kotlinx.coroutines.launch
 
 private data class PickedFile(
@@ -181,16 +183,25 @@ fun HomeScreen(
                     },
                     accentColor = NeonPurple,
                     actions = {
-                        val infiniteTransition = rememberInfiniteTransition()
-                        val rotation by infiniteTransition.animateFloat(
-                            initialValue = 0f,
-                            targetValue = 360f,
-                            animationSpec =
-                                infiniteRepeatable(
-                                    animation = tween(2000, easing = LinearEasing),
-                                    repeatMode = RepeatMode.Restart,
-                                ),
-                        )
+                        // Reduced-motion users get a static gear — the rotation
+                        // exists only as polish, see rememberReducedMotion().
+                        val reduceMotion = rememberReducedMotion()
+                        val rotation =
+                            if (reduceMotion) {
+                                0f
+                            } else {
+                                val infiniteTransition = rememberInfiniteTransition()
+                                val r by infiniteTransition.animateFloat(
+                                    initialValue = 0f,
+                                    targetValue = 360f,
+                                    animationSpec =
+                                        infiniteRepeatable(
+                                            animation = tween(2000, easing = LinearEasing),
+                                            repeatMode = RepeatMode.Restart,
+                                        ),
+                                )
+                                r
+                            }
                         IconButton(onClick = onNavigateToSettings) {
                             Icon(
                                 Icons.Default.Settings,
@@ -217,18 +228,18 @@ fun HomeScreen(
             ) {
                 item { Spacer(Modifier.height(LocalSpacing.current.sm)) }
 
-                // --- Backend Status ---
+                // --- Hero: identity + one-line value, then the live status card.
                 item {
-                    GlassCard(accentColor = NeonPurple) {
-                        Column(Modifier.fillMaxWidth()) {
+                    GlassCard(accentColor = NeonCyan) {
+                        Column {
                             Text(
                                 "Wuthering Waves",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
-                                "Manage configs, backups, and device tuned presets.",
-                                style = MaterialTheme.typography.bodyMedium,
+                                "Tune, deploy and track — one panel.",
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
                         }
@@ -1157,4 +1168,24 @@ private fun RecentLogCard(onNavigateToLogs: () -> Unit) {
             )
         },
     )
+}
+
+@Preview(name = "Home Light", showBackground = true)
+@Composable
+private fun HomeScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("Home Preview")
+        }
+    }
+}
+
+@Preview(name = "Home Dark", showBackground = true)
+@Composable
+private fun HomeScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("Home Preview")
+        }
+    }
 }

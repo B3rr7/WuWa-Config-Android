@@ -16,6 +16,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - **Theme engine** — split into two orthogonal axes: `UiStyle` (structure: radii, strokes, blur) and `ColourPalette` (pigment: M3 slot colours). 6 styles × 7 palettes, all dark/light safe.
+- **UI Redesign** — Modernized full app UI with premium dark theme: cyan/teal primary + warm amber secondary accents, refined spacing (16dp/24dp), softer corners, shared component library (SectionHeader, StatusChip, EmptyState, ErrorState, LoadingState), improved typography, reduced-motion support, and comprehensive previews.
 - **Characters** — native Kuro login and a WWT-style character view.
 - **Calculator** — runtime auto-sync of material data from the wiki.
 - **Gacha** — Kuro guide featured-character banner strip; standard pool collection card.

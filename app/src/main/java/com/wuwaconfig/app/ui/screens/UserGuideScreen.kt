@@ -22,11 +22,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.NeonCyan
 import com.wuwaconfig.app.ui.theme.NeonPurple
+import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 
 /**
  * Synthetic origin for the local guide. It is never resolved — `loadDataWithBaseURL`
@@ -159,6 +161,26 @@ fun UserGuideScreen(onBack: () -> Unit) {
                         .fillMaxSize()
                         .padding(padding),
             )
+        }
+    }
+}
+
+@Preview(name = "UserGuide Light", showBackground = true)
+@Composable
+private fun UserGuideScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("UserGuide Preview")
+        }
+    }
+}
+
+@Preview(name = "UserGuide Dark", showBackground = true)
+@Composable
+private fun UserGuideScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("UserGuide Preview")
         }
     }
 }

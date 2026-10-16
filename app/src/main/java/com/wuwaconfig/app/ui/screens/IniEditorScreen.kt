@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -406,7 +407,7 @@ fun IniEditorScreen(
                             Modifier.fillMaxWidth().padding(12.dp).clickable {
                                 viewModel.clearIniEditorError()
                             },
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF4A1E8A).copy(alpha = 0.95f)),
+                        colors = CardDefaults.cardColors(containerColor = NeonRed.copy(alpha = 0.2f)),
                     ) {
                         Text(
                             msg,
@@ -827,3 +828,23 @@ private fun highlightIni(
             lineStart = lineEnd + 1
         }
     }
+
+@Preview(name = "IniEditor Light", showBackground = true)
+@Composable
+private fun IniEditorScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("IniEditor Preview")
+        }
+    }
+}
+
+@Preview(name = "IniEditor Dark", showBackground = true)
+@Composable
+private fun IniEditorScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("IniEditor Preview")
+        }
+    }
+}

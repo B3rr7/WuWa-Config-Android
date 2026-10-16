@@ -68,6 +68,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.config.CharacterBuild
@@ -93,6 +94,7 @@ import com.wuwaconfig.app.ui.theme.NeonGold
 import com.wuwaconfig.app.ui.theme.NeonGreen
 import com.wuwaconfig.app.ui.theme.NeonPurple
 import com.wuwaconfig.app.ui.theme.NeonRed
+import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import com.wuwaconfig.app.ui.theme.elementAccent
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -1240,5 +1242,25 @@ private fun Pill(
                 .padding(horizontal = 9.dp, vertical = 3.dp),
     ) {
         Text(text, style = MaterialTheme.typography.labelMedium, color = accent, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+    }
+}
+
+@Preview(name = "MyCharacter Light", showBackground = true)
+@Composable
+private fun MyCharacterScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("MyCharacter Preview")
+        }
+    }
+}
+
+@Preview(name = "MyCharacter Dark", showBackground = true)
+@Composable
+private fun MyCharacterScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("MyCharacter Preview")
+        }
     }
 }
