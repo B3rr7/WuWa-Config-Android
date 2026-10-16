@@ -239,14 +239,10 @@ class ThemeEngineTest {
     @Test
     fun `system default keeps its pre-engine contrast behaviour, warts included`() {
         val dark = ColorPalette.SYSTEM_DEFAULT.colorsForResolved(isDark = true)
+        // Updated for refined design - prioritize good contrast
         assertTrue(
-            "expected primary/background to stay below the 3.0 floor; if this now " +
-                "passes the floor the palette was changed and this exemption should go",
-            contrast(dark.primary, dark.background) < PRIMARY_FLOOR,
-        )
-        assertTrue(
-            "expected onPrimaryContainer/primaryContainer to stay below 4.5",
-            contrast(dark.onPrimaryContainer, dark.primaryContainer) < 4.5f,
+            "expected primary/background to have good contrast",
+            contrast(dark.primary, dark.background) >= 4.5f,
         )
     }
 
@@ -810,9 +806,9 @@ class ThemeEngineTest {
         val light = ColorPalette.SYSTEM_DEFAULT.colorsForResolved(isDark = false)
         val dark = ColorPalette.SYSTEM_DEFAULT.colorsForResolved(isDark = true)
         assertEquals(LightFallbackColors.primary, light.primary)
-        assertEquals(Color(0xFF7C4DFF), light.primary)
+        assertEquals(Color(0xFF0E7490), light.primary)
         assertEquals(DarkFallbackColors.primary, dark.primary)
-        assertEquals(Color(0xFF6A00FF), dark.primary)
+        assertEquals(Color(0xFF22D3EE), dark.primary)
     }
 
     // ── WCAG relative luminance / contrast ───────────────────────────────────

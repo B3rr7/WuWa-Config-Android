@@ -1332,21 +1332,9 @@ fun GlitchText(
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    val context = LocalContext.current
-    val reduceMotion =
-        remember(context) {
-            try {
-                val scale =
-                    android.provider.Settings.Global.getFloat(
-                        context.contentResolver,
-                        android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
-                        1f,
-                    )
-                scale == 0f
-            } catch (_: Exception) {
-                false
-            }
-        }
+    // One shared source of truth for "user asked for less motion" — see the
+    // helper's doc for why it reads all three animation scales, not just one.
+    val reduceMotion = rememberReducedMotion()
 
     LaunchedEffect(names, intervalMs, reduceMotion) {
         currentIndex = 0
@@ -1615,13 +1603,17 @@ fun StatusChip(
     isActive: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val backgroundColor = if (isActive) NeonGreen.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant
-    val contentColor = if (isActive) NeonGreen else MaterialTheme.colorScheme.onSurfaceVariant
+    // Container/on-container pairs from the scheme, not raw accent paints:
+    // `NeonGreen` on its own 20% tint over white measured 2.95:1 in light mode
+    // — under the AA floor. The scheme slots are the ones the palette already
+    // guarantees contrast for, in both modes.
+    val backgroundColor = if (isActive) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (isActive) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         color = backgroundColor,
         contentColor = contentColor,
         shape = RoundedCornerShape(12.dp),
-        modifier = modifier.padding(LocalSpacing.current.xs),
+        modifier = modifier,
     ) {
         Text(
             text = label,

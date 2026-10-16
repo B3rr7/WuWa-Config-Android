@@ -183,21 +183,9 @@ fun HomeScreen(
                     },
                     accentColor = NeonPurple,
                     actions = {
-                        val context = androidx.compose.ui.platform.LocalContext.current
-                        val reduceMotion =
-                            remember(context) {
-                                try {
-                                    val scale =
-                                        android.provider.Settings.Global.getFloat(
-                                            context.contentResolver,
-                                            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
-                                            1f,
-                                        )
-                                    scale == 0f
-                                } catch (_: Exception) {
-                                    false
-                                }
-                            }
+                        // Reduced-motion users get a static gear — the rotation
+                        // exists only as polish, see rememberReducedMotion().
+                        val reduceMotion = rememberReducedMotion()
                         val rotation =
                             if (reduceMotion) {
                                 0f

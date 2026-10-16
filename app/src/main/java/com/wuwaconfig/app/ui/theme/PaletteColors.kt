@@ -50,15 +50,22 @@ data class PaletteColors(
  */
 internal val LightFallbackColors =
     PaletteColors(
-        primary = Color(0xFF0891B2),
+        // Darkened one step from Tailwind cyan-600 (0x0891B2): as filled-button
+        // containers these slots carry a white `on*`, and cyan-600/white measured
+        // 3.68:1 — under the 4.5:1 AA floor. cyan-700 with white is 5.36:1.
+        primary = Color(0xFF0E7490),
         onPrimary = Color.White,
         primaryContainer = Color(0xFFE0F7FA),
         onPrimaryContainer = Color(0xFF00363F),
+        // Amber keeps its brighter fill, so the on-colour flips to near-black
+        // (Material does the same for yellow tertiaries): white measured 3.19:1.
         secondary = Color(0xFFD97706),
-        onSecondary = Color.White,
+        onSecondary = Color(0xFF231000),
         secondaryContainer = Color(0xFFFFF3E0),
         onSecondaryContainer = Color(0xFF3E2723),
-        tertiary = Color(0xFF059669),
+        // Green darkened green-600 -> green-700 for the same white-on reason
+        // (3.77:1 -> 5.48:1).
+        tertiary = Color(0xFF047857),
         onTertiary = Color.White,
         tertiaryContainer = Color(0xFFE8F5E9),
         onTertiaryContainer = Color(0xFF1B5E20),
@@ -74,16 +81,18 @@ internal val LightFallbackColors =
         onError = Color.White,
         errorContainer = Color(0xFFFEE2E2),
         onErrorContainer = Color(0xFF991B1B),
+        // Accent layer mirrors the slots that carry its hue; every value here is
+        // used as text on light cards, so each clears 4.5:1 against white.
         accents =
             neonPaletteOf(
-                purple = Color(0xFF0891B2),
-                cyan = Color(0xFF0891B2),
-                pink = Color(0xFFD97706),
-                green = Color(0xFF059669),
+                purple = Color(0xFF0E7490),
+                cyan = Color(0xFF0E7490),
+                pink = Color(0xFFB45309),
+                green = Color(0xFF047857),
                 red = Color(0xFFDC2626),
-                amber = Color(0xFFD97706),
+                amber = Color(0xFFB45309),
                 blue = Color(0xFF2563EB),
-                gold = Color(0xFFD97706),
+                gold = Color(0xFFB45309),
             ),
     )
 
@@ -118,7 +127,9 @@ internal val DarkFallbackColors =
         outline = Color(0xFF334155),
         outlineVariant = Color(0xFF1E293B),
         error = Color(0xFFEF4444),
-        onError = Color.White,
+        // White on red-500 measured 3.76:1 — restores the pre-redesign polarity
+        // (dark on red), which measured 5.09:1 here.
+        onError = Color(0xFF1C0A0A),
         errorContainer = Color(0xFF450A0A),
         onErrorContainer = Color(0xFFEF4444),
         accents =

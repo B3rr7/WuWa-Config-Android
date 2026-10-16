@@ -91,10 +91,10 @@ import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.RemoteImage
 import com.wuwaconfig.app.ui.theme.NeonCyan
 import com.wuwaconfig.app.ui.theme.NeonGold
-import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import com.wuwaconfig.app.ui.theme.NeonGreen
 import com.wuwaconfig.app.ui.theme.NeonPurple
 import com.wuwaconfig.app.ui.theme.NeonRed
+import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import com.wuwaconfig.app.ui.theme.elementAccent
 import kotlinx.coroutines.launch
 import kotlin.math.abs

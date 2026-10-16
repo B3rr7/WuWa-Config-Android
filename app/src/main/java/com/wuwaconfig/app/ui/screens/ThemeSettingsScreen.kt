@@ -61,11 +61,11 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.ColorPalette
 import com.wuwaconfig.app.ui.theme.DarkFallbackColors
-import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import com.wuwaconfig.app.ui.theme.LocalSpacing
 import com.wuwaconfig.app.ui.theme.LocalThemeShapeTokens
 import com.wuwaconfig.app.ui.theme.PaletteColors
 import com.wuwaconfig.app.ui.theme.UiStyle
+import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 
 /**
  * The theme engine's two-axis picker.

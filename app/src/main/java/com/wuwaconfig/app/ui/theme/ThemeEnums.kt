@@ -145,7 +145,7 @@ enum class UiStyle(
                 // the backdrop decision.
                 surfaceMode = SurfaceMode.GLASS,
                 edgeMode = EdgeMode.SPECULAR,
-                cardCorner = 20.dp,
+                cardCorner = 18.dp,
                 buttonCorner = 16.dp,
                 dialogCorner = 28.dp,
                 fieldCorner = 12.dp,
