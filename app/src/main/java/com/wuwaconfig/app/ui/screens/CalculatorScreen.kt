@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -826,5 +827,25 @@ private fun MaterialRow(
             fontWeight = FontWeight.Bold,
             color = accent,
         )
+    }
+}
+
+@Preview(name = "Calculator Light", showBackground = true)
+@Composable
+private fun CalculatorScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("Calculator Preview")
+        }
+    }
+}
+
+@Preview(name = "Calculator Dark", showBackground = true)
+@Composable
+private fun CalculatorScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("Calculator Preview")
+        }
     }
 }

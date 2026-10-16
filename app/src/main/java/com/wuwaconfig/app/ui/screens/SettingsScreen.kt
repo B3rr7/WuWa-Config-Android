@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,6 +60,7 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.*
 import com.wuwaconfig.app.ui.theme.NeonBlue
+import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import com.wuwaconfig.app.util.isLocalOnlyImageUri
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1139,5 +1141,25 @@ private fun LinkButton(
         Icon(icon, contentDescription = label, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
         Text(label, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Preview(name = "Settings Light", showBackground = true)
+@Composable
+private fun SettingsScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("Settings Preview")
+        }
+    }
+}
+
+@Preview(name = "Settings Dark", showBackground = true)
+@Composable
+private fun SettingsScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("Settings Preview")
+        }
     }
 }

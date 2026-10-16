@@ -10,6 +10,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
@@ -111,6 +112,26 @@ fun SetupScreen(
                     Text("Confirm & Start", fontWeight = FontWeight.Bold)
                 }
             }
+        }
+    }
+}
+
+@Preview(name = "Setup Light", showBackground = true)
+@Composable
+private fun SetupScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("Setup Preview")
+        }
+    }
+}
+
+@Preview(name = "Setup Dark", showBackground = true)
+@Composable
+private fun SetupScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("Setup Preview")
         }
     }
 }

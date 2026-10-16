@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.DeployRecord
@@ -305,5 +306,25 @@ private fun ComparisonRow(
             fontWeight = FontWeight.Bold,
             color = if (isGood) NeonGreen else NeonRed,
         )
+    }
+}
+
+@Preview(name = "History Light", showBackground = true)
+@Composable
+private fun HistoryScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("History Preview")
+        }
+    }
+}
+
+@Preview(name = "History Dark", showBackground = true)
+@Composable
+private fun HistoryScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("History Preview")
+        }
     }
 }

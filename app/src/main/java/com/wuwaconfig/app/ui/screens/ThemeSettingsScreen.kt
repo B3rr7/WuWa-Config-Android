@@ -50,6 +50,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.ui.ThemeViewModel
@@ -60,6 +61,7 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.theme.ColorPalette
 import com.wuwaconfig.app.ui.theme.DarkFallbackColors
+import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import com.wuwaconfig.app.ui.theme.LocalSpacing
 import com.wuwaconfig.app.ui.theme.LocalThemeShapeTokens
 import com.wuwaconfig.app.ui.theme.PaletteColors
@@ -499,5 +501,25 @@ private fun ResetSection(onReset: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text("Reset to defaults")
+    }
+}
+
+@Preview(name = "ThemeSettings Light", showBackground = true)
+@Composable
+private fun ThemeSettingsScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("ThemeSettings Preview")
+        }
+    }
+}
+
+@Preview(name = "ThemeSettings Dark", showBackground = true)
+@Composable
+private fun ThemeSettingsScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("ThemeSettings Preview")
+        }
     }
 }

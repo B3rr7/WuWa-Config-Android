@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -610,4 +611,24 @@ private fun SectionHeader(
     accent: Color,
 ) {
     Text(text, style = MaterialTheme.typography.labelMedium, color = accent.copy(alpha = 0.7f), letterSpacing = 2.sp)
+}
+
+@Preview(name = "Profile Light", showBackground = true)
+@Composable
+private fun ProfileScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("Profile Preview")
+        }
+    }
+}
+
+@Preview(name = "Profile Dark", showBackground = true)
+@Composable
+private fun ProfileScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("Profile Preview")
+        }
+    }
 }

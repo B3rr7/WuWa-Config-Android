@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wuwaconfig.app.ui.components.GlassButton
@@ -242,5 +243,25 @@ private fun BulletPoint(text: String) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
         )
+    }
+}
+
+@Preview(name = "Terms Light", showBackground = true)
+@Composable
+private fun TermsScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("Terms Preview")
+        }
+    }
+}
+
+@Preview(name = "Terms Dark", showBackground = true)
+@Composable
+private fun TermsScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("Terms Preview")
+        }
     }
 }

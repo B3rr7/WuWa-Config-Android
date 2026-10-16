@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -902,4 +903,24 @@ private fun DeploySummaryDialog(
             TextButton(onClick = onCancel) { Text("Cancel") }
         },
     )
+}
+
+@Preview(name = "ReviewTune Light", showBackground = true)
+@Composable
+private fun ReviewTuneScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("ReviewTune Preview")
+        }
+    }
+}
+
+@Preview(name = "ReviewTune Dark", showBackground = true)
+@Composable
+private fun ReviewTuneScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("ReviewTune Preview")
+        }
+    }
 }

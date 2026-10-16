@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.ConfigBackup
@@ -384,6 +385,26 @@ private fun BackupManageCard(
                 Spacer(Modifier.width(4.dp))
                 Text("Restore", fontWeight = FontWeight.Bold)
             }
+        }
+    }
+}
+
+@Preview(name = "Backup Light", showBackground = true)
+@Composable
+private fun BackupScreenLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        GradientBackground {
+            Text("Backup Preview")
+        }
+    }
+}
+
+@Preview(name = "Backup Dark", showBackground = true)
+@Composable
+private fun BackupScreenDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        GradientBackground {
+            Text("Backup Preview")
         }
     }
 }
