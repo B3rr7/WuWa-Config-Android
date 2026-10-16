@@ -14,7 +14,7 @@
 [![No telemetry](https://img.shields.io/badge/telemetry-none-4CAF50)](https://github.com/B3rr7/WuWa-Config-Android)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Wuwaconfig A free, open-source Android toolkit that generates, optimizes and deploys
+Wuwa config A free, open-source Android toolkit that generates, optimizes and deploys
 Unreal Engine INI configs for Wuthering Waves — no root, no PC, no telemetry.
 
 [Features](#features) · [Quick start](#quick-start) · [Backends](#backends) · [Presets](#presets) · [Build](#building-from-source) · [Architecture](#architecture)
