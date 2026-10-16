@@ -41,7 +41,7 @@ gson = "2.13.2"
 coil = "3.3.0"
 media3 = "1.7.1"
 junit = "4.13.2"
-mockito = "5.11.0"
+mockito = "5.24.0"
 # KSP drives androidx.appfunctions:appfunctions-compiler. 2.3.6 is the floor:
 # earlier releases refuse to attach to AGP 9's built-in Kotlin, and the
 # documented workaround (android.builtInKotlin=false plus kotlin-android) does
