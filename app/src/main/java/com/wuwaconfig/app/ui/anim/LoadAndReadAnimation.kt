@@ -510,7 +510,7 @@ internal class LoadSim(pal: AnimTheme) {
                 }
                 val slow = floor(t * 2f).toInt()
                 for (r in 0 until 11) for (q in 0 until 10) {
-                    val px = left + 16f + q * 16.5f
+                    val px = left + 12f + q * (FW - 28f) / 10f
                     val py = fy - FH / 2f + 44f + r * 14.2f
                     val bit = hashI(r * 10 + q, if (hashI(r, q) % 3 == 0) slow else 0) and 1
                     ch(if (bit == 1) '1' else '0', px, py, 11f, if (py > fillTop) hsl(hue, 85f, 78f, .85f) else hsl(hue, 85f, 60f, .2f))

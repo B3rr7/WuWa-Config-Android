@@ -139,9 +139,9 @@ fun LogBrainAnimation(
 // ======================================================================
 
 private const val N = 10
-internal const val FW = 190f
-internal const val FH = 206f
-internal const val FOLD = 34f
+internal const val FW = 170f
+internal const val FH = 226f
+internal const val FOLD = 28f
 private const val RH = 15f
 private const val GARB = "▒░▓#%?@\$&"
 private const val FAIL_FILL = "ERR_UNEXPECTED_EOF"
@@ -233,8 +233,10 @@ private val LAY_WIDE =
     )
 private val LAY_NARROW =
     Lay(
-        360f, 700f, 180f, 125f, 180f, 325f, 82f, 180f, 612f,
-        List(6) { CardR(if (it % 2 == 1) 184f else 10f, 440f + (it / 2) * 48f, 166f, 40f) }, false,
+        // File (medium, 170x226 of a 360-wide viewport) high-center; spiral brain
+        // below it; cards left/right of the brain's lower half; status at bottom.
+        360f, 700f, 180f, 118f, 180f, 340f, 76f, 180f, 614f,
+        List(6) { CardR(if (it % 2 == 1) 184f else 10f, 446f + (it / 2) * 48f, 166f, 40f) }, false,
     )
 
 internal fun filePath(
@@ -358,31 +360,23 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
     private val py = FloatArray(64)
 
     init {
-        // Structured organoid instead of the old Random point cloud. The scattered
-        // shape + sub-0.42 proximity edges read as a wobbling ameba; pulses travelled
-        // a hairball with no layering. One hub plus three angularly-even, jittered
-        // density shells, wired with ring adjacency, hub spokes, shell-anchoring
-        // links and sparse chords: stable silhouette, real paths to propagate.
+        // Spiral neuron layout: 1 hub + 43 neurons down a 2.5-turn Archimedean
+        // spiral (outer rim -> hub), matching the glowing spiral cortex drawn in
+        // drawBrain. Wiring = the spiral spine + one layer link per node to the
+        // node ~a full turn deeper + hub spokes at the inner end + sparse chords.
+        // (v1: Random-signed point cloud = ameba; v2: three round rings = bullseye.
+        // The spiral is the silhouette the shell actually draws.)
         val jit = Random(7)
-
-        fun shell(
-            rad: Float,
-            count: Int,
-            phase: Float,
-        ): Pair<Int, Int> {
-            val start = nodes.size
-            for (n in 0 until count) {
-                val a = phase + n * (6.2832f / count) + (jit.nextFloat() - .5f) * .3f / count * 6.2832f
-                val r = rad + (jit.nextFloat() - .5f) * .06f
-                nodes.add(Node(cos(a) * 1.18f * r, sin(a) * .9f * r))
-            }
-            return start to count
-        }
-
+        val turns = 2.5f
+        val count = 43
+        val startAng = Math.PI.toFloat() + .35f
         nodes.add(Node(0f, 0f))
-        val r1 = shell(.32f, 6, .5f)
-        val r2 = shell(.62f, 12, 0f)
-        val r3 = shell(.94f, 25, .25f)
+        for (i in 0 until count) {
+            val f = (count - 1 - i) / (count - 1).toFloat() // 1.0 = rim, 0 = hub side
+            val ang = startAng + f * 6.2832f * turns + (jit.nextFloat() - .5f) * .14f
+            val r = lerp(1.02f, .3f, f) * (1f + (jit.nextFloat() - .5f) * .05f)
+            nodes.add(Node(cos(ang) * 1.18f * r, sin(ang) * .9f * r))
+        }
 
         fun wire(
             i: Int,
@@ -395,32 +389,19 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
             nodes[j].nb.add(i)
         }
 
-        fun shellArc(
-            start: Int,
-            count: Int,
-        ) {
-            for (n in 0 until count) wire(start + n, start + (n + 1) % count)
-        }
+        // spine: consecutive neurons on the spiral
+        for (i in 1 until nodes.size - 1) wire(i, i + 1)
+        // layer links: radial hop of ~one full turn deeper into the spiral
+        val perTurn = (count / turns).toInt()
+        for (i in 1 + perTurn until nodes.size) wire(i, i - perTurn)
+        // hub spokes at the inner end
+        wire(0, nodes.size - 1)
+        wire(0, nodes.size - 2)
+        // sparse cross-chords so firing shortcuts the spiral occasionally
+        for (i in 1 until nodes.size - 8 step 7) wire(i, i + 7)
 
-        fun anchors(
-            start: Int,
-            count: Int,
-            innerStart: Int,
-            innerCount: Int,
-        ) {
-            for (n in 0 until count) wire(start + n, innerStart + (n * innerCount / count) % innerCount)
-        }
-
-        for (n in 0 until r1.second) wire(0, r1.first + n)
-        shellArc(r1.first, r1.second)
-        shellArc(r2.first, r2.second)
-        anchors(r2.first, r2.second, r1.first, r1.second)
-        shellArc(r3.first, r3.second)
-        anchors(r3.first, r3.second, r2.first, r2.second)
-        for (n in 0 until r3.second step 4) wire(r3.first + n, r3.first + (n + 8) % r3.second)
-
-        // The reading chip enters from the outer shell on the file's side.
-        entry = (r3.first until r3.first + r3.second).minByOrNull { nodes[it].u } ?: 0
+        // The reading chip enters at the outer rim, on the file's side.
+        entry = (1 until nodes.size).minByOrNull { hypot(nodes[it].u + 1.02f * 1.18f, nodes[it].v) } ?: 1
     }
 
     // timeline
@@ -1122,21 +1103,35 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
         }
 
         if (!dead) {
+            // Body: a calm filled ellipse (the random wobble harmonics are gone —
+            // that was half of the ameba look).
             pathC.reset()
             for (i in 0..72) {
                 val a = i / 72f * 6.2832f
-                val r = rr(a)
-                val x = lay.bx + R * 1.18f * r * cos(a)
-                val y = lay.bcy + R * .9f * r * sin(a)
+                val x = lay.bx + R * 1.06f * cos(a)
+                val y = lay.bcy + R * .9f * sin(a)
                 if (i == 0) pathC.moveTo(x, y) else pathC.lineTo(x, y)
             }
             pathC.close()
             drawPath(pathC, c(hue, 85f, 58f, .06f + if (run) .03f * sin(t * 4f) else 0f))
-            glowPath(pathC, c(hue, 85f, 58f, .9f), 2f, if (run) 1f + .5f * sin(t * 4f) else 1f)
+            glowPath(pathC, c(hue, 85f, 58f, .55f), 2f, if (run) 1f + .4f * sin(t * 4f) else 1f)
+
+            // Spiral cortex: ~2.5 Archimedean turns from the outer rim down to the
+            // hub, glowing over the neuron layers. Breathes with br and flares
+            // while the network runs.
             pathB.reset()
-            pathB.moveTo(lay.bx, lay.bcy - R * .85f)
-            pathB.cubicTo(lay.bx - R * .2f, lay.bcy - R * .4f, lay.bx + R * .2f, lay.bcy + R * .1f, lay.bx - R * .05f, lay.bcy + R * .8f)
-            drawPath(pathB, c(hue, 70f, 60f, .22f), style = Stroke(1.5f))
+            val turns = 2.5f
+            val SPIRAL_STEPS = 160
+            val startAng = Math.PI.toFloat() + .35f
+            for (k in 0..SPIRAL_STEPS) {
+                val f = k / SPIRAL_STEPS.toFloat()
+                val ang = startAng + f * 6.2832f * turns
+                val r = lerp(1.06f, .3f, f) * R
+                val x = lay.bx + cos(ang) * 1.18f * r
+                val y = lay.bcy + sin(ang) * .9f * r
+                if (k == 0) pathB.moveTo(x, y) else pathB.lineTo(x, y)
+            }
+            glowPath(pathB, c(hue, 80f, 60f, .5f), 1.3f, if (run) 1f + .4f * sin(t * 4f) else .8f)
         } else {
             for (g in segs) {
                 val a = cl(1f - (tp - 3.6f) / 1.2f)
