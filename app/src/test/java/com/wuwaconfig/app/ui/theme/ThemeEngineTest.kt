@@ -680,10 +680,14 @@ class ThemeEngineTest {
 
     @Test
     fun `retro handheld is the only fully square style`() {
+        // Two square styles by design: RETRO_HANDHELD (pixel panel) and
+        // NEO_BRUTALISM (stamped antidesign). The assertion now pins the PAIR
+        // and, below, that RETRO_HANDHELD stays square at every radius slot —
+        // its identity is the hard edge, dialogue slots included.
         val squared = UiStyle.entries.filter { it.tokens.cardCorner == 0.dp }
         assertEquals(
-            "more than one style is fully square; RETRO_HANDHELD's identity is the hard edge",
-            listOf(UiStyle.RETRO_HANDHELD),
+            "unexpected square styles",
+            listOf(UiStyle.RETRO_HANDHELD, UiStyle.NEO_BRUTALISM),
             squared,
         )
         assertEquals(0.dp, UiStyle.RETRO_HANDHELD.tokens.buttonCorner)
@@ -708,9 +712,11 @@ class ThemeEngineTest {
 
     @Test
     fun `blur styles are exactly the translucent ones`() {
+        // RETRO_FUTURISM joins deliberately: sharp glass + the grid backdrop is
+        // the synthwave identity, and glass needs the translucent fill.
         val blurred = UiStyle.entries.filter { it.tokens.useBlurEffects }
         assertEquals(
-            listOf(UiStyle.LIQUID_GLASS, UiStyle.AURORA_FLUID),
+            listOf(UiStyle.LIQUID_GLASS, UiStyle.AURORA_FLUID, UiStyle.RETRO_FUTURISM),
             blurred,
         )
     }

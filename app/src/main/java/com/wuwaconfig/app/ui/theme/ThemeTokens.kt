@@ -27,12 +27,22 @@ import androidx.compose.ui.unit.dp
  *   transmit, which is why light mode still pairs it with a drawn edge.
  * - [OUTLINED] — flat fill carried by a visible border.
  * - [FLAT] — fill only, no edge, no elevation. The restrained end of the range.
+ * - [RELIEF] — carries the page's own colour and is raised purely by lighting
+ *   (a soft glow shadow plus the page tone): the neumorphic pillow. It depends
+ *   on the surface reading as "the same material as the page", which is why it
+ *   is a separate mode rather than a FLAT flag — the fill is the page's, not
+ *   the palette's container ramp.
+ * - [SUNKEN] — pressed INTO the page rather than raised out of it: a darker,
+ *   recessed fill meant to sit under a bevel edge (skeuomorphic chasms and
+ *   inset wells).
  */
 enum class SurfaceMode {
     TONAL,
     GLASS,
     OUTLINED,
     FLAT,
+    RELIEF,
+    SUNKEN,
 }
 
 /**
@@ -62,6 +72,14 @@ enum class EdgeMode {
 
     /** A hard, full-weight stroke. Carries RETRO_HANDHELD's no-softness rule. */
     HARD,
+
+    /**
+     * A chiselled two-tone edge: highlight running in from the top-left, shade
+     * accumulating toward the bottom-right — a screwhead bevel rather than a
+     * border. Skeuomorphism's defining detail: it is lightplay on an edge, not
+     * a drawn line, which a plain HAIRLINE stroke cannot express.
+     */
+    BEVEL,
 }
 
 /**

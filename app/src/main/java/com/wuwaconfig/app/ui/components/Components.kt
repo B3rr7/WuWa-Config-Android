@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -249,6 +250,17 @@ private fun SurfaceCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    // The relief shadow pass: the same soft glow the dark branch
+                    // renders, mirrored here so a light-mode RELIEF card
+                    // (NEUMORPHIC_SOFT) is raised by lighting the way its style
+                    // name promises. Styles with glowWidth == 0 are untouched.
+                    .graphicsLayer {
+                        if (glowWidth > 0f) {
+                            shadowElevation = 6f * glowWidth
+                            this.shape = shape
+                            clip = true
+                        }
+                    }
                     // The accent tint. Without it every card is the same flat
                     // rectangle and only the text carries the card's identity.
                     .background(
@@ -343,6 +355,14 @@ internal fun surfaceFillFor(
         SurfaceMode.OUTLINED,
         SurfaceMode.FLAT,
         -> scheme.surface
+        // The neumorphic pillow: the page tone itself, raised purely by
+        // lighting (see SurfaceCard's shadow pass). Not keyed on `surface` but
+        // on `background` so a card over a flat page melts into it — the whole
+        // point of the style.
+        SurfaceMode.RELIEF -> scheme.background
+        // The skeuomorphic recess: pressed into the page, so it takes the
+        // palette's *variant* tone, which sits between surface and outline.
+        SurfaceMode.SUNKEN -> scheme.surfaceVariant
     }
 }
 
@@ -392,6 +412,27 @@ private fun Modifier.surfaceEdge(
                         0f to highlight,
                         0.45f to Color.Transparent,
                         1f to shade,
+                    ),
+                shape = shape,
+            )
+        }
+        EdgeMode.BEVEL -> {
+            // Chiselled edge, oriented down the card so the highlight enters at
+            // the top-left and the shade pools at the bottom-right — lightplay
+            // on an edge rather than a drawn line. \uFE0FIn light mode the shade half
+            // does the defining work; in dark mode the highlight does (same
+            // inversion a milled part actually shows).
+            val highlight = if (isLight) Color.White.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.38f)
+            val shade = if (isLight) Color.Black.copy(alpha = 0.28f) else Color.Black.copy(alpha = 0.55f)
+            border(
+                width = maxOf(width, 1.dp),
+                brush =
+                    Brush.linearGradient(
+                        0f to highlight,
+                        0.5f to Color.Transparent,
+                        1f to shade,
+                        start = Offset.Zero,
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
                     ),
                 shape = shape,
             )
@@ -1152,8 +1193,14 @@ fun GradientBackground(content: @Composable () -> Unit) {
             // gets animated layers; every other style keeps the cheap static
             // gradient it always had. The branch is on the enum rather than on a
             // token because "is this backdrop animated" is not a dimension.
-            if (LocalUiStyle.current == UiStyle.AURORA_FLUID) {
+            // RETRO_FUTURISM is the second backdrop-identity style: its cards
+            // sit on a static neon wireframe grid (static, not animated — the
+            // grid is the look, motion would just burn battery behind content).
+            val uiStyle = LocalUiStyle.current
+            if (uiStyle == UiStyle.AURORA_FLUID) {
                 AuroraBackdrop()
+            } else if (uiStyle == UiStyle.RETRO_FUTURISM) {
+                CyberGridBackdrop()
             } else {
                 // Cached, not rebuilt: the backdrop renders on every screen, and a
                 // fresh Brush allocation per recomposition of the root composable
@@ -1234,6 +1281,84 @@ private fun AuroraBackdrop() {
 }
 
 private const val TWO_PI = 6.2831855f
+
+/**
+ * The RETRO_FUTURISM backdrop: a static wireframe grid with a horizon glow.
+ *
+ * Deliberately NOT animated (the grid is the look; Aurora earns its motion
+ * because drifting blobs are its entire identity, and this style's identity is
+ * one rendered plane.) Cost is one fullscreen draw on first composition only:
+ * geometry derives from size, lines are hairlines, no per-frame work.
+ */
+@Composable
+private fun CyberGridBackdrop() {
+    val themeBg = MaterialTheme.colorScheme.background
+    val accent = MaterialTheme.colorScheme.primary
+    Canvas(modifier = Modifier.fillMaxSize().background(themeBg)) {
+        val gridPx = 36.dp.toPx()
+        val horizonY = size.height * 0.62f
+
+        // Vertical rails: brighter above the horizon (screen face), dimmer
+        // below (reflected floor).
+        var x = 0f
+        while (x <= size.width) {
+            drawLine(
+                accent.copy(alpha = 0.085f),
+                Offset(x, 0f),
+                Offset(x, horizonY),
+                1f,
+            )
+            drawLine(
+                accent.copy(alpha = 0.045f),
+                Offset(x, horizonY),
+                Offset(x, size.height),
+                1f,
+            )
+            x += gridPx
+        }
+
+        // Horizontal rails: compressing toward the horizon gives the classic
+        // perspective "flying into the screen" plane.
+        var span = gridPx * 2.2f
+        var y = size.height
+        while (y > horizonY + span) {
+            drawLine(
+                accent.copy(alpha = 0.055f),
+                Offset(0f, y),
+                Offset(size.width, y),
+                1f,
+            )
+            y -= span
+            span *= 0.86f
+        }
+        var top = horizonY
+        var topSpan = gridPx * 0.6f
+        while (top > 0f) {
+            drawLine(
+                accent.copy(alpha = 0.075f),
+                Offset(0f, top),
+                Offset(size.width, top),
+                1f,
+            )
+            top -= topSpan
+            topSpan *= 1.08f
+        }
+
+        // Horizon line + a soft accent glow hugging it from both sides.
+        drawLine(accent.copy(alpha = 0.30f), Offset(0f, horizonY), Offset(size.width, horizonY), 1.5f)
+        drawRect(
+            brush =
+                Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    1f to accent.copy(alpha = 0.10f),
+                    startY = horizonY - size.height * 0.14f,
+                    endY = horizonY + size.height * 0.10f,
+                ),
+            topLeft = Offset(0f, horizonY - size.height * 0.14f),
+            size = Size(size.width, size.height * 0.24f),
+        )
+    }
+}
 
 @Composable
 // `UnstableApi` is an `androidx.annotation.RequiresOptIn` marker, NOT a
