@@ -45,6 +45,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -255,13 +256,39 @@ fun LogBrainAnimation(
                 }
                 else -> {
                     val rec = recommendation
-                    Spacer(Modifier.height(30.dp))
+                    // Sits slightly above center so the bottom readout lane below
+                    // has clear separation from the gauge.
+                    Spacer(Modifier.height(56.dp))
                     RingScore(fraction = ringFraction, rec = rec, pal = pal)
-                    Spacer(Modifier.height(14.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        for (line in revealed) {
-                            MonoRow(line)
-                        }
+                }
+            }
+        }
+
+        // Extracted signals pinned to the BOTTOM of the overlay as a
+        // left-aligned terminal readout — the verdict (ring) stays center,
+        // the evidence reads bottom-up like a log tail.
+        if (result is LogReadResult.Success) {
+            Column(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 36.dp, vertical = 26.dp),
+            ) {
+                Text(
+                    "EXTRACTED SIGNALS",
+                    style = MaterialTheme.typography.labelSmall,
+                    letterSpacing = 3.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    modifier = Modifier.heightIn(max = 210.dp),
+                ) {
+                    for (line in revealed) {
+                        MonoRow(line)
                     }
                 }
             }

@@ -25,12 +25,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.model.BattleStats
 import com.wuwaconfig.app.ui.LogInsightsViewModel
+import com.wuwaconfig.app.ui.anim.GeoLoadingCard
+import com.wuwaconfig.app.ui.anim.GeoLoadingKind
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
-import com.wuwaconfig.app.ui.components.OrbLoadingCard
 import com.wuwaconfig.app.ui.theme.*
 import com.wuwaconfig.app.util.formatBytes
 
@@ -82,10 +83,10 @@ fun BattleStatsScreen(
 
                 if (stats == null) {
                     if (loading) {
-                        OrbLoadingCard(
+                        GeoLoadingCard(
+                            kind = GeoLoadingKind.BATTLE,
                             text = "Reading Client.log for battle stats...",
                             accentColor = NeonGreen,
-                            colors = listOf(NeonGreen, NeonRed, NeonCyan),
                             progress = progress,
                         )
                     } else {

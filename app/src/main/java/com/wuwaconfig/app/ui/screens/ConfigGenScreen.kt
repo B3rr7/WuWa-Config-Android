@@ -44,6 +44,8 @@ import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.LogInsightsViewModel
 import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.anim.GeoLoadingCard
+import com.wuwaconfig.app.ui.anim.GeoLoadingKind
 import com.wuwaconfig.app.ui.anim.LogBrainAnimation
 import com.wuwaconfig.app.ui.anim.LogReadResult
 import com.wuwaconfig.app.ui.anim.toBrainLines
@@ -550,6 +552,12 @@ fun ConfigGenScreen(
                             }
                         }
                         if (isApplying) {
+                            GeoLoadingCard(
+                                kind = GeoLoadingKind.DEPLOY,
+                                text = "Deploying configuration — writing INIs and verifying hashes on device...",
+                                accentColor = NeonCyan,
+                            )
+                            Spacer(Modifier.height(8.dp))
                             GlassOutlinedButton(
                                 onClick = { deployHistoryViewModel.cancelOperation() },
                                 modifier = Modifier.fillMaxWidth(),

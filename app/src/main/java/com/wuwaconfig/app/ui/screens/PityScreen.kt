@@ -32,13 +32,14 @@ import com.wuwaconfig.app.model.GachaHistoryEntry
 import com.wuwaconfig.app.model.GachaPoolType
 import com.wuwaconfig.app.model.GachaRecord
 import com.wuwaconfig.app.ui.GachaViewModel
+import com.wuwaconfig.app.ui.anim.GeoLoadingCard
+import com.wuwaconfig.app.ui.anim.GeoLoadingKind
 import com.wuwaconfig.app.ui.components.GachaAvatar
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
 import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
-import com.wuwaconfig.app.ui.components.OrbLoadingCard
 import com.wuwaconfig.app.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -162,10 +163,10 @@ fun PityScreen(
 
                 if (conveneUrlLoading || gachaLoading) {
                     item {
-                        OrbLoadingCard(
+                        GeoLoadingCard(
+                            kind = GeoLoadingKind.PITY,
                             text = if (conveneUrlLoading) "Reading Client.log for Convene URL..." else "Fetching pull history from Kuro servers...",
                             accentColor = NeonPurple,
-                            colors = listOf(NeonCyan, NeonGold, NeonPurple),
                         )
                     }
                 }

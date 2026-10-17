@@ -33,6 +33,7 @@ import com.wuwaconfig.app.ui.CSharpEnvState
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.SettingsViewModel
+import com.wuwaconfig.app.ui.anim.DeployBeaconLoading
 import com.wuwaconfig.app.ui.components.*
 import com.wuwaconfig.app.ui.components.CancelledBanner
 import com.wuwaconfig.app.ui.theme.*
@@ -762,6 +763,15 @@ fun HomeScreen(
                                 }
                             }
                             if (isApplying) {
+                                // Deploy-in-flight beat: the beacon motif without a
+                                // nested card (this list already lives in a card).
+                                DeployBeaconLoading(accent = NeonCyan)
+                                Text(
+                                    "Deploying configuration to device…",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(Modifier.height(6.dp))
                                 GlassOutlinedButton(
                                     onClick = { deployHistoryViewModel.cancelOperation() },
                                     modifier = Modifier.fillMaxWidth(),
