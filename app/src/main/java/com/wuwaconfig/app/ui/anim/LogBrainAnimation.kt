@@ -139,10 +139,10 @@ fun LogBrainAnimation(
 // ======================================================================
 
 private const val N = 10
-internal const val FW = 150f
-internal const val FH = 206f
-internal const val FOLD = 24f
-private const val RH = 15f
+internal const val FW = 134f
+internal const val FH = 176f
+internal const val FOLD = 20f
+private const val RH = 12.5f
 private const val GARB = "▒░▓#%?@\$&"
 private const val FAIL_FILL = "ERR_UNEXPECTED_EOF"
 
@@ -233,10 +233,11 @@ private val LAY_WIDE =
     )
 private val LAY_NARROW =
     Lay(
-        // Small file (150x206 of a 360-wide viewport) high-center; abstract spiral
-        // brain below it; cards left/right of the brain's lower half; status bottom.
-        360f, 700f, 180f, 104f, 180f, 330f, 80f, 180f, 614f,
-        List(6) { CardR(if (it % 2 == 1) 184f else 10f, 446f + (it / 2) * 48f, 166f, 40f) }, false,
+        // Small file (134x176 of a 360-wide viewport) high-center; medium spiral
+        // brain (68R) below it; cards left/right of the brain's lower half; status
+        // at bottom.
+        360f, 700f, 180f, 94f, 180f, 302f, 68f, 180f, 614f,
+        List(6) { CardR(if (it % 2 == 1) 184f else 10f, 430f + (it / 2) * 48f, 166f, 40f) }, false,
     )
 
 internal fun filePath(
