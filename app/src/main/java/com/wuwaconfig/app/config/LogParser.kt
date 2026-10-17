@@ -486,12 +486,34 @@ object LogParser {
 
     fun decryptWuwaLog(data: ByteArray): ByteArray? {
         if (data.size < 3) return null
-        if (data[0] != 0x00.toByte() || data[1] != 0x54.toByte() || data[2] != 0x50.toByte()) return null
-        val body = data.copyOfRange(3, data.size)
-        val decrypted = decryptWithFallback(body) ?: return null
-        var bom = 0
-        if (decrypted.size >= 2 && decrypted[0] == 0xFE.toByte() && decrypted[1] == 0xFF.toByte()) bom = 2
-        return decrypted.copyOfRange(bom, decrypted.size)
+        // Variant A: plaintext WuWa header (older logs / backups' companion format).
+        if (data[0] == 0x00.toByte() && data[1] == 0x54.toByte() && data[2] == 0x50.toByte()) {
+            val body = data.copyOfRange(3, data.size)
+            val decrypted = decryptWithFallback(body) ?: return null
+            var bom = 0
+            if (decrypted.size >= 2 && decrypted[0] == 0xFE.toByte() && decrypted[1] == 0xFF.toByte()) bom = 2
+            return decrypted.copyOfRange(bom, decrypted.size)
+        }
+        // Variant B: LUT-encrypted WuWa header (newer logs, e.g. current Client.log).
+        // The header bytes are LUT(0x00 0x54 0x50) = a5 f1 f5; a single LUT pass
+        // over the whole file restores the plaintext header + body at once.
+        val lutHeader = byteArrayOf(0xa5.toByte(), 0xf1.toByte(), 0xf5.toByte())
+        if (data[0] == lutHeader[0] && data[1] == lutHeader[1] && data[2] == lutHeader[2]) {
+            val decrypted = XorLutStrategy().decrypt(data) ?: return null
+            if (decrypted.size < 3 ||
+                decrypted[0] != 0x00.toByte() ||
+                decrypted[1] != 0x54.toByte() ||
+                decrypted[2] != 0x50.toByte()
+            ) {
+                return null
+            }
+            val body = decrypted.copyOfRange(3, decrypted.size)
+            if (!looksLikeDecodedText(body)) return null
+            var bom = 0
+            if (body.size >= 2 && body[0] == 0xFE.toByte() && body[1] == 0xFF.toByte()) bom = 2
+            return body.copyOfRange(bom, body.size)
+        }
+        return null
     }
 
     fun decryptBackupLog(data: ByteArray): ByteArray? {
@@ -512,7 +534,33 @@ object LogParser {
     fun decodeLogBytes(data: ByteArray): Pair<String, DecodeResult> {
         val decrypted = decryptWuwaLog(data)
         val backupDecrypted = if (decrypted == null) decryptBackupLog(data) else null
-        val payload = decrypted ?: backupDecrypted ?: data
+        // Future-proof fallback: if neither known header matched, try treating the
+        // whole payload as LUT-encrypted (header included) and accept it only when
+        // the transform is plausibly decoded text. This covers a game update that
+        // changes the header magic without changing the body transform, so the app
+        // keeps reading logs without a manual update.
+        val wholeFileDecrypted =
+            if (decrypted == null && backupDecrypted == null) {
+                val candidate = XorLutStrategy().decrypt(data)
+                if (candidate != null) {
+                    val body =
+                        if (candidate.size >= 3 &&
+                            candidate[0] == 0x00.toByte() &&
+                            candidate[1] == 0x54.toByte() &&
+                            candidate[2] == 0x50.toByte()
+                        ) {
+                            candidate.copyOfRange(3, candidate.size)
+                        } else {
+                            candidate
+                        }
+                    if (looksLikeDecodedText(body)) body else null
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+        val payload = decrypted ?: backupDecrypted ?: wholeFileDecrypted ?: data
         val text =
             when {
                 payload.size >= 2 && payload[0] == 0xFE.toByte() && payload[1] == 0xFF.toByte() ->
@@ -558,6 +606,17 @@ object LogParser {
     }
 
     fun parseLog(text: String): LogInfo {
+        val state = ParseState()
+        for (line in text.lineSequence()) state.accept(line)
+        return state.toLogInfo()
+    }
+
+    /**
+     * Mutable accumulator for a single [parseLog] pass. Holding the per-line state
+     * here (instead of 30+ locals in [parseLog]) keeps [parseLog] readable and
+     * makes the per-line transformation independently testable.
+     */
+    private class ParseState {
         var gpu: String? = null
         var deviceModel: String? = null
         var socName: String? = null
@@ -591,15 +650,11 @@ object LogParser {
         var hasMetal = false
 
         // Sticky: once the log states Vulkan is unavailable, a later bare mention
-        // of the word (e.g. `Setting CVar [[r.Vulkan.DisableSubpassDeferred:1]]`)
-        // must not flip [hasVulkan] back on. See FLAG_RE below.
+        // of the word must not flip [hasVulkan] back on.
         var vulkanUnavailable = false
 
-        for (line in text.lineSequence()) {
+        fun accept(line: String) {
             // ── Counting (single pass) ──
-            // NOTE: UI dynamic-atlas format warnings ("LogDynamicAtlas ... Error pixel
-            // format") are unrelated to streaming/VRAM pressure and must not be counted
-            // here, otherwise low-end devices get falsely flagged as VRAM-starved.
             val oomHit = OOM_RE.containsMatchIn(line)
             if (oomHit) gpuOom++
             if (!oomHit && !TEXTURE_SKIP_RE.containsMatchIn(line) && TEXTURE_HIT_RE.containsMatchIn(line)) {
@@ -611,18 +666,11 @@ object LogParser {
             if (ADJUST_RECOVER_RE.containsMatchIn(line)) autoAdjustRecoveries++
             if (NETWORK_RE.containsMatchIn(line)) networkErrors++
 
-            // ── Flags (combined single-pass match) ──
+            // ── Flags ──
             LOW_MEM_RE.find(line)?.let { m ->
                 isLowMem = m.groupValues[1].lowercase() == "true"
             }
 
-            // Authoritative Vulkan availability, checked BEFORE the substring flags
-            // below. The game names Vulkan even when it fails to initialise it —
-            // on this device it logged "Vulkan library detected", "Failed to init
-            // Vulkan because of current driver version 0x801f6000 less than ...",
-            // "Vulkan driver NOT available." and "VulkanAvailable: false", then ran
-            // on OpenGL ES. The bare-substring flag below saw those and reported
-            // Vulkan. These two lines are the ones that actually decide.
             VULKAN_AVAILABLE_RE.find(line)?.let { m ->
                 if (m.groupValues[1].equals("true", ignoreCase = true)) {
                     hasVulkan = true
@@ -649,24 +697,17 @@ object LogParser {
                 if (g[5].isNotEmpty()) hasDirectX = true
                 if (g[6].isNotEmpty()) hasMetal = true
             }
-            // "vulkanrhi" contains "vulkan", so mirror the original substring behaviour.
             if (hasVulkanRhi && !vulkanUnavailable) hasVulkan = true
 
             // ── Field extraction (first match wins) ──
             if (gpu == null) {
                 GPU_RE.find(line)?.let { gpu = it.groupValues[1].trim() }
-                if (gpu == null) {
-                    GPU_LOGINIT_RE.find(line)?.let { gpu = it.groupValues[1].trim() }
-                }
-                if (gpu == null) {
-                    GPU_GENERIC_RE.find(line)?.let { gpu = it.groupValues[1].trim() }
-                }
+                if (gpu == null) GPU_LOGINIT_RE.find(line)?.let { gpu = it.groupValues[1].trim() }
+                if (gpu == null) GPU_GENERIC_RE.find(line)?.let { gpu = it.groupValues[1].trim() }
             }
             if (deviceModel == null) {
                 DEVMODEL_RE.find(line)?.let { deviceModel = it.groupValues[1].trim() }
-                if (deviceModel == null) {
-                    DEVMODEL_FALLBACK_RE.find(line)?.let { deviceModel = it.groupValues[1].trim() }
-                }
+                if (deviceModel == null) DEVMODEL_FALLBACK_RE.find(line)?.let { deviceModel = it.groupValues[1].trim() }
             }
             if (socName == null) SOC_RE.find(line)?.let { socName = it.value }
             if (socCode == null) SOC_CODE_RE.find(line)?.let { socCode = it.groupValues[1] }
@@ -684,9 +725,7 @@ object LogParser {
                     }
                 }
             }
-            if (androidVersion == null) {
-                OS_RE.find(line)?.let { androidVersion = it.groupValues[1] }
-            }
+            if (androidVersion == null) OS_RE.find(line)?.let { androidVersion = it.groupValues[1] }
             if (resolution == null) {
                 RES_RE.find(line)?.let {
                     resolution = "${it.groupValues[1]}x${it.groupValues[2]}"
@@ -704,28 +743,16 @@ object LogParser {
                     resolution = "${w}x$h"
                 }
             }
-            if (deviceProfile == null) {
-                DEV_PROFILE_RE.find(line)?.let { deviceProfile = it.groupValues[1] }
-            }
+            if (deviceProfile == null) DEV_PROFILE_RE.find(line)?.let { deviceProfile = it.groupValues[1] }
             if (engineVersion == null) {
                 ENGINE_BUILD_RE.find(line)?.let { m ->
-                    // Reassemble the banner token itself; LogInfo carries the
-                    // version string, not a bare generation number, so the
-                    // CVar gate can report what it actually saw.
                     engineVersion = "${m.groupValues[1]}+${m.groupValues[2]}"
                 }
             }
-            if (fpsCap == null) {
-                FRAME_PACE_RE.find(line)?.let {
-                    fpsCap = it.groupValues[1].toIntOrNull()
-                }
-            }
-            if (fpsActual == null) {
-                AVG_FPS_RE.find(line)?.let { fpsActual = it.groupValues[1].toFloatOrNull() }
-            }
-            if (qualityMode == null) {
-                QUALITY_MODE_RE.find(line)?.let { qualityMode = it.groupValues[1] }
-            }
+            if (fpsCap == null) FRAME_PACE_RE.find(line)?.let { fpsCap = it.groupValues[1].toIntOrNull() }
+            if (fpsActual == null) AVG_FPS_RE.find(line)?.let { fpsActual = it.groupValues[1].toFloatOrNull() }
+            if (qualityMode == null) QUALITY_MODE_RE.find(line)?.let { qualityMode = it.groupValues[1] }
+
             // ── CVar extraction ──
             CVar_SETTING_RE.find(line)?.let {
                 val value = it.groupValues[2].trim().substringBefore(';').trim()
@@ -734,10 +761,6 @@ object LogParser {
             CVar_EFFECTIVE_RE.find(line)?.let {
                 val name = it.groupValues[1].trim()
                 val value = it.groupValues[2].trim().substringBefore(';').trim()
-                // The engine prints the literal placeholder `unknown?` when a
-                // console variable's name could not be resolved. A real CVar
-                // name cannot contain '?', so this drops the placeholder and any
-                // future variant of it without needing an exact-string list.
                 if (name.isNotEmpty() && '?' !in name) activeCvars[name] = value
             }
 
@@ -757,76 +780,65 @@ object LogParser {
             }
         }
 
-        // ── Count forbidden CVars from extracted activeCvars ──
-        // Computed once after the scan: every key is only discovered mid-loop, so
-        // there is nothing to memoize per-line. Was a `var` + null guard that was
-        // never assigned inside the loop, so the guard could never be false.
-        val forbiddenCvarCount = activeCvars.keys.count { ForbiddenCvars.isForbidden(it) }
+        fun toLogInfo(): LogInfo {
+            val forbiddenCvarCount = activeCvars.keys.count { ForbiddenCvars.isForbidden(it) }
 
-        // ── screenPct / shadowQ, read off the finished map ──
-        // Both are reported on the same LogConsoleManager lines that
-        // CVar_EFFECTIVE_RE captures, so deriving them here instead of with a
-        // per-line regex keeps a single source of truth AND yields the value in
-        // effect rather than the value that was requested. Their dedicated
-        // SCREEN_PCT_RE / SHADOW_Q_RE predated this and matched nothing.
-        val lcActive = HashMap<String, String>(activeCvars.size)
-        for ((k, v) in activeCvars) lcActive[k.lowercase()] = v
-        screenPct = screenPct ?: lcActive["r.screenpercentage"]?.toFloatOrNull()
-        shadowQ = shadowQ ?: lcActive["sg.shadowquality"]?.toIntOrNull()
+            val lcActive = HashMap<String, String>(activeCvars.size)
+            for ((k, v) in activeCvars) lcActive[k.lowercase()] = v
+            val resolvedScreenPct = screenPct ?: lcActive["r.screenpercentage"]?.toFloatOrNull()
+            val resolvedShadowQ = shadowQ ?: lcActive["sg.shadowquality"]?.toIntOrNull()
 
-        // ── Post-loop API resolution (single source of truth) ──
-        val explicitApi =
-            gameApi
-                ?: deviceProfile?.let { if (it.endsWith("_GL", ignoreCase = true)) "OpenGL ES" else null }
-                ?: apiFromRhiToken(activeCvars["r.RHI"])
-        gameApi = explicitApi
-        val api = explicitApi ?: apiFromFlags(hasVulkan, hasOpenGl, hasDirectX, hasMetal)
+            val explicitApi =
+                gameApi
+                    ?: deviceProfile?.let { if (it.endsWith("_GL", ignoreCase = true)) "OpenGL ES" else null }
+                    ?: apiFromRhiToken(activeCvars["r.RHI"])
+            val resolvedGameApi = explicitApi
+            val api = explicitApi ?: apiFromFlags(hasVulkan, hasOpenGl, hasDirectX, hasMetal)
 
-        val vulkanStatus =
-            when (explicitApi) {
-                "Vulkan" -> "available"
-                "OpenGL ES" -> "not_available"
-                else ->
-                    when {
-                        // An explicit "VulkanAvailable: false" is an answer even when
-                        // the log never goes on to name the API that was used.
-                        vulkanUnavailable -> "not_available"
-                        hasVulkanRhi -> "available"
-                        hasOpenGl -> "not_available"
-                        else -> null
-                    }
-            }
+            val vulkanStatus =
+                when (explicitApi) {
+                    "Vulkan" -> "available"
+                    "OpenGL ES" -> "not_available"
+                    else ->
+                        when {
+                            vulkanUnavailable -> "not_available"
+                            hasVulkanRhi -> "available"
+                            hasOpenGl -> "not_available"
+                            else -> null
+                        }
+                }
 
-        return LogInfo(
-            gpu = gpu,
-            deviceModel = deviceModel,
-            socName = socName,
-            socCode = socCode,
-            cpuName = cpuName,
-            ramMb = ramMb,
-            androidVersion = androidVersion,
-            resolution = resolution,
-            gameApi = gameApi,
-            api = api,
-            vulkanStatus = vulkanStatus,
-            deviceProfile = deviceProfile,
-            engineVersion = engineVersion,
-            fpsCap = fpsCap,
-            fpsActual = fpsActual,
-            screenPct = screenPct,
-            shadowQ = shadowQ,
-            qualityMode = qualityMode,
-            isLowMem = isLowMem,
-            textureErrors = textureErrors,
-            gpuOom = gpuOom,
-            dropFrames = dropFrames,
-            forbiddenCvars = forbiddenCvarCount,
-            thermalEvents = thermalEvents,
-            autoAdjustTriggers = autoAdjustTriggers,
-            autoAdjustRecoveries = autoAdjustRecoveries,
-            networkErrors = networkErrors,
-            activeCvars = activeCvars,
-        )
+            return LogInfo(
+                gpu = gpu,
+                deviceModel = deviceModel,
+                socName = socName,
+                socCode = socCode,
+                cpuName = cpuName,
+                ramMb = ramMb,
+                androidVersion = androidVersion,
+                resolution = resolution,
+                gameApi = resolvedGameApi,
+                api = api,
+                vulkanStatus = vulkanStatus,
+                deviceProfile = deviceProfile,
+                engineVersion = engineVersion,
+                fpsCap = fpsCap,
+                fpsActual = fpsActual,
+                screenPct = resolvedScreenPct,
+                shadowQ = resolvedShadowQ,
+                qualityMode = qualityMode,
+                isLowMem = isLowMem,
+                textureErrors = textureErrors,
+                gpuOom = gpuOom,
+                dropFrames = dropFrames,
+                forbiddenCvars = forbiddenCvarCount,
+                thermalEvents = thermalEvents,
+                autoAdjustTriggers = autoAdjustTriggers,
+                autoAdjustRecoveries = autoAdjustRecoveries,
+                networkErrors = networkErrors,
+                activeCvars = activeCvars,
+            )
+        }
     }
 
     fun parseBattleStatsLines(lines: List<String>): BattleStats {

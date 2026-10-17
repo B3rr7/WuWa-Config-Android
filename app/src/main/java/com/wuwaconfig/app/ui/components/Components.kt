@@ -159,7 +159,9 @@ fun GlassCard(
                         if (glowWidth > 0f) {
                             shadowElevation = 6f * glowWidth
                             this.shape = shape
-                            clip = true
+                            // No clip: see SurfaceCard — clip + shadowElevation
+                            // on one layer composites the card as an opaque
+                            // block. The Card above already clips.
                         }
                     }
                     .background(
@@ -254,11 +256,17 @@ private fun SurfaceCard(
                     // renders, mirrored here so a light-mode RELIEF card
                     // (NEUMORPHIC_SOFT) is raised by lighting the way its style
                     // name promises. Styles with glowWidth == 0 are untouched.
+                    //
+                    // No `clip = true` here: setting clip on the same layer that
+                    // carries shadowElevation makes the layer composite as an
+                    // opaque block, so the GLASS fill stops transmitting the
+                    // wallpaper and renders as a flat white slab under light
+                    // palettes (the "style engine does nothing in light mode"
+                    // report). The Card above already clips content to `shape`.
                     .graphicsLayer {
                         if (glowWidth > 0f) {
                             shadowElevation = 6f * glowWidth
                             this.shape = shape
-                            clip = true
                         }
                     }
                     // The accent tint. Without it every card is the same flat
@@ -895,7 +903,16 @@ fun GlassOutlinedButton(
                 contentColor = accentColor,
                 disabledContentColor = disabledContent,
             ),
-        border = BorderStroke(maxOf(tokens.borderStrokeWidth, 0.5f.dp), borderColor),
+        // Gate on the token flag exactly like GlassButton's border does: the
+        // 0.5dp floor here drew a hairline border under FLAT_DESIGN_2 /
+        // MINIMALIST, whose whole point is "no borders", and MATERIAL_YOU
+        // (borderStrokeWidth = 0.dp) got an accent edge it never asked for.
+        border =
+            if (tokens.useCardBorder) {
+                BorderStroke(maxOf(tokens.borderStrokeWidth, 0.5f.dp), borderColor)
+            } else {
+                null
+            },
     ) {
         Row(
             modifier =
@@ -1003,6 +1020,23 @@ fun BouncingOrb(
     color: Color,
     index: Int,
 ) {
+    // Reduced motion is honoured here specifically because OrbLoadingCard — the
+    // documented reduced-motion fallback (GeoLoading returns to it, ProfileScreen
+    // uses it as its fallback) — composes these orbs with no gating of its own:
+    // a "remove animations" user otherwise got three orbs bouncing every 520ms.
+    val reducedMotion = rememberReducedMotion()
+    if (reducedMotion) {
+        // Static: the orb keeps its presence and position, minus the loop.
+        Box(
+            Modifier
+                .size(14.dp)
+                .clip(RoundedCornerShape(50))
+                .background(
+                    Brush.radialGradient(listOf(color, color.copy(alpha = 0.35f))),
+                ),
+        )
+        return
+    }
     val transition = rememberInfiniteTransition(label = "orb$index")
     val offset by transition.animateFloat(
         initialValue = 0f,
@@ -1193,14 +1227,9 @@ fun GradientBackground(content: @Composable () -> Unit) {
             // gets animated layers; every other style keeps the cheap static
             // gradient it always had. The branch is on the enum rather than on a
             // token because "is this backdrop animated" is not a dimension.
-            // RETRO_FUTURISM is the second backdrop-identity style: its cards
-            // sit on a static neon wireframe grid (static, not animated — the
-            // grid is the look, motion would just burn battery behind content).
             val uiStyle = LocalUiStyle.current
             if (uiStyle == UiStyle.AURORA_FLUID) {
                 AuroraBackdrop()
-            } else if (uiStyle == UiStyle.RETRO_FUTURISM) {
-                CyberGridBackdrop()
             } else {
                 // Cached, not rebuilt: the backdrop renders on every screen, and a
                 // fresh Brush allocation per recomposition of the root composable
@@ -1246,6 +1275,11 @@ private fun AuroraBackdrop() {
     val secondary = MaterialTheme.colorScheme.secondary
     val tertiary = MaterialTheme.colorScheme.tertiary
     val themeBg = MaterialTheme.colorScheme.background
+    // Reduced motion: hold the phase at a fixed (still pleasing, mid-sweep)
+    // point instead of looping an 18s drift for 18s-worth of decorative frames
+    // the user asked not to see. The phase read is already draw-confined (no
+    // per-frame recomposition), this only stops the animator itself.
+    val reducedMotion = rememberReducedMotion()
     val transition = rememberInfiniteTransition(label = "aurora")
     val phase by transition.animateFloat(
         initialValue = 0f,
@@ -1261,14 +1295,16 @@ private fun AuroraBackdrop() {
     Canvas(modifier = Modifier.fillMaxSize().background(themeBg)) {
         // Fixed blob geometry; only the phase moves. Scaled off the canvas size
         // so the composition reads the same on a phone and a tablet.
+        // Reduced motion pins the sweep instead of animating it.
+        val sweep = if (reducedMotion) 0.35f else phase
         val w = size.width
         val h = size.height
         val unit = minOf(w, h)
         val blobs =
             listOf(
-                Triple(primary, Offset(w * (0.25f + 0.18f * sin(phase * TWO_PI)), h * (0.20f + 0.14f * cos(phase * TWO_PI))), unit * 0.85f),
-                Triple(secondary, Offset(w * (0.75f + 0.15f * cos(phase * TWO_PI + 1f)), h * (0.35f + 0.16f * sin(phase * TWO_PI + 2f))), unit * 0.75f),
-                Triple(tertiary, Offset(w * (0.50f + 0.20f * sin(phase * TWO_PI + 3f)), h * (0.78f + 0.12f * cos(phase * TWO_PI + 4f))), unit * 0.70f),
+                Triple(primary, Offset(w * (0.25f + 0.18f * sin(sweep * TWO_PI)), h * (0.20f + 0.14f * cos(sweep * TWO_PI))), unit * 0.85f),
+                Triple(secondary, Offset(w * (0.75f + 0.15f * cos(sweep * TWO_PI + 1f)), h * (0.35f + 0.16f * sin(sweep * TWO_PI + 2f))), unit * 0.75f),
+                Triple(tertiary, Offset(w * (0.50f + 0.20f * sin(sweep * TWO_PI + 3f)), h * (0.78f + 0.12f * cos(sweep * TWO_PI + 4f))), unit * 0.70f),
             )
         blobs.forEach { (color, center, radius) ->
             drawCircle(
@@ -1290,75 +1326,6 @@ private const val TWO_PI = 6.2831855f
  * one rendered plane.) Cost is one fullscreen draw on first composition only:
  * geometry derives from size, lines are hairlines, no per-frame work.
  */
-@Composable
-private fun CyberGridBackdrop() {
-    val themeBg = MaterialTheme.colorScheme.background
-    val accent = MaterialTheme.colorScheme.primary
-    Canvas(modifier = Modifier.fillMaxSize().background(themeBg)) {
-        val gridPx = 36.dp.toPx()
-        val horizonY = size.height * 0.62f
-
-        // Vertical rails: brighter above the horizon (screen face), dimmer
-        // below (reflected floor).
-        var x = 0f
-        while (x <= size.width) {
-            drawLine(
-                accent.copy(alpha = 0.085f),
-                Offset(x, 0f),
-                Offset(x, horizonY),
-                1f,
-            )
-            drawLine(
-                accent.copy(alpha = 0.045f),
-                Offset(x, horizonY),
-                Offset(x, size.height),
-                1f,
-            )
-            x += gridPx
-        }
-
-        // Horizontal rails: compressing toward the horizon gives the classic
-        // perspective "flying into the screen" plane.
-        var span = gridPx * 2.2f
-        var y = size.height
-        while (y > horizonY + span) {
-            drawLine(
-                accent.copy(alpha = 0.055f),
-                Offset(0f, y),
-                Offset(size.width, y),
-                1f,
-            )
-            y -= span
-            span *= 0.86f
-        }
-        var top = horizonY
-        var topSpan = gridPx * 0.6f
-        while (top > 0f) {
-            drawLine(
-                accent.copy(alpha = 0.075f),
-                Offset(0f, top),
-                Offset(size.width, top),
-                1f,
-            )
-            top -= topSpan
-            topSpan *= 1.08f
-        }
-
-        // Horizon line + a soft accent glow hugging it from both sides.
-        drawLine(accent.copy(alpha = 0.30f), Offset(0f, horizonY), Offset(size.width, horizonY), 1.5f)
-        drawRect(
-            brush =
-                Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    1f to accent.copy(alpha = 0.10f),
-                    startY = horizonY - size.height * 0.14f,
-                    endY = horizonY + size.height * 0.10f,
-                ),
-            topLeft = Offset(0f, horizonY - size.height * 0.14f),
-            size = Size(size.width, size.height * 0.24f),
-        )
-    }
-}
 
 @Composable
 // `UnstableApi` is an `androidx.annotation.RequiresOptIn` marker, NOT a
@@ -1491,25 +1458,39 @@ fun GlitchText(
 
                 val len = maxOf(displayText.length, target.length)
                 val scrambleStart = System.currentTimeMillis()
-                while (System.currentTimeMillis() - scrambleStart < 300) {
-                    val sb = StringBuilder()
-                    for (i in 0 until len) {
-                        when {
-                            i >= target.length -> sb.append('█')
-                            Random.nextFloat() < 0.25f -> {
-                                val chars = "!@#$%^&*{}[]|\\/~`"
-                                sb.append(chars[Random.nextInt(chars.length)])
+                // Hoist the buffer + glyph set out of the loop: rebuilding a
+                // StringBuilder (and the chars literal) on every 40ms frame was
+                // the alloc_in_loop smell flagged by codebase-memory-mcp.
+                val sb = StringBuilder(len)
+                val chars = "!@#$%^&*{}[]|\\/~`"
+                // try/finally: cancellation can land mid-scramble (backgrounded
+                // exactly during the glitch). repeatOnLifecycle then restarts the
+                // block at delay(intervalMs) — without the finally, backgrounding
+                // at the wrong instant froze a █/glyph soup on screen for up to a
+                // full interval (15–30s) after resume.
+                try {
+                    while (System.currentTimeMillis() - scrambleStart < 300) {
+                        sb.setLength(0)
+                        for (i in 0 until len) {
+                            when {
+                                i >= target.length -> sb.append('█')
+                                Random.nextFloat() < 0.25f ->
+                                    sb.append(chars[Random.nextInt(chars.length)])
+                                else -> sb.append(target[i])
                             }
-                            else -> sb.append(target[i])
                         }
+                        displayText = sb.toString()
+                        delay(40)
                     }
-                    displayText = sb.toString()
-                    delay(40)
+                } finally {
+                    // Runs on both the normal path (no-op overwrite) and on
+                    // cancellation unwinding out of the delay — in both cases the
+                    // next thing the reader sees is a clean name, and glitchActive
+                    // is dropped so the resume restart is not stuck shaking.
+                    displayText = target
+                    currentIndex = nextIndex
+                    glitchActive = false
                 }
-
-                displayText = target
-                currentIndex = nextIndex
-                glitchActive = false
             }
         }
     }
@@ -1579,8 +1560,11 @@ fun GlassDialog(
     ) {
         val shape = RoundedCornerShape(tokens.dialogCorner)
         val titleColor = accentColor
-        val bodyColor =
-            if (isLight) Color(0xFF1C1B1F).copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
+        // Both branches read the scheme: the light branch hardcoded Material's
+        // default ink (#1C1B1F), so palettes with a different light-mode ink
+        // (PAPER_INK, SOFT_CLAY) got dialog bodies that quietly disagreed with
+        // every other text surface fed by onSurface.
+        val bodyColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
 
         if (isLight) {
             // Opaque scheme surface: a dialog has to occlude what is behind it,

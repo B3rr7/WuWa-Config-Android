@@ -62,6 +62,117 @@ class HashMonitor(
         return Result.success(hash)
     }
 
+    private fun previousCounts(
+        existingLines: List<String>,
+        name: String,
+    ): Pair<Int?, String> {
+        var prevCount: Int? = null
+        var prevTime = ""
+        var inSection = false
+        for (line in existingLines) {
+            val t = line.trim()
+            if (t.equals("[$name]", ignoreCase = true)) {
+                inSection = true
+                continue
+            }
+            if (inSection && t.matches(HASH_SECTION_REGEX)) break
+            if (inSection && t.startsWith("ModifyCount=")) {
+                prevCount = t.removePrefix("ModifyCount=").toIntOrNull()
+            }
+            if (inSection && t.startsWith("LastModifiedTime=")) {
+                prevTime = t.removePrefix("LastModifiedTime=").trim()
+            }
+        }
+        return prevCount to prevTime
+    }
+
+    private fun buildPatchedLines(
+        existingLines: List<String>,
+        updates: MutableMap<String, Map<String, String>>,
+        now: String,
+        hasExistingContent: Boolean,
+    ): MutableList<String> {
+        val patchedLines = mutableListOf<String>()
+        if (!hasExistingContent) {
+            // No existing content — build from scratch (first-time). Reuse the
+            // hashes already computed by the scan loop above (updates map) instead
+            // of re-reading every file from the device a second time.
+            for (name in GamePaths.MONITORED_FILES) {
+                val patch = updates[name] ?: continue
+                patchedLines.add("[$name]")
+                patchedLines.add("Hash=${patch["Hash"] ?: ""}")
+                patchedLines.add("ModifyCount=${patch["ModifyCount"] ?: "0"}")
+                patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
+                patchedLines.add("")
+            }
+            return patchedLines
+        }
+
+        var currentSection = ""
+        val seenKeys = mutableSetOf<String>()
+
+        fun flushPendingSection(name: String) {
+            val patch = updates.remove(name) ?: return
+            for (lineKey in listOf("Hash", "ModifyCount", "LastModifiedTime")) {
+                val value = patch[lineKey] ?: continue
+                val newLine = "$lineKey=$value"
+                if (seenKeys.add(lineKey)) patchedLines.add(newLine)
+            }
+        }
+
+        fun dedupLine(trimmed: String): Boolean {
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) return false
+            val eq = trimmed.indexOf('=')
+            if (eq <= 0) return false
+            val key = trimmed.substring(0, eq).trim()
+            val isDuplicate = key in listOf("Hash", "ModifyCount", "LastModifiedTime") && !seenKeys.add(key)
+            if (isDuplicate) {
+                LogRepository.add("ConfigManager: dropped duplicate $key in section [$currentSection]", LogLevel.WARNING)
+            }
+            return isDuplicate
+        }
+
+        for (line in existingLines) {
+            val trimmed = line.trim()
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                val sectionName = trimmed.removePrefix("[").removeSuffix("]")
+                if (updates.containsKey(currentSection)) {
+                    flushPendingSection(currentSection)
+                }
+                currentSection = sectionName
+                seenKeys.clear()
+                patchedLines.add(line)
+            } else if (updates.containsKey(currentSection)) {
+                val eq = trimmed.indexOf('=')
+                if (eq > 0) {
+                    val key = trimmed.substring(0, eq).trim()
+                    val replacement = updates[currentSection]?.get(key)
+                    if (replacement != null) {
+                        val indent = line.takeWhile { it == ' ' || it == '\t' }
+                        if (seenKeys.add(key)) patchedLines.add("$indent$key=$replacement")
+                    } else if (!dedupLine(trimmed)) {
+                        patchedLines.add(line)
+                    }
+                } else {
+                    patchedLines.add(line)
+                }
+            } else if (!dedupLine(trimmed)) {
+                patchedLines.add(line)
+            }
+        }
+        if (updates.containsKey(currentSection)) {
+            flushPendingSection(currentSection)
+        }
+        for ((name, patch) in updates) {
+            patchedLines.add("")
+            patchedLines.add("[$name]")
+            patchedLines.add("Hash=${patch["Hash"] ?: ""}")
+            patchedLines.add("ModifyCount=${patch["ModifyCount"] ?: "0"}")
+            patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
+        }
+        return patchedLines
+    }
+
     suspend fun refreshConfigHashes(incrementModifyCount: Boolean = false): Result<String> {
         // The game's own ceiling for ModifyCount. Clamping to a value the engine
         // does not expect risks it treating the hash file as tampered, so it is
@@ -117,23 +228,7 @@ class HashMonitor(
                         }
                         val hash = hashResult.getOrThrow()
 
-                        var prevCount: Int? = null
-                        var prevTime = ""
-                        var inSection = false
-                        for (line in existingLines) {
-                            val t = line.trim()
-                            if (t.equals("[$name]", ignoreCase = true)) {
-                                inSection = true
-                                continue
-                            }
-                            if (inSection && t.matches(HASH_SECTION_REGEX)) break
-                            if (inSection && t.startsWith("ModifyCount=")) {
-                                prevCount = t.removePrefix("ModifyCount=").toIntOrNull()
-                            }
-                            if (inSection && t.startsWith("LastModifiedTime=")) {
-                                prevTime = t.removePrefix("LastModifiedTime=").trim()
-                            }
-                        }
+                        val (prevCount, prevTime) = previousCounts(existingLines, name)
                         val baseCount = (prevCount?.coerceIn(0, cap)) ?: 0
                         val displayCount = if (incrementModifyCount) minOf(baseCount + 1, cap) else baseCount
                         updates[name] =
@@ -144,96 +239,8 @@ class HashMonitor(
                             )
                     }
 
-                    val patchedLines = mutableListOf<String>()
-                    var currentSection = ""
-                    // Keyed by BARE KEY, not by the full "key=value" line: the hash
-                    // file is rewritten by the game and can contain two differing
-                    // `Hash=` lines under the same section, which line-dedup keeps.
-                    val seenKeys = mutableSetOf<String>()
-
-                    fun flushPendingSection(name: String) {
-                        val patch = updates.remove(name) ?: return
-                        for (lineKey in listOf("Hash", "ModifyCount", "LastModifiedTime")) {
-                            val value = patch[lineKey] ?: continue
-                            val newLine = "$lineKey=$value"
-                            // Bare key, so flushPendingSection and dedupLine share one
-                            // namespace (cleared per section by the header branch).
-                            if (seenKeys.add(lineKey)) patchedLines.add(newLine)
-                        }
-                    }
-
-                    fun dedupLine(trimmed: String): Boolean {
-                        if (trimmed.startsWith("[") && trimmed.endsWith("]")) return false
-                        val eq = trimmed.indexOf('=')
-                        if (eq <= 0) return false
-                        val key = trimmed.substring(0, eq).trim()
-                        val isDuplicate = key in listOf("Hash", "ModifyCount", "LastModifiedTime") && !seenKeys.add(key)
-                        if (isDuplicate) {
-                            LogRepository.add("ConfigManager: dropped duplicate $key in section [$currentSection]", LogLevel.WARNING)
-                        }
-                        return isDuplicate
-                    }
-
-                    if (hasExistingContent) {
-                        for (line in existingLines) {
-                            val trimmed = line.trim()
-                            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                                val sectionName = trimmed.removePrefix("[").removeSuffix("]")
-                                if (updates.containsKey(currentSection)) {
-                                    flushPendingSection(currentSection)
-                                }
-                                currentSection = sectionName
-                                seenKeys.clear()
-                                patchedLines.add(line)
-                            } else if (updates.containsKey(currentSection)) {
-                                val eq = trimmed.indexOf('=')
-                                if (eq > 0) {
-                                    val key = trimmed.substring(0, eq).trim()
-                                    val replacement = updates[currentSection]?.get(key)
-                                    if (replacement != null) {
-                                        val indent = line.takeWhile { it == ' ' || it == '\t' }
-                                        // Same bare-key namespace as dedupLine /
-                                        // flushPendingSection: a rewritten `Hash=` must
-                                        // claim the "Hash" key so a second one in the
-                                        // same section is recognised as a duplicate.
-                                        if (seenKeys.add(key)) patchedLines.add("$indent$key=$replacement")
-                                    } else if (!dedupLine(trimmed)) {
-                                        patchedLines.add(line)
-                                    }
-                                } else {
-                                    patchedLines.add(line)
-                                }
-                            } else if (!dedupLine(trimmed)) {
-                                patchedLines.add(line)
-                            }
-                        }
-                        if (updates.containsKey(currentSection)) {
-                            flushPendingSection(currentSection)
-                        }
-                        for ((name, patch) in updates) {
-                            patchedLines.add("")
-                            patchedLines.add("[$name]")
-                            patchedLines.add("Hash=${patch["Hash"] ?: ""}")
-                            patchedLines.add("ModifyCount=${patch["ModifyCount"] ?: "0"}")
-                            patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
-                        }
-                    } else {
-                        // No existing content — build from scratch (first-time).
-                        // Reuse the hashes already computed by the scan loop above
-                        // (updates map) instead of re-reading every file from the
-                        // device a second time. Each computeIniHash issues a
-                        // readFileBytes over the active backend (ADB/Shizuku/Root),
-                        // so the redundant pass was a double device read per file —
-                        // the "double backup" bug.
-                        for (name in GamePaths.MONITORED_FILES) {
-                            val patch = updates[name] ?: continue
-                            patchedLines.add("[$name]")
-                            patchedLines.add("Hash=${patch["Hash"] ?: ""}")
-                            patchedLines.add("ModifyCount=${patch["ModifyCount"] ?: "0"}")
-                            patchedLines.add("LastModifiedTime=${patch["LastModifiedTime"] ?: now}")
-                            patchedLines.add("")
-                        }
-                    }
+                    val patchedLines =
+                        buildPatchedLines(existingLines, updates, now, hasExistingContent)
 
                     val newContent = patchedLines.joinToString("\n").trimEnd() + "\n"
                     // Unique temp name so a retry or a concurrent (mutex-serialized)

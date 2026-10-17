@@ -157,6 +157,19 @@ open class AdbBackend(crypto: CryptoAdapter) : AccessBackend {
         return result
     }
 
+    private suspend fun retryWrite(writeCmd: String): Result<String>? {
+        var lastErr: Result<String>? = null
+        for (i in 0..PUSH_RETRY_COUNT) {
+            val r = client.executeShellCommand(writeCmd)
+            if (r.isSuccess) {
+                lastErr = null
+                break
+            }
+            lastErr = r
+        }
+        return lastErr
+    }
+
     override suspend fun pushFile(
         sourcePath: String,
         targetPath: String,
@@ -193,15 +206,7 @@ open class AdbBackend(crypto: CryptoAdapter) : AccessBackend {
             client.executeShellCommand("rm -f ${shQuote(attemptPath)}")
             val plan = buildPushFilePlan(encoded, stagingTarget, attemptPath)
             for (w in plan.writes) {
-                var lastErr: Result<String>? = null
-                for (i in 0..PUSH_RETRY_COUNT) {
-                    val r = client.executeShellCommand(w)
-                    if (r.isSuccess) {
-                        lastErr = null
-                        break
-                    }
-                    lastErr = r
-                }
+                val lastErr = retryWrite(w)
                 if (lastErr != null) {
                     client.executeShellCommand("rm -f ${shQuote(attemptPath)}")
                     return lastErr
