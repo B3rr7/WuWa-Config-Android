@@ -44,17 +44,11 @@ object GachaAvatar {
     internal const val ASSET_DIR = "gacha_avatars"
 
     /**
-     * Official Kuro art, keyed by character name, published by
-     * [com.wuwaconfig.app.config.KuroGuide].
+     * The filenames present in the asset directory, cached after the first read.
      *
-     * Held for the characters the bundle does not cover, and reachable ahead of the
-     * bundle only once Coil can actually fetch it — see [portraitModel] for why the
-     * ordering is what it is. A name absent here simply falls through, so a failed
-     * or partial fetch costs nothing.
-     *
-     * Keys are [com.wuwaconfig.app.config.OfficialCharacter.name] verbatim, so
-     * lookup is case- and punctuation-sensitive on purpose: a wrong key would show
-     * the wrong character's face, which is worse than showing an initial.
+     * Listing assets is a filesystem walk, so it happens once per process rather
+     * than once per avatar. A failed listing yields an empty set, which degrades
+     * every avatar to the initial rather than crashing the grid.
      */
     @Volatile
     private var officialArt: Map<String, String> = emptyMap()
@@ -65,12 +59,20 @@ object GachaAvatar {
     }
 
     /**
-     * The filenames present in the asset directory, cached after the first read.
+     * Official Kuro art for [name], or null when the guide has none for it.
      *
-     * Listing assets is a filesystem walk, so it happens once per process rather
-     * than once per avatar. A failed listing yields an empty set, which degrades
-     * every avatar to the initial rather than crashing the grid.
+     * Official art only covers characters — the guide exposes no weapon data — so a
+     * weapon always falls through to the bundled bundle even when the fetch
+     * succeeded.
      */
+    fun officialArtFor(
+        name: String,
+        resourceType: String,
+    ): String? {
+        if (resourceType.equals("Weapon", ignoreCase = true)) return null
+        return officialArt[name]
+    }
+
     @Volatile
     private var cachedAssets: Set<String>? = null
 
@@ -111,22 +113,6 @@ object GachaAvatar {
                 "$slug.webp"
             }
         return candidate.takeIf { it in availableAssets(context) }
-    }
-
-    /**
-     * Official Kuro art for [name], or null when the guide has none for it.
-     *
-     * Official art only covers characters — the guide exposes no weapon data — so a
-     * weapon always falls through to the bundled bundle even when the fetch
-     * succeeded. That asymmetry is why this takes [resourceType] rather than
-     * looking every name up blindly.
-     */
-    fun officialArtFor(
-        name: String,
-        resourceType: String,
-    ): String? {
-        if (resourceType.equals("Weapon", ignoreCase = true)) return null
-        return officialArt[name]
     }
 }
 
@@ -171,7 +157,7 @@ internal fun portraitModel(
  * it out of Coil until a fetcher exists. When `coil-network` lands, this is the
  * one place that changes.
  */
-internal fun isCoilLoadable(model: String?): Boolean = model != null && model.startsWith(ASSET_URI_PREFIX)
+internal fun isCoilLoadable(model: String?): Boolean = model != null && (model.startsWith(ASSET_URI_PREFIX) || model.startsWith("https://") || model.startsWith("http://"))
 
 /** The model Coil should load, or a coloured initial when none resolves. */
 @Composable

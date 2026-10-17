@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wuwaconfig.app.backend.BackendStatus
+import com.wuwaconfig.app.config.GachaApi
 import com.wuwaconfig.app.config.GachaStats
 import com.wuwaconfig.app.config.KuroGuide
 import com.wuwaconfig.app.config.OfficialCharacter
@@ -355,23 +356,34 @@ private fun GachaTabBar(
 
 @Composable
 private fun GachaSummary(data: GachaData) {
-    // Compute overall UP rate and non-banner rate across character banners
-    val totalSsrFromPredictions = data.predictions.sumOf { it.ssrIntervals.size }
+    // Overall character-banner stats: weapon-ban predictions MUST stay out —
+    // calcWeaponPrediction hardcodes upRate = 1.0 ("always UP"), so folding them
+    // in unweighted would inflate the rate toward 100% and drag the weighted
+    // average pity. That is exactly the contamination GachaStats.aggregate
+    // deliberately prevents for the TABLE tab. Filter by pool type, not by
+    // rate values: a fortunate account can legitimately be at 100% UP on a
+    // character banner too.
+    val predictions =
+        data.predictions.filter { prediction ->
+            GachaPoolType.fromType(prediction.poolType) in GachaApi.CHARACTER_POOLS
+        }
+    val totalSsrFromPredictions = predictions.sumOf { it.ssrIntervals.size }
     val overallUpRate =
         if (totalSsrFromPredictions > 0) {
-            data.predictions.sumOf { it.upRate * it.ssrIntervals.size }.toDouble() / totalSsrFromPredictions
+            predictions.sumOf { it.upRate * it.ssrIntervals.size }.toDouble() / totalSsrFromPredictions
         } else {
             0.0
         }
     val overallNonBannerRate =
         if (totalSsrFromPredictions > 0) {
-            data.predictions.sumOf { it.nonBannerRate * it.ssrIntervals.size }.toDouble() / totalSsrFromPredictions
+            // misnamed field: fiftyFiftyWinRate's output — the share of 50/50s WON
+            predictions.sumOf { it.nonBannerRate * it.ssrIntervals.size }.toDouble() / totalSsrFromPredictions
         } else {
             0.0
         }
     val overallAvgPity =
-        if (data.predictions.isNotEmpty()) {
-            data.predictions.map { it.avgPityThisPool }.filter { it > 0 }.average()
+        if (predictions.isNotEmpty()) {
+            predictions.map { it.avgPityThisPool }.filter { it > 0 }.average()
         } else {
             0.0
         }
@@ -414,8 +426,10 @@ private fun GachaSummary(data: GachaData) {
                 if (overallUpRate > 0) {
                     StatItem("${"%.0f".format(overallUpRate * 100)}%", "UP Rate", NeonGold)
                 }
+                // nonBannerRate holds the 50/50 WIN rate (fiftyFiftyWinRate's
+                // output) — GachaStatsSection.kt labels the same field "50/50 Win".
                 if (overallNonBannerRate > 0) {
-                    StatItem("${"%.0f".format(overallNonBannerRate * 100)}%", "50/50 Loss", NeonAmber)
+                    StatItem("${"%.0f".format(overallNonBannerRate * 100)}%", "50/50 Win", NeonAmber)
                 }
             }
             Spacer(Modifier.height(10.dp))

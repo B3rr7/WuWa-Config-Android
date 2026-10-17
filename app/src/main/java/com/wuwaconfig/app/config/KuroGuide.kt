@@ -1,9 +1,9 @@
 package com.wuwaconfig.app.config
 
 import com.google.gson.JsonParser
+import com.wuwaconfig.app.util.writeAtomic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -40,6 +40,24 @@ object KuroGuide {
     private const val READ_TIMEOUT_MS = 15_000
 
     /**
+     * On-disk cache of the last avatar list fetched from [AVATAR_LIST], with an
+     * ETag for conditional GET and a timestamp for the TTL window. Mirrors the
+     * calculator-data refresh pattern in [MaterialData] so a page visit does not
+     * re-ping Kuro's guide every time.
+     */
+    private const val CACHE_FILE = "kuro_avatar_list.json"
+    private const val TTL_MS = 6L * 60 * 60 * 1000
+
+    @Volatile
+    private var cachedBody: String? = null
+
+    @Volatile
+    private var cachedEtag: String? = null
+
+    @Volatile
+    private var cachedTimestamp: Long = 0L
+
+    /**
      * Bounded so a hostile or truncated response cannot drive an unbounded read into
      * the heap. The real payload for 59 characters is roughly 60 KB.
      */
@@ -55,43 +73,148 @@ object KuroGuide {
     suspend fun fetchCharacters(language: String = "en"): Result<List<OfficialCharacter>> =
         withContext(Dispatchers.IO) {
             try {
-                Result.success(parseAvatarList(readBody(AVATAR_LIST), language))
+                val context = com.wuwaconfig.app.WuWaConfigApp.instance
+                val cacheFile = java.io.File(context.filesDir, CACHE_FILE)
+                val now = System.currentTimeMillis()
+
+                // In-memory fast path.
+                if (cachedBody != null && now - cachedTimestamp < TTL_MS) {
+                    return@withContext Result.success(parseAvatarList(cachedBody!!, language))
+                }
+
+                val disk = readCache(cacheFile)
+                if (disk != null && now - disk.timestamp < TTL_MS) {
+                    cachedBody = disk.body
+                    cachedEtag = disk.etag
+                    cachedTimestamp = disk.timestamp
+                    return@withContext Result.success(parseAvatarList(disk.body, language))
+                }
+
+                val etag = disk?.etag ?: cachedEtag
+                return@withContext when (val result = httpFetch(AVATAR_LIST, etag)) {
+                    is FetchResult.NotModified -> {
+                        val ts = now
+                        val body = disk?.body ?: cachedBody
+                        if (body != null) {
+                            writeCache(cacheFile, body, result.etag ?: disk?.etag, ts)
+                            cachedBody = body
+                            cachedEtag = result.etag ?: disk?.etag
+                            cachedTimestamp = ts
+                            Result.success(parseAvatarList(body, language))
+                        } else {
+                            Result.failure(IllegalStateException("no cached body on 304"))
+                        }
+                    }
+                    is FetchResult.Modified -> {
+                        val parsed = runCatching { parseAvatarList(result.body, language) }.getOrNull()
+                        if (parsed != null) {
+                            writeCache(cacheFile, result.body, result.etag, now)
+                            cachedBody = result.body
+                            cachedEtag = result.etag
+                            cachedTimestamp = now
+                            Result.success(parsed)
+                        } else {
+                            // Keep whatever is current rather than swapping in garbage.
+                            val body = disk?.body ?: cachedBody
+                            if (body != null) {
+                                Result.success(parseAvatarList(body, language))
+                            } else {
+                                Result.failure(IllegalStateException("malformed avatar payload"))
+                            }
+                        }
+                    }
+                    is FetchResult.Failed -> {
+                        val body = disk?.body ?: cachedBody
+                        if (body != null) {
+                            Result.success(parseAvatarList(body, language))
+                        } else {
+                            Result.failure(IllegalStateException(result.error))
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 Result.failure(e)
             }
         }
 
-    private fun readBody(url: String): String {
-        val connection =
-            (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = CONNECT_TIMEOUT_MS
-                readTimeout = READ_TIMEOUT_MS
-                setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", "WuWaConfig/1.0")
-            }
+    private fun httpFetch(
+        url: String,
+        etag: String?,
+    ): FetchResult {
+        var connection: HttpURLConnection? = null
         return try {
-            if (connection.responseCode != 200) {
-                throw IllegalStateException("HTTP ${connection.responseCode}")
-            }
-            val text = StringBuilder()
-            val buffer = CharArray(8192)
-            var total = 0L
-            connection.inputStream.bufferedReader().use { reader: BufferedReader ->
-                while (true) {
-                    val read = reader.read(buffer)
-                    if (read == -1) break
-                    total += read
-                    if (total > MAX_RESPONSE_BYTES) {
-                        throw IllegalStateException("Response exceeds the $MAX_RESPONSE_BYTES byte cap")
+            connection =
+                (URL(url).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = CONNECT_TIMEOUT_MS
+                    readTimeout = READ_TIMEOUT_MS
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("User-Agent", "WuWaConfig/1.0")
+                    etag?.takeIf { it.isNotEmpty() }?.let { setRequestProperty("If-None-Match", it) }
+                }
+            when (val code = connection.responseCode) {
+                HttpURLConnection.HTTP_NOT_MODIFIED -> FetchResult.NotModified(connection.getHeaderField("ETag"))
+                HttpURLConnection.HTTP_OK -> {
+                    val text = StringBuilder()
+                    val buffer = CharArray(8192)
+                    var total = 0L
+                    connection.inputStream.bufferedReader().use { reader ->
+                        while (true) {
+                            val read = reader.read(buffer)
+                            if (read == -1) break
+                            total += read
+                            if (total > MAX_RESPONSE_BYTES) {
+                                throw IllegalStateException("Response exceeds the $MAX_RESPONSE_BYTES byte cap")
+                            }
+                            text.append(buffer, 0, read)
+                        }
                     }
-                    text.append(buffer, 0, read)
+                    FetchResult.Modified(text.toString(), connection.getHeaderField("ETag"))
+                }
+                else -> {
+                    connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    FetchResult.Failed("HTTP $code")
                 }
             }
-            text.toString()
+        } catch (e: Exception) {
+            FetchResult.Failed(e.message ?: e.javaClass.simpleName)
         } finally {
-            connection.disconnect()
+            connection?.disconnect()
         }
+    }
+
+    private data class AvatarCache(
+        val body: String,
+        val etag: String?,
+        val timestamp: Long,
+    )
+
+    private fun readCache(file: java.io.File): AvatarCache? {
+        if (!file.exists()) return null
+        return try {
+            val root = com.google.gson.JsonParser.parseReader(file.bufferedReader()).asJsonObject
+            val body = root.get("body")?.asString ?: return null
+            val etag = root.get("etag")?.takeIf { !it.isJsonNull }?.asString
+            val timestamp = root.get("timestamp")?.asLong ?: return null
+            AvatarCache(body, etag, timestamp)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun writeCache(
+        file: java.io.File,
+        body: String,
+        etag: String?,
+        timestamp: Long,
+    ) {
+        val root =
+            com.google.gson.JsonObject().apply {
+                addProperty("body", body)
+                add("etag", etag?.let { com.google.gson.JsonPrimitive(it) } ?: com.google.gson.JsonNull.INSTANCE)
+                addProperty("timestamp", timestamp)
+            }
+        file.writeAtomic(root.toString())
     }
 
     /**
