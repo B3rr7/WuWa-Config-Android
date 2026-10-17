@@ -138,11 +138,11 @@ fun LogBrainAnimation(
 // Helpers
 // ======================================================================
 
-private const val N = 10
-internal const val FW = 134f
-internal const val FH = 176f
-internal const val FOLD = 20f
-private const val RH = 12.5f
+private const val N = 8
+internal const val FW = 112f
+internal const val FH = 146f
+internal const val FOLD = 18f
+private const val RH = 11.5f
 private const val GARB = "▒░▓#%?@\$&"
 private const val FAIL_FILL = "ERR_UNEXPECTED_EOF"
 
@@ -233,11 +233,10 @@ private val LAY_WIDE =
     )
 private val LAY_NARROW =
     Lay(
-        // Small file (134x176 of a 360-wide viewport) high-center; medium spiral
-        // brain (68R) below it; cards left/right of the brain's lower half; status
-        // at bottom.
-        360f, 700f, 180f, 94f, 180f, 302f, 68f, 180f, 614f,
-        List(6) { CardR(if (it % 2 == 1) 184f else 10f, 430f + (it / 2) * 48f, 166f, 40f) }, false,
+        // Tiny file (112x146 of a 360-wide viewport) high-center; big spiral brain
+        // (84R) as the hero below it; cards left/right; status at bottom.
+        360f, 700f, 180f, 84f, 180f, 296f, 84f, 180f, 614f,
+        List(6) { CardR(if (it % 2 == 1) 184f else 10f, 434f + (it / 2) * 48f, 166f, 40f) }, false,
     )
 
 internal fun filePath(
@@ -391,16 +390,16 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
             nodes[j].nb.add(i)
         }
 
-        // spine: consecutive neurons on the spiral
+        // spine + mesh: consecutive neurons on the spiral plus a skip-one rib
+        // (diamond mesh); every node also links ~half a turn deeper so the
+        // network breathes across layers without spokes slashing the spiral
         for (i in 1 until nodes.size - 1) wire(i, i + 1)
-        // layer links: radial hop of ~one full turn deeper into the spiral
-        val perTurn = (count / turns).toInt()
-        for (i in 1 + perTurn until nodes.size) wire(i, i - perTurn)
+        for (i in 1 until nodes.size - 2 step 2) wire(i, i + 2)
+        val halfTurn = (count / (turns * 2f)).roundToInt()
+        for (i in 1 + halfTurn until nodes.size) wire(i, i - halfTurn)
         // hub spokes at the inner end
         wire(0, nodes.size - 1)
         wire(0, nodes.size - 2)
-        // sparse cross-chords so firing shortcuts the spiral occasionally
-        for (i in 1 until nodes.size - 8 step 7) wire(i, i + 7)
 
         // The reading chip enters at the outer rim, on the file's side.
         entry = (1 until nodes.size).minByOrNull { hypot(nodes[it].u + 1.02f * 1.18f, nodes[it].v) } ?: 1
@@ -1148,7 +1147,7 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                 val y = lay.bcy + sin(ang) * .9f * r
                 if (k == 0) pathB.moveTo(x, y) else pathB.lineTo(x, y)
             }
-            glowPath(pathB, c(hue, 80f, 62f, .45f), 1.1f, if (run) 1f + .35f * sin(t * 4f) else .75f)
+            glowPath(pathB, c(hue, 80f, 62f, .62f), 1.4f, if (run) 1f + .35f * sin(t * 4f) else .85f)
             if (run) {
                 pathB.reset()
                 for (k in 0..steps) {
@@ -1159,7 +1158,7 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                     val y = lay.bcy + sin(ang + .9f) * .9f * r
                     if (k == 0) pathB.moveTo(x, y) else pathB.lineTo(x, y)
                 }
-                glowPath(pathB, c(hue, 80f, 62f, .16f), 1f, 1f)
+                glowPath(pathB, c(hue, 80f, 62f, .22f), 1.1f, 1f)
             }
         } else {
             for (g in segs) {
