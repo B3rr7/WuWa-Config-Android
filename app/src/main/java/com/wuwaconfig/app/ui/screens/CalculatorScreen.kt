@@ -232,6 +232,14 @@ private fun CharacterTab(
     var skillTo by rememberSaveable { mutableStateOf(10) }
     var emptyResult by remember { mutableStateOf(false) }
 
+    // Reset the stale-result flag on selection change: `emptyResult` is screen
+    // state while the selection is VM state — without this a no-op calculation
+    // for character A left the "Nothing to upgrade" banner open when the user
+    // switched to (never-calculated) character B.
+    LaunchedEffect(selected) {
+        emptyResult = false
+    }
+
     if (selected == null) {
         PickerCard(
             title = "Select Character",
@@ -350,6 +358,13 @@ private fun WeaponTab(
     var fromPhase by rememberSaveable { mutableStateOf(0) }
     var toPhase by rememberSaveable { mutableStateOf(6) }
     var emptyResult by remember { mutableStateOf(false) }
+
+    // Same stale-flag rule as CharacterTab: a selection change clears the
+    // banner, otherwise the previous weapon's empty result shows under a
+    // selection that was never calculated.
+    LaunchedEffect(selected) {
+        emptyResult = false
+    }
 
     if (selected == null) {
         PickerCard(

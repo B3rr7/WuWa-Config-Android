@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -83,10 +84,13 @@ fun SettingsScreen(
     // a valid but redundant read of the same object.
     val themeConfig by themeViewModel.themeConfig.collectAsStateWithLifecycle()
 
-    var showBackupDirDialog by remember { mutableStateOf(false) }
-    var newBackupDir by remember { mutableStateOf(backupStorageDir) }
-    var showRemoveBgDialog by remember { mutableStateOf(false) }
-    var showInstallDialog by remember { mutableStateOf(false) }
+    // All simple types — saveable so an open dialog / typed path survives a
+    // configuration change. newBackupDir seeds from the VM value once (rememberSaveable
+    // initialisers only run on first composition, which is what we want here).
+    var showBackupDirDialog by rememberSaveable { mutableStateOf(false) }
+    var newBackupDir by rememberSaveable { mutableStateOf(backupStorageDir) }
+    var showRemoveBgDialog by rememberSaveable { mutableStateOf(false) }
+    var showInstallDialog by rememberSaveable { mutableStateOf(false) }
 
     val ctx = LocalContext.current
     val app = WuWaConfigApp.instance

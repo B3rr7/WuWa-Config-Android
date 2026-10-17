@@ -79,6 +79,20 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
     /** Age of the cached analysis in whole hours, or null when not from cache. */
     val analysisAgeHours: StateFlow<Long?> = _analysisAgeHours.asStateFlow()
 
+    /**
+     * Failure message for the last analysis attempt, or null. Unlike the
+     * app-wide [LogRepository] terminal, which a screen-level panel cannot
+     * read, this surfaces the failure on the screen that performed the work —
+     * previously a failed read/decode silently reverted the panel to neutral
+     * copy while erasing the previously loaded analysis with no error shown.
+     */
+    private val _analysisError = MutableStateFlow<String?>(null)
+    val analysisError: StateFlow<String?> = _analysisError.asStateFlow()
+
+    fun clearAnalysisError() {
+        _analysisError.value = null
+    }
+
     private val _battleStatsLoading = MutableStateFlow(false)
     val battleStatsLoading: StateFlow<Boolean> = _battleStatsLoading.asStateFlow()
 
@@ -107,8 +121,22 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
         // new data as stale and, worse, keep the generator from trusting it.
         _analysisFromCache.value = false
         _analysisAgeHours.value = null
+        _analysisError.value = null
         ops.setApplying(true)
         ops.launchBackendOp(managesBusyFlag = true) {
+            // The states are nulled here on purpose: the ConfigGen brain
+            // overlay detects a READ failure as "info stayed null while the
+            // op ended". But a failure must not erase what the user already
+            // had — remember what was on screen and put it back once the op
+            // settles with failure.
+            val previousAnalysis = _logAnalysis.value
+            val previousBrain = _brainRecommendation.value
+            val restorePrevious: () -> Unit = {
+                _logAnalysis.value = previousAnalysis
+                _brainRecommendation.value = previousBrain
+                _analysisFromCache.value = previousAnalysis != null
+                _analysisAgeHours.value = null
+            }
             _logAnalysis.value = null
             _brainRecommendation.value = null
             try {
@@ -133,19 +161,28 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
                     _readingProgress.value = 95
                     doAnalyzeLogText(analysisText, allowRestrictedCvars, null)
                 } else {
-                    addLog("FAILED: ${result.exceptionOrNull()?.message}")
+                    val reason = result.exceptionOrNull()?.message ?: "unknown error"
+                    addLog("FAILED: $reason")
+                    _analysisError.value = "Could not read client.log from device: $reason"
+                    restorePrevious()
                 }
             } catch (e: SecurityException) {
                 Log.e("LogInsights", "analyzeClientLog permission denied", e)
                 addLog("CRASH: permission denied: ${e.message}")
+                _analysisError.value = "client.log read denied: ${e.message}"
+                restorePrevious()
             } catch (e: java.io.IOException) {
                 Log.e("LogInsights", "analyzeClientLog I/O error", e)
                 addLog("CRASH: I/O error: ${e.message}")
+                _analysisError.value = "client.log read failed: ${e.message}"
+                restorePrevious()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("LogInsights", "analyzeClientLog crashed", e)
+                _analysisError.value = "Analysis failed: ${e.message}"
+                restorePrevious()
             } finally {
                 _readingProgress.value = 0
                 ops.setApplying(false)
@@ -160,9 +197,20 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
         // Imported log text is fresh even though it did not come from the device.
         _analysisFromCache.value = false
         _analysisAgeHours.value = null
+        _analysisError.value = null
         if (ops.isApplying.value) return
         ops.setApplying(true)
         ops.launchBackendOp(managesBusyFlag = true) {
+            // Same failure contract as analyzeClientLog: a failed import keeps
+            // the previously displayed analysis instead of blanking the panel.
+            val previousAnalysis = _logAnalysis.value
+            val previousBrain = _brainRecommendation.value
+            val restorePrevious: () -> Unit = {
+                _logAnalysis.value = previousAnalysis
+                _brainRecommendation.value = previousBrain
+                _analysisFromCache.value = previousAnalysis != null
+                _analysisAgeHours.value = null
+            }
             try {
                 _readingProgress.value = 0
                 addLog("Decoding imported log...")
@@ -173,11 +221,15 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
             } catch (e: java.io.IOException) {
                 Log.e("LogInsights", "analyzeClientLogBytes I/O error", e)
                 addLog("CRASH: I/O error: ${e.message}")
+                _analysisError.value = "Import failed: ${e.message}"
+                restorePrevious()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 addLog("CRASH: ${e.message}")
                 Log.e("LogInsights", "analyzeClientLogBytes crashed", e)
+                _analysisError.value = "Import failed: ${e.message}"
+                restorePrevious()
             } finally {
                 _readingProgress.value = 0
                 ops.setApplying(false)
@@ -190,25 +242,31 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
         allowRestrictedCvars: Boolean = true,
         preParsedLogInfo: LogInfo? = null,
     ) {
-        _logAnalysis.value = null
-        _brainRecommendation.value = null
-        try {
-            addLog("Parsing log...")
-            val info =
-                preParsedLogInfo
-                    ?: withContext(Dispatchers.Default) {
-                        com.wuwaconfig.app.config.LogParser.parseLog(text)
-                    }
-            _logAnalysis.value = info
-            addLog("GPU: ${info.gpu ?: "unknown"}, RAM: ${info.ramMb ?: "?"}MB")
-            _readingProgress.value = 98
-            val brain =
-                withContext(Dispatchers.Default) {
-                    com.wuwaconfig.app.config.SmartBrain.scoreRecommendation(info, cvarDatabase, allowRestrictedCvars)
+        // The display states are NOT nulled here any more: overwriting them
+        // directly on success is enough, and nulling first wiped the panel
+        // whenever anything below threw (the parse itself, scoring, storage) —
+        // the caller's catch now owns failure handling.
+        addLog("Parsing log...")
+        val info =
+            preParsedLogInfo
+                ?: withContext(Dispatchers.Default) {
+                    com.wuwaconfig.app.config.LogParser.parseLog(text)
                 }
-            _brainRecommendation.value = brain
-            addLog("Brain recommends: ${brain.preset} (score: ${brain.score})")
+        _logAnalysis.value = info
+        addLog("GPU: ${info.gpu ?: "unknown"}, RAM: ${info.ramMb ?: "?"}MB")
+        _readingProgress.value = 98
+        val brain =
+            withContext(Dispatchers.Default) {
+                com.wuwaconfig.app.config.SmartBrain.scoreRecommendation(info, cvarDatabase, allowRestrictedCvars)
+            }
+        _brainRecommendation.value = brain
+        addLog("Brain recommends: ${brain.preset} (score: ${brain.score})")
 
+        // Caching the result is best-effort: a storage failure must not take
+        // down an analysis the user has on screen (it was swallowed before, but
+        // as part of the parse try-block — which also swallowed genuine parse
+        // failures, blanking the panel with no error).
+        runCatching {
             withContext(Dispatchers.IO) {
                 val summary = com.wuwaconfig.app.config.LogParser.parseBattleStatsSummary(text)
                 BattleStatsStore.save(getApplication(), summary.total, summary)
@@ -218,16 +276,12 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
                 LogRepository.saveSmartBrainReport(report)
                 _battleStatsSummary.value = summary
             }
-            addLog("Analysis cached for quick viewing")
-        } catch (e: java.io.IOException) {
-            Log.e("LogInsights", "doAnalyzeLogText I/O error", e)
-            addLog("CRASH: I/O error: ${e.message}")
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            addLog("CRASH: ${e.message}")
-            Log.e("LogInsights", "doAnalyzeLogText crashed", e)
+        }.onFailure { e ->
+            if (e is CancellationException) throw e
+            Log.e("LogInsights", "analysis caching failed", e)
+            addLog("Analysis caching failed: ${e.message}", LogLevel.WARNING)
         }
+        addLog("Analysis cached for quick viewing")
     }
 
     fun restoreAnalysisFromCache() {
@@ -307,5 +361,12 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
             _battleStatsLoading.value = false
             ops.setApplying(false)
         }
+    }
+
+    fun cancelBattleStats() {
+        ops.requestCancel(
+            disconnect = { app.backend.disconnect() },
+            resetBackendStatus = { app.setBackendStatus(com.wuwaconfig.app.backend.BackendStatus(method = app.backendStatusValue.method)) },
+        )
     }
 }

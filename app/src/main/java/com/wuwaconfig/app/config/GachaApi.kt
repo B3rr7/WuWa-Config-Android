@@ -26,7 +26,12 @@ object GachaApi {
     // Standard pools are the permanent "Standard" banners; any 5★ pulled there is
     // a standard 5★ (used to decide character-banner soft-pity status).
     private val STANDARD_POOLS = setOf(GachaPoolType.STANDARD, GachaPoolType.STANDARD_2, GachaPoolType.STANDARD_3)
-    private val CHARACTER_POOLS = setOf(GachaPoolType.CHARACTER_EVENT, GachaPoolType.CHARACTER_2, GachaPoolType.CHARACTER_3)
+
+    // internal so UI aggregations over [PityPrediction]s (PityScreen's overall
+    // character stats) can filter weapon banners out without re-deriving the
+    // pool list here — that list drifting between this file and the UI was the
+    // bug being fixed.
+    internal val CHARACTER_POOLS = setOf(GachaPoolType.CHARACTER_EVENT, GachaPoolType.CHARACTER_2, GachaPoolType.CHARACTER_3)
     private val WEAPON_POOLS = setOf(GachaPoolType.WEAPON_EVENT, GachaPoolType.WEAPON_2, GachaPoolType.WEAPON_3)
 
     // Per-pull probability at the soft-pity threshold (pull 66), derived from the

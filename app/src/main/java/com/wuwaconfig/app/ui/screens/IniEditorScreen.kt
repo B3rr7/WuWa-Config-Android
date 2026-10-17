@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,10 +88,10 @@ fun IniEditorScreen(
     // transaction limit with a TransactionTooLargeException on rotation. The
     // ViewModel survives configuration change for free.
     val editorText by viewModel.iniEditorDraft.collectAsStateWithLifecycle()
-    var showSearch by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
-    var currentMatch by remember { mutableIntStateOf(0) }
-    var showDiscardDialog by remember { mutableStateOf(false) }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var currentMatch by rememberSaveable { mutableIntStateOf(0) }
+    var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
     val vertical = rememberScrollState()
@@ -135,13 +136,17 @@ fun IniEditorScreen(
         onDispose { onSetInnerBackHandler.set(null) }
     }
 
-    // Keyed on the match SET only. `safeMatch` used to be a key, so every
-    // Next/Prev press (and every keystroke, because onQueryChange resets
-    // currentMatch) allocated a new VisualTransformation and re-filtered the
-    // whole document for nothing. The current index is read as snapshot state
-    // inside the lambda, at filter time, so the lambda's identity is stable.
+    // Keyed on the match SET *and* the current index. `safeMatch` was once the
+    // only key, which re-filtered the whole document on every keystroke — but
+    // dropping it entirely went too far: VisualTransformation's applied result
+    // is memoized by CoreTextField on (value, transformation) identity, so the
+    // snapshot read of `currentMatch` inside the lambda was cached too and the
+    // current-match highlight STOPPED MOVING on Next/Prev (only a text edit or
+    // query change refreshed it). Re-keying on safeMatch costs exactly one
+    // re-filter per Next/Prev press — cheap — and when typing changes
+    // `matches` anyway, the extra key adds nothing.
     val iniTransform =
-        remember(matches) {
+        remember(matches, safeMatch) {
             VisualTransformation { annotated ->
                 val current =
                     if (matches.isEmpty()) {

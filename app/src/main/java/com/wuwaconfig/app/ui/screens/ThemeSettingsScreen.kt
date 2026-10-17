@@ -15,15 +15,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +35,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +49,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -102,9 +107,15 @@ fun ThemeSettingsScreen(
                     }
                 },
             )
+            // Bottom padding must clear the navigation-bar inset: the last
+            // card is the destructive "Reset to defaults" button, which with
+            // 3-button nav (~48dp) was partially obscured under the bar —
+            // and that card is reachable nowhere else.
+            val density = LocalDensity.current
+            val navbarBottom = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(bottom = 32.dp),
+                contentPadding = PaddingValues(bottom = 32.dp + navbarBottom),
                 verticalArrangement = Arrangement.spacedBy(tokens.cardSpacing),
             ) {
                 item {
@@ -116,6 +127,8 @@ fun ThemeSettingsScreen(
                     GlassCard(modifier = Modifier.padding(horizontal = spacing.lg)) {
                         ColorPaletteSection(
                             selected = config.colorPalette,
+                            dynamicColor = config.dynamicColor,
+                            onToggleDynamicColor = viewModel::setDynamicColor,
                             onSelect = viewModel::setColorPalette,
                         )
                     }
@@ -306,6 +319,8 @@ private fun UiStyleRow(
 @Composable
 private fun ColorPaletteSection(
     selected: ColorPalette,
+    dynamicColor: Boolean,
+    onToggleDynamicColor: (Boolean) -> Unit,
     onSelect: (ColorPalette) -> Unit,
 ) {
     val tokens = LocalThemeShapeTokens.current
@@ -333,6 +348,38 @@ private fun ColorPaletteSection(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+
+    // The wallpaper-colours switch. `setDynamicColor` and the ThemeConfig field
+    // existed since the beginning, but nothing ever called the setter — so
+    // SYSTEM_DEFAULT (the default palette) permanently rendered its static
+    // fallbacks while promising "Your wallpaper's colours on Android 12+" in
+    // its description. This is the writer that closes that dead-pref trap.
+    Spacer(Modifier.height(tokens.cardSpacing / 2))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = dynamicColor,
+                    role = Role.Switch,
+                    onValueChange = onToggleDynamicColor,
+                ),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Follow wallpaper colours",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                "Material You dynamic scheme on Android 12+. Overrides the palette above when on.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(spacing.md))
+        Switch(checked = dynamicColor, onCheckedChange = null)
+    }
 }
 
 /**

@@ -669,6 +669,10 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
             val ox = (w - lay.vw * sc) / 2f
             val oy = max(6f, (h - lay.vh * sc) / 2f)
 
+            // The sim lives on a dark device screen; paint it so hosts without
+            // a scrim of their own don't show light-on-light status ink.
+            drawRect(SCREEN_BG)
+
             val shake = cam * 10f
             withTransform({
                 translate(ox + (rnd.nextFloat() - .5f) * shake, oy + (rnd.nextFloat() - .5f) * shake)

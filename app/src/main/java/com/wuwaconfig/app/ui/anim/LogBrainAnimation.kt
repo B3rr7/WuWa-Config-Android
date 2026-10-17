@@ -53,6 +53,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -160,17 +161,26 @@ fun LogBrainAnimation(
 
     // One phase drive; self-pauses when the overlay leaves the composition,
     // which is cheaper than the old while-loop of withFrameNanos writes.
-    val phase =
-        rememberInfiniteTransition(label = "resonanceScan").animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(durationMillis = 5200, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart,
-                ),
-            label = "phase",
-        )
+    // The State is passed DOWN and read inside WaveScan's draw lambda — reading
+    // .value here during composition recomposed the ENTIRE overlay (semantics
+    // node, column, texts) on every one of the ~60 frames/s for the full 5-10s
+    // the overlay is up, exactly like GeoLoading used to before it switched to
+    // draw-phase reads.
+    val phaseState =
+        if (reducedMotion) {
+            null
+        } else {
+            rememberInfiniteTransition(label = "resonanceScan").animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec =
+                    infiniteRepeatable(
+                        animation = tween(durationMillis = 5200, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart,
+                    ),
+                label = "phase",
+            )
+        }
     // Lock-in: bars go speculative -> resolved once the parser answers.
     val lock by animateFloatAsState(
         targetValue = if (arrived) 1f else 0f,
@@ -205,7 +215,7 @@ fun LogBrainAnimation(
             .semantics { contentDescription = desc },
     ) {
         WaveScan(
-            phase = if (reducedMotion) 0f else phase.value,
+            phaseState = phaseState,
             lock = lock,
             failed = failed,
             pal = pal,
@@ -305,7 +315,10 @@ fun LogBrainAnimation(
  */
 @Composable
 private fun WaveScan(
-    phase: Float,
+    // Draw-phase read: the Canvas lambda observes the state, so animation
+    // frames redraw ONLY this canvas bar band instead of recomposing the whole
+    // overlay. `null` = reduced motion: static wave, no animator exists.
+    phaseState: State<Float>?,
     lock: Float,
     failed: Boolean,
     pal: AnimTheme,
@@ -314,6 +327,8 @@ private fun WaveScan(
     val seeds = remember { FloatArray(BAR_COUNT) { i -> (i * 7919 % 100) / 100f } }
     val accent = if (failed) hsl(pal.failHue, 85f, 58f) else hsl(pal.idleHue, 85f, 62f)
     Canvas(modifier = modifier) {
+        // `phaseState == null` is the reduced-motion contract — static wave.
+        val phase = phaseState?.value ?: 0f
         val barW = size.width / (BAR_COUNT * 1.7f)
         val gap = barW * 0.7f
         val total = BAR_COUNT * (barW + gap)

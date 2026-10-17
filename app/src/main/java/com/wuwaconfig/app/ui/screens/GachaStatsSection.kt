@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -278,8 +279,10 @@ private fun KindSummaryCards(stats: GachaStatsResult) {
  */
 @Composable
 private fun PullRanking(data: GachaData) {
-    var kind by remember { mutableStateOf<GachaItemKind?>(null) }
-    var rarity by remember { mutableStateOf(4) }
+    // rememberSaveable: PullRanking is also an LazyColumn `item { }` — tab
+    // switches previously dropped both filter selections.
+    var kind by rememberSaveable { mutableStateOf<GachaItemKind?>(null) }
+    var rarity by rememberSaveable { mutableStateOf(4) }
 
     val items =
         remember(data, kind, rarity) {
@@ -417,11 +420,19 @@ fun GachaVisualSection(
                         prediction = data.predictions.firstOrNull { it.poolType == type },
                     )
                 }
-                .sortedBy { it.type }
+                // Numeric, not lexical: cardPoolType is the string "1".."11",
+                // and `sortedBy` lexically gave 1, 10, 11, 2, 3 … — the newest
+                // banners rendered right after the first Character Event.
+                .sortedBy { it.type.toIntOrNull() ?: Int.MAX_VALUE }
         }
     if (banners.isEmpty()) return
 
-    var selectedType by remember { mutableStateOf(banners.first().type) }
+    // rememberSaveable, not remember: this section lives in an `item { }` block
+    // of the screen's LazyColumn, so a plain remember was wiped by every tab
+    // switch (and configuration change), silently resetting the selector to the
+    // first chip. selectedTab on the screen itself is saveable for exactly the
+    // same reason.
+    var selectedType by rememberSaveable { mutableStateOf(banners.first().type) }
     val selected = banners.firstOrNull { it.type == selectedType } ?: banners.first()
 
     Column(modifier = modifier) {

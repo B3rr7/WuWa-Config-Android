@@ -27,6 +27,13 @@ internal fun cl(
     b: Float = 1f,
 ) = v.coerceIn(a, b)
 
+// The screen the sims depict. Fixed dark on purpose: the sims' idle/file-card
+// fills and their status ink are hardcoded light-on-dark, and only
+// ConfigGenScreen wraps its overlay in a permanent dark scrim — hosts like
+// ProfileScreen's GlassCard surface it directly, so under light palettes a
+// transparent canvas would render near-white status text unreadable.
+internal val SCREEN_BG = Color(0xFF09101C)
+
 internal fun lerp(
     a: Float,
     b: Float,

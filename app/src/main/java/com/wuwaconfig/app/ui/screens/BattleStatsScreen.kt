@@ -83,12 +83,24 @@ fun BattleStatsScreen(
 
                 if (stats == null) {
                     if (loading) {
-                        GeoLoadingCard(
-                            kind = GeoLoadingKind.BATTLE,
-                            text = "Reading Client.log for battle stats...",
-                            accentColor = NeonGreen,
-                            progress = progress,
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GeoLoadingCard(
+                                kind = GeoLoadingKind.BATTLE,
+                                text = "Reading Client.log for battle stats...",
+                                accentColor = NeonGreen,
+                                progress = progress,
+                            )
+                            GlassButton(
+                                onClick = { viewModel.cancelBattleStats() },
+                                modifier = Modifier.fillMaxWidth(),
+                                accentColor = NeonRed,
+                                contentColor = Color.White,
+                            ) {
+                                Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Stop", fontWeight = FontWeight.Bold)
+                            }
+                        }
                     } else {
                         GlassButton(
                             onClick = { viewModel.loadBattleStats() },

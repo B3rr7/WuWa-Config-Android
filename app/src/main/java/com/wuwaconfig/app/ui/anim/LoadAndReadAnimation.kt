@@ -427,6 +427,10 @@ internal class LoadSim(pal: AnimTheme) {
             val ox = (w - LVW * sc) / 2f
             val oy = max(0f, (h - LVH * sc) / 2f)
 
+            // The sim lives on a dark device screen; paint it so hosts without
+            // a scrim of their own don't show light-on-light status ink.
+            drawRect(SCREEN_BG)
+
             val shake = cam * 16f
             withTransform({
                 translate(ox + (rnd.nextFloat() - .5f) * shake, oy + (rnd.nextFloat() - .5f) * shake)

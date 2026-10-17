@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -93,8 +94,15 @@ fun HomeScreen(
     // granted: the remaining failure mode on Chinese ROMs is the ROM killing that
     // process, and the fix lives in a system screen, not in this app.
     val context = androidx.compose.ui.platform.LocalContext.current
+    // Re-derived on each backendStatus change, NOT `remember {}` once: the old
+    // one-shot computation froze `false` forever when Shizuku's binder was not
+    // ready during first composition, leaving the button stuck re-requesting
+    // and the documented "Fix" affordance unreachable until the screen was
+    // recreated. The deploy VM registers Shizuku's request-result listener and
+    // calls connect() on grant, which changes backendStatus — so a grant (or a
+    // connect/disconnect cycle) refreshes this without any extra plumbing.
     val shizukuGranted =
-        remember {
+        remember(backendStatus) {
             runCatching {
                 rikka.shizuku.Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED
             }.getOrDefault(false)
@@ -123,15 +131,20 @@ fun HomeScreen(
         snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
     }
 
-    var customConfigState by remember { mutableStateOf(CustomConfigState.IDLE) }
+    var customConfigState by rememberSaveable { mutableStateOf(CustomConfigState.IDLE) }
+    // pickedFiles / pendingApply stay `remember` (not rememberSaveable): PickedFile
+    // carries full INI file text, and versus the ~500KB Binder transaction limit
+    // noted for the INI editor (see IniEditorScreen), saving five files through
+    // the SavedStateRegistry risks TransactionTooLargeException. Rotation costs
+    // a re-pick; process death was never survivable here either.
     var pickedFiles by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
-    var showCleanDialog by remember { mutableStateOf(false) }
-    var showAdbDialog by remember { mutableStateOf(false) }
-    var adbPairCode by remember { mutableStateOf("") }
-    var showBackupScopeDialog by remember { mutableStateOf(false) }
+    var showCleanDialog by rememberSaveable { mutableStateOf(false) }
+    var showAdbDialog by rememberSaveable { mutableStateOf(false) }
+    var adbPairCode by rememberSaveable { mutableStateOf("") }
+    var showBackupScopeDialog by rememberSaveable { mutableStateOf(false) }
     var pendingApply by remember { mutableStateOf<List<PickedFile>>(emptyList()) }
-    var adbHost by remember { mutableStateOf("127.0.0.1") }
-    var adbPort by remember { mutableStateOf("") }
+    var adbHost by rememberSaveable { mutableStateOf("127.0.0.1") }
+    var adbPort by rememberSaveable { mutableStateOf("") }
 
     val pickerScope = rememberCoroutineScope()
 
@@ -147,12 +160,22 @@ fun HomeScreen(
                 // ContentResolver reads are blocking IO — keep them off the main thread.
                 pickerScope.launch {
                     val matched =
-                        uris.mapNotNull { uri ->
-                            val name = deployHistoryViewModel.getFileName(uri) ?: return@mapNotNull null
-                            val target = matchTarget(name) ?: return@mapNotNull null
-                            val content = deployHistoryViewModel.readUriContent(uri).getOrNull() ?: return@mapNotNull null
-                            PickedFile(displayName = name, targetName = target, content = content)
-                        }
+                        uris
+                            .mapNotNull { uri ->
+                                val name = deployHistoryViewModel.getFileName(uri) ?: return@mapNotNull null
+                                val target = matchTarget(name) ?: return@mapNotNull null
+                                val content = deployHistoryViewModel.readUriContent(uri).getOrNull() ?: return@mapNotNull null
+                                PickedFile(displayName = name, targetName = target, content = content)
+                            }
+                            // De-duplicate by target, keeping the LAST pick:
+                            // applyCustomFiles only ever takes firstOrNull() per
+                            // target, so leaving duplicates in silently dropped
+                            // the second file's content — and the REVIEW list
+                            // showed two rows both claiming the same target.
+                            // Last-wins matches how a user re-picking treats it.
+                            .associateBy { it.targetName }
+                            .values
+                            .toList()
                     if (matched.isNotEmpty()) {
                         pickedFiles = matched
                         customConfigState = CustomConfigState.REVIEW
@@ -230,22 +253,7 @@ fun HomeScreen(
                 item { Spacer(Modifier.height(LocalSpacing.current.sm)) }
 
                 // --- Hero: identity + one-line value, then the live status card.
-                item {
-                    GlassCard(accentColor = NeonCyan) {
-                        Column {
-                            Text(
-                                "Wuthering Waves",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                "Tune, deploy and track — one panel.",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-                    }
-                }
+                item { HomeHeroCard() }
                 item {
                     BackendStatusCard(
                         status = backendStatus,
@@ -492,13 +500,23 @@ fun HomeScreen(
                                                 val gus = pickedFiles.firstOrNull { it.targetName == "GameUserSettings.ini" }?.content
                                                 val scalability = pickedFiles.firstOrNull { it.targetName == "Scalability.ini" }?.content
                                                 val hardware = pickedFiles.firstOrNull { it.targetName == "Hardware.ini" }?.content
-                                                deployHistoryViewModel.applyCustomFiles(engine, device, gus, scalability, hardware)
-                                                customConfigState = CustomConfigState.IDLE
-                                                pickedFiles = emptyList()
+                                                val started =
+                                                    deployHistoryViewModel.applyCustomFiles(engine, device, gus, scalability, hardware)
+                                                // Only reset REVIEW state if the op actually
+                                                // started: the VM's guards (busy/disconnected)
+                                                // are silent, and clearing picked files after a
+                                                // rejected call erased the user's work with no
+                                                // feedback, looking like a successful apply.
+                                                if (started) {
+                                                    customConfigState = CustomConfigState.IDLE
+                                                    pickedFiles = emptyList()
+                                                } else {
+                                                    customConfigState = CustomConfigState.REVIEW
+                                                }
                                             }
                                         },
                                         modifier = Modifier.weight(1f),
-                                        enabled = !isApplying,
+                                        enabled = !isApplying && backendStatus.connected,
                                         accentColor = NeonPurple,
                                         contentColor = Color.White,
                                     ) { Text("Apply", fontWeight = FontWeight.Bold) }
@@ -1047,11 +1065,17 @@ fun HomeScreen(
                         val gus = pendingApply.firstOrNull { it.targetName == "GameUserSettings.ini" }?.content
                         val scalability = pendingApply.firstOrNull { it.targetName == "Scalability.ini" }?.content
                         val hardware = pendingApply.firstOrNull { it.targetName == "Hardware.ini" }?.content
-                        deployHistoryViewModel.applyCustomFiles(engine, device, gus, scalability, hardware, backupAllInis = backupAll)
-                        showBackupScopeDialog = false
-                        pendingApply = emptyList()
-                        customConfigState = CustomConfigState.IDLE
-                        pickedFiles = emptyList()
+                        val started =
+                            deployHistoryViewModel.applyCustomFiles(engine, device, gus, scalability, hardware, backupAllInis = backupAll)
+                        if (started) {
+                            showBackupScopeDialog = false
+                            pendingApply = emptyList()
+                            customConfigState = CustomConfigState.IDLE
+                            pickedFiles = emptyList()
+                        }
+                        // else: keep the dialog open and the picks intact — the guard
+                        // rules (busy/disconnected) are silent, and closing into IDLE
+                        // would present the rejection as if it had been applied.
                     }
 
                     Button(
@@ -1149,6 +1173,24 @@ fun HomeScreen(
                 ) { Text("OK", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp)) }
             },
         )
+    }
+}
+
+@Composable
+private fun HomeHeroCard() {
+    GlassCard(accentColor = NeonCyan) {
+        Column {
+            Text(
+                "Wuthering Waves",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Tune, deploy and track — one panel.",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 
