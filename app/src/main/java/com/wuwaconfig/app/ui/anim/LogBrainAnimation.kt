@@ -139,10 +139,10 @@ fun LogBrainAnimation(
 // ======================================================================
 
 private const val N = 8
-internal const val FW = 112f
-internal const val FH = 146f
-internal const val FOLD = 18f
-private const val RH = 11.5f
+internal const val FW = 104f
+internal const val FH = 132f
+internal const val FOLD = 16f
+private const val RH = 10.5f
 private const val GARB = "▒░▓#%?@\$&"
 private const val FAIL_FILL = "ERR_UNEXPECTED_EOF"
 
@@ -235,7 +235,7 @@ private val LAY_NARROW =
     Lay(
         // Tiny file (112x146 of a 360-wide viewport) high-center; big spiral brain
         // (84R) as the hero below it; cards left/right; status at bottom.
-        360f, 700f, 180f, 84f, 180f, 296f, 84f, 180f, 614f,
+        360f, 700f, 180f, 76f, 180f, 296f, 84f, 180f, 614f,
         List(6) { CardR(if (it % 2 == 1) 184f else 10f, 434f + (it / 2) * 48f, 166f, 40f) }, false,
     )
 
@@ -534,7 +534,7 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
         k: Float,
     ): Offset {
         val sx = lay.fx + FW / 2f - 14f
-        val sy = lay.fy - FH / 2f + 42f + i * RH + RH / 2f
+        val sy = lay.fy - FH / 2f + 34f + i * RH + RH / 2f
         val e = entryPt()
         val cx = (sx + e.x) / 2f
         val cy = min(sy, e.y) - 70f
@@ -939,7 +939,7 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
         glowPath(path, col, 2f, if (full) 1f else .4f)
         if (!full) return
 
-        val rowsTop = fy - FH / 2f + 42f
+        val rowsTop = fy - FH / 2f + 34f
         val laserEnd =
             when {
                 phase == Phase.WAIT -> N.toFloat()
@@ -951,8 +951,8 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
         val scanRow = if (phase == Phase.WAIT) scanPos else prog
         val tick = floor(t * 14f).toInt()
         clipPath(path) {
-            txt("client.log", fx - FW / 2f + 16f, fy - FH / 2f + 26f, 11f, hsl(hue, 70f, 75f, .85f), true, 1.5f)
-            drawRect(Color(0x14FFFFFF), Offset(fx - FW / 2f, fy - FH / 2f + 34f), Size(FW, 1f))
+            txt("client.log", fx - FW / 2f + 14f, fy - FH / 2f + 20f, 10f, hsl(hue, 70f, 75f, .85f), true, 1.5f)
+            drawRect(Color(0x14FFFFFF), Offset(fx - FW / 2f, fy - FH / 2f + 28f), Size(FW, 1f))
             val ai = floor(scanRow).toInt()
             if (scanRow > 0f && scanRow < laserEnd && (phase == Phase.READ || phase == Phase.WAIT) && ai < N) {
                 drawRect(
@@ -975,13 +975,13 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                         i < m -> entries[i].text
                         else -> ""
                     }
-                val len = if (text.isNotEmpty()) text.length else 10 + hashI(i, 3) % 8
+                val len = (if (text.isNotEmpty()) text.length else 10 + hashI(i, 3) % 8).coerceAtMost(13)
                 val catHue = if (!isF && i < m) entries[i].category.hue else hue
                 var rp = if (phase == Phase.WAIT) 0f else cl(prog - i)
                 if (isF) rp = min(rp, .55f)
                 val waitActive = phase == Phase.WAIT && floor(scanRow).toInt() == i
                 val y = rowsTop + i * RH + RH - 4f
-                val x0 = fx - FW / 2f + 14f
+                val x0 = fx - FW / 2f + 10f
                 val glRow = phase == Phase.GLITCH && hashI(i, tick) % 5 == 0
                 for (j in 0 until len) {
                     val f = j.toFloat() / len
@@ -999,7 +999,7 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                         fill = if (live) hsl(catHue, 85f, 65f, .9f) else hsl(hue, 40f, 60f, .2f)
                     }
                     if (glRow) fill = hsl(pal.failHue, 90f, 62f, .8f)
-                    ch(c, x0 + j * 7.1f, y, 11f, fill)
+                    ch(c, x0 + j * 6.1f, y, 10f, fill)
                 }
             }
         }
@@ -1022,9 +1022,9 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
             val fade = cl(scanRow * 3f) * cl((laserEnd - scanRow) * 3f)
             clipPath(filePath(pathA, fx, fy, FW, FH, FOLD)) {
                 drawRect(
-                    Brush.verticalGradient(listOf(hsl(hue, 90f, 60f, 0f), hsl(hue, 90f, 60f, .28f * fade)), ly - 34f, ly),
-                    Offset(fx - FW / 2f, ly - 34f),
-                    Size(FW, 34f),
+                    Brush.verticalGradient(listOf(hsl(hue, 90f, 60f, 0f), hsl(hue, 90f, 60f, .28f * fade)), ly - 26f, ly),
+                    Offset(fx - FW / 2f, ly - 26f),
+                    Size(FW, 26f),
                 )
             }
             drawRect(hsl(hue, 90f, 70f, .18f * fade), Offset(fx - FW / 2f - 14f, ly - 5f), Size(FW + 28f, 10f))
@@ -1132,9 +1132,7 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
             pathC.close()
             drawPath(pathC, c(hue, 85f, 58f, .05f + if (run) .02f * sin(t * 4f) else 0f))
 
-            // Abstract spiral cortex: eased spacing (bunched at the hub, airy at
-            // the rim), thin glow, breathing with br. While the network runs a
-            // faint counter-winding echo drifts under it.
+            // Spiral spine: neurons ride this faint Archimedean guide.
             pathB.reset()
             val turns = 2.2f
             val steps = 220
@@ -1147,18 +1145,29 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                 val y = lay.bcy + sin(ang) * .9f * r
                 if (k == 0) pathB.moveTo(x, y) else pathB.lineTo(x, y)
             }
-            glowPath(pathB, c(hue, 80f, 62f, .62f), 1.4f, if (run) 1f + .35f * sin(t * 4f) else .85f)
-            if (run) {
+            glowPath(pathB, c(hue, 80f, 62f, .34f), 1.2f, if (run) 1f + .35f * sin(t * 4f) else .8f)
+
+            // Rotating-square spiral shell (the hypnosis look): square outlines,
+            // each rotated a fixed step more than the last while shrinking toward
+            // the hub — their corners trace the swirl, overlapping into the moire
+            // feel of the reference art. Outer squares are brightest; while the
+            // network runs the whole dial slowly turns.
+            val LEVELS = 20
+            val drift = if (run) t * .16f else 0f
+            for (q in 0 until LEVELS) {
+                val f = q / (LEVELS - 1).toFloat()
+                val e = f * f * (3f - 2f * f)
+                val half = lerp(1.05f, .14f, e) * R
+                val rot = startAng + q * .3f + drift
                 pathB.reset()
-                for (k in 0..steps) {
-                    val f = k / steps.toFloat()
-                    val ang = startAng + 6.2832f * turns * (1f - f)
-                    val r = lerp(.34f, .96f, f * f * (3f - 2f * f)) * R
-                    val x = lay.bx + cos(ang + .9f) * 1.18f * r
-                    val y = lay.bcy + sin(ang + .9f) * .9f * r
-                    if (k == 0) pathB.moveTo(x, y) else pathB.lineTo(x, y)
+                for (cnr in 0..3) {
+                    val a = rot + cnr * 1.5707964f
+                    val x = lay.bx + cos(a) * half
+                    val y = lay.bcy + sin(a) * half
+                    if (cnr == 0) pathB.moveTo(x, y) else pathB.lineTo(x, y)
                 }
-                glowPath(pathB, c(hue, 80f, 62f, .22f), 1.1f, 1f)
+                pathB.close()
+                drawPath(pathB, c(hue, 80f, 62f, .09f + .2f * (1f - e)), style = Stroke(1f))
             }
         } else {
             for (g in segs) {

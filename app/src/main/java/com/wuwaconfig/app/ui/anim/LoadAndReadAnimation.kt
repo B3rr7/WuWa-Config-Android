@@ -509,17 +509,17 @@ internal class LoadSim(pal: AnimTheme) {
                     drawRect(hsl(hue, 85f, 82f, .95f), Offset(left, fillTop - 1f), Size(FW, 2f))
                 }
                 val slow = floor(t * 2f).toInt()
-                for (r in 0 until 9) for (q in 0 until 10) {
-                    val px = left + 12f + q * (FW - 28f) / 10f
-                    val py = fy - FH / 2f + 44f + r * 13.3f
+                for (r in 0 until 8) for (q in 0 until 10) {
+                    val px = left + 10f + q * (FW - 24f) / 10f
+                    val py = fy - FH / 2f + 34f + r * 10.5f
                     val bit = hashI(r * 10 + q, if (hashI(r, q) % 3 == 0) slow else 0) and 1
                     ch(if (bit == 1) '1' else '0', px, py, 11f, if (py > fillTop) hsl(hue, 85f, 78f, .85f) else hsl(hue, 85f, 60f, .2f))
                 }
             } else {
                 val k = eo(cl(tp / .7f))
                 drawRect(hsl(pal.okHue, 92f, 3f).copy(alpha = k), Offset(left, fy - FH / 2f), Size(FW, FH))
-                for (i in 0 until 14) {
-                    val cx = left + 10f + i * (FW - 20f) / 13f
+                for (i in 0 until 9) {
+                    val cx = left + 8f + i * (FW - 16f) / 9f
                     for (j in 0 until 13) {
                         val yy = fy - FH / 2f + ry[i] - j * 14f
                         if (yy < fy - FH / 2f - 14f || yy > bottom + 14f) continue
