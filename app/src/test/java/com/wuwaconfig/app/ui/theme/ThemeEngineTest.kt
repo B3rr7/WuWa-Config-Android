@@ -85,9 +85,10 @@ class ThemeEngineTest {
         assertTrue("MATERIAL_YOU" in styleNames)
         assertTrue("LIQUID_GLASS" in styleNames)
         assertTrue("BENTO_GRID" in styleNames)
-        assertTrue("RETRO_HANDHELD" in styleNames)
+        assertTrue("FLAT_DESIGN_2" in styleNames)
         assertTrue("AURORA_FLUID" in styleNames)
         assertTrue("MIDNIGHT_OLED" in styleNames)
+        assertTrue("MINIMALIST" in styleNames)
         assertTrue("SYSTEM_DEFAULT" in paletteNames)
         assertTrue("WUTHERING_GOLD" in paletteNames)
         assertTrue("CYBER_PUNK" in paletteNames)
@@ -679,20 +680,11 @@ class ThemeEngineTest {
     }
 
     @Test
-    fun `retro handheld is the only fully square style`() {
-        // Two square styles by design: RETRO_HANDHELD (pixel panel) and
-        // NEO_BRUTALISM (stamped antidesign). The assertion now pins the PAIR
-        // and, below, that RETRO_HANDHELD stays square at every radius slot —
-        // its identity is the hard edge, dialogue slots included.
+    fun `no remaining style is fully square`() {
+        // The two square styles (RETRO_HANDHELD, NEO_BRUTALISM) were removed
+        // from the engine; none of the remaining seven use 0dp corners.
         val squared = UiStyle.entries.filter { it.tokens.cardCorner == 0.dp }
-        assertEquals(
-            "unexpected square styles",
-            listOf(UiStyle.RETRO_HANDHELD, UiStyle.NEO_BRUTALISM),
-            squared,
-        )
-        assertEquals(0.dp, UiStyle.RETRO_HANDHELD.tokens.buttonCorner)
-        assertEquals(0.dp, UiStyle.RETRO_HANDHELD.tokens.dialogCorner)
-        assertEquals(0.dp, UiStyle.RETRO_HANDHELD.tokens.fieldCorner)
+        assertEquals("unexpected square styles", emptyList<UiStyle>(), squared)
     }
 
     /**
@@ -712,11 +704,9 @@ class ThemeEngineTest {
 
     @Test
     fun `blur styles are exactly the translucent ones`() {
-        // RETRO_FUTURISM joins deliberately: sharp glass + the grid backdrop is
-        // the synthwave identity, and glass needs the translucent fill.
         val blurred = UiStyle.entries.filter { it.tokens.useBlurEffects }
         assertEquals(
-            listOf(UiStyle.LIQUID_GLASS, UiStyle.AURORA_FLUID, UiStyle.RETRO_FUTURISM),
+            listOf(UiStyle.LIQUID_GLASS, UiStyle.AURORA_FLUID),
             blurred,
         )
     }

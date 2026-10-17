@@ -39,7 +39,7 @@ class ThemePersistenceTest {
     fun `stored values round-trip`() {
         val c =
             buildThemeConfig(
-                uiStyleName = UiStyle.RETRO_HANDHELD.name,
+                uiStyleName = UiStyle.MATERIAL_YOU.name,
                 colorPaletteName = ColorPalette.MATRIX_GREEN.name,
                 themeMode = "dark",
                 textOpacity = 0.75f,
@@ -48,7 +48,7 @@ class ThemePersistenceTest {
                 colorSaturation = 1.3f,
                 dynamicColor = true,
             )
-        assertEquals(UiStyle.RETRO_HANDHELD, c.uiStyle)
+        assertEquals(UiStyle.MATERIAL_YOU, c.uiStyle)
         assertEquals(ColorPalette.MATRIX_GREEN, c.colorPalette)
         assertEquals("dark", c.themeMode)
         assertEquals(0.75f, c.textOpacity)

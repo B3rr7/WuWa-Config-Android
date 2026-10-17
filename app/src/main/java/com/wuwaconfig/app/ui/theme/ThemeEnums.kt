@@ -107,28 +107,6 @@ enum class UiStyle(
             ),
     ),
 
-    /** Hard edges, square everything, thick dividers. Lowest draw cost. */
-    RETRO_HANDHELD(
-        displayName = "Retro Handheld",
-        description = "Hard edges and flat pixel panels. No blur, no shadow, no glow.",
-        tokens =
-            ThemeShapeTokens(
-                surfaceMode = SurfaceMode.OUTLINED,
-                edgeMode = EdgeMode.HARD,
-                cardCorner = 0.dp,
-                buttonCorner = 0.dp,
-                dialogCorner = 0.dp,
-                fieldCorner = 0.dp,
-                borderStrokeWidth = 2.dp,
-                cardPadding = 12.dp,
-                dialogPadding = 16.dp,
-                cardSpacing = 8.dp,
-                glowWidth = 0f,
-                useBlurEffects = false,
-                useCardBorder = true,
-            ),
-    ),
-
     /** Animated multi-layer gradient backdrop; radii sit between Liquid and Bento. */
     AURORA_FLUID(
         displayName = "Aurora Fluid",
@@ -199,59 +177,6 @@ enum class UiStyle(
     ),
 
     /**
-     * Soft-UI relief: cards carry the page's own colour and rise only through
-     * lighting — a soft glow shadow and generous radii, no outline anywhere.
-     * Loss of contrast between fill and page is the *style*: with softer
-     * rounding and a low-alpha glow the cards read as subtle protrusions.
-     */
-    NEUMORPHIC_SOFT(
-        displayName = "Soft UI",
-        description = "Pillowy relief: cards share the page tone and rise by lighting alone. No outlines, no glass.",
-        tokens =
-            ThemeShapeTokens(
-                surfaceMode = SurfaceMode.RELIEF,
-                edgeMode = EdgeMode.NONE,
-                cardCorner = 24.dp,
-                buttonCorner = 20.dp,
-                dialogCorner = 28.dp,
-                fieldCorner = 12.dp,
-                borderStrokeWidth = 0.dp,
-                cardPadding = 18.dp,
-                dialogPadding = 24.dp,
-                cardSpacing = 18.dp,
-                glowWidth = 0.3f,
-                useBlurEffects = false,
-                useCardBorder = false,
-            ),
-    ),
-
-    /**
-     * Realism skin: recessed fills under a chiselled two-tone edge, tighter
-     * radii like milled hardware. Needs the palette for surfaceVariant — the
-     * recessed well is the style's main surface, deeper than the page.
-     */
-    SKEUOMORPHIC(
-        displayName = "Skeuomorph",
-        description = "Milled hardware: recessed wells under a chiselled bevel edge, tight radii, no blur.",
-        tokens =
-            ThemeShapeTokens(
-                surfaceMode = SurfaceMode.SUNKEN,
-                edgeMode = EdgeMode.BEVEL,
-                cardCorner = 10.dp,
-                buttonCorner = 8.dp,
-                dialogCorner = 16.dp,
-                fieldCorner = 8.dp,
-                borderStrokeWidth = 1.dp,
-                cardPadding = 16.dp,
-                dialogPadding = 22.dp,
-                cardSpacing = 12.dp,
-                glowWidth = 0.15f,
-                useBlurEffects = false,
-                useCardBorder = true,
-            ),
-    ),
-
-    /**
      * Flat 2.0 — the modern flat (the 2017–2020 "big tech flat" era). Bold
      * rounding and generous whitespace, otherwise soberly flat and borderless.
      */
@@ -273,35 +198,6 @@ enum class UiStyle(
                 glowWidth = 0f,
                 useBlurEffects = false,
                 useCardBorder = false,
-            ),
-    ),
-
-    /**
-     * Neo-Brutalism (antidesign): raw, unapologetic, stamped — hard edges,
-     * zero radii, thick full-weight frames, tight spacing.
-     *
-     * Distinctive structure from RETRO_HANDHELD, and it differs by surfaceMode
-     * (FLAT vs OUTLINED) instead of drawing a duplicate treatment: the frame
-     * is full-black-on-tone applied by the HARD edge branch.
-     */
-    NEO_BRUTALISM(
-        displayName = "Neo-Brutalism",
-        description = "Raw antidesign: hard edges, zero radii, thick black frames. Cards are stamped, not eased.",
-        tokens =
-            ThemeShapeTokens(
-                surfaceMode = SurfaceMode.FLAT,
-                edgeMode = EdgeMode.HARD,
-                cardCorner = 0.dp,
-                buttonCorner = 0.dp,
-                dialogCorner = 0.dp,
-                fieldCorner = 0.dp,
-                borderStrokeWidth = 2.5.dp,
-                cardPadding = 14.dp,
-                dialogPadding = 18.dp,
-                cardSpacing = 10.dp,
-                glowWidth = 0f,
-                useBlurEffects = false,
-                useCardBorder = true,
             ),
     ),
 
@@ -331,32 +227,6 @@ enum class UiStyle(
             ),
     ),
 
-    /**
-     * Retro-Futurism (also reads as cyberpunk/90s digital surface): sharp cut-glass planes on a neon grid backdrop, glowing accents.
-     *
-     * Shares GLASS+SPECULAR surfaces with [LIQUID_GLASS], but with tighter radii and a stronger glow — plus the wireframe grid backdrop drawn by
-     * `GradientBackground` (backdrop branch on the enum, same reason as Aurora).
-     */
-    RETRO_FUTURISM(
-        displayName = "Retro-Futurism",
-        description = "Sharp glass planes with hot glow over a neon wireframe grid. Pair with Retrowave for the full synth.",
-        tokens =
-            ThemeShapeTokens(
-                surfaceMode = SurfaceMode.GLASS,
-                edgeMode = EdgeMode.SPECULAR,
-                cardCorner = 6.dp,
-                buttonCorner = 4.dp,
-                dialogCorner = 8.dp,
-                fieldCorner = 4.dp,
-                borderStrokeWidth = 0.6.dp,
-                cardPadding = 14.dp,
-                dialogPadding = 20.dp,
-                cardSpacing = 12.dp,
-                glowWidth = 0.5f,
-                useBlurEffects = true,
-                useCardBorder = true,
-            ),
-    ),
     ;
 
     companion object {
