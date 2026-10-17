@@ -139,9 +139,9 @@ fun LogBrainAnimation(
 // ======================================================================
 
 private const val N = 10
-internal const val FW = 170f
-internal const val FH = 226f
-internal const val FOLD = 28f
+internal const val FW = 150f
+internal const val FH = 206f
+internal const val FOLD = 24f
 private const val RH = 15f
 private const val GARB = "▒░▓#%?@\$&"
 private const val FAIL_FILL = "ERR_UNEXPECTED_EOF"
@@ -233,9 +233,9 @@ private val LAY_WIDE =
     )
 private val LAY_NARROW =
     Lay(
-        // File (medium, 170x226 of a 360-wide viewport) high-center; spiral brain
-        // below it; cards left/right of the brain's lower half; status at bottom.
-        360f, 700f, 180f, 118f, 180f, 340f, 76f, 180f, 614f,
+        // Small file (150x206 of a 360-wide viewport) high-center; abstract spiral
+        // brain below it; cards left/right of the brain's lower half; status bottom.
+        360f, 700f, 180f, 104f, 180f, 330f, 80f, 180f, 614f,
         List(6) { CardR(if (it % 2 == 1) 184f else 10f, 446f + (it / 2) * 48f, 166f, 40f) }, false,
     )
 
@@ -360,21 +360,22 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
     private val py = FloatArray(64)
 
     init {
-        // Spiral neuron layout: 1 hub + 43 neurons down a 2.5-turn Archimedean
-        // spiral (outer rim -> hub), matching the glowing spiral cortex drawn in
-        // drawBrain. Wiring = the spiral spine + one layer link per node to the
-        // node ~a full turn deeper + hub spokes at the inner end + sparse chords.
-        // (v1: Random-signed point cloud = ameba; v2: three round rings = bullseye.
-        // The spiral is the silhouette the shell actually draws.)
+        // Spiral neuron layout: 1 hub + 43 neurons down a 2.2-turn eased spiral
+        // (outer rim -> hub), riding just inside the glowing spiral cortex drawn
+        // in drawBrain (smoothstep radius: bunched at the hub, airy at the rim).
+        // Wiring = the spiral spine + one layer link per node to the node ~a full
+        // turn deeper + hub spokes at the inner end + sparse chords.
+        // (v1: Random point cloud = ameba; v2: rings = bullseye; v3: this.)
         val jit = Random(7)
-        val turns = 2.5f
+        val turns = 2.2f
         val count = 43
         val startAng = Math.PI.toFloat() + .35f
         nodes.add(Node(0f, 0f))
         for (i in 0 until count) {
             val f = (count - 1 - i) / (count - 1).toFloat() // 1.0 = rim, 0 = hub side
+            val e = f * f * (3f - 2f * f) // smoothstep, matches the drawn cortex
             val ang = startAng + f * 6.2832f * turns + (jit.nextFloat() - .5f) * .14f
-            val r = lerp(1.02f, .3f, f) * (1f + (jit.nextFloat() - .5f) * .05f)
+            val r = lerp(.24f, 1.03f, e) * (1f + (jit.nextFloat() - .5f) * .05f)
             nodes.add(Node(cos(ang) * 1.18f * r, sin(ang) * .9f * r))
         }
 
@@ -432,6 +433,7 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
     private val segs = ArrayList<Seg>()
     private val cards = List(6) { CardState() }
     private var ring: Ring? = null
+    private var ring2: Ring? = null
     private var flash = 0f
     private var cam = 0f
     private var fires = 0
@@ -541,26 +543,33 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
     }
 
     private fun shatter() {
-        for (i in 0 until 46) {
+        // Same burst language as the loader's file explosion: white flash, twin
+        // shock rings, 0/1 shards torn outward, warm sparks. The brain then
+        // collapses its segments on top of it (collapse()).
+        flash = 1f
+        cam = 1f
+        ring = Ring(10f, 1f, pal.failHue, true)
+        ring2 = Ring(4f, .7f, pal.failHue, true)
+        for (i in 0 until 80) {
             val a = rnd.nextFloat() * 6.283f
-            val v = 120f + rnd.nextFloat() * 520f
+            val v = 260f + rnd.nextFloat() * 1000f
             shards.add(
                 Shard(
-                    lay.fx + (rnd.nextFloat() - .5f) * FW * .8f,
-                    lay.fy + (rnd.nextFloat() - .5f) * FH * .8f,
+                    lay.fx + (rnd.nextFloat() - .5f) * FW * .7f,
+                    lay.fy + (rnd.nextFloat() - .5f) * FH * .6f,
                     cos(a) * v,
-                    sin(a) * v - 260f,
-                    9f + rnd.nextFloat() * 26f,
+                    sin(a) * v - 380f,
+                    12f + rnd.nextFloat() * 30f,
                     rnd.nextFloat() * 6f,
-                    (rnd.nextFloat() - .5f) * 16f,
+                    (rnd.nextFloat() - .5f) * 20f,
                     if (rnd.nextBoolean()) "0" else "1",
                 ),
             )
         }
-        for (i in 0 until 60) {
+        for (i in 0 until 140) {
             val a = rnd.nextFloat() * 6.283f
-            val v = 150f + rnd.nextFloat() * 700f
-            sparks.add(Spark(lay.fx, lay.fy, cos(a) * v, sin(a) * v, .4f + rnd.nextFloat() * .7f, 10f + rnd.nextFloat() * 25f))
+            val v = 200f + rnd.nextFloat() * 1200f
+            sparks.add(Spark(lay.fx, lay.fy, cos(a) * v, sin(a) * v, .4f + rnd.nextFloat() * .7f, 5f + rnd.nextFloat() * 30f))
         }
     }
 
@@ -656,12 +665,11 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
             }
             Phase.GLITCH ->
                 if (tp > 1.1f) {
+                    // shatter() owns the whole burst (flash, twin rings, shards,
+                    // sparks); collapse() adds the shell segments underneath it.
                     shatter()
                     collapse()
                     chips.clear()
-                    flash = 1f
-                    cam = 1f
-                    ring = Ring(20f, .9f, 0f, true)
                     setPhase(Phase.DEAD)
                 }
             else -> {}
@@ -777,6 +785,11 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
             it.a -= dt * 1.1f
             if (it.a <= 0f) ring = null
         }
+        ring2?.let {
+            it.r += dt * 380f
+            it.a -= dt * 1.1f
+            if (it.a <= 0f) ring2 = null
+        }
         cam = damp(cam, 0f, 4f, dt)
         flash = damp(flash, 0f, 5f, dt)
         for (s in shards) {
@@ -877,6 +890,10 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                 drawCards()
                 drawBrain()
                 ring?.let { r ->
+                    val o = if (r.onFile) Offset(lay.fx, lay.fy) else Offset(lay.bx, lay.bcy)
+                    drawCircle(hsl(r.hue, 80f, 60f, r.a), r.r, o, style = Stroke(2f))
+                }
+                ring2?.let { r ->
                     val o = if (r.onFile) Offset(lay.fx, lay.fy) else Offset(lay.bx, lay.bcy)
                     drawCircle(hsl(r.hue, 80f, 60f, r.a), r.r, o, style = Stroke(2f))
                 }
@@ -1103,8 +1120,8 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
         }
 
         if (!dead) {
-            // Body: a calm filled ellipse (the random wobble harmonics are gone —
-            // that was half of the ameba look).
+            // Airy body — fill only, no drawn outline: the spiral stroke itself
+            // carries the silhouette (outline+fill was what made it look solid).
             pathC.reset()
             for (i in 0..72) {
                 val a = i / 72f * 6.2832f
@@ -1113,25 +1130,36 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
                 if (i == 0) pathC.moveTo(x, y) else pathC.lineTo(x, y)
             }
             pathC.close()
-            drawPath(pathC, c(hue, 85f, 58f, .06f + if (run) .03f * sin(t * 4f) else 0f))
-            glowPath(pathC, c(hue, 85f, 58f, .55f), 2f, if (run) 1f + .4f * sin(t * 4f) else 1f)
+            drawPath(pathC, c(hue, 85f, 58f, .05f + if (run) .02f * sin(t * 4f) else 0f))
 
-            // Spiral cortex: ~2.5 Archimedean turns from the outer rim down to the
-            // hub, glowing over the neuron layers. Breathes with br and flares
-            // while the network runs.
+            // Abstract spiral cortex: eased spacing (bunched at the hub, airy at
+            // the rim), thin glow, breathing with br. While the network runs a
+            // faint counter-winding echo drifts under it.
             pathB.reset()
-            val turns = 2.5f
-            val SPIRAL_STEPS = 160
+            val turns = 2.2f
+            val steps = 220
             val startAng = Math.PI.toFloat() + .35f
-            for (k in 0..SPIRAL_STEPS) {
-                val f = k / SPIRAL_STEPS.toFloat()
+            for (k in 0..steps) {
+                val f = k / steps.toFloat()
                 val ang = startAng + f * 6.2832f * turns
-                val r = lerp(1.06f, .3f, f) * R
+                val r = lerp(.22f, 1.08f, f * f * (3f - 2f * f)) * R // smoothstep: dense hub, airy rim
                 val x = lay.bx + cos(ang) * 1.18f * r
                 val y = lay.bcy + sin(ang) * .9f * r
                 if (k == 0) pathB.moveTo(x, y) else pathB.lineTo(x, y)
             }
-            glowPath(pathB, c(hue, 80f, 60f, .5f), 1.3f, if (run) 1f + .4f * sin(t * 4f) else .8f)
+            glowPath(pathB, c(hue, 80f, 62f, .45f), 1.1f, if (run) 1f + .35f * sin(t * 4f) else .75f)
+            if (run) {
+                pathB.reset()
+                for (k in 0..steps) {
+                    val f = k / steps.toFloat()
+                    val ang = startAng + 6.2832f * turns * (1f - f)
+                    val r = lerp(.34f, .96f, f * f * (3f - 2f * f)) * R
+                    val x = lay.bx + cos(ang + .9f) * 1.18f * r
+                    val y = lay.bcy + sin(ang + .9f) * .9f * r
+                    if (k == 0) pathB.moveTo(x, y) else pathB.lineTo(x, y)
+                }
+                glowPath(pathB, c(hue, 80f, 62f, .16f), 1f, 1f)
+            }
         } else {
             for (g in segs) {
                 val a = cl(1f - (tp - 3.6f) / 1.2f)
@@ -1157,8 +1185,8 @@ internal class BrainSim(private val rowSeconds: Float, pal: AnimTheme) {
             val n = nodes[i]
             val f = if ((fl && rnd.nextFloat() < .45f) || (dead && tp < n.dl && rnd.nextFloat() < .3f)) .25f else 1f
             val a = (.3f + .7f * max(n.e, n.k * .6f)) * f
-            if (n.e > .25f) halo(px[i], py[i], 14f * n.e + 4f, c(n.h, 90f, 60f, .45f * n.e))
-            drawCircle(c(n.h, 85f, 62f + n.e * 20f, a), 2f + 3.2f * n.e + n.k, Offset(px[i], py[i]))
+            if (n.e > .25f) halo(px[i], py[i], 16f * n.e + 5f, c(n.h, 90f, 60f, .5f * n.e))
+            drawCircle(c(n.h, 85f, 62f + n.e * 20f, a), 2.4f + 3.6f * n.e + n.k, Offset(px[i], py[i]))
         }
         for (s in sigs) {
             val ax = px[s.a]
