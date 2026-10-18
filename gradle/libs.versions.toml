@@ -52,7 +52,7 @@ ksp = "2.3.12"
 # compileSdk floor is what gates it, not minSdk. 1.0.0-alpha11 is the first
 # release whose AppFunctionServiceEntryPoint annotation is stable enough to
 # generate the service + assets XML at compile time (alpha10 introduced it).
-appfunctions = "1.0.0-alpha11"
+appfunctions = "1.0.0-alpha13"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
