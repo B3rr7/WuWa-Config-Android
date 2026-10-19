@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": "wutheringwaves.fandom.com",
-  "sourceTimestamp": "2026-10-01T22:42:08Z",
+  "sourceTimestamp": "2026-10-18T22:49:37Z",
   "characterAscensionPhases": [
     {
       "phase": 1,
@@ -2136,6 +2136,24 @@
       "secondStat": null
     },
     "Starfield Calibrator": {
+      "rarity": 5,
+      "ascension": [
+        "LF Carved Crystal",
+        "MF Carved Crystal",
+        "HF Carved Crystal",
+        "FF Carved Crystal"
+      ],
+      "common": [
+        "Fractured Exoswarm Pendant",
+        "Worn Exoswarm Pendant",
+        "Chipped Exoswarm Pendant",
+        "Intact Exoswarm Pendant"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Thousandfold Deliverance": {
       "rarity": 5,
       "ascension": [
         "LF Carved Crystal",
