@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": "wutheringwaves.fandom.com",
-  "sourceTimestamp": "2026-10-18T22:49:37Z",
+  "sourceTimestamp": "2026-10-22T19:13:32Z",
   "characterAscensionPhases": [
     {
       "phase": 1,
@@ -2670,6 +2670,24 @@
         "MF Howler Core",
         "HF Howler Core",
         "FF Howler Core"
+      ],
+      "baseAtk": null,
+      "secondStatType": null,
+      "secondStat": null
+    },
+    "Unspoken Rue": {
+      "rarity": 5,
+      "ascension": [
+        "Broken Wing Polarizer",
+        "Monowing Polarizer",
+        "Polywing Polarizer",
+        "Layered Wing Polarizer"
+      ],
+      "common": [
+        "LF Mech Core",
+        "MF Mech Core",
+        "HF Mech Core",
+        "FF Mech Core"
       ],
       "baseAtk": null,
       "secondStatType": null,
