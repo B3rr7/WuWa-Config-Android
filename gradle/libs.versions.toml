@@ -38,7 +38,7 @@ gson = "2.14.0"
 # separate opt-in artifact, so coil-compose no longer drags okhttp + okio + an HTTP
 # fetcher in for an app that only ever loads local content URIs. See
 # util/LocalOnlyImage.kt, which existed to work around exactly that in 2.x.
-coil = "3.3.0"
+coil = "3.6.3"
 media3 = "1.11.1"
 junit = "4.13.2"
 mockito = "5.24.0"
