@@ -17,7 +17,7 @@ coroutines = "1.11.0"
 # synchronously-consistently *before* the first frame, and SharedPreferences
 # writes are fire-and-forget `apply()` which loses the last selection on a
 # process kill during a slider drag.
-datastore = "1.1.7"
+datastore = "1.3.0"
 shizuku = "13.1.5"
 documentfile = "1.1.0"
 # androidx.security:security-crypto is the deprecated artifact family; Google
