@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": "wutheringwaves.fandom.com",
-  "sourceTimestamp": "2026-11-07T15:52:55Z",
+  "sourceTimestamp": "2026-11-08T10:27:21Z",
   "characterAscensionPhases": [
     {
       "phase": 1,
@@ -1248,7 +1248,7 @@
     "Lily": {
       "rarity": 5,
       "boss": "Suncoveter's Reach",
-      "local": "(Currently unobtainable)",
+      "local": "Reverie Lily",
       "common": [
         "LF Exoswarm Core",
         "MF Exoswarm Core",
