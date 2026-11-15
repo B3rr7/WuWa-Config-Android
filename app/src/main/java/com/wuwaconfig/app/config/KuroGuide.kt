@@ -35,6 +35,12 @@ import java.net.URL
  * only speaks about what Kuro is featuring.
  */
 object KuroGuide {
+    /**
+     * Kuro's official guide is used ONLY by the My Character feature and the Pity
+     * Tracker — the two places that legitimately need current guide/character data.
+     * Everything else (calculator tables, etc.) is served from our own repo under
+     * `tools/data/`, gathered by a GitHub Action.
+     */
     private const val AVATAR_LIST = "https://guide-server.aki-game.net/role/avatar/list"
     private const val GUIDE_BASE = "https://guide-server.aki-game.net"
     private const val CONNECT_TIMEOUT_MS = 15_000
@@ -138,6 +144,23 @@ object KuroGuide {
             }
         }
 
+    /**
+     * The guide characters already cached on disk, **without any network request**.
+     *
+     * The Pity tracker uses this so that opening it never talks to a web server; the
+     * cache is written by [fetchCharacters], which only the My Character feature
+     * calls. Returns an empty list when no cache exists yet (the tracker then falls
+     * back to the player's own pull history).
+     */
+    fun cachedCharacters(language: String = "en"): List<OfficialCharacter> =
+        try {
+            val context = com.wuwaconfig.app.WuWaConfigApp.instance
+            val disk = readCache(java.io.File(context.filesDir, CACHE_FILE)) ?: return emptyList()
+            parseAvatarList(disk.body, language)
+        } catch (e: Exception) {
+            emptyList()
+        }
+
     /** A weapon the guide recommends for a resonator; `status == 1` is the signature one. */
     data class FeaturedWeapon(
         val gbId: String,
@@ -151,10 +174,9 @@ object KuroGuide {
      *
      * The page's "Recom m. Weapons" block is `data.weapon.items`: the entry with
      * `status == 1` is the signature weapon and the rest are alternatives. Kuro's
-     * weapon banner features exactly that weapon, so this is the correct source for
-     * "Featured Weapon" — not the player's latest pull. Only Chinese names ship in
-     * this payload; callers translate via the gacha record's own English name when
-     * the player has pulled the weapon.
+     * weapon banner features exactly that weapon. This is a guide-server call, which
+     * is allowed for the Pity Tracker (the tracker is one of the two features
+     * permitted to use Kuro's guide).
      */
     suspend fun fetchFeaturedWeapon(roleGbId: String): Result<FeaturedWeapon> =
         withContext(Dispatchers.IO) {
@@ -195,7 +217,7 @@ object KuroGuide {
         return arr.firstOrNull()?.asJsonObject?.get("id")?.asInt
     }
 
-    /** Small bounded GET for the weapon lookup (the avatar list has its own ETag path). */
+    /** Small bounded GET (the avatar list has its own ETag path). */
     private fun getJson(url: String): String? {
         var connection: HttpURLConnection? = null
         return try {

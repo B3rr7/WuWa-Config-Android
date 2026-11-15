@@ -45,7 +45,9 @@ import com.wuwaconfig.app.ui.components.GlassTopBar
 import com.wuwaconfig.app.ui.components.GradientBackground
 import com.wuwaconfig.app.ui.components.MiniLogViewer
 import com.wuwaconfig.app.ui.theme.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * Astrites/Lunites per single pull, from the game profile.
@@ -87,27 +89,20 @@ fun PityScreen(
     val gachaHistory by viewModel.gachaHistory.collectAsStateWithLifecycle()
     val gachaError by viewModel.gachaError.collectAsStateWithLifecycle()
 
-    // Kuro's official guide, for the current banner's featured characters and art.
-    // Fetched once per screen entry; a failure just means the banner card falls back
-    // to the name carried on the player's own pull history.
-    var officialCharacters by remember { mutableStateOf<List<OfficialCharacter>>(emptyList()) }
+    // Guide data comes ONLY from our GitHub repo (raw.githubusercontent.com),
+    // gathered there by the `update-guide-data.yml` Action. The app never contacts
+    // Kuro's guide server directly. The on-disk cache is shown instantly, then a
+    // cached (6h ETag) refresh lands if the repo has newer data.
+    var officialCharacters by remember { mutableStateOf(KuroGuide.cachedCharacters()) }
     LaunchedEffect(Unit) {
-        KuroGuide.fetchCharacters()
-            .onSuccess { fetched ->
-                officialCharacters = fetched
-                GachaAvatar.setOfficialArt(
-                    fetched.mapNotNull { c -> c.cardPictureUrl.takeIf { it.isNotBlank() }?.let { c.name to it } }.toMap(),
-                )
-            }
+        withContext(Dispatchers.IO) { KuroGuide.cachedCharacters() }
+            .takeIf { it.isNotEmpty() }
+            ?.let { officialCharacters = it }
+        KuroGuide.fetchCharacters().onSuccess { officialCharacters = it }
     }
 
-    // The weapon banner features the signature weapon of the main featured 5★
-    // resonator. The guide's build page exposes it as the first recommended weapon,
-    // which is the only first-party source for the *live* weapon banner — the avatar
-    // list carries no weapon data at all.
     var featuredWeapon by remember { mutableStateOf<KuroGuide.FeaturedWeapon?>(null) }
     LaunchedEffect(officialCharacters) {
-        if (officialCharacters.isEmpty()) return@LaunchedEffect
         val main =
             officialCharacters
                 .filter { it.status == OfficialStatus.NEWLY_LAUNCHED || it.status == OfficialStatus.UP }

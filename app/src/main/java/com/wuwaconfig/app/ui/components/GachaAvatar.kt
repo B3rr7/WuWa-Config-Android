@@ -166,9 +166,18 @@ fun GachaAvatar(
     resourceType: String,
     size: Dp,
     modifier: Modifier = Modifier,
+    /**
+     * Whether to fall back to Kuro's CDN art (a network request) when no bundled
+     * portrait exists. Enabled here because Kuro's guide is an allowed source for
+     * the My Character and Pity Tracker features; bundled art is still preferred.
+     */
+    allowRemote: Boolean = true,
 ) {
     val context = LocalContext.current
-    val official = remember(name, resourceType) { GachaAvatar.officialArtFor(name, resourceType) }
+    val official =
+        remember(name, resourceType, allowRemote) {
+            if (allowRemote) GachaAvatar.officialArtFor(name, resourceType) else null
+        }
     val bundled = remember(name, resourceType) { GachaAvatar.assetFile(context, name, resourceType) }
     val model = remember(name, resourceType, bundled, official) { portraitModel(bundled, official) }
     // Guard on loadability, not on null: a URL Coil has no fetcher for must fall

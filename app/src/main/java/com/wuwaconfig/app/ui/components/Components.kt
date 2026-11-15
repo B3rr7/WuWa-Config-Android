@@ -1223,14 +1223,9 @@ fun GradientBackground(content: @Composable () -> Unit) {
                 contentScale = ContentScale.Crop,
             )
         } else {
-            // AURORA_FLUID is the one style whose identity is the backdrop, so it
-            // gets animated layers; every other style keeps the cheap static
-            // gradient it always had. The branch is on the enum rather than on a
-            // token because "is this backdrop animated" is not a dimension.
-            val uiStyle = LocalUiStyle.current
-            if (uiStyle == UiStyle.AURORA_FLUID) {
-                AuroraBackdrop()
-            } else {
+            // Static gradient backdrop for every remaining style. The animated
+            // Aurora backdrop was removed together with the AURORA_FLUID style.
+            run {
                 // Cached, not rebuilt: the backdrop renders on every screen, and a
                 // fresh Brush allocation per recomposition of the root composable
                 // was pure garbage churn. 3-stop ramp: bg -> an accent-tinted mid

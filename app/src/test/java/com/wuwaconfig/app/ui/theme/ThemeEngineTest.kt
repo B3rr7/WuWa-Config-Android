@@ -84,11 +84,7 @@ class ThemeEngineTest {
         // Spelled out so a rename fails loudly here rather than in production.
         assertTrue("MATERIAL_YOU" in styleNames)
         assertTrue("LIQUID_GLASS" in styleNames)
-        assertTrue("BENTO_GRID" in styleNames)
         assertTrue("FLAT_DESIGN_2" in styleNames)
-        assertTrue("AURORA_FLUID" in styleNames)
-        assertTrue("MIDNIGHT_OLED" in styleNames)
-        assertTrue("MINIMALIST" in styleNames)
         assertTrue("SYSTEM_DEFAULT" in paletteNames)
         assertTrue("WUTHERING_GOLD" in paletteNames)
         assertTrue("CYBER_PUNK" in paletteNames)
@@ -476,11 +472,9 @@ class ThemeEngineTest {
     fun `every style declares a distinct surface and edge treatment`() {
         // Radius is included, because it is the one property every style can
         // always differ on and a duplicate here really is indistinguishable. The
-        // glass pair is a known, deliberate exception: AURORA_FLUID and
-        // LIQUID_GLASS differ only by backdrop, which `GradientBackground` reads
-        // off the enum directly. Asserting they diverge as *cards* would mean
-        // inventing a token that duplicates the backdrop decision.
-        val knownSharedTreatment = setOf(UiStyle.LIQUID_GLASS to UiStyle.AURORA_FLUID)
+        // former glass exception (LIQUID_GLASS vs AURORA_FLUID) is gone with
+        // AURORA_FLUID, so any duplicate now is a genuine collision.
+        val knownSharedTreatment: Set<Pair<UiStyle, UiStyle>> = emptySet()
         val treatments =
             UiStyle.entries.map { style ->
                 style.name to Triple(style.tokens.surfaceMode, style.tokens.edgeMode, style.tokens.cardCorner)
@@ -706,15 +700,15 @@ class ThemeEngineTest {
     fun `blur styles are exactly the translucent ones`() {
         val blurred = UiStyle.entries.filter { it.tokens.useBlurEffects }
         assertEquals(
-            listOf(UiStyle.LIQUID_GLASS, UiStyle.AURORA_FLUID),
+            listOf(UiStyle.LIQUID_GLASS),
             blurred,
         )
     }
 
     @Test
-    fun `bento is the roundest card style`() {
+    fun `material you is the roundest card style`() {
         val roundest = UiStyle.entries.maxByOrNull { it.tokens.cardCorner }
-        assertEquals(UiStyle.BENTO_GRID, roundest)
+        assertEquals(UiStyle.MATERIAL_YOU, roundest)
     }
 
     /**
