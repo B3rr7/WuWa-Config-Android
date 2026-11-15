@@ -60,6 +60,11 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
     private val _rosterLoading = MutableStateFlow(false)
     val rosterLoading: StateFlow<Boolean> = _rosterLoading.asStateFlow()
 
+    private val _rosterError = MutableStateFlow<String?>(null)
+
+    /** Non-null when the public roster fetch failed; the view offers a retry for it. */
+    val rosterError: StateFlow<String?> = _rosterError.asStateFlow()
+
     private val _selectedRoleGbId = MutableStateFlow<String?>(null)
     val selectedRoleGbId: StateFlow<String?> = _selectedRoleGbId.asStateFlow()
 
@@ -128,8 +133,16 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             _rosterLoading.value = true
             KuroGuide.fetchCharacters()
-                .onSuccess { _characters.value = it }
-                .onFailure { addLog("Character roster unavailable", LogLevel.WARNING) }
+                .onSuccess {
+                    _characters.value = it
+                    _rosterError.value = null
+                }
+                .onFailure { e ->
+                    // The view separates "fetch failed" from "roster is empty" so an outage
+                    // offers a retry instead of reading as an account with no characters.
+                    _rosterError.value = "Could not load the character roster: ${e.message}"
+                    addLog("Character roster unavailable: ${e.message}", LogLevel.WARNING)
+                }
             _rosterLoading.value = false
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -148,6 +161,20 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
                     addLog("fetchPlayers failed: ${e.message}", LogLevel.WARNING)
                 }
         }
+    }
+
+    /**
+     * Re-runs the outstanding fetches after a failure.
+     *
+     * Both error paths used to be one-way: a failed roster left the screen saying "No
+     * characters loaded yet" and a failed build left a message with no way forward short of
+     * signing out. This is what the view's error cards call.
+     */
+    fun refresh() {
+        _rosterError.value = null
+        _buildError.value = null
+        resume()
+        _selectedRoleGbId.value?.let { selectCharacter(it, keepSelection = true) }
     }
 
     /** Switches the active in-game account; subsequent builds resolve against it. */
@@ -227,10 +254,12 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
         _chosenPlayer.value = null
         _characters.value = emptyList()
         _rosterLoading.value = false
+        _rosterError.value = null
         _selectedRoleGbId.value = null
         _build.value = null
         _buildLoading.value = false
         _buildError.value = null
+        _loginError.value = null
     }
 
     private fun isExpired(session: KuroSession): Boolean {

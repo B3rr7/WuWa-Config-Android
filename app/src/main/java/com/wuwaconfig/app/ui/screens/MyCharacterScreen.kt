@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,6 +27,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -50,9 +52,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +65,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -96,7 +99,6 @@ import com.wuwaconfig.app.ui.theme.NeonPurple
 import com.wuwaconfig.app.ui.theme.NeonRed
 import com.wuwaconfig.app.ui.theme.WuWaConfigTheme
 import com.wuwaconfig.app.ui.theme.elementAccent
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
@@ -157,6 +159,9 @@ private fun LoginSection(
     // email never pre-filled. Seed once, only while the field is untouched, so a
     // user edit is never clobbered and the value survives rotation.
     var email by rememberSaveable { mutableStateOf("") }
+    // Deliberately `remember`, not `rememberSaveable`: saved state is marshalled into the
+    // Activity bundle, and a password has no business surviving process death there. The cost
+    // is that a rotation clears the password field — the email is the part worth restoring.
     var password by remember { mutableStateOf("") }
     LaunchedEffect(prefill) {
         val seed = prefill
@@ -164,7 +169,7 @@ private fun LoginSection(
     }
 
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Spacer(Modifier.height(8.dp))
@@ -254,34 +259,26 @@ private fun LoggedInContent(
     val build by viewModel.build.collectAsStateWithLifecycle()
     val buildLoading by viewModel.buildLoading.collectAsStateWithLifecycle()
     val buildError by viewModel.buildError.collectAsStateWithLifecycle()
+    val rosterError by viewModel.rosterError.collectAsStateWithLifecycle()
+    // `build` is a delegated property, so it cannot smart-cast; bind it once instead of
+    // re-reading it per branch (and instead of the `build ?: return@Column` that used to
+    // abandon the rest of the column).
+    val currentBuild = build
+    val selectablePlayers = players.filter { it.isSelectable }
 
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Spacer(Modifier.height(4.dp))
-        if (players.any { it.isSelectable }) {
-            PlayerPicker(players, chosen) { viewModel.choosePlayer(it) }
+        if (selectablePlayers.isNotEmpty()) {
+            PlayerPicker(selectablePlayers, chosen) { viewModel.choosePlayer(it) }
         }
-        CharacterSlider(characters, selectedId, rosterLoading) { viewModel.selectCharacter(it) }
+        CharacterSlider(characters, selectedId, rosterLoading, rosterError, viewModel::refresh) { viewModel.selectCharacter(it) }
         when {
-            buildLoading ->
-                GlassCard(accentColor = NeonCyan) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = NeonCyan, strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Loading build…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            buildError != null ->
-                GlassCard(accentColor = NeonRed) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Warning, contentDescription = null, tint = NeonRed, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(buildError ?: "", style = MaterialTheme.typography.bodySmall, color = NeonRed)
-                    }
-                }
-            build != null -> BuildDetail(build ?: return@Column)
+            buildLoading -> LoadingCard("Loading build…")
+            buildError != null -> ErrorCard(buildError ?: "", onRetry = viewModel::refresh)
+            currentBuild != null -> BuildDetail(currentBuild)
             else ->
                 GlassCard(accentColor = NeonCyan) {
                     Text(
@@ -300,15 +297,19 @@ private fun LoggedInContent(
 
 @Composable
 private fun PlayerPicker(
-    players: List<PlayerInfo>,
+    selectablePlayers: List<PlayerInfo>,
     chosen: ChosenPlayer?,
     onSelect: (PlayerInfo) -> Unit,
 ) {
     GlassCard(accentColor = NeonPurple) {
         GlassCardHeader("YOUR ACCOUNTS", NeonPurple)
         Spacer(Modifier.height(8.dp))
-        players.filter { it.isSelectable }.forEach { player ->
-            PlayerRow(player, chosen?.playerId == player.playerId) { onSelect(player) }
+        // The caller passes only selectable accounts. Keying each row on its account id keeps
+        // row state with the account when the list reorders after a refresh.
+        selectablePlayers.forEach { player ->
+            key(player.playerId) {
+                PlayerRow(player, chosen?.playerId == player.playerId) { onSelect(player) }
+            }
         }
     }
 }
@@ -404,6 +405,8 @@ private fun CharacterSlider(
     characters: List<OfficialCharacter>,
     selectedId: String?,
     loading: Boolean,
+    error: String?,
+    onRetry: () -> Unit,
     onSelect: (String) -> Unit,
 ) {
     GlassCard(accentColor = NeonGreen) {
@@ -416,6 +419,7 @@ private fun CharacterSlider(
                     Spacer(Modifier.width(8.dp))
                     Text("Loading characters…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            error != null -> ErrorContent(error, onRetry)
             characters.isEmpty() ->
                 Text(
                     "No characters loaded yet.",
@@ -424,12 +428,18 @@ private fun CharacterSlider(
                 )
             else -> {
                 val pagerState = rememberPagerState(pageCount = { characters.size })
-                val scope = rememberCoroutineScope()
-                LaunchedEffect(selectedId, characters.size) {
+                // Selection -> pager. Keyed on the roster, not its size: switching accounts can
+                // swap in a roster of the same length, and a size key left the pager parked on
+                // a page index that now pointed at a different character.
+                LaunchedEffect(selectedId, characters) {
                     val index = characters.indexOfFirst { it.roleGbId == selectedId }
-                    if (index >= 0 && index != pagerState.currentPage) {
-                        scope.launch { pagerState.animateScrollToPage(index) }
-                    }
+                    if (index >= 0 && index != pagerState.currentPage) pagerState.animateScrollToPage(index)
+                }
+                // Pager -> selection. Without this a swipe moved the cards while the build
+                // below kept describing the previously selected character, and the centred
+                // card carried no check mark.
+                LaunchedEffect(pagerState.settledPage) {
+                    pageSelection(characters.map { it.roleGbId }, pagerState.settledPage, selectedId)?.let(onSelect)
                 }
                 // The page slot must be sized to the CARD, not to the viewport.
                 //
@@ -525,7 +535,7 @@ private fun CharacterCard(
                     if (isSelected) accent.copy(alpha = 0.7f) else rarityTint.copy(alpha = 0.22f),
                     RoundedCornerShape(20.dp),
                 )
-                .clickable(onClick = onClick)
+                .selectable(selected = isSelected, role = Role.RadioButton, onClick = onClick)
                 .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -548,9 +558,11 @@ private fun CharacterCard(
                         .background(Brush.radialGradient(listOf(rarityTint.copy(alpha = 0.18f), Color.Transparent))),
             )
             if (character.cardPictureUrl.isNotBlank()) {
+                // Decorative: the character's name is the Text directly below the art, so a
+                // contentDescription here made every card announce its name twice.
                 RemoteImage(
                     url = character.cardPictureUrl,
-                    contentDescription = character.name,
+                    contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
@@ -1176,7 +1188,7 @@ private fun StatsSection(
                     Icon(Icons.Filled.Check, contentDescription = "Target met", tint = accent, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
                 }
-                Pill(stat.current?.takeIf { it.isNotBlank() } ?: stat.target ?: "—", accent)
+                Pill(statProgressLabel(stat), accent)
             }
             StatProgress(stat, accent)
         }
@@ -1194,6 +1206,9 @@ private fun StatProgress(
     accent: Color,
 ) {
     val ratio = statRatio(stat.current, stat.target) ?: return
+    // Past the target the bar is clamped at full width, so its colour is the only cue left
+    // that the build overshoots: gold above 1.0, the element accent below.
+    val barColor = if (ratio > 1f) NeonGold else accent
     Box(
         modifier =
             Modifier
@@ -1209,7 +1224,7 @@ private fun StatProgress(
                     .fillMaxWidth(ratio.coerceIn(0f, 1f))
                     .fillMaxHeight()
                     .background(
-                        brush = Brush.horizontalGradient(listOf(accent.copy(alpha = 0.55f), accent)),
+                        brush = Brush.horizontalGradient(listOf(barColor.copy(alpha = 0.55f), barColor)),
                     ),
         )
     }
@@ -1228,6 +1243,75 @@ internal fun statRatio(
 
 // -- shared bits -------------------------------------------------------------
 
+/** A card with a spinner and a one-line message, for any in-flight fetch. */
+@Composable
+private fun LoadingCard(message: String) {
+    GlassCard(accentColor = NeonCyan) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = NeonCyan, strokeWidth = 2.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** A failed fetch: the message plus the retry that used to be missing. */
+@Composable
+private fun ErrorCard(
+    message: String,
+    onRetry: () -> Unit,
+) {
+    GlassCard(accentColor = NeonRed) {
+        ErrorContent(message, onRetry)
+    }
+}
+
+/**
+ * [ErrorCard] without the card, for callers that already sit inside one.
+ *
+ * Both failed fetches on this screen used to be dead ends: a roster failure rendered as "No
+ * characters loaded yet" — indistinguishable from an account with no characters — and a build
+ * failure as a message with no way to try again, so the only recovery was signing out.
+ */
+@Composable
+private fun ErrorContent(
+    message: String,
+    onRetry: () -> Unit,
+) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Warning, contentDescription = null, tint = NeonRed, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(message, style = MaterialTheme.typography.bodySmall, color = NeonRed)
+        }
+        Spacer(Modifier.height(8.dp))
+        GlassOutlinedButton(onClick = onRetry, modifier = Modifier.fillMaxWidth(), accentColor = NeonRed) {
+            Text("Retry", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+/**
+ * Which character the carousel must report after settling on [page].
+ *
+ * `null` means "nothing to report": the page is out of range (a reload shrank the roster) or
+ * it already matches [selectedId]. Returning `null` rather than the current id is what keeps
+ * the two pager effects from echoing each other — the pager-to-selection effect would
+ * otherwise re-select on every settle and re-trigger the selection-to-pager scroll.
+ */
+internal fun pageSelection(
+    ids: List<String>,
+    page: Int,
+    selectedId: String?,
+): String? = ids.getOrNull(page)?.takeIf { it != selectedId }
+
+/** "current / target" so the guide's goal stays visible once a current value exists. */
+internal fun statProgressLabel(stat: StatRecommendation): String {
+    val current = stat.current?.takeIf { it.isNotBlank() }
+    val target = stat.target?.takeIf { it.isNotBlank() }
+    return listOfNotNull(current, target).joinToString(" / ").ifBlank { "—" }
+}
+
 @Composable
 private fun Pill(
     text: String,
@@ -1245,22 +1329,43 @@ private fun Pill(
     }
 }
 
-@Preview(name = "MyCharacter Light", showBackground = true)
+/**
+ * A real card preview. The previous pair rendered a literal `Text("MyCharacter Preview")`, so
+ * neither showed anything about this file's layout. Network art cannot load in a preview, so
+ * these cards exercise the [RemoteImage] error path — now a dimmed warning glyph rather than
+ * the blank box that read as a missing asset.
+ */
+@Preview(name = "Character cards — dark", showBackground = true, widthDp = 380)
 @Composable
-private fun MyCharacterScreenLightPreview() {
-    WuWaConfigTheme(themeMode = "light") {
-        GradientBackground {
-            Text("MyCharacter Preview")
+private fun CharacterCardDarkPreview() {
+    WuWaConfigTheme(themeMode = "dark") {
+        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CharacterCard(PreviewCharacter, isSelected = true, onClick = {})
+            CharacterCard(
+                PreviewCharacter.copy(name = "Cartethyia", star = 4, status = OfficialStatus.UP),
+                isSelected = false,
+                onClick = {},
+            )
         }
     }
 }
 
-@Preview(name = "MyCharacter Dark", showBackground = true)
+@Preview(name = "Character cards — light", showBackground = true, widthDp = 380)
 @Composable
-private fun MyCharacterScreenDarkPreview() {
-    WuWaConfigTheme(themeMode = "dark") {
-        GradientBackground {
-            Text("MyCharacter Preview")
+private fun CharacterCardLightPreview() {
+    WuWaConfigTheme(themeMode = "light") {
+        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CharacterCard(PreviewCharacter.copy(status = OfficialStatus.UP), isSelected = false, onClick = {})
         }
     }
 }
+
+private val PreviewCharacter =
+    OfficialCharacter(
+        roleGbId = "preview-role",
+        name = "Cantarella",
+        star = 5,
+        status = OfficialStatus.NEWLY_LAUNCHED,
+        cardPictureUrl = "https://guide-res.aki-game.net/preview/cantarella.webp",
+        illustrationPictureUrl = "",
+    )
