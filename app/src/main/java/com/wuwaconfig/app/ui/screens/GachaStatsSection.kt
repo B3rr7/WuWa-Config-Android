@@ -417,7 +417,17 @@ fun GachaVisualSection(
                         type = type,
                         label = GachaPoolType.fromType(type)?.label ?: type,
                         records = records,
-                        prediction = data.predictions.firstOrNull { it.poolType == type },
+                        // Pity is SHARED across every banner of a family (Kuro:
+                        // "one shared count … carried over until you get a 5★"), so
+                        // a prediction belongs to the family, not the slot. Matching
+                        // on cardPoolType alone showed "no pity data" on every
+                        // banner except the one that happened to hold the family's
+                        // newest pull — i.e. on every banner the player was not on.
+                        prediction =
+                            data.predictions.firstOrNull {
+                                it.familyLabel.isNotBlank() &&
+                                    it.familyLabel == GachaPoolType.fromType(type)?.family?.label
+                            } ?: data.predictions.firstOrNull { it.poolType == type },
                     )
                 }
                 // Numeric, not lexical: cardPoolType is the string "1".."11",
@@ -502,10 +512,11 @@ private fun BannerSelector(
  * The selected banner's chart and figures: rarity donut, pity progress, and the
  * per-banner detail stats.
  *
- * The pity block is gated on a prediction existing. A banner can have pulls without
- * one — a standard or beginner pool is not a 50/50 banner, so no prediction is
- * generated for it — and showing "0 pulls since ★5" there would assert a pity the
- * banner does not have.
+ * The pity block is gated on a prediction existing. A standard pool is not a
+ * 50/50 banner and has no featured unit, so no prediction is generated for it and
+ * showing "0 pulls since ★5" there would assert a pity the banner does not have.
+ * The novice banner DOES get one now — its ceiling is 50, not 80, which is why the
+ * displayed fraction reads `x/hardPity` rather than a hardcoded 80.
  */
 @Composable
 private fun BannerDetail(banner: BannerData) {
@@ -522,7 +533,7 @@ private fun BannerDetail(banner: BannerData) {
         if (prediction != null) {
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                StatItem("${prediction.pullsSinceLastFive}", "Since ★5", NeonGold)
+                StatItem("${prediction.pullsSinceLastFive}/${prediction.hardPity}", "Since ★5", NeonGold)
                 StatItem("${prediction.pullsSinceLastFourStar}", "Since ★4", NeonPurple)
                 StatItem(formatNumber(totalPulls.toLong() * costPerPull), "Astrites", NeonAmber)
             }
@@ -532,6 +543,23 @@ private fun BannerDetail(banner: BannerData) {
                 StatItem("${prediction.minPity5}", "Luckiest", NeonGreen)
                 StatItem("${prediction.maxPity5}", "Unluckiest", NeonRed)
                 StatItem("${"%.0f".format(prediction.nonBannerRate * 100)}%", "50/50 Win", NeonAmber)
+            }
+            // The budgeting row. `pullsUntilGuaranteedFeatured` is the figure a
+            // player actually plans around: with a banked 50/50 loss it is just the
+            // distance to the next ★5, otherwise it adds a full cycle because the
+            // featured unit can take two. Kuro's published ceiling from a clean
+            // slate is 160, so this line is where that number becomes visible.
+            if (prediction.pullsUntilGuaranteedFeatured > 0) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    StatItem("${prediction.pullsUntilGuaranteedFeatured}", "Worst Case", NeonRed)
+                    StatItem(formatNumber(prediction.worstCaseCostAstrite), "Worst ◎", NeonRed)
+                    StatItem(
+                        if (prediction.isGuaranteedNext) "YES" else "50/50",
+                        "Featured Next",
+                        if (prediction.isGuaranteedNext) NeonGreen else NeonAmber,
+                    )
+                }
             }
         }
     }

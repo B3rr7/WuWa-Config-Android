@@ -14,6 +14,8 @@ import com.wuwaconfig.app.model.WeaponAscensionPhaseCost
 import com.wuwaconfig.app.util.writeAtomic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import java.net.HttpURLConnection
@@ -41,8 +43,22 @@ class MaterialData internal constructor(
          */
         private const val TTL_MS = 6L * 60 * 60 * 1000
 
-        @Volatile
-        private var instance: MaterialData? = null
+        private val _instance = MutableStateFlow<MaterialData?>(null)
+
+        /**
+         * Observable handle on the live [MaterialData]. A new value is emitted
+         * every time the instance is swapped (initial load, or a successful
+         * remote refresh), so consumers such as [CalculatorViewModel] can
+         * rebuild their lists without polling. [get] remains the synchronous
+         * accessor.
+         */
+        val dataFlow: StateFlow<MaterialData?> = _instance
+
+        private var instance: MaterialData?
+            get() = _instance.value
+            set(value) {
+                _instance.value = value
+            }
 
         fun load(assets: AssetManager): MaterialData {
             instance?.let { return it }
@@ -52,6 +68,44 @@ class MaterialData internal constructor(
         }
 
         fun get(): MaterialData = instance ?: read(null)
+
+        /**
+         * Applies the last successfully fetched remote payload at startup.
+         *
+         * The bundled asset is the baseline; the on-disk remote cache is newer by
+         * construction (the GitHub Action publishes continuously, the APK is a
+         * snapshot). Without this, a character added remotely is visible only in
+         * the one session whose fetch returned [FetchResult.Modified] — every
+         * later cold start falls back to the bundled table, because [refresh]
+         * deliberately does not re-apply a still-fresh or 304-revalidated cache.
+         * That was a real, user-visible bug: a new 5-star present in the remote
+         * JSON simply disappeared from the picker after an app restart.
+         *
+         * Failure is silent and non-fatal: a missing, corrupt, or empty cache
+         * leaves the bundled data in place, exactly like a failed fetch.
+         */
+        fun applyCached(context: Context) {
+            runCatching { applyCachedFile(File(context.filesDir, CACHE_FILE)) }
+                .onFailure { LogRepository.add("Calculator data: cached payload unreadable (${it.message})", LogLevel.WARNING) }
+        }
+
+        /**
+         * The filesystem half of [applyCached], split out with the same injection
+         * shape as [refresh] so it is unit-testable without a Context
+         * (`Context.filesDir` is null under `isReturnDefaultValues`).
+         */
+        internal fun applyCachedFile(cacheFile: File) {
+            val cached = readCache(cacheFile) ?: return
+            val parsed =
+                runCatching { parse(JsonParser.parseReader(cached.body.reader()).asJsonObject) }
+                    .getOrNull() ?: return
+            if (parsed.characters.isEmpty() && parsed.weapons.isEmpty()) return
+            instance = parsed
+            LogRepository.add(
+                "Calculator data: applied cached remote payload (${parsed.characters.size} characters)",
+                LogLevel.SUCCESS,
+            )
+        }
 
         /**
          * Overrides the cached instance so [MaterialCalculator] can be exercised

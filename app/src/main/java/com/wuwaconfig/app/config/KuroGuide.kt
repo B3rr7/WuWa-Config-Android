@@ -36,6 +36,7 @@ import java.net.URL
  */
 object KuroGuide {
     private const val AVATAR_LIST = "https://guide-server.aki-game.net/role/avatar/list"
+    private const val GUIDE_BASE = "https://guide-server.aki-game.net"
     private const val CONNECT_TIMEOUT_MS = 15_000
     private const val READ_TIMEOUT_MS = 15_000
 
@@ -136,6 +137,96 @@ object KuroGuide {
                 Result.failure(e)
             }
         }
+
+    /** A weapon the guide recommends for a resonator; `status == 1` is the signature one. */
+    data class FeaturedWeapon(
+        val gbId: String,
+        val name: String,
+        val pictureUrl: String,
+        val star: Int,
+    )
+
+    /**
+     * The signature (featured) weapon of [roleGbId], from the guide's build page.
+     *
+     * The page's "Recom m. Weapons" block is `data.weapon.items`: the entry with
+     * `status == 1` is the signature weapon and the rest are alternatives. Kuro's
+     * weapon banner features exactly that weapon, so this is the correct source for
+     * "Featured Weapon" — not the player's latest pull. Only Chinese names ship in
+     * this payload; callers translate via the gacha record's own English name when
+     * the player has pulled the weapon.
+     */
+    suspend fun fetchFeaturedWeapon(roleGbId: String): Result<FeaturedWeapon> =
+        withContext(Dispatchers.IO) {
+            try {
+                val strategyId =
+                    primaryStrategyId(roleGbId)
+                        ?: return@withContext Result.failure(IllegalStateException("no build guide for role $roleGbId"))
+                val info =
+                    getJson("$GUIDE_BASE/introduction/info?id=$strategyId")
+                        ?: return@withContext Result.failure(IllegalStateException("no build info for strategy $strategyId"))
+                val weapon =
+                    JsonParser.parseString(info).asJsonObject["data"]?.asJsonObject?.get("weapon")?.asJsonObject
+                        ?: return@withContext Result.failure(IllegalStateException("no weapon block"))
+                val items =
+                    weapon["items"]?.takeIf { it.isJsonArray }?.asJsonArray
+                        ?: return@withContext Result.failure(IllegalStateException("no weapon list"))
+                if (items.size() == 0) return@withContext Result.failure(IllegalStateException("empty weapon list"))
+                val primary =
+                    items.map { it.asJsonObject }.firstOrNull { it.get("status")?.asInt == 1 }
+                        ?: items[0].asJsonObject
+                val gbId =
+                    primary["gbId"]?.takeIf { !it.isJsonNull }?.asString
+                        ?: return@withContext Result.failure(IllegalStateException("weapon missing gbId"))
+                val star = primary["star"]?.takeIf { !it.isJsonNull }?.asInt ?: 5
+                val picture = primary["pictureUrl"]?.takeIf { !it.isJsonNull }?.asString.orEmpty()
+                val name =
+                    primary["texts"]?.takeIf { it.isJsonArray }?.asJsonArray
+                        ?.firstOrNull()?.asJsonObject?.get("name")?.asString.orEmpty()
+                Result.success(FeaturedWeapon(gbId, name, picture, star))
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    private fun primaryStrategyId(roleGbId: String): Int? {
+        val body = getJson("$GUIDE_BASE/introduction/list?roleGbId=$roleGbId") ?: return null
+        val arr = JsonParser.parseString(body).asJsonObject["data"]?.takeIf { it.isJsonArray }?.asJsonArray ?: return null
+        return arr.firstOrNull()?.asJsonObject?.get("id")?.asInt
+    }
+
+    /** Small bounded GET for the weapon lookup (the avatar list has its own ETag path). */
+    private fun getJson(url: String): String? {
+        var connection: HttpURLConnection? = null
+        return try {
+            connection =
+                (URL(url).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = CONNECT_TIMEOUT_MS
+                    readTimeout = READ_TIMEOUT_MS
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("User-Agent", "WuWaConfig/1.0")
+                }
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
+            val out = StringBuilder()
+            val buffer = CharArray(8192)
+            var total = 0L
+            connection.inputStream.bufferedReader().use { reader ->
+                while (true) {
+                    val read = reader.read(buffer)
+                    if (read == -1) break
+                    total += read
+                    if (total > MAX_RESPONSE_BYTES) return null
+                    out.append(buffer, 0, read)
+                }
+            }
+            out.toString()
+        } catch (e: Exception) {
+            null
+        } finally {
+            connection?.disconnect()
+        }
+    }
 
     private fun httpFetch(
         url: String,

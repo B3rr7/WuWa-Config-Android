@@ -6,7 +6,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
@@ -111,18 +110,16 @@ class AdbConnectionService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel =
-                NotificationChannel(
-                    CHANNEL_ID,
-                    "ADB Connection",
-                    NotificationManager.IMPORTANCE_LOW,
-                ).apply {
-                    description = "Maintains ADB wireless debugging connection"
-                }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
-        }
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID,
+                "ADB Connection",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "Maintains ADB wireless debugging connection"
+            }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
     }
 
     private fun buildNotification(): Notification {

@@ -117,8 +117,15 @@ class GachaViewModel(application: Application) : AndroidViewModel(application) {
     val recordsByPool: StateFlow<Map<String, List<GachaRecord>>> = _recordsByPool.asStateFlow()
 
     private fun publishGachaData(data: GachaData?) {
-        _gachaData.value = data
-        _recordsByPool.value = data?.records?.groupBy { it.cardPoolType } ?: emptyMap()
+        // Predictions are a pure function of the record list, so re-derive them on
+        // every publish instead of trusting the ones baked into the cache. That
+        // repairs a cache written by an older build (per-slot pity, newest-first
+        // 50/50) without forcing a re-fetch from Kuro, and keeps the displayed
+        // pity consistent with the shared-counter rule the moment the data loads.
+        val refreshed =
+            data?.let { it.copy(predictions = GachaApi.buildPredictions(it.records)) }
+        _gachaData.value = refreshed
+        _recordsByPool.value = refreshed?.records?.groupBy { it.cardPoolType } ?: emptyMap()
     }
 
     fun restoreGachaFromHistory() {

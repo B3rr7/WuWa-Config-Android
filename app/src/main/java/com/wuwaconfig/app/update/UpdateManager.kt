@@ -414,7 +414,7 @@ object UpdateManager {
         if (!verifySignatureMatchesInstalled(context, apkFile)) {
             return Result.failure(Exception("APK signature does not match the installed app"))
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+        if (!context.packageManager.canRequestPackageInstalls()) {
             return Result.failure(Exception(NEEDS_INSTALL_PERMISSION))
         }
         return try {

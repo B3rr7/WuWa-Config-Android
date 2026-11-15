@@ -237,4 +237,34 @@ class MaterialDataRefreshTest {
         assertEquals("new-etag", readCacheEtag())
         assertTrue(MaterialData.get().characters.containsKey("Hero"))
     }
+
+    @Test
+    fun `cached remote payload is applied at startup`() {
+        val before = currentData()
+        MaterialData.installForTest(before)
+        // A cache from a previous session — the shape a cold start actually sees.
+        writeCache(validPayload, "etag-1", now)
+
+        MaterialData.applyCachedFile(cacheFile)
+
+        // The cold start must prefer the cached remote payload over what the APK
+        // bundled: without this, a character added remotely disappeared from the
+        // calculator on every restart, because refresh() never re-applies a
+        // still-fresh or 304-revalidated cache.
+        assertTrue(MaterialData.get().characters.containsKey("Hero"))
+        assertFalse(MaterialData.get().characters.containsKey("Old"))
+    }
+
+    @Test
+    fun `missing or empty cache leaves installed data untouched`() {
+        val before = currentData()
+        MaterialData.installForTest(before)
+
+        MaterialData.applyCachedFile(File(tmp.root, "absent.json"))
+        assertEquals(before, MaterialData.get())
+
+        writeCache(emptyPayload, null, now)
+        MaterialData.applyCachedFile(cacheFile)
+        assertEquals(before, MaterialData.get())
+    }
 }

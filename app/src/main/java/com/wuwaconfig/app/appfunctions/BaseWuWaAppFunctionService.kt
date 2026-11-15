@@ -18,6 +18,7 @@ import com.wuwaconfig.app.WuWaConfigApp
 import com.wuwaconfig.app.config.BackupStore
 import com.wuwaconfig.app.config.CvarOptimizer
 import com.wuwaconfig.app.config.ForbiddenCvars
+import com.wuwaconfig.app.config.GachaApi
 import com.wuwaconfig.app.config.GachaHistoryStore
 import com.wuwaconfig.app.config.GachaStats
 import com.wuwaconfig.app.config.GachaStatsResult
@@ -400,8 +401,9 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
             val data =
                 GachaHistoryStore.gson.fromJson<GachaData>(entry.fullDataJson, type)
                     ?: return@withContext emptyList()
-            val safeData = data.copy(predictions = data.predictions ?: emptyList())
-            safeData.predictions.map { it.toGachaPredictionInfo() }
+            // Re-derive from records: predictions are a pure function of the pull
+            // list, so a cache written by an older build is corrected here too.
+            GachaApi.buildPredictions(data.records).map { it.toGachaPredictionInfo() }
         }
 
     /**

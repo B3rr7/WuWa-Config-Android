@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 
@@ -101,7 +100,7 @@ object RomBackgroundSettings {
     }
 
     private fun batteryOptimizationListIntent(): Intent? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null
+        // minSdk is 26 (M), so this guard is never taken; kept as documentation only.
         val intent =
             Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

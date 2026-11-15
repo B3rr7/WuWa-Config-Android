@@ -137,6 +137,12 @@ class WuWaConfigApp : Application() {
         // from game_profile.properties because it is not flat.
         TuningProfile.load(assets)
         MaterialData.load(assets)
+        // Prefer the last fetched remote payload over the bundled asset: it is
+        // newer by construction, and WITHOUT this a character added remotely
+        // disappears from the calculator on every cold start (see
+        // MaterialData.applyCached). Must run before refresh(), which only swaps
+        // in a NEW modified payload.
+        MaterialData.applyCached(this)
         // Refresh the calculator tables from the remote JSON in the background.
         // Silent and non-blocking: the calculator shows the bundled asset until a
         // newer payload lands. See MaterialData.refresh for the failure contract.
