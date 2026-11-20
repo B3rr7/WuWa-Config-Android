@@ -3,7 +3,7 @@
 // Also bump it when ANY same-origin static asset changes value at the same URL:
 // `cacheFirst` below never revalidates a hit, so a replaced screenshots/screen-0N.webp
 // would otherwise stay frozen at the old build for every returning visitor.
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const SHELL_CACHE = `wuwacfg-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `wuwacfg-assets-${CACHE_VERSION}`;
 
@@ -88,7 +88,12 @@ async function navigationHandler(request) {
   try {
     return await fetch(request);
   } catch {
-    const cached = await caches.match('./index.html');
+    // Offline: serve the page that was actually requested. The old fallback
+    // was always the homepage, so an offline /faq.html rendered the homepage
+    // under the faq URL.
+    const cached =
+      (await caches.match(request, { ignoreSearch: true })) ||
+      (await caches.match('./index.html'));
     return cached || Response.error();
   }
 }

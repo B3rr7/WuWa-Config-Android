@@ -425,11 +425,13 @@ function animCount(el){
     if(p<1)requestAnimationFrame(tick);
   })(t0);
 }
-const cIO=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){reduced?e.target.textContent=(+e.target.dataset.count).toLocaleString():animCount(e.target);cIO.unobserve(e.target)}}),{threshold:.5});
- $$('[data-count]').forEach(el=>cIO.observe(el));
+if('IntersectionObserver'in window){
+  const cIO=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){reduced?e.target.textContent=(+e.target.dataset.count).toLocaleString():animCount(e.target);cIO.unobserve(e.target)}}),{threshold:.5});
+  $$('[data-count]').forEach(el=>cIO.observe(el));
+}else $$('[data-count]').forEach(el=>{el.textContent=(+el.dataset.count).toLocaleString()});
 
 
-}catch(_){}
+}catch(e){console.error('[WuWaConfig]',e)}
 try{
 /* ── ⚡ PERF: pause hero animations when hero is off-screen ── */
 (function(){
@@ -446,7 +448,7 @@ try{
 })();
 
 
-}catch(_){}
+}catch(e){console.error('[WuWaConfig]',e)}
 try{
 /* ── Android monitor: live FPS + bars ── */
 const pFps=$('#phoneFps'), pBars=$('#pBars');
@@ -467,7 +469,7 @@ if(pBars){
 }
 
 
-}catch(_){}
+}catch(e){console.error('[WuWaConfig]',e)}
 try{
 /* ── Clock ── */
 const aTime=document.getElementById('aTime');
@@ -479,7 +481,7 @@ function tickClock(){
 tickClock(); setInterval(tickClock,10000);
 
 
-}catch(_){}
+}catch(e){console.error('[WuWaConfig]',e)}
 try{
 /* ── Tickers ── */
 if(!slowNet){
@@ -491,7 +493,7 @@ if(!slowNet){
 }
 
 
-}catch(_){}
+}catch(e){console.error('[WuWaConfig]',e)}
 try{
 /* ── Terminal ── */
 const LINES=[
@@ -524,7 +526,9 @@ function runTerm(){
   nextLine();
 }
 if(term){
-  new IntersectionObserver((es,o)=>{if(es[0].isIntersecting&&!tSeen){tSeen=true;runTerm();o.disconnect()}},{threshold:.3}).observe(term);
+  if('IntersectionObserver'in window){
+    new IntersectionObserver((es,o)=>{if(es[0].isIntersecting&&!tSeen){tSeen=true;runTerm();o.disconnect()}},{threshold:.3}).observe(term);
+  }else runTerm();
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -591,7 +595,6 @@ if(term){
   const wall=document.getElementById('aWall');   if(!wall)return;
   const echo=document.getElementById('phoneEcho');
   const nameEl=document.getElementById('wallName');
-  let idx=0;
 
   /* data-saver: no character art anywhere — zero image bandwidth.
      CSS gradient fallback already painted via .a-wall / .phone-echo. */
@@ -600,8 +603,13 @@ if(term){
     return;
   }
 
-  /* Probe images in the background; only cycle through those that load.
-     If none load, the CSS gradient fallback stays visible. */
+  /* Probe one sprite at a time, lazily.
+     Probing all of them up front pulled the whole set (9.3 MB across 53
+     sprites) on the first visit — more than the APK this site points people
+     at. Now the first character paints after a single image, and the next is
+     fetched while the current one is on screen. The browser and the service
+     worker keep what has already been seen, so a long visit costs the same
+     in total while a short one costs almost nothing. */
   const probe=img=>new Promise(res=>{
     const t=new Image();
     t.onload =()=>res(true);
@@ -609,52 +617,87 @@ if(term){
     t.src=img;
   });
 
-  Promise.all(WALLS.map(w=>probe(w.img).then(ok=>ok?w:null)))
-    .then(loaded=>{
-      const ok = loaded.filter(Boolean);
-      if(!ok.length){
-        /* no images available — leave CSS gradient, hide name pill */
-        if(nameEl)nameEl.style.display='none';
-        return;
+  const loaded=[];            // sprites confirmed loadable, in discovery order
+  const failed=new Set();     // sprite URLs that already failed to load
+  let cursor=0;               // next WALLS entry to probe
+  let showIdx=-1;             // position inside `loaded`
+  let exhausted=false;        // every WALLS entry has been tried once
+
+  async function probeNext(){
+    if(exhausted)return null;
+    while(cursor<WALLS.length){
+      const w=WALLS[cursor++];
+      if(failed.has(w.img))continue;
+      if(await probe(w.img)){
+        if(!loaded.includes(w))loaded.push(w);
+        return w;
       }
-      /* paint first available image */
-      wall.style.backgroundImage=`url(${ok[0].img})`;
-      if(echo)echo.style.backgroundImage=`url(${ok[0].img})`;
-      if(nameEl)nameEl.textContent=ok[0].name;
-      window.wuwaAutoTheme&&window.wuwaAutoTheme(ok[0].el);
+      failed.add(w.img);
+    }
+    exhausted=true;
+    return null;
+  }
 
-      /* reduced-motion or single image: static, no cycling */
-      if(reduced||ok.length<2)return;
+  async function nextWall(){
+    /* Prefer a sprite that is already in hand: no network, no wait. */
+    if(showIdx+1<loaded.length){showIdx++;return loaded[showIdx]}
+    const w=await probeNext();
+    if(w){showIdx=loaded.indexOf(w);return w}
+    /* Every sprite has been tried: loop back over the ones that loaded. */
+    if(loaded.length<2)return null;
+    showIdx=0;
+    return loaded[0];
+  }
 
-      const HOLD=7000, FADE=1100;
-      let i=0;
-      setInterval(()=>{
-        i=(i+1)%ok.length;
-        const next=ok[i];
+  function paint(w){
+    wall.style.backgroundImage=`url(${w.img})`;
+    if(echo)echo.style.backgroundImage=`url(${w.img})`;
+    if(nameEl)nameEl.textContent=w.name;
+    window.wuwaAutoTheme&&window.wuwaAutoTheme(w.el);
+  }
 
-        /* fade out both layers + name */
-        wall.classList.add('fading');
-        if(echo)echo.style.opacity=0;
-        if(nameEl)nameEl.style.opacity=0;
+  (async()=>{
+    const first=await probeNext();
+    if(!first){
+      /* no images available — leave CSS gradient, hide name pill */
+      if(nameEl)nameEl.style.display='none';
+      return;
+    }
+    showIdx=loaded.indexOf(first);
+    paint(first);
 
-        setTimeout(()=>{
-          /* swap art */
-          wall.style.backgroundImage=`url(${next.img})`;
-          if(echo)echo.style.backgroundImage=`url(${next.img})`;
-          if(nameEl)nameEl.textContent=next.name;
-          window.wuwaAutoTheme&&window.wuwaAutoTheme(next.el);
+    /* reduced motion: one static character, no cycling */
+    if(reduced)return;
 
-          /* fade back in */
-          wall.classList.remove('fading');
-          if(echo)echo.style.opacity='';
-          if(nameEl)nameEl.style.opacity=1;
-        },FADE);
-      },HOLD);
-    });
+    const HOLD=7000, FADE=1100;
+    let timer=null;
+    const schedule=()=>{timer=setTimeout(tick,HOLD)};
+    async function tick(){
+      const next=await nextWall();
+      if(!next){clearTimeout(timer);return}
+      /* fade out both layers + name */
+      wall.classList.add('fading');
+      if(echo)echo.style.opacity=0;
+      if(nameEl)nameEl.style.opacity=0;
+
+      setTimeout(()=>{
+        /* swap art */
+        paint(next);
+        /* fade back in */
+        wall.classList.remove('fading');
+        if(echo)echo.style.opacity='';
+        if(nameEl)nameEl.style.opacity=1;
+        /* fetch the one after this while it is on screen */
+        probeNext();
+        schedule();
+      },FADE);
+    }
+    schedule();
+  })();
 })();
 
 
-}catch(_){}
+}catch(e){console.error('[WuWaConfig]',e)}
 try{
 /* ── FAQ search/filter with highlight ── */
 (function(){
@@ -667,6 +710,32 @@ try{
 
   function escapeRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
   function strip(html){const d=document.createElement('div');d.innerHTML=html;return d.textContent||''}
+  /* Wrap every regex match inside root's text nodes in a <mark>.
+     Working on text nodes means the browser handles the escaping, so a match
+     can never land inside an entity and the markup round-trips unchanged. */
+  function markText(root,re){
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    const nodes=[]; let n;
+    while((n=walker.nextNode()))nodes.push(n);
+    nodes.forEach(node=>{
+      const t=node.nodeValue||'';
+      re.lastIndex=0;
+      if(!re.test(t))return;
+      re.lastIndex=0;
+      const frag=document.createDocumentFragment();
+      let last=0,m;
+      while((m=re.exec(t))){
+        if(!m[0].length){re.lastIndex++;continue}
+        if(m.index>last)frag.appendChild(document.createTextNode(t.slice(last,m.index)));
+        const mark=document.createElement('mark');
+        mark.textContent=m[0];
+        frag.appendChild(mark);
+        last=m.index+m[0].length;
+      }
+      if(last<t.length)frag.appendChild(document.createTextNode(t.slice(last)));
+      node.parentNode.replaceChild(frag,node);
+    });
+  }
 
   /* cache original HTML so we can restore highlight-free state */
   items.forEach(it=>{
@@ -689,11 +758,15 @@ try{
       const bodyEl=it.querySelector('.faq-b');
       if(q){
         const re=new RegExp('('+escapeRe(q)+')','gi');
-        const hl=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-                     .replace(re,'<mark>$1</mark>');
-        /* only highlight in text nodes, preserve HTML tags */
-        sumEl.innerHTML=it.dataset.summaryHtml.replace(/>([^<]+)</g,(m,t)=>'>'+hl(t)+'<');
-        bodyEl.innerHTML=it.dataset.bodyHtml.replace(/>([^<]+)</g,(m,t)=>'>'+hl(t)+'<');
+        /* Highlight on the DOM text nodes, not on the serialised HTML. The
+           cached markup is already escaped innerHTML, so escaping it a second
+           time double-encodes the ampersand (the page then shows the raw
+           entity text instead of a single ampersand) and lets a query such
+           as "amp" split the entity with a <mark> in the middle. */
+        sumEl.innerHTML=it.dataset.summaryHtml;
+        bodyEl.innerHTML=it.dataset.bodyHtml;
+        markText(sumEl,re);
+        markText(bodyEl,re);
         if(match)it.open=true;
       }else{
         sumEl.innerHTML=it.dataset.summaryHtml;
@@ -793,20 +866,23 @@ try{
   }
 
   const stage=document.querySelector('.shot-stage');
-  stage.addEventListener('mouseenter',()=>clearInterval(timer));
-  stage.addEventListener('mouseleave',()=>{if(playing)arm()});
+  if(stage){
+    stage.addEventListener('mouseenter',()=>clearInterval(timer));
+    stage.addEventListener('mouseleave',()=>{if(playing)arm()});
+  }
 
   const playBtn=$('#shotPlay');
-  playBtn.onclick=()=>{
+  playBtn&&(playBtn.onclick=()=>{
     playing=!playing;
     playBtn.setAttribute('aria-pressed',String(!playing));
     playBtn.querySelector('span').textContent=playing?'Pause':'Play';
     sdots.forEach(d=>{d.querySelector('.fill').style.animationPlayState=playing?'running':'paused'});
     if(playing){arm()}else{clearInterval(timer)}
-  };
+  });
 
-  $('#shotPrev').onclick=()=>go(cur-1,true);
-  $('#shotNext').onclick=()=>go(cur+1,true);
+  const prevBtn=$('#shotPrev'), nextBtn=$('#shotNext');
+  prevBtn&&(prevBtn.onclick=()=>go(cur-1,true));
+  nextBtn&&(nextBtn.onclick=()=>go(cur+1,true));
 
   strack.tabIndex=0;
   strack.addEventListener('keydown',e=>{
@@ -828,7 +904,7 @@ try{
   }
 })();
 
-}catch(_){}
+}catch(e){console.error('[WuWaConfig]',e)}
 })();
 </script><script>
 (function(){

@@ -355,16 +355,18 @@ const THR={Flagship:1.05,High:0.9,'Upper-Mid':0.78,Mid:0.65,Low:0.55};
 const TIER_COL={Flagship:'var(--good)',High:'#0e8a7a','Upper-Mid':'var(--warn)','Mid':'var(--ink-2)',Low:'var(--bad)'};
 
 const ORDER=['CINEMATIC','ULTRA','HIGH','BALANCED','COMPETITIVE','PERFORMANCE','ENDURANCE','POTATO'];
-const PP={
-  CINEMATIC:{s:100,sh:5,st:6,c:'#b78bff'},
-  ULTRA:{s:100,sh:5,st:4,c:'#6c8cff'},
-  HIGH:{s:100,sh:4,st:3,c:'#2dd4bf'},
-  BALANCED:{s:80,sh:2,st:2,c:'#3fd68f'},
-  COMPETITIVE:{s:100,sh:0,st:1,c:'#a3e635'},
-  PERFORMANCE:{s:60,sh:0,st:0.5,c:'#ffd166'},
-  ENDURANCE:{s:55,sh:0,st:0.4,c:'#ffa94d'},
-  POTATO:{s:50,sh:0,st:0.3,c:'#ff7a7a'}
-};
+/* Screen % and shadow level are derived from the shared PRESETS table above so
+   the lab can never rate a preset differently from the preset page it links
+   to. They had drifted: POTATO was 50 here but 60 there, ENDURANCE 55 vs 70,
+   COMPETITIVE shadow 0 vs 2. `st` (streaming density) and the order are
+   lab-only. */
+const PP_STREAM={CINEMATIC:6,ULTRA:4,HIGH:3,BALANCED:2,COMPETITIVE:1,PERFORMANCE:0.5,ENDURANCE:0.4,POTATO:0.3};
+const PP_SRC={CINEMATIC:'cinematic',ULTRA:'ultra',HIGH:'high',BALANCED:'balanced',COMPETITIVE:'competitive',PERFORMANCE:'performance',ENDURANCE:'endurance',POTATO:'potato'};
+const PP={};
+ORDER.forEach(k=>{
+  const p=PRESETS[PP_SRC[k]];
+  PP[k]={s:parseInt(p.s,10),sh:parseInt(p.sh,10),st:PP_STREAM[k],c:p.c};
+});
 
 const pix=s=>Math.pow(s/100,1.6);
 
@@ -481,7 +483,10 @@ function calc(){
   let recKey='POTATO', recF=0;
   for(const k of ORDER){
     const p=PP[k];
-    const r=model(g,c,tier,p.s,p.sh,p.st,true,false,cap);
+    /* Rate the preset with the user's own switches. This used to hardcode
+       Vulkan on and vsync off, which rated every recommendation ~11% above
+       what the device could actually hold. */
+    const r=model(g,c,tier,p.s,p.sh,p.st,vulkan,vsync,cap);
     recF=r.sustained;
     if(r.sustained>=target){recKey=k;break}
   }
@@ -512,7 +517,7 @@ recEl.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventD
 calc();
 
 
-}catch(_){}
+}catch(e){console.error('[WuWaConfig]',e)}
 try{
 /* ── FAQ search/filter with highlight ── */
 (function(){
@@ -525,6 +530,32 @@ try{
 
   function escapeRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
   function strip(html){const d=document.createElement('div');d.innerHTML=html;return d.textContent||''}
+  /* Wrap every regex match inside root's text nodes in a <mark>.
+     Working on text nodes means the browser handles the escaping, so a match
+     can never land inside an entity and the markup round-trips unchanged. */
+  function markText(root,re){
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    const nodes=[]; let n;
+    while((n=walker.nextNode()))nodes.push(n);
+    nodes.forEach(node=>{
+      const t=node.nodeValue||'';
+      re.lastIndex=0;
+      if(!re.test(t))return;
+      re.lastIndex=0;
+      const frag=document.createDocumentFragment();
+      let last=0,m;
+      while((m=re.exec(t))){
+        if(!m[0].length){re.lastIndex++;continue}
+        if(m.index>last)frag.appendChild(document.createTextNode(t.slice(last,m.index)));
+        const mark=document.createElement('mark');
+        mark.textContent=m[0];
+        frag.appendChild(mark);
+        last=m.index+m[0].length;
+      }
+      if(last<t.length)frag.appendChild(document.createTextNode(t.slice(last)));
+      node.parentNode.replaceChild(frag,node);
+    });
+  }
 
   /* cache original HTML so we can restore highlight-free state */
   items.forEach(it=>{
@@ -547,11 +578,15 @@ try{
       const bodyEl=it.querySelector('.faq-b');
       if(q){
         const re=new RegExp('('+escapeRe(q)+')','gi');
-        const hl=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-                     .replace(re,'<mark>$1</mark>');
-        /* only highlight in text nodes, preserve HTML tags */
-        sumEl.innerHTML=it.dataset.summaryHtml.replace(/>([^<]+)</g,(m,t)=>'>'+hl(t)+'<');
-        bodyEl.innerHTML=it.dataset.bodyHtml.replace(/>([^<]+)</g,(m,t)=>'>'+hl(t)+'<');
+        /* Highlight on the DOM text nodes, not on the serialised HTML. The
+           cached markup is already escaped innerHTML, so escaping it a second
+           time double-encodes the ampersand (the page then shows the raw
+           entity text instead of a single ampersand) and lets a query such
+           as "amp" split the entity with a <mark> in the middle. */
+        sumEl.innerHTML=it.dataset.summaryHtml;
+        bodyEl.innerHTML=it.dataset.bodyHtml;
+        markText(sumEl,re);
+        markText(bodyEl,re);
         if(match)it.open=true;
       }else{
         sumEl.innerHTML=it.dataset.summaryHtml;
@@ -651,20 +686,23 @@ try{
   }
 
   const stage=document.querySelector('.shot-stage');
-  stage.addEventListener('mouseenter',()=>clearInterval(timer));
-  stage.addEventListener('mouseleave',()=>{if(playing)arm()});
+  if(stage){
+    stage.addEventListener('mouseenter',()=>clearInterval(timer));
+    stage.addEventListener('mouseleave',()=>{if(playing)arm()});
+  }
 
   const playBtn=$('#shotPlay');
-  playBtn.onclick=()=>{
+  playBtn&&(playBtn.onclick=()=>{
     playing=!playing;
     playBtn.setAttribute('aria-pressed',String(!playing));
     playBtn.querySelector('span').textContent=playing?'Pause':'Play';
     sdots.forEach(d=>{d.querySelector('.fill').style.animationPlayState=playing?'running':'paused'});
     if(playing){arm()}else{clearInterval(timer)}
-  };
+  });
 
-  $('#shotPrev').onclick=()=>go(cur-1,true);
-  $('#shotNext').onclick=()=>go(cur+1,true);
+  const prevBtn=$('#shotPrev'), nextBtn=$('#shotNext');
+  prevBtn&&(prevBtn.onclick=()=>go(cur-1,true));
+  nextBtn&&(nextBtn.onclick=()=>go(cur+1,true));
 
   strack.tabIndex=0;
   strack.addEventListener('keydown',e=>{
@@ -686,7 +724,7 @@ try{
   }
 })();
 
-}catch(_){}
+}catch(e){console.error('[WuWaConfig]',e)}
 })();
 </script><script>
 (function(){

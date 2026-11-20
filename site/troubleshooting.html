@@ -308,6 +308,32 @@ try{
 
   function escapeRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
   function strip(html){const d=document.createElement('div');d.innerHTML=html;return d.textContent||''}
+  /* Wrap every regex match inside root's text nodes in a <mark>.
+     Working on text nodes means the browser handles the escaping, so a match
+     can never land inside an entity and the markup round-trips unchanged. */
+  function markText(root,re){
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    const nodes=[]; let n;
+    while((n=walker.nextNode()))nodes.push(n);
+    nodes.forEach(node=>{
+      const t=node.nodeValue||'';
+      re.lastIndex=0;
+      if(!re.test(t))return;
+      re.lastIndex=0;
+      const frag=document.createDocumentFragment();
+      let last=0,m;
+      while((m=re.exec(t))){
+        if(!m[0].length){re.lastIndex++;continue}
+        if(m.index>last)frag.appendChild(document.createTextNode(t.slice(last,m.index)));
+        const mark=document.createElement('mark');
+        mark.textContent=m[0];
+        frag.appendChild(mark);
+        last=m.index+m[0].length;
+      }
+      if(last<t.length)frag.appendChild(document.createTextNode(t.slice(last)));
+      node.parentNode.replaceChild(frag,node);
+    });
+  }
 
   /* cache original HTML so we can restore highlight-free state */
   items.forEach(it=>{
@@ -330,11 +356,15 @@ try{
       const bodyEl=it.querySelector('.faq-b');
       if(q){
         const re=new RegExp('('+escapeRe(q)+')','gi');
-        const hl=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-                     .replace(re,'<mark>$1</mark>');
-        /* only highlight in text nodes, preserve HTML tags */
-        sumEl.innerHTML=it.dataset.summaryHtml.replace(/>([^<]+)</g,(m,t)=>'>'+hl(t)+'<');
-        bodyEl.innerHTML=it.dataset.bodyHtml.replace(/>([^<]+)</g,(m,t)=>'>'+hl(t)+'<');
+        /* Highlight on the DOM text nodes, not on the serialised HTML. The
+           cached markup is already escaped innerHTML, so escaping it a second
+           time double-encodes the ampersand (the page then shows the raw
+           entity text instead of a single ampersand) and lets a query such
+           as "amp" split the entity with a <mark> in the middle. */
+        sumEl.innerHTML=it.dataset.summaryHtml;
+        bodyEl.innerHTML=it.dataset.bodyHtml;
+        markText(sumEl,re);
+        markText(bodyEl,re);
         if(match)it.open=true;
       }else{
         sumEl.innerHTML=it.dataset.summaryHtml;
@@ -434,20 +464,23 @@ try{
   }
 
   const stage=document.querySelector('.shot-stage');
-  stage.addEventListener('mouseenter',()=>clearInterval(timer));
-  stage.addEventListener('mouseleave',()=>{if(playing)arm()});
+  if(stage){
+    stage.addEventListener('mouseenter',()=>clearInterval(timer));
+    stage.addEventListener('mouseleave',()=>{if(playing)arm()});
+  }
 
   const playBtn=$('#shotPlay');
-  playBtn.onclick=()=>{
+  playBtn&&(playBtn.onclick=()=>{
     playing=!playing;
     playBtn.setAttribute('aria-pressed',String(!playing));
     playBtn.querySelector('span').textContent=playing?'Pause':'Play';
     sdots.forEach(d=>{d.querySelector('.fill').style.animationPlayState=playing?'running':'paused'});
     if(playing){arm()}else{clearInterval(timer)}
-  };
+  });
 
-  $('#shotPrev').onclick=()=>go(cur-1,true);
-  $('#shotNext').onclick=()=>go(cur+1,true);
+  const prevBtn=$('#shotPrev'), nextBtn=$('#shotNext');
+  prevBtn&&(prevBtn.onclick=()=>go(cur-1,true));
+  nextBtn&&(nextBtn.onclick=()=>go(cur+1,true));
 
   strack.tabIndex=0;
   strack.addEventListener('keydown',e=>{
@@ -469,7 +502,7 @@ try{
   }
 })();
 
-}catch(_){}
+}catch(e){console.error('[WuWaConfig]',e)}
 })();
 </script><script>
 (function(){
