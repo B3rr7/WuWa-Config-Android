@@ -1,6 +1,8 @@
 package com.wuwaconfig.app.config
 
+import com.wuwaconfig.app.model.LogInfo
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -250,5 +252,31 @@ class ChipsetDetectorTest {
         // read and come back total — the Profile screen calls it on the read
         // path, so a throw here would fail the whole profile read.
         assertEquals("", ChipsetDetector.detectSocNameInternal())
+    }
+
+    // ── enrich ──
+
+    @Test
+    fun `enrich fills a blank socName from the platform`() {
+        // The game log names the GPU and CPU but never the SoC, so the
+        // SmartBrain report printed `SoC : unknown` on hardware the platform
+        // can identify. Filling the blank is the whole point of enrich.
+        val filled = ChipsetDetector.enrich(LogInfo(gpu = "Adreno6"), detectedSoc = "hanoip")
+        assertEquals("hanoip", filled.socName)
+        assertEquals("Adreno6", filled.gpu)
+    }
+
+    @Test
+    fun `enrich never overrides a socName the log actually reported`() {
+        val kept = ChipsetDetector.enrich(LogInfo(socName = "sm8250"), detectedSoc = "hanoip")
+        assertEquals("sm8250", kept.socName)
+    }
+
+    @Test
+    fun `enrich leaves socName null when detection came back empty`() {
+        // Off-device and on any platform that reports nothing, the report must
+        // still say `unknown` rather than an empty string.
+        assertNull(ChipsetDetector.enrich(LogInfo(), detectedSoc = "").socName)
+        assertNull(ChipsetDetector.enrich(LogInfo(socName = "  "), detectedSoc = "").socName)
     }
 }

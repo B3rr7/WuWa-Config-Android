@@ -1,6 +1,7 @@
 package com.wuwaconfig.app.config
 
 import android.os.Build
+import com.wuwaconfig.app.model.LogInfo
 
 object ChipsetDetector {
     data class ChipsetInfo(
@@ -135,4 +136,22 @@ object ChipsetDetector {
         val soc = detectSocNameInternal().ifBlank { hardware }
         return classify(soc, Build.BOARD.orEmpty(), Build.MANUFACTURER.orEmpty(), hardware)
     }
+
+    /**
+     * Fills the [LogInfo] gaps the game log structurally cannot provide.
+     *
+     * The log names the GPU and the CPU model but never the SoC — see
+     * [com.wuwaconfig.app.config.LogParser]'s `SOC_RE` note — so `socName` is null
+     * on every real device and the SmartBrain report printed `SoC : unknown` even
+     * though the platform knows the part number. This only fills a blank; a value
+     * the log did report always wins.
+     *
+     * [detectedSoc] is a parameter rather than a direct call so the merge is
+     * testable: under `unitTests.isReturnDefaultValues = true` the `Build` statics
+     * are null, and [detectSocNameInternal] would return "" on every host run.
+     */
+    internal fun enrich(
+        info: LogInfo,
+        detectedSoc: String = detectSocNameInternal(),
+    ): LogInfo = if (info.socName.isNullOrBlank()) info.copy(socName = detectedSoc.ifBlank { null }) else info
 }

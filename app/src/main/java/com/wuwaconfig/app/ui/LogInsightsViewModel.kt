@@ -248,10 +248,12 @@ class LogInsightsViewModel(application: Application) : AndroidViewModel(applicat
         // the caller's catch now owns failure handling.
         addLog("Parsing log...")
         val info =
-            preParsedLogInfo
-                ?: withContext(Dispatchers.Default) {
-                    com.wuwaconfig.app.config.LogParser.parseLog(text)
-                }
+            com.wuwaconfig.app.config.ChipsetDetector.enrich(
+                preParsedLogInfo
+                    ?: withContext(Dispatchers.Default) {
+                        com.wuwaconfig.app.config.LogParser.parseLog(text)
+                    },
+            )
         _logAnalysis.value = info
         addLog("GPU: ${info.gpu ?: "unknown"}, RAM: ${info.ramMb ?: "?"}MB")
         _readingProgress.value = 98

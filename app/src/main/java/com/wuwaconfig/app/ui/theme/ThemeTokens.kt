@@ -23,8 +23,11 @@ import androidx.compose.ui.unit.dp
  *   elevation uses a more prominent tone — in addition to shadows". A tonal
  *   surface steps per nesting depth and draws no outline, because the tone *is*
  *   the edge.
- * - [GLASS] — transmits its backdrop. Only correct where there is something to
- *   transmit, which is why light mode still pairs it with a drawn edge.
+ * - [GLASS] — transmits its backdrop, and is built as a *layered* material
+ *   rather than a single alpha: a translucent body, a frosted interior drawn
+ *   on its own layer behind the content, and a directional sheen. Only
+ *   correct where there is something to transmit, which is why light mode
+ *   still pairs it with a drawn edge.
  * - [OUTLINED] — flat fill carried by a visible border.
  * - [FLAT] — fill only, no edge, no elevation. The restrained end of the range.
  * - [RELIEF] — carries the page's own colour and is raised purely by lighting
@@ -60,13 +63,19 @@ enum class EdgeMode {
     HAIRLINE,
 
     /**
-     * A gradient edge: a bright specular highlight on the leading/top edge
-     * falling to a darkened trailing/bottom edge.
+     * A three-stop diagonal gradient rim: a bright catchlight at the top-left,
+     * a soft mid-edge in the scheme's own outline colour, and a faint
+     * reflection at the bottom-right — plus a crisp inner catchlight along the
+     * top edge that simulates the thickness of the glass.
      *
      * This is the one detail that separates glass from a pale rectangle. Apple
      * added it in 2026 — "a darkened edge along with brighter specular
      * highlights" to "establish more depth and separation" (WWDC26) — because a
      * uniform alpha fill reads as flat wash no matter how transparent it is.
+     *
+     * Drawn with `drawWithContent` rather than `Modifier.border`, because the
+     * rim needs to be *three* stops along a diagonal and then carry a second,
+     * differently-oriented highlight on top of itself.
      */
     SPECULAR,
 
@@ -131,7 +140,38 @@ data class ThemeShapeTokens(
     val useBlurEffects: Boolean,
     /** Whether cards draw an outline at all. False means surface-only. */
     val useCardBorder: Boolean,
+    /**
+     * Radius of the frosted interior, in dp.
+     *
+     * Only meaningful when [useBlurEffects] is true; 0 disables the frosted
+     * layer entirely and leaves a plain translucent panel.
+     *
+     * ## Why the radius is a token and not a constant
+     *
+     * The blur is applied to an isolated background layer, never to the
+     * container that holds the card's text — blurring that container is the
+     * classic "glass card with unreadable labels" failure. Because the
+     * radius is a *style* decision (how diffuse the material is, not how
+     * large the card is), it belongs with the rest of the structural
+     * tokens: switching to LIQUID_GLASS then diffuses the interior in one
+     * assignment, exactly like the corner radii.
+     *
+     * Honoured only on API 31+, where `Modifier.blur` has a RenderEffect to
+     * work with; below that the renderer draws a wider, softer fallback
+     * instead (see `Components.kt`).
+     */
+    val blurRadius: Dp = 0.dp,
 )
+
+/**
+ * How far a frosted glass light pool is lifted toward white in light mode.
+ *
+ * The glass renderer paints its interior with saturated accent colours. That
+ * reads as coloured light over a near-black body in dark mode, but the same
+ * dark teal over a white light-mode body turns the whole card slate-grey. A
+ * light pool therefore keeps only a trace of the accent hue.
+ */
+internal const val LIGHT_GLASS_FROSTED_TINT = 0.78f
 
 /**
  * The spacing scale.

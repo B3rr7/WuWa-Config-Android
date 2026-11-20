@@ -8,6 +8,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.1.7] — Unreleased
 
 ### Fixed
+- **Device detection** — report the SoC the game log never names, and resolve a GPU tier from a
+  generation-only Adreno token, so a moto g(60) no longer prints `GPU tier: unknown` /
+  `SoC: unknown` in the SmartBrain report.
+- **Device profiles** — Snapdragon 7-series codes now map to `Android_Adreno6xx` (SM7150/7250/7350
+  drive Adreno 618/620/642L) instead of blanket `Android_Adreno7xx`; 7+ Gen 2 and 7 Gen 3 keep 7xx.
 - **Battle stats** — count every retained log; stop the merge skipping backups.
 - **Profile** — stop rendering a clean session as a failed read.
 - **Profile** — stage the SQLite rollback journal when pulling game databases.
@@ -20,6 +25,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Characters** — native Kuro login and a WWT-style character view.
 - **Calculator** — runtime auto-sync of material data from the wiki.
 - **Gacha** — Kuro guide featured-character banner strip; standard pool collection card.
+- **CVar database** — 33 CVars recovered from the 3.8.1 device log, including 26
+  `r.Kuro.PlanarReflection.*` flags that appear in no build's string table (5,405 active).
+  No entries removed: 1,014 names absent from the 3.7.0 binary reappeared in 3.8.1, so
+  binary absence is not evidence of removal. See `apk_extract_381/CHANGES_370_to_381.md`.
 
 ---
 

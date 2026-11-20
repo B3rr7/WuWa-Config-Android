@@ -16,7 +16,16 @@
 ;         Rejections (desktop-only, reflection-junk, no xref): apk_extract/cvar_370_rejected.tsv
 ;         Full version delta: apk_extract/cvar_diff_361_vs_370.txt
 ;
-;Active entries: 5372   (4985 retained + 387 added)
+;Active entries: 5405   (4985 retained + 387 added in 3.7.0 + 33 added in 3.8.1)
+;
+;3.8.1 pass (2026-11-19, versionCode 184203876, apk_extract_381/):
+;  +33 added from the device's own decrypted Client.log - live CVars the DB lacked,
+;      incl. 26 r.Kuro.PlanarReflection.* flags found in NO build's string table.
+;  0 removed. The 1,235 DROP candidates from the .so string diff were NOT applied:
+;      1,014 names absent in 3.7.0 reappeared in 3.8.1, so absence is not removal.
+;      Conservative removal set (absent from 3.6.1, 3.7.0 AND 3.8.1, not live) = 0.
+;  Report: apk_extract_381/CHANGES_370_to_381.md
+;  Verdicts: apk_extract_381/cvar_381_{accepted,rejected,removed_report}.tsv
 KuroRenderQuality.LevelName
 a.AllowFrameTimestamps
 a.AllowMorphTargetBlendTangents
@@ -6295,3 +6304,38 @@ vr.PixelDensity
 vr.VRS.HMDFixedFoveationDynamic
 Widget.DumpTemplateSizes
 wp.Runtime.StreamingPortalPriority
+;
+; ---- added in 3.8.1 (device-log validated) ----
+Electra.Android.VulkanAHB
+r.ImposterVer2.Roughness
+r.Kuro.PlanarReflection.DebugCullLog
+r.Kuro.PlanarReflection.DebugRTPreview
+r.Kuro.PlanarReflection.EnableFXAA
+r.Kuro.PlanarReflection.EnableGaussianPrefilter
+r.Kuro.PlanarReflection.LODDistanceFactor
+r.Kuro.PlanarReflection.MaxActivationDistance
+r.Kuro.PlanarReflection.MaxCountPerFrame
+r.Kuro.PlanarReflection.MaxScreenPercentage
+r.Kuro.PlanarReflection.MinCaptureInterval
+r.Kuro.PlanarReflection.RenderAmbientOcclusion
+r.Kuro.PlanarReflection.RenderAtmosphere
+r.Kuro.PlanarReflection.RenderDataDistortion
+r.Kuro.PlanarReflection.RenderDecals
+r.Kuro.PlanarReflection.RenderDynamicShadows
+r.Kuro.PlanarReflection.RenderFog
+r.Kuro.PlanarReflection.RenderGodRay
+r.Kuro.PlanarReflection.RenderKuroCloud
+r.Kuro.PlanarReflection.RenderTranslucency
+r.Kuro.PlanarReflection.RenderVolumetricLight
+r.Kuro.PlanarReflection.Shadow.CasterLODBias
+r.Kuro.PlanarReflection.Shadow.DistanceScale
+r.Kuro.PlanarReflection.Shadow.MaxCascades
+r.Kuro.PlanarReflection.Shadow.ResolutionScale
+r.Kuro.PlanarReflection.SingleActiveBackPlaneCull
+r.Kuro.PlanarReflection.SingleActiveRenderFX
+r.Kuro.PlanarReflection.SkipSkeletalLODInSequence
+r.Kuro.PSOUserCacheLoop
+r.ShaderPipelineCache.PrecompileOnShaderMapLoad
+r.SkyAtmosphereLut.UpdateInterval
+r.VHM.Enable
+t.CompensatedTimeStep.Enable

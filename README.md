@@ -47,7 +47,7 @@ Unreal Engine INI configs for Wuthering Waves — no root, no PC, no telemetry.
 - **8 quality presets** — `potato` → `cinematic`, each on its own detail rank. Every tier
   actually differs in screen percentage, shadow resolution, SSR, mip bias, streaming
   multiplier, view distance, foliage LOD, LOD bias and grass culling.
-- **CVar database** — 5,372 engine CVars plus 735 monitored keys. Redundant, unknown and
+- **CVar database** — 5,405 engine CVars plus 735 monitored keys. Redundant, unknown and
   platform-dead CVars are commented out with a `; [CVarDB] <reason>` marker. A restricted
   mode strips 31 CVars known to destabilise this build.
 - **Engine generation detection** — reads the `++UE4+…` / `++UE5+…` banner out of
@@ -271,7 +271,7 @@ WuWaConfigApp (Application)  — service locator, no DI framework
 │                   ├── ShizukuBackend  ShellUserService Binder IPC, script-file fallback
 │                   ├── RootBackend     su -c
 │                   └── SafBackend      DocumentFile, persistable tree URI
-├── CvarDatabase    5,372 CVars, async-loaded from assets
+├── CvarDatabase    5,405 CVars, async-loaded from assets
 ├── ConfigGenerator 8 presets → 5 INIs
 └── LogRepository   ring buffer, 1 000 entries
 
@@ -311,7 +311,7 @@ app/src/main/java/com/wuwaconfig/app/
 │   ├── ConfigManager.kt          facade over BackupStore / ProfileExtractor / HashMonitor
 │   ├── TuningProfile.kt          externalised tuning data (presets, paths, classifier patterns)
 │   ├── GameProfile.kt            externalised game knowledge (paths, log names, CVar lists, pity)
-│   ├── CvarDatabase.kt           5,372 CVars from assets, optimizeIniText rewriter
+│   ├── CvarDatabase.kt           5,405 CVars from assets, optimizeIniText rewriter
 │   ├── CvarCategorizer.kt        3-level prefix/substring matching → 19 categories
 │   ├── CvarOptimizer.kt          GPU-tier regex → tuned profile for the current device
 │   ├── CvarPlatformScope.kt      OS × API-level × engine-generation CVar applicability
@@ -420,7 +420,7 @@ app/src/main/java/com/wuwaconfig/app/
 │
 ├── update/UpdateManager.kt   GitHub release check; refuses an APK whose cert differs
 │
-└── assets/cvars/              libUE4_cvars.txt (5,372 active) + config_monitor_{cvars,values}.txt (735 each)
+└── assets/cvars/              libUE4_cvars.txt (5,405 active) + config_monitor_{cvars,values}.txt (735 each)
 ```
 
 </details>

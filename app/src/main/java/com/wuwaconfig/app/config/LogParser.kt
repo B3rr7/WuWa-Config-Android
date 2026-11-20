@@ -1159,7 +1159,7 @@ object LogParser {
     private val GPU_RE = Regex("""K#GPUFamily\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE)
     private val GPU_LOGINIT_RE = Regex("""LogInit.*GPU:\s*([^,\r\n]+)""", RegexOption.IGNORE_CASE)
     private val GPU_GENERIC_RE =
-        Regex("""(adreno\s*\d+|mali-g\d+|mali-\d+|xclipse\s*\d+|maleoon)""", RegexOption.IGNORE_CASE)
+        Regex("""(adreno\s*\d+xx?|mali-g\d+|mali-\d+|xclipse\s*\d+|maleoon)""", RegexOption.IGNORE_CASE)
     private val DEVMODEL_RE =
         Regex("""K#DeviceModel\s*:\s*([^\r\n]+)""", RegexOption.IGNORE_CASE)
     private val DEVMODEL_FALLBACK_RE =

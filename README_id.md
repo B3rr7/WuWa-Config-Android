@@ -38,7 +38,7 @@ konfigurasi Unreal Engine untuk Wuthering Waves — tanpa root, tanpa PC, tanpa 
 - **Config generator** — menulis 5 file INI (`Engine.ini`, `Scalability.ini`, `GameUserSettings.ini`, `DeviceProfiles.ini`, `Hardware.ini`) disesuaikan untuk chipset Anda di Snapdragon, Dimensity, Exynos, dan Tensor. Menetapkan `FullscreenMode=0` untuk menghindari bug viewport windowed Android.
 - **SmartBrain device scoring** — skor 0–100 yang diderivasi dari GPU tier, RAM, resolusi, support Vulkan, perilaku termal, dan frame drops tercatat, dipetakan ke preset yang direkomendasikan.
 - **8 quality presets** — `potato` → `cinematic`, setiap tingkat memiliki rank detail sendiri. Setiap tier sebenarnya berbeda dalam screen percentage, shadow resolution, SSR, mip bias, streaming multiplier, view distance, foliage LOD, LOD bias, dan grass culling.
-- **CVar database** — 5,372 CVar engine plus 735 kunci yang diawasi. CVar redundant, tidak dikenal, dan mati platform dikomentari dengan marker `; [CVarDB] <reason>`. Mode terbatas strips 31 CVar yang diketahui membuat aplikasi tidak stabil.
+- **CVar database** — 5,405 CVar engine plus 735 kunci yang diawasi. CVar redundant, tidak dikenal, dan mati platform dikomentari dengan marker `; [CVarDB] <reason>`. Mode terbatas strips 31 CVar yang diketahui membuat aplikasi tidak stabil.
 - **Engine generation detection** — membaca banner `++UE4+…` / `++UE5+…` dari `Client.log` dan menekan CVar hanya untuk UE5 yang tidak aktif pada build UE4.
 - **Gacha pity tracker** — semua 11 pool convene, tanpa batas pencatatan, dengan state guaranteed/50-50 per banner dan prediksi 5★ selanjutnya.
 - **Battle stats & player profile** — mendekripsi dan menganalisis `Client.log` untuk figur combate, dodge, gerak, dan echo-skill, serta UID baca-saja, server, dan tower.
@@ -277,7 +277,7 @@ WuWaConfigApp (Application)  — service locator, no DI framework
 │                   ├── ShizukuBackend  ShellUserService Binder IPC, script-file fallback
 │                   ├── RootBackend     su -c
 │                   └── SafBackend      DocumentFile, persistable tree URI
-├── CvarDatabase    5,372 CVars, async-loaded from assets
+├── CvarDatabase    5,405 CVars, async-loaded from assets
 ├── ConfigGenerator 8 presets → 5 INIs
 └── LogRepository   ring buffer, 1 000 entries
 
@@ -317,7 +317,7 @@ app/src/main/java/com/wuwaconfig/app/
 │   ├── ConfigManager.kt          facade over BackupStore / ProfileExtractor / HashMonitor
 │   ├── TuningProfile.kt          externalised tuning data (presets, paths, classifier patterns)
 │   ├── GameProfile.kt            externalised game knowledge (paths, log names, CVar lists, pity)
-│   ├── CvarDatabase.kt           5,372 CVars from assets, optimizeIniText rewriter
+│   ├── CvarDatabase.kt           5,405 CVars from assets, optimizeIniText rewriter
 │   ├── CvarCategorizer.kt        3-level prefix/substring matching → 19 categories
 │   ├── CvarOptimizer.kt          GPU-tier regex → tuned profile for the current device
 │   ├── CvarPlatformScope.kt      OS × API-level × engine-generation CVar applicability
@@ -426,7 +426,7 @@ app/src/main/java/com/wuwaconfig/app/
 
 ├── update/UpdateManager.kt   GitHub release check; refuses an APK whose cert differs
 
-└── assets/cvars/              libUE4_cvars.txt (5,372 active) + config_monitor_{cvars,values}.txt (735 each)
+└── assets/cvars/              libUE4_cvars.txt (5,405 active) + config_monitor_{cvars,values}.txt (735 each)
 ```
 
 </details>

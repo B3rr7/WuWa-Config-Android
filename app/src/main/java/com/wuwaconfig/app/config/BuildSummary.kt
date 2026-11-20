@@ -18,10 +18,18 @@ data class BuildSummary(
 /**
  * Pure parser for `/introduction/list`.
  *
- * The guide orders the list by popularity, so the first element is the most-curated build;
- * this app uses that one as the *recommendation* context for a character, alongside the
- * player's own equipment (which the authenticated `/introduction/info` fills in via the
- * `.current` fields regardless of which build id is requested).
+ * The first element is the most-curated build; this app uses it as the *recommendation*
+ * context for a character, alongside the player's own equipment (which the authenticated
+ * `/introduction/info` fills in via the `.current` fields regardless of which build id is
+ * requested).
+ *
+ * The endpoint used to return that popularity order itself. It stopped: a live capture on
+ * 2026-11-19 for Camellya came back ids ascending (`10008, 10009, …, 14050`) with the 8,689-like
+ * build **last**, so trusting the server order made `first()` an archived id. Those archived ids
+ * answer `/introduction/info` with `data: null`, which is why the screen reported "no build
+ * details" for characters that plainly had one. The list is therefore sorted here, by likes
+ * with the newest id as the tiebreak, and [com.wuwaconfig.app.ui.CharacterViewModel] still walks
+ * down the list because not every id in a popularity-ordered list resolves either.
  */
 object BuildListParser {
     fun parse(
@@ -53,7 +61,10 @@ object BuildListParser {
                 collectCount = o.get("collectCount")?.intOrNull(),
                 name = pickName(roleTexts, preferredLanguage),
             )
-        }
+        }.sortedWith(
+            compareByDescending<BuildSummary> { it.likeCount ?: 0 }
+                .thenByDescending { it.id },
+        )
     }
 
     /** Picks a localized name from the build's `role.texts`, preferring [lang]. */

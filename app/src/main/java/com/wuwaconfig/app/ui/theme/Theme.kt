@@ -78,6 +78,25 @@ private const val MAX_CONTRAST_SHIFT = 0.4f
 internal fun Color.isLight(): Boolean = luminance() > 0.5f
 
 /**
+ * The colour of one light pool in the glass renderer's frosted interior.
+ *
+ * Dark mode keeps the accent saturated because the near-black glass body is
+ * what gives the coloured pool its glow. Light mode has the opposite problem:
+ * an unchanged dark accent over a white body accumulates into a muddy grey
+ * card. Lifting the pool toward white preserves the hue as a pastel tint and
+ * keeps the light-mode surface luminous.
+ */
+internal fun frostedPoolColor(
+    color: Color,
+    isLight: Boolean,
+): Color =
+    if (isLight) {
+        lerp(color, Color.White, LIGHT_GLASS_FROSTED_TINT)
+    } else {
+        color
+    }
+
+/**
  * Whether the app renders dark.
  *
  * Split out of the scheme resolution so the accent layer and the settings screen

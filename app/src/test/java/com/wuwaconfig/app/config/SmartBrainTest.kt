@@ -916,4 +916,17 @@ class SmartBrainTest {
             )
         assertEquals("performance", recFor(info).preset)
     }
+
+    @Test
+    fun `report shows a resolved GPU tier and SoC for a real device log`() {
+        // End-to-end pin of the two lines that read `unknown` on the device:
+        // a log whose only GPU evidence is the profile string ("Android_Adreno6xx")
+        // parsed down to "Adreno6", plus the SoC the log never names. Before the
+        // fix this printed `GPU tier     : unknown` and `SoC          : unknown`.
+        val parsed = LogInfo(gpu = "Adreno6", deviceProfile = "Android_Adreno6xx_Lowest")
+        val info = ChipsetDetector.enrich(parsed, detectedSoc = "SM7150")
+        val text = SmartBrain.buildReportText(info, recFor(info), cvarDb)
+        assertTrue(text, text.contains("GPU tier     : mid"))
+        assertTrue(text, text.contains("SoC          : SM7150"))
+    }
 }

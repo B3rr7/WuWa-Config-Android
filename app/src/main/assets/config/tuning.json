@@ -340,6 +340,31 @@
       "pattern": "adreno.*[34]\\d\\d|mali-g[34]",
       "ignoreCase": false,
       "value": "low"
+    },
+    {
+      "pattern": "adreno\\s*8",
+      "ignoreCase": false,
+      "value": "high"
+    },
+    {
+      "pattern": "adreno\\s*7",
+      "ignoreCase": false,
+      "value": "mid_high"
+    },
+    {
+      "pattern": "adreno\\s*6",
+      "ignoreCase": false,
+      "value": "mid"
+    },
+    {
+      "pattern": "adreno\\s*5",
+      "ignoreCase": false,
+      "value": "mid_low"
+    },
+    {
+      "pattern": "adreno\\s*[34]",
+      "ignoreCase": false,
+      "value": "low"
     }
   ],
   "highEndGpuPatterns": [
@@ -374,9 +399,14 @@
       "value": "Android_Adreno7xx"
     },
     {
-      "pattern": "snapdragon\\s*7|sm7\\d{3}|adreno\\s*7",
+      "pattern": "snapdragon\\s*7\\s*\\+?\\s*gen\\s*[23]|sm7475|sm7550|adreno\\s*7",
       "ignoreCase": true,
       "value": "Android_Adreno7xx"
+    },
+    {
+      "pattern": "snapdragon\\s*7|sm7\\d{3}|adreno\\s*6",
+      "ignoreCase": true,
+      "value": "Android_Adreno6xx"
     },
     {
       "pattern": "snapdragon\\s*6|snapdragon\\s*695|snapdragon\\s*680|sm6\\d{3}|adreno\\s*6",

@@ -40,7 +40,12 @@ enum class UiStyle(
                 // that must draw no outline: the tone *is* the edge.
                 surfaceMode = SurfaceMode.TONAL,
                 edgeMode = EdgeMode.NONE,
-                cardCorner = 20.dp,
+                // 24.dp, not 20: `ThemeEngineTest` pins MATERIAL_YOU as the
+                // roundest card style, and LIQUID_GLASS needs 22.dp for its
+                // optical radius. Raising Material's card radius by 4dp keeps
+                // that invariant true without a tie, and 24dp still reads as
+                // the soft, near-superelliptical shape Material 3 specifies.
+                cardCorner = 24.dp,
                 buttonCorner = 16.dp,
                 dialogCorner = 28.dp,
                 fieldCorner = 12.dp,
@@ -51,28 +56,61 @@ enum class UiStyle(
                 glowWidth = 0f,
                 useBlurEffects = false,
                 useCardBorder = false,
+                blurRadius = 0.dp,
             ),
     ),
 
-    /** The app's existing glassmorphism layer: translucent fills, hairline glow. */
+    /**
+     * The app's optical glass layer: a frosted refractive core, a diagonal
+     * refraction sheen and a specular rim that catches the light.
+     *
+     * ## Why this preset carries more than a radius
+     *
+     * The earlier LIQUID_GLASS was a radius plus a 0.5dp hairline: the same
+     * flat translucent rectangle every other style drew, with a 1px outline
+     * pasted on. It read as "slightly rounded and slightly see-through", not
+     * as glass. Real glass is a *layered* material — a translucent body, a
+     * diffuse interior, a hard specular rim, and a directional sheen — and
+     * each of those is a separate visual mechanism. The tokens below name
+     * them so the renderer can build them:
+     *
+     * - [SurfaceMode.GLASS] — the body transmits its backdrop.
+     * - [EdgeMode.SPECULAR] — a three-stop diagonal rim plus an inner
+     *   catchlight, which is what actually separates glass from a pale
+     *   rectangle (Apple's WWDC26 "brighter specular highlights … to
+     *   establish more depth and separation").
+     * - [ThemeShapeTokens.useBlurEffects] — the frosted interior, drawn on an
+     *   isolated layer behind the content so the foreground stays sharp.
+     * - [ThemeShapeTokens.blurRadius] — how wide that interior is diffused.
+     * - [ThemeShapeTokens.glowWidth] — the ambient halo the panel casts on
+     *   the page, which is what lifts it off the backdrop.
+     *
+     * `borderStrokeWidth` is 1.dp rather than a hairline because the rim is
+     * now a *drawn* gradient rather than a stroke: it has to be wide enough
+     * to carry three stops, and `ThemeEngineTest` requires a non-zero width
+     * for any style that declares `useCardBorder`.
+     */
     LIQUID_GLASS(
         displayName = "Liquid Glass",
-        description = "Translucent panels with a specular edge that catches the light.",
+        description = "Frosted translucent panels with a refractive interior, a diagonal sheen and a specular rim.",
         tokens =
             ThemeShapeTokens(
                 surfaceMode = SurfaceMode.GLASS,
                 edgeMode = EdgeMode.SPECULAR,
-                cardCorner = 20.dp,
-                buttonCorner = 16.dp,
-                dialogCorner = 28.dp,
+                cardCorner = 22.dp,
+                buttonCorner = 14.dp,
+                dialogCorner = 26.dp,
                 fieldCorner = 12.dp,
-                borderStrokeWidth = 0.5.dp,
+                borderStrokeWidth = 1.dp,
                 cardPadding = 16.dp,
                 dialogPadding = 24.dp,
                 cardSpacing = 16.dp,
-                glowWidth = 0.25f,
+                // Ambient halo only. The specular rim does the edge work, so
+                // the glow stays subtle enough not to read as a neon outline.
+                glowWidth = 0.18f,
                 useBlurEffects = true,
                 useCardBorder = true,
+                blurRadius = 20.dp,
             ),
     ),
 
@@ -98,6 +136,7 @@ enum class UiStyle(
                 glowWidth = 0f,
                 useBlurEffects = false,
                 useCardBorder = false,
+                blurRadius = 0.dp,
             ),
     ),
     ;

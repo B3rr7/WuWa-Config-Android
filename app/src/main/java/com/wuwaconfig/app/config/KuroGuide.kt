@@ -373,6 +373,7 @@ object KuroGuide {
                     status = OfficialStatus.fromCode(obj.get("roleStatus")?.takeIf { !it.isJsonNull }?.asInt),
                     cardPictureUrl = obj.get("cardPictureUrl")?.takeIf { !it.isJsonNull }?.asString.orEmpty(),
                     illustrationPictureUrl = obj.get("illustrationPictureUrl")?.takeIf { !it.isJsonNull }?.asString.orEmpty(),
+                    elementGbId = obj.getAsJsonObject("element")?.get("gbId")?.takeIf { !it.isJsonNull }?.asString?.trim().orEmpty(),
                 ),
             )
         }
@@ -440,4 +441,9 @@ data class OfficialCharacter(
     val cardPictureUrl: String,
     /** Full-body splash from Kuro's CDN; empty when absent. */
     val illustrationPictureUrl: String,
+    /**
+     * The guide's element id ("1".."6"). The roster API, unlike the build API, does include
+     * it; without it the screen has no way to tint a character by her element.
+     */
+    val elementGbId: String = "",
 )
