@@ -11,6 +11,7 @@
 /app/build
 /app/release
 release.jks
+*.jks
 keystore.properties
 *.log
 app.md
@@ -21,11 +22,33 @@ ue4_commands.txt
 *.md5
 *.b64
 
-# Tooling / generated artifacts
+# ── Tooling / generated artifacts ───────────────────────────────────────────
 .codebase-memory/
 .vscode/
 graphify-out/
 __pycache__/
-
 .poolside/
-screenshots/
+
+# ── Local datamining scratch and run logs ───────────────────────────────────
+# Several GB of extracted APK trees plus their run logs. Analysis material,
+# never part of the shipped project.
+apk_extract/
+apk_extract_381/
+logs/
+
+# ── Local analysis helpers ──────────────────────────────────────────────────
+analyze_cvars.py
+decrypt_log.py
+
+# ── Agent / editor session state ────────────────────────────────────────────
+.agents/
+.claude/
+.clinerules/
+CLAUDE.md
+.github/copilot-instructions.md
+.opencode/
+.gitnexus/
+/.freebuff/
+
+# ── Site: sprite-sync report, not a source file ─────────────────────────────
+site/mall/.matched_files.tsv

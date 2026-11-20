@@ -49,13 +49,13 @@ konfigurasi Unreal Engine untuk Wuthering Waves — tanpa root, tanpa PC, tanpa 
 - **System agent surface** — 13 [AppFunctions](#appfunctions) hanya baca sehingga asisten di perangkat bisa meminta preset, menganalisis log, dan membaca riwayat deploy.
 
 <p align="center">
-  <img src="screenshots/screen-01.webp?v=1.1.7" width="180" alt="Halaman utama dengan status koneksi backend dan opsi cepat">
-  <img src="screenshots/screen-02.webp?v=1.1.7" width="180" alt="Config generator dengan SmartBrain score dan pemilihan preset">
-  <img src="screenshots/screen-03.webp?v=1.1.7" width="180" alt="Gacha pity tracker dengan riwayat pull dan breakdown rarity">
-  <img src="screenshots/screen-04.webp?v=1.1.7" width="180" alt="Player profile dengan level akun, progres season, dan info perangkat">
-  <img src="screenshots/screen-05.webp?v=1.1.7" width="180" alt="Battle stats analyzer dengan kartu combat dan eksplorasi">
-  <img src="screenshots/screen-06.webp?v=1.1.7" width="180" alt="Layar tampilan Appearance dengan UI Style Engine dan palette warna">
-  <img src="screenshots/screen-07.webp?v=1.1.7" width="180" alt="Karakter dengan roster Kuro yang disinkronisasi, senjata, dan resonance">
+  <img src="site/screenshots/screen-01.webp?v=1.1.7" width="180" alt="Halaman utama dengan status koneksi backend dan opsi cepat">
+  <img src="site/screenshots/screen-02.webp?v=1.1.7" width="180" alt="Config generator dengan SmartBrain score dan pemilihan preset">
+  <img src="site/screenshots/screen-03.webp?v=1.1.7" width="180" alt="Gacha pity tracker dengan riwayat pull dan breakdown rarity">
+  <img src="site/screenshots/screen-04.webp?v=1.1.7" width="180" alt="Player profile dengan level akun, progres season, dan info perangkat">
+  <img src="site/screenshots/screen-05.webp?v=1.1.7" width="180" alt="Battle stats analyzer dengan kartu combat dan eksplorasi">
+  <img src="site/screenshots/screen-06.webp?v=1.1.7" width="180" alt="Layar tampilan Appearance dengan UI Style Engine dan palette warna">
+  <img src="site/screenshots/screen-07.webp?v=1.1.7" width="180" alt="Karakter dengan roster Kuro yang disinkronisasi, senjata, dan resonance">
 </p>
 
 ---

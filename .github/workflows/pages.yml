@@ -1,0 +1,51 @@
+name: Deploy site
+
+# Publishes site/ to GitHub Pages.
+#
+# The repository no longer serves Pages from the branch root: everything the
+# public site needs lives in site/, and this workflow uploads exactly that
+# directory as the artifact. That keeps the web root free of the Android
+# project, the docs and the build files.
+#
+# Requires Settings -> Pages -> Source = "GitHub Actions" (one-time).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never cancel a deploy in flight: a half-published Pages artifact is worse
+# than a slightly delayed one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
