@@ -3,7 +3,7 @@
 // Also bump it when ANY same-origin static asset changes value at the same URL:
 // `cacheFirst` below never revalidates a hit, so a replaced screenshots/screen-0N.webp
 // would otherwise stay frozen at the old build for every returning visitor.
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v5';
 const SHELL_CACHE = `wuwacfg-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `wuwacfg-assets-${CACHE_VERSION}`;
 
