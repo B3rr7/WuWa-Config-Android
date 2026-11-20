@@ -50,8 +50,8 @@ python3 -m http.server -d site 8000
 
 ## Not in the repository
 
-Local-only material is excluded on purpose: `apk_extract*/` (datamining
-scratch, ~3.7 GB), `logs/`, `graphify-out/`, `build/`, signing material
-(`keystore.properties`, `release.jks`), `local.properties`, and the agent
-guidance files (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.agents/`,
-`.clinerules/`). See `.gitignore`.
+Local-only material is excluded on purpose: the APK extracts and their logs,
+generated analysis output, `build/`, signing material (`keystore.properties`,
+`release.jks`), `local.properties`, and per-machine session notes and tool
+state. See `.git/info/exclude` for the full local list; the shared `.gitignore`
+covers only project artifacts.
