@@ -1,6 +1,10 @@
 package com.wuwaconfig.app.ui.anim
 
 /*
+ * LoadFileAnimation delegates to ProfileDataLoader.kt, the dedicated player-
+ * profile extraction visual. The legacy two-stage flow below remains for
+ * LoadAndReadAnimation callers.
+ *
  * Stage 1 (LOAD): binary file drops in, loads with your real progress, color follows the progress.
  *                 fails  -> red glitch -> explosion, broken files everywhere
  *                 succeeds -> turns green, matrix runs inside
@@ -119,13 +123,14 @@ fun LoadFileAnimation(
     outcome: LoadOutcome?,
     modifier: Modifier = Modifier,
     onSettled: (success: Boolean) -> Unit = {},
-) = LoadAndReadAnimation(
-    loadProgress = progress,
-    loadOutcome = outcome,
-    readResult = null,
-    modifier = modifier,
-    onSettled = { _, ok -> onSettled(ok) },
-)
+) {
+    ProfileDataLoader(
+        progress = progress,
+        outcome = outcome,
+        modifier = modifier,
+        onSettled = onSettled,
+    )
+}
 
 private class StageFlow(var stage: AnimStage) {
     var veil by mutableFloatStateOf(0f)

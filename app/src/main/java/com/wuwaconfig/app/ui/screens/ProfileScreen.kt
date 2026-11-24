@@ -52,10 +52,10 @@ fun ProfileScreen(
     val profileProgress by viewModel.profileProgress.collectAsStateWithLifecycle()
     val configModifyCounts by viewModel.configModifyCounts.collectAsStateWithLifecycle()
 
-    // Load animation (ui.anim.LoadFileAnimation): the binary-file drop / progress
-    // / matrix scene driven by the real profileProgress (0..100). State lives here,
-    // not in the card's `profileLoading && profile == null` branch, so the success
-    // deck (or failure boom) keeps playing after loading drops. Reduced-motion
+    // Load animation (ui.anim.LoadFileAnimation): the player-profile extraction
+    // console driven by the real profileProgress (0..100). State lives here, not
+    // in the card's `profileLoading && profile == null` branch, so the terminal
+    // success or failure state keeps playing after loading drops. Reduced-motion
     // users never see it — their branch falls back to the OrbLoadingCard below.
     val reducedMotion = rememberReducedMotion()
     var loadAnimVisible by rememberSaveable { mutableStateOf(false) }
@@ -130,8 +130,9 @@ fun ProfileScreen(
                         Spacer(Modifier.height(6.dp))
                         Text(
                             when {
+                                loadAnimOutcome is LoadOutcome.Success -> "Player profile data loaded."
                                 loadAnimOutcome is LoadOutcome.Failed -> "Load failed — check the log below"
-                                else -> "Reading game data from device..."
+                                else -> "Reading player profile data from device..."
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color =
