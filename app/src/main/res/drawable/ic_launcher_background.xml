@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="#0D0D1A" />
-</shape>
+<!--
+    Adaptive-icon background layer.
+
+    The foreground bitmap covers the whole 108dp canvas, so this colour is only a
+    fallback - but it is sampled from the artwork's own edge (#390F86, the mean of
+    the master's border ring) so any sliver a launcher shows matches the art.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF390F86"
+        android:pathData="M0,0h108v108h-108z" />
+</vector>

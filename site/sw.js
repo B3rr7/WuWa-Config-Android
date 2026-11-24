@@ -3,7 +3,7 @@
 // Also bump it when ANY same-origin static asset changes value at the same URL:
 // `cacheFirst` below never revalidates a hit, so a replaced screenshots/screen-0N.webp
 // would otherwise stay frozen at the old build for every returning visitor.
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v10';
 const SHELL_CACHE = `wuwacfg-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `wuwacfg-assets-${CACHE_VERSION}`;
 
@@ -23,11 +23,11 @@ const SHELL = [
   './manifest.json',
   './register-sw.js',
   './favicon.png',
-  './app_icon.png',
-  './apple-touch-icon.png',
   './icon-96.webp',
-  './icon-192.png',
-  './icon-512.png',
+  // The 192/512/apple-touch/app_icon rasters are deliberately NOT precached:
+  // nothing renders them, and the 3D artwork makes each one 4x its old weight
+  // (icon-512 alone is ~190 KB). The OS fetches them at install time, and
+  // `cacheFirst` below picks them up on first use anyway.
   './fonts/InterVariable.woff2',
   './fonts/InterVariable-Italic.woff2',
   // Percent-encoded, matching how styles.css references them. The raw filename
