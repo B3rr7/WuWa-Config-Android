@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,11 +45,19 @@ fun BackupScreen(
     val backendStatus by deployHistoryViewModel.backendStatus.collectAsStateWithLifecycle()
     val backups by viewModel.backups.collectAsStateWithLifecycle()
     val isApplying by deployHistoryViewModel.isApplying.collectAsStateWithLifecycle()
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var backupName by remember { mutableStateOf("") }
-    var selectedCreateFiles by remember { mutableStateOf(ALL_INI_FILES.toSet()) }
+    // Dialog state is saveable (simple types); restoreTarget holds a data class
+    // and stays plain remember — worst case on rotation the restore dialog is
+    // closed rather than acting on a stale backup reference.
+    var showCreateDialog by rememberSaveable { mutableStateOf(false) }
+    var backupName by rememberSaveable { mutableStateOf("") }
+    var selectedCreateFiles by rememberSaveable { mutableStateOf(ALL_INI_FILES.toSet()) }
     var restoreTarget by remember { mutableStateOf<ConfigBackup?>(null) }
-    var selectedRestoreFiles by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedRestoreFiles by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
+    // Delete is irreversible, so it goes through the same confirmation path the
+    // Restore dialog already uses. Previously it was one unconfirmed tap — and
+    // the 40dp adjacent Restore/Delete buttons made a near-miss land on it.
+    var pendingDelete by remember { mutableStateOf<ConfigBackup?>(null) }
+    val dialogBackupDir by viewModel.backupStorageDirFlow.collectAsStateWithLifecycle()
     val backupFeedback by viewModel.backupFeedback.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -146,7 +155,7 @@ fun BackupScreen(
                                     selectedRestoreFiles = backup.files.map { it.name }.toSet()
                                     restoreTarget = backup
                                 },
-                                onDelete = { viewModel.deleteBackup(backup) },
+                                onDelete = { pendingDelete = backup },
                                 isApplying = isApplying,
                                 connected = backendStatus.connected,
                             )
@@ -308,6 +317,47 @@ fun BackupScreen(
                 },
             )
         }
+
+        pendingDelete?.let { backup ->
+            GlassDialog(
+                onDismissRequest = { pendingDelete = null },
+                accentColor = NeonRed,
+                title = { Text("Delete backup?", color = NeonRed, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text(
+                            // Prevent the stale-reference trap the restore dialog has:
+                            // if the list refreshed while the dialog was open, the held
+                            // ConfigBackup may no longer exist. Resolve by id at confirm
+                            // time instead of acting on the captured object.
+                            "\"${backup.name}\" will be permanently removed from \"$dialogBackupDir\". This cannot be undone.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            // Only delete if it is still in the (fresh) list.
+                            if (backups.any { it.id == backup.id }) {
+                                viewModel.deleteBackup(backup)
+                            }
+                            pendingDelete = null
+                        },
+                        enabled = !isApplying,
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = NeonRed.copy(alpha = 0.15f),
+                                contentColor = NeonRed,
+                            ),
+                        shape = RoundedCornerShape(10.dp),
+                    ) { Text("Delete", color = NeonRed, fontWeight = FontWeight.Bold) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDelete = null }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurface) }
+                },
+            )
+        }
     }
 }
 
@@ -364,10 +414,12 @@ private fun BackupManageCard(
         }
         Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            // 48dp, not 40dp: destructive Delete sits directly next to Restore in
+            // this row, so sub-48dp targets made a near-miss land on Delete.
             GlassOutlinedButton(
                 onClick = onDelete,
                 accentColor = NeonRed,
-                height = 40.dp,
+                height = 48.dp,
             ) {
                 Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
@@ -379,7 +431,7 @@ private fun BackupManageCard(
                 enabled = connected && !isApplying,
                 accentColor = accent,
                 contentColor = Color.White,
-                height = 40.dp,
+                height = 48.dp,
             ) {
                 Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))

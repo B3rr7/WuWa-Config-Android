@@ -39,7 +39,7 @@ class ThemePersistenceTest {
     fun `stored values round-trip`() {
         val c =
             buildThemeConfig(
-                uiStyleName = UiStyle.RETRO_HANDHELD.name,
+                uiStyleName = UiStyle.MATERIAL_YOU.name,
                 colorPaletteName = ColorPalette.MATRIX_GREEN.name,
                 themeMode = "dark",
                 textOpacity = 0.75f,
@@ -48,7 +48,7 @@ class ThemePersistenceTest {
                 colorSaturation = 1.3f,
                 dynamicColor = true,
             )
-        assertEquals(UiStyle.RETRO_HANDHELD, c.uiStyle)
+        assertEquals(UiStyle.MATERIAL_YOU, c.uiStyle)
         assertEquals(ColorPalette.MATRIX_GREEN, c.colorPalette)
         assertEquals("dark", c.themeMode)
         assertEquals(0.75f, c.textOpacity)
@@ -81,6 +81,31 @@ class ThemePersistenceTest {
             )
         assertEquals(UiStyle.DEFAULT, c.uiStyle)
         assertEquals(ColorPalette.DEFAULT, c.colorPalette)
+    }
+
+    /**
+     * The rename path, exercised through the same function the repository uses.
+     *
+     * `ThemeEngineTest` pins `fromStorageKey` in isolation; this pins the
+     * consequence a user would actually notice. An install that picked the glass
+     * style before it was renamed holds `"LIQUID_GLASS"`, and it must come back
+     * as the same style — not as the default, which is indistinguishable from
+     * never having chosen.
+     */
+    @Test
+    fun `a style renamed in this build keeps the user's choice`() {
+        val c =
+            buildThemeConfig(
+                uiStyleName = "LIQUID_GLASS",
+                colorPaletteName = null,
+                themeMode = null,
+                textOpacity = null,
+                fontFamilyName = null,
+                fontScale = null,
+                colorSaturation = null,
+                dynamicColor = null,
+            )
+        assertEquals(UiStyle.GLASSMORPHISM, c.uiStyle)
     }
 
     @Test

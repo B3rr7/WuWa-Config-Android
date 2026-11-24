@@ -57,12 +57,11 @@ class GachaAvatarPortraitTest {
     // ─────────── the binary constraint the composable now honours ───────────
 
     @Test
-    fun `an official url is not coil loadable so the initial is drawn instead`() {
-        // portraitModel still *returns* the URL (that ordering is what makes a
-        // future coil-network swap a one-line change), but the composable must not
-        // hand it to AsyncImage: there is no fetcher, so it would render an empty
-        // circle and suppress the initials. This pins the filter, not the order.
-        assertFalse(
+    fun `an official url is now coil loadable because coil-network is a dependency`() {
+        // coil-network-okhttp is now on the classpath, so Coil can fetch the
+        // guide's https art. The composable hands the URL to AsyncImage and the
+        // portrait renders instead of an empty circle / initial.
+        assertTrue(
             isCoilLoadable(portraitModel(bundledAsset = null, officialUrl = official)),
         )
     }

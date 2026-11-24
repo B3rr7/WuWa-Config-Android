@@ -1,0 +1,117 @@
+// Bump CACHE_VERSION whenever SHELL changes, or returning visitors keep the old
+// precache forever. Cleaned up by the `activate` handler below.
+// Also bump it when ANY same-origin static asset changes value at the same URL:
+// `cacheFirst` below never revalidates a hit, so a replaced screenshots/screen-0N.webp
+// would otherwise stay frozen at the old build for every returning visitor.
+const CACHE_VERSION = 'v11';
+const SHELL_CACHE = `wuwacfg-shell-${CACHE_VERSION}`;
+const ASSET_CACHE = `wuwacfg-assets-${CACHE_VERSION}`;
+
+// The shell: every page plus the CSS, fonts and icons needed to render one.
+// Deliberately NOT including mall/ — it is 11 MB across 64 sprites, and
+// precaching it would make a first visit download more than the app itself.
+// Sprites are cached on first use by RUNTIME below instead.
+const SHELL = [
+  './',
+  './index.html',
+  './download.html',
+  './faq.html',
+  './presets.html',
+  './troubleshooting.html',
+  './fps-lab.html',
+  './styles.css',
+  './manifest.json',
+  './register-sw.js',
+  './favicon.png',
+  './icon-96.webp',
+  // The 192/512/apple-touch/app_icon rasters are deliberately NOT precached:
+  // nothing renders them, and the 3D artwork makes each one 4x its old weight
+  // (icon-512 alone is ~190 KB). The OS fetches them at install time, and
+  // `cacheFirst` below picks them up on first use anyway.
+  './fonts/InterVariable.woff2',
+  './fonts/InterVariable-Italic.woff2',
+  // Percent-encoded, matching how styles.css references them. The raw filename
+  // contains [wght], and a URL with literal brackets is malformed -- browsers do not
+  // encode them automatically, so cache.add() would reject the entry. Because
+  // install uses allSettled that would have failed silently rather than loudly.
+  './fonts/JetBrainsMono%5Bwght%5D.woff2',
+  './fonts/JetBrainsMono-Italic%5Bwght%5D.woff2',
+];
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches
+      .open(SHELL_CACHE)
+      // `addAll` rejects wholesale if any single entry 404s, which would leave the
+      // worker permanently uninstalled. One bad path must not cost the whole cache.
+      .then(c => Promise.allSettled(SHELL.map(u => c.add(u))))
+      .then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches
+      .keys()
+      .then(keys =>
+        Promise.all(
+          keys
+            .filter(k => k.startsWith('wuwacfg-') && k !== SHELL_CACHE && k !== ASSET_CACHE)
+            .map(k => caches.delete(k)),
+        ),
+      )
+      .then(() => self.clients.claim()),
+  );
+});
+
+/**
+ * Sprite and image runtime cache.
+ *
+ * Cache-first with no revalidation: these are versioned with the site, so a hit is
+ * as correct as a fetch. Entries are left unbounded — the asset set is finite and
+ * known (~64 files), so eviction would only cost re-downloads.
+ */
+async function cacheFirst(request) {
+  const cache = await caches.open(ASSET_CACHE);
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const response = await fetch(request);
+  if (response.ok && response.type === 'basic') cache.put(request, response.clone());
+  return response;
+}
+
+/**
+ * Navigations: network-first so a deployed change is picked up immediately,
+ * falling back to the cached shell when offline.
+ */
+async function navigationHandler(request) {
+  try {
+    return await fetch(request);
+  } catch {
+    // Offline: serve the page that was actually requested. The old fallback
+    // was always the homepage, so an offline /faq.html rendered the homepage
+    // under the faq URL.
+    const cached =
+      (await caches.match(request, { ignoreSearch: true })) ||
+      (await caches.match('./index.html'));
+    return cached || Response.error();
+  }
+}
+
+self.addEventListener('fetch', e => {
+  const { request } = e;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  // Cross-origin (fonts from a CDN, analytics) is left entirely alone: this worker
+  // exists so the site works offline, and opaque responses cannot be inspected or
+  // trusted into a cache.
+  if (url.origin !== self.location.origin) return;
+
+  if (request.mode === 'navigate') {
+    e.respondWith(navigationHandler(request));
+    return;
+  }
+
+  e.respondWith(cacheFirst(request));
+});

@@ -68,127 +68,177 @@ object CvarOptimizer {
         val hasOom = info.gpuOom >= 1
         val hasTextureErrors = info.textureErrors >= 5
 
-        val isHardLimited = hasOom || (hasThermal && tier in listOf("mid_low", "low", "unknown"))
+        val isHardLimited = hasOom || (hasThermal && tier in HARD_LIMITED_TIERS)
         val isConstrained = hasThermal || hasTextureErrors || ram < 6000
 
-        val screen =
-            when {
-                isHardLimited -> 50
-                isConstrained && tier == "flagship" -> 80
-                isConstrained -> 60
-                tier == "flagship" -> 100
-                tier == "high" -> 100
-                tier == "mid_high" -> 80
-                tier == "mid" -> 80
-                else -> 60
-            }
-
-        val shadow =
-            when {
-                isHardLimited -> 0
-                isConstrained && tier == "flagship" -> 2
-                isConstrained -> 0
-                tier == "flagship" -> 5
-                tier == "high" -> 4
-                tier == "mid_high" -> 2
-                tier == "mid" -> 2
-                else -> 0
-            }
-
-        val shadowRes =
-            when {
-                shadow >= 4 -> 2048
-                shadow >= 2 -> 1024
-                shadow >= 1 -> 512
-                else -> 256
-            }
-
-        val ssr =
-            when {
-                isHardLimited || (isConstrained && tier !in listOf("flagship", "high")) -> 0
-                tier == "flagship" && ram >= 8000 -> 4
-                tier == "high" && ram >= 8000 -> 2
-                tier in listOf("flagship", "high") -> 1
-                else -> 0
-            }
-
-        val mipbias =
-            when {
-                isHardLimited || ram < 4000 -> 3
-                ram < 6000 -> 3
-                ram < 8000 -> 0
-                else -> 0
-            }
-
-        val streaming: Double =
-            when {
-                isHardLimited -> 0.3
-                ram < 4000 -> 0.5
-                ram < 6000 -> 1.0
-                ram < 8000 -> 2.0
-                tier == "flagship" -> 4.0
-                tier == "high" -> 3.0
-                else -> 2.0
-            }
-
-        val vd: Double =
-            when {
-                isHardLimited -> 0.3
-                tier == "flagship" -> 3.0
-                tier == "high" -> 2.0
-                tier == "mid_high" -> 1.5
-                else -> 0.5
-            }
-
-        val flod: Double =
-            when {
-                isHardLimited -> 0.4
-                tier == "flagship" -> 3.0
-                tier == "high" -> 2.5
-                tier == "mid_high" -> 2.0
-                else -> 0.6
-            }
-
-        val detail =
-            when {
-                isHardLimited -> 0
-                isConstrained && tier !in listOf("flagship", "high") -> 0
-                isConstrained && tier == "flagship" -> 2
-                isConstrained && tier == "high" -> 1
-                tier == "flagship" && ram >= 12000 -> 7
-                tier == "flagship" && ram >= 8000 -> 6
-                tier == "flagship" -> 5
-                tier == "high" && ram >= 8000 -> 5
-                tier == "high" -> 4
-                tier == "mid_high" -> 2
-                tier == "mid" -> 1
-                else -> 0
-            }
-
-        val lod_bias =
-            when {
-                isHardLimited -> 5
-                detail == 0 -> 3
-                else -> 0
-            }
-
-        val grasscull =
-            when {
-                isHardLimited -> 1500
-                detail == 0 -> 4500
-                tier == "flagship" -> 30000
-                tier == "high" -> 20000
-                tier == "mid_high" -> 15000
-                else -> 15000
-            }
+        val shadow = shadowFor(tier, isHardLimited, isConstrained)
+        val detail = detailFor(tier, ram, isHardLimited, isConstrained)
 
         return OptimizedProfile(
-            screen = screen, shadow = shadow, shadowRes = shadowRes,
-            ssr = ssr, mipbias = mipbias, streaming = streaming,
-            vd = vd, flod = flod, detail = detail,
-            lod_bias = lod_bias, grasscull = grasscull,
+            screen = screenFor(tier, isHardLimited, isConstrained),
+            shadow = shadow,
+            shadowRes = shadowResFor(shadow),
+            ssr = ssrFor(tier, ram, isHardLimited, isConstrained),
+            mipbias = mipbiasFor(ram, isHardLimited),
+            streaming = streamingFor(tier, ram, isHardLimited),
+            vd = vdFor(tier, isHardLimited),
+            flod = flodFor(tier, isHardLimited),
+            detail = detail,
+            lod_bias = lodBiasFor(detail, isHardLimited),
+            grasscull = grasscullFor(tier, detail, isHardLimited),
         )
     }
+
+    // --- per-field decision tables, extracted so optimizeProfile stays readable.
+    // Each helper is a small, independently testable mapping. Behaviour is
+    // identical to the previous inline when-blocks (locked by
+    // CvarOptimizerCharacterizationTest).
+
+    private val HARD_LIMITED_TIERS = listOf("mid_low", "low", "unknown")
+
+    private fun screenFor(
+        tier: String,
+        isHardLimited: Boolean,
+        isConstrained: Boolean,
+    ): Int =
+        when {
+            isHardLimited -> 50
+            isConstrained && tier == "flagship" -> 80
+            isConstrained -> 60
+            tier == "flagship" || tier == "high" -> 100
+            tier == "mid_high" || tier == "mid" -> 80
+            else -> 60
+        }
+
+    private fun shadowFor(
+        tier: String,
+        isHardLimited: Boolean,
+        isConstrained: Boolean,
+    ): Int =
+        when {
+            isHardLimited -> 0
+            isConstrained && tier == "flagship" -> 2
+            isConstrained -> 0
+            tier == "flagship" -> 5
+            tier == "high" -> 4
+            tier == "mid_high" || tier == "mid" -> 2
+            else -> 0
+        }
+
+    private fun shadowResFor(shadow: Int): Int =
+        when {
+            shadow >= 4 -> 2048
+            shadow >= 2 -> 1024
+            shadow >= 1 -> 512
+            else -> 256
+        }
+
+    private fun ssrFor(
+        tier: String,
+        ram: Int,
+        isHardLimited: Boolean,
+        isConstrained: Boolean,
+    ): Int =
+        when {
+            isHardLimited || (isConstrained && tier !in listOf("flagship", "high")) -> 0
+            tier == "flagship" && ram >= 8000 -> 4
+            tier == "high" && ram >= 8000 -> 2
+            tier in listOf("flagship", "high") -> 1
+            else -> 0
+        }
+
+    private fun mipbiasFor(
+        ram: Int,
+        isHardLimited: Boolean,
+    ): Int =
+        when {
+            isHardLimited || ram < 4000 -> 3
+            ram < 6000 -> 3
+            else -> 0
+        }
+
+    private fun streamingFor(
+        tier: String,
+        ram: Int,
+        isHardLimited: Boolean,
+    ): Double =
+        when {
+            isHardLimited -> 0.3
+            ram < 4000 -> 0.5
+            ram < 6000 -> 1.0
+            ram < 8000 -> 2.0
+            tier == "flagship" -> 4.0
+            tier == "high" -> 3.0
+            else -> 2.0
+        }
+
+    private fun vdFor(
+        tier: String,
+        isHardLimited: Boolean,
+    ): Double =
+        when {
+            isHardLimited -> 0.3
+            tier == "flagship" -> 3.0
+            tier == "high" -> 2.0
+            tier == "mid_high" -> 1.5
+            else -> 0.5
+        }
+
+    private fun flodFor(
+        tier: String,
+        isHardLimited: Boolean,
+    ): Double =
+        when {
+            isHardLimited -> 0.4
+            tier == "flagship" -> 3.0
+            tier == "high" -> 2.5
+            tier == "mid_high" -> 2.0
+            else -> 0.6
+        }
+
+    private fun detailFor(
+        tier: String,
+        ram: Int,
+        isHardLimited: Boolean,
+        isConstrained: Boolean,
+    ): Int =
+        when {
+            isHardLimited -> 0
+            isConstrained && tier !in listOf("flagship", "high") -> 0
+            isConstrained && tier == "flagship" -> 2
+            isConstrained && tier == "high" -> 1
+            tier == "flagship" && ram >= 12000 -> 7
+            tier == "flagship" && ram >= 8000 -> 6
+            tier == "flagship" -> 5
+            tier == "high" && ram >= 8000 -> 5
+            tier == "high" -> 4
+            tier == "mid_high" -> 2
+            tier == "mid" -> 1
+            else -> 0
+        }
+
+    private fun lodBiasFor(
+        detail: Int,
+        isHardLimited: Boolean,
+    ): Int =
+        when {
+            isHardLimited -> 5
+            detail == 0 -> 3
+            else -> 0
+        }
+
+    private fun grasscullFor(
+        tier: String,
+        detail: Int,
+        isHardLimited: Boolean,
+    ): Int =
+        when {
+            isHardLimited -> 1500
+            detail == 0 -> 4500
+            tier == "flagship" -> 30000
+            tier == "high" -> 20000
+            else -> 15000
+        }
 
     fun adjustProfile(
         current: OptimizedProfile,

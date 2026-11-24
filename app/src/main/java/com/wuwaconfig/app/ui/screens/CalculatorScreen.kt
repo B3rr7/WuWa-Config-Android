@@ -5,8 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,6 +39,7 @@ import com.wuwaconfig.app.model.CalculatorCharacter
 import com.wuwaconfig.app.model.CalculatorResult
 import com.wuwaconfig.app.model.CalculatorWeapon
 import com.wuwaconfig.app.model.MaterialGroup
+import com.wuwaconfig.app.model.MaterialItem
 import com.wuwaconfig.app.ui.CalculatorViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
@@ -153,8 +155,11 @@ fun CalculatorScreen(
             },
             containerColor = Color.Transparent,
         ) { padding ->
+            val inPicker =
+                (tabIndex == 0 && selectedCharacter == null) ||
+                    (tabIndex == 1 && selectedWeapon == null)
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Spacer(Modifier.height(4.dp))
@@ -169,22 +174,54 @@ fun CalculatorScreen(
                     }
                 }
 
-                if (tabIndex == 0) {
-                    CharacterTab(
-                        characters = characters,
-                        selected = selectedCharacter,
-                        result = characterResult,
-                        onSelect = viewModel::selectCharacter,
-                        onCalculate = viewModel::calculateCharacter,
-                    )
+                if (inPicker) {
+                    // Picker mode: the portrait grid owns the rest of the screen.
+                    // It used to be capped at 336dp inside a scrolling page, which
+                    // left a large dead band below the card on any tall device.
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        if (tabIndex == 0) {
+                            CharacterTab(
+                                characters = characters,
+                                selected = selectedCharacter,
+                                result = characterResult,
+                                onSelect = viewModel::selectCharacter,
+                                onCalculate = viewModel::calculateCharacter,
+                                fill = true,
+                            )
+                        } else {
+                            WeaponTab(
+                                weapons = weapons,
+                                selected = selectedWeapon,
+                                result = weaponResult,
+                                onSelect = viewModel::selectWeapon,
+                                onCalculate = viewModel::calculateWeapon,
+                                fill = true,
+                            )
+                        }
+                    }
                 } else {
-                    WeaponTab(
-                        weapons = weapons,
-                        selected = selectedWeapon,
-                        result = weaponResult,
-                        onSelect = viewModel::selectWeapon,
-                        onCalculate = viewModel::calculateWeapon,
-                    )
+                    Column(
+                        modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (tabIndex == 0) {
+                            CharacterTab(
+                                characters = characters,
+                                selected = selectedCharacter,
+                                result = characterResult,
+                                onSelect = viewModel::selectCharacter,
+                                onCalculate = viewModel::calculateCharacter,
+                            )
+                        } else {
+                            WeaponTab(
+                                weapons = weapons,
+                                selected = selectedWeapon,
+                                result = weaponResult,
+                                onSelect = viewModel::selectWeapon,
+                                onCalculate = viewModel::calculateWeapon,
+                            )
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -218,6 +255,17 @@ private fun SegTab(
     }
 }
 
+/**
+ * Character planning: pick a character, set both ranges, read live totals.
+ *
+ * The two former "Calculate" buttons are gone on purpose. Both buttons fed the
+ * same underlying call — the skills one passed the ascension range too — so the
+ * separation was an illusion, and a stale press-order bug class (ranges changed,
+ * button not re-pressed) came with it. Results now recompute whenever any input
+ * changes, via [LaunchedEffect], and selection changes clear the result in the
+ * ViewModel, which structurally kills the stale "Nothing to upgrade" banner the
+ * old `emptyResult` flag needed a reset effect for.
+ */
 @Composable
 private fun CharacterTab(
     characters: List<CalculatorCharacter>,
@@ -225,12 +273,21 @@ private fun CharacterTab(
     result: CalculatorResult?,
     onSelect: (CalculatorCharacter?) -> Unit,
     onCalculate: (Int, Int, Int, Int) -> Boolean,
+    fill: Boolean = false,
 ) {
     var fromPhase by rememberSaveable { mutableStateOf(0) }
     var toPhase by rememberSaveable { mutableStateOf(6) }
+    // Skills default to "no purchase" (1 -> 1) so the live totals on selection
+    // reflect ascension only; dragging the skill range adds skill cost visibly.
     var skillFrom by rememberSaveable { mutableStateOf(1) }
-    var skillTo by rememberSaveable { mutableStateOf(10) }
-    var emptyResult by remember { mutableStateOf(false) }
+    var skillTo by rememberSaveable { mutableStateOf(1) }
+
+    // Live recalculation: every input change re-runs the (pure, table-sum)
+    // calculator. Consecutive relaunches cancel the previous one, so a slider
+    // drag settles into exactly one call — no Calculate button to forget.
+    LaunchedEffect(selected, fromPhase, toPhase, skillFrom, skillTo) {
+        if (selected != null) onCalculate(fromPhase, toPhase, skillFrom, skillTo)
+    }
 
     if (selected == null) {
         PickerCard(
@@ -240,9 +297,9 @@ private fun CharacterTab(
             entries = characters,
             name = { it.name },
             rarity = { it.rarity },
-            subtitle = { null },
             weapon = false,
             onPick = { onSelect(it as CalculatorCharacter) },
+            fill = fill,
         )
         return
     }
@@ -255,30 +312,47 @@ private fun CharacterTab(
         onChange = { onSelect(null) },
     )
 
-    // Ascension and skill are independent purchases, so each gets its own
-    // Calculate button: picking a level range and then having it silently reset
-    // when you touch the skill sliders is the confusing failure mode here.
     GlassCard(accentColor = NeonGreen) {
-        GlassCardHeader("Ascension", NeonGreen)
+        GlassCardHeader("Plan", NeonGreen)
         Spacer(Modifier.height(10.dp))
-        PhaseRangeSlider(
+
+        // Ascension. Phase index 0..6 maps to the level table below.
+        RangeField(
             label = "Level",
-            fromPhase = fromPhase,
-            toPhase = toPhase,
-            onFrom = { fromPhase = it.coerceAtMost(toPhase) },
-            onTo = { toPhase = it.coerceAtLeast(fromPhase) },
+            from = fromPhase,
+            to = toPhase,
+            range = 0f..6f,
+            accent = NeonGreen,
             note = { phase -> "max Lv ${MaterialCalculator.PHASE_MAX_LEVEL.getOrElse(phase) { 90 }}" },
+            presets =
+                listOf(
+                    "Full 0→6" to { 0 to 6 },
+                    "To max" to { fromPhase to 6 },
+                ),
+            onFrom = { fromPhase = it },
+            onTo = { toPhase = it },
         )
-        Spacer(Modifier.height(12.dp))
-        GlassButton(
-            onClick = { emptyResult = !onCalculate(fromPhase, toPhase, 1, 1) },
-            modifier = Modifier.fillMaxWidth(),
-            accentColor = NeonGreen,
-        ) {
-            Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Calculate Ascension", fontWeight = FontWeight.Bold)
-        }
+
+        Spacer(Modifier.height(14.dp))
+
+        // Skills are 1..10 and the slider range is 1..10, so the slider value
+        // IS the skill level (see the removed valueOffset bug in history).
+        RangeField(
+            label = "Skills",
+            from = skillFrom,
+            to = skillTo,
+            range = 1f..10f,
+            accent = NeonCyan,
+            note = { level -> "Lv $level" },
+            presets =
+                listOf(
+                    "None 1→1" to { 1 to 1 },
+                    "Max 1→10" to { 1 to 10 },
+                ),
+            onFrom = { skillFrom = it },
+            onTo = { skillTo = it },
+        )
+
         Spacer(Modifier.height(8.dp))
         // The result silently includes inherent skills and stat bonuses, which
         // unlock on ascension rather than on the skill slider. Without this the
@@ -288,39 +362,6 @@ private fun CharacterTab(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
         )
-    }
-
-    GlassCard(accentColor = NeonCyan) {
-        GlassCardHeader("Skills", NeonCyan)
-        Spacer(Modifier.height(10.dp))
-        PhaseRangeSlider(
-            label = "Skill",
-            // Skills are 1..10 and the slider range is 1..10, so the slider value
-            // IS the skill level. It used to pass `skillFrom - 1` against a 1..10
-            // range, which clamped the whole control to 2..10 and made level 1
-            // unreachable. `valueOffset` only affects the printed label.
-            fromPhase = skillFrom,
-            toPhase = skillTo,
-            valueOffset = 0,
-            minLevel = 1,
-            maxLevel = 10,
-            onFrom = { skillFrom = it.coerceAtMost(skillTo) },
-            onTo = { skillTo = it.coerceAtLeast(skillFrom) },
-            // Skills cap at 10, so the character level table must not be shown here.
-            // Takes the level straight: it used to add 1 to compensate for the
-            // removed offset, which would now over-report by one.
-            note = { level -> "max Lv $level" },
-        )
-        Spacer(Modifier.height(12.dp))
-        GlassButton(
-            onClick = { emptyResult = !onCalculate(fromPhase, toPhase, skillFrom, skillTo) },
-            modifier = Modifier.fillMaxWidth(),
-            accentColor = NeonCyan,
-        ) {
-            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Calculate Ascension + Skills", fontWeight = FontWeight.Bold)
-        }
     }
 
     if (selected.wsm.isNotEmpty()) {
@@ -336,7 +377,7 @@ private fun CharacterTab(
         )
     }
 
-    ResultSection(result, emptyResult)
+    ResultSection(result)
 }
 
 @Composable
@@ -346,10 +387,15 @@ private fun WeaponTab(
     result: CalculatorResult?,
     onSelect: (CalculatorWeapon?) -> Unit,
     onCalculate: (Int, Int) -> Boolean,
+    fill: Boolean = false,
 ) {
     var fromPhase by rememberSaveable { mutableStateOf(0) }
     var toPhase by rememberSaveable { mutableStateOf(6) }
-    var emptyResult by remember { mutableStateOf(false) }
+
+    // Same live-recalculation contract as CharacterTab.
+    LaunchedEffect(selected, fromPhase, toPhase) {
+        if (selected != null) onCalculate(fromPhase, toPhase)
+    }
 
     if (selected == null) {
         PickerCard(
@@ -359,9 +405,9 @@ private fun WeaponTab(
             entries = weapons,
             name = { it.name },
             rarity = { it.rarity },
-            subtitle = { it.secondStatType?.let { s -> "$s ${it.secondStat ?: 0.0}" } },
             weapon = true,
             onPick = { onSelect(it as CalculatorWeapon) },
+            fill = fill,
         )
         return
     }
@@ -380,24 +426,21 @@ private fun WeaponTab(
     GlassCard(accentColor = NeonGreen) {
         GlassCardHeader("Ascension", NeonGreen)
         Spacer(Modifier.height(10.dp))
-        PhaseRangeSlider(
+        RangeField(
             label = "Level",
-            fromPhase = fromPhase,
-            toPhase = toPhase,
-            onFrom = { fromPhase = it.coerceAtMost(toPhase) },
-            onTo = { toPhase = it.coerceAtLeast(fromPhase) },
+            from = fromPhase,
+            to = toPhase,
+            range = 0f..6f,
+            accent = NeonGreen,
             note = { phase -> "max Lv ${MaterialCalculator.PHASE_MAX_LEVEL.getOrElse(phase) { 90 }}" },
+            presets =
+                listOf(
+                    "Full 0→6" to { 0 to 6 },
+                    "To max" to { fromPhase to 6 },
+                ),
+            onFrom = { fromPhase = it },
+            onTo = { toPhase = it },
         )
-        Spacer(Modifier.height(12.dp))
-        GlassButton(
-            onClick = { emptyResult = !onCalculate(fromPhase, toPhase) },
-            modifier = Modifier.fillMaxWidth(),
-            accentColor = NeonGreen,
-        ) {
-            Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Calculate", fontWeight = FontWeight.Bold)
-        }
     }
 
     MaterialPreviewCard(
@@ -410,30 +453,30 @@ private fun WeaponTab(
             ),
     )
 
-    ResultSection(result, emptyResult)
+    ResultSection(result)
 }
 
 /**
- * Two coupled sliders over an index range, labelled with the levels the indices
- * actually correspond to.
+ * One labelled range: a two-thumb Material3 [RangeSlider], the resolved bounds
+ * and a preset chip row.
  *
- * [valueOffset] exists because the two ranges are stored differently — skill
- * levels are 1..10 while ascension phases are 0..6 — and showing "Phase 0 → 6"
- * for a skill range would be meaningless to the user.
+ * Replaces the old stacked FROM/TO slider pair. Two thumbs on one track cannot
+ * cross (the widget enforces from <= to), which removes the manual
+ * coerceAtMost/coerceAtLeast coupling the two-slider version needed, and
+ * halves the vertical space.
  */
 @Composable
-private fun PhaseRangeSlider(
+private fun RangeField(
     label: String,
-    fromPhase: Int,
-    toPhase: Int,
+    from: Int,
+    to: Int,
+    range: ClosedFloatingPointRange<Float>,
+    accent: Color,
+    note: (Int) -> String,
+    presets: List<Pair<String, () -> Pair<Int, Int>>>,
     onFrom: (Int) -> Unit,
     onTo: (Int) -> Unit,
-    note: (Int) -> String,
-    valueOffset: Int = 0,
-    minLevel: Int = 0,
-    maxLevel: Int = 6,
 ) {
-    val display = { v: Int -> "${v + valueOffset}" }
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -441,44 +484,61 @@ private fun PhaseRangeSlider(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "$label ${display(fromPhase)} → ${display(toPhase)}",
+                "$label  $from → $to",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = NeonGreen,
+                color = accent,
             )
             Text(
-                note(toPhase),
+                note(to),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
-        // Each track is labelled because two stacked sliders are otherwise
-        // indistinguishable: green is the lower bound, cyan the upper.
+        RangeSlider(
+            value = from.toFloat()..to.toFloat(),
+            onValueChange = { r ->
+                onFrom(r.start.toInt())
+                onTo(r.endInclusive.toInt())
+            },
+            valueRange = range,
+            steps = (range.endInclusive - range.start).toInt() - 1,
+            colors = sliderColors(accent),
+        )
+        if (presets.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                presets.forEach { (name, resolve) ->
+                    PresetChip(label = name, accent = accent, onClick = {
+                        val (f, t) = resolve()
+                        onFrom(f)
+                        onTo(t)
+                    })
+                }
+            }
+        }
+    }
+}
+
+/** Small pill that applies a preset range. Same glass language as [SegTab]. */
+@Composable
+private fun PresetChip(
+    label: String,
+    accent: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(accent.copy(alpha = 0.08f))
+                .border(1.dp, accent.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+    ) {
         Text(
-            "FROM",
+            label,
             style = MaterialTheme.typography.labelSmall,
-            color = NeonGreen.copy(alpha = 0.8f),
-            letterSpacing = 1.sp,
-        )
-        Slider(
-            value = fromPhase.toFloat(),
-            onValueChange = { onFrom(it.toInt()) },
-            valueRange = minLevel.toFloat()..maxLevel.toFloat(),
-            steps = (maxLevel - minLevel - 1).coerceAtLeast(0),
-            colors = sliderColors(NeonGreen),
-        )
-        Text(
-            "TO",
-            style = MaterialTheme.typography.labelSmall,
-            color = NeonCyan.copy(alpha = 0.8f),
-            letterSpacing = 1.sp,
-        )
-        Slider(
-            value = toPhase.toFloat(),
-            onValueChange = { onTo(it.toInt()) },
-            valueRange = minLevel.toFloat()..maxLevel.toFloat(),
-            steps = (maxLevel - minLevel - 1).coerceAtLeast(0),
-            colors = sliderColors(NeonCyan),
+            color = accent,
         )
     }
 }
@@ -500,6 +560,13 @@ private fun sliderColors(accent: Color): SliderColors =
         inactiveTickColor = Color.Transparent,
     )
 
+/**
+ * Search + portrait grid picker.
+ *
+ * A 4-column grid replaces the old 300dp row list: with ~170 entries, name-plus-
+ * portrait cells scan far faster than text rows, and four visible rows carry
+ * roughly three times as many entries per viewport.
+ */
 @Composable
 private fun <T> PickerCard(
     title: String,
@@ -508,9 +575,9 @@ private fun <T> PickerCard(
     entries: List<T>,
     name: (T) -> String,
     rarity: (T) -> Int,
-    subtitle: (T) -> String?,
     weapon: Boolean,
     onPick: (T) -> Unit,
+    fill: Boolean = false,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val filtered =
@@ -522,7 +589,9 @@ private fun <T> PickerCard(
             }
         }
 
-    GlassCard(accentColor = accent) {
+    // fill = true makes the card consume the height the parent offers, so the
+    // picker grows with the screen; fill = false keeps the scrolling layout.
+    GlassCard(modifier = if (fill) Modifier.fillMaxSize() else Modifier, accentColor = accent) {
         GlassCardHeader("$title (${entries.size})", accent)
         Spacer(Modifier.height(10.dp))
 
@@ -555,54 +624,67 @@ private fun <T> PickerCard(
                 )
             }
         } else {
-            // Height-capped so the picker does not push the rest of the tab off
-            // screen; the whole screen is a scroll, and a 170-row list inside it
-            // would make the Calculate button unreachable without inner scrolling.
-            LazyColumn(modifier = Modifier.height(300.dp)) {
+            // In picker mode the grid absorbs every pixel the parent offers
+            // (weight in a bounded column); in scrolling mode it is height-capped
+            // so it does not push the plan card out of reach.
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
+                modifier =
+                    if (fill) {
+                        Modifier.weight(1f).fillMaxWidth()
+                    } else {
+                        Modifier.height(336.dp)
+                    },
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 items(filtered, key = { name(it) }) { entry ->
-                    val itemAccent = rarityAccent(rarity(entry))
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(itemAccent.copy(alpha = 0.06f))
-                                .clickable { onPick(entry) }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Portrait(name(entry), rarity(entry), weapon, 36.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                name(entry),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            subtitle(entry)?.let {
-                                Text(
-                                    it,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                        Text(
-                            "${rarity(entry)}★",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = itemAccent,
-                        )
-                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = itemAccent.copy(alpha = 0.5f))
-                    }
+                    PickerCell(
+                        label = name(entry),
+                        rarity = rarity(entry),
+                        weapon = weapon,
+                        onClick = { onPick(entry) },
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PickerCell(
+    label: String,
+    rarity: Int,
+    weapon: Boolean,
+    onClick: () -> Unit,
+) {
+    val accent = rarityAccent(rarity)
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(accent.copy(alpha = 0.06f))
+                .border(1.dp, accent.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                .clickable(onClick = onClick)
+                .padding(vertical = 8.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Portrait(label, rarity, weapon, 52.dp)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            "$rarity★",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = accent,
+        )
     }
 }
 
@@ -643,7 +725,10 @@ private fun SelectionHeader(
             // Width is mandatory, not cosmetic: GlassButton wraps a Material3
             // Button, which fills the row it is given. Unconstrained it swallowed
             // the whole header and squeezed the name column to one letter wide.
-            GlassButton(onClick = onChange, modifier = Modifier.width(104.dp), accentColor = NeonRed, height = 40.dp) {
+            // 176dp, not the old 104dp: Material's default contentPadding (24dp)
+            // plus GlassButton's inner Row padding (16dp) eats 80dp of the width,
+            // so anything under ~160dp silently clips the word "Change".
+            GlassButton(onClick = onChange, modifier = Modifier.width(176.dp), accentColor = NeonRed, height = 40.dp) {
                 Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Change", fontWeight = FontWeight.SemiBold)
@@ -679,19 +764,22 @@ private fun MaterialPreviewCard(
     }
 }
 
+/**
+ * Live result area: the empty case is derived from the result itself rather
+ * than from a screen-local flag, so a selection change can never show a stale
+ * banner (the ViewModel nulls the result on selection).
+ */
 @Composable
-private fun ResultSection(
-    result: CalculatorResult?,
-    emptyResult: Boolean,
-) {
-    AnimatedVisibility(visible = result != null || emptyResult) {
-        if (result == null || result.totalItems == 0) {
+private fun ResultSection(result: CalculatorResult?) {
+    val isEmpty = result != null && result.totalItems == 0
+    AnimatedVisibility(visible = result != null) {
+        if (result == null || isEmpty) {
             GlassCard(accentColor = NeonRed) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = NeonRed, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Nothing to upgrade — widen the level range.",
+                        "Nothing to upgrade — widen the range.",
                         style = MaterialTheme.typography.bodySmall,
                         color = NeonRed,
                     )
@@ -703,9 +791,18 @@ private fun ResultSection(
     }
 }
 
+/**
+ * The totals card. Shell Credit dominates every real query (a full character is
+ * ~1.2M), so it is lifted out of the group blocks into a hero row and the
+ * remaining groups sort by total descending — the expensive bucket is always
+ * the first thing read.
+ */
 @Composable
 private fun ResultCard(result: CalculatorResult) {
     val subject = result.characterName ?: result.weaponName.orEmpty()
+    val hero = result.groups.firstOrNull { it.category == MaterialCalculator.SHELL_CREDIT }
+    val rest = result.groups.filter { it.category != MaterialCalculator.SHELL_CREDIT }.sortedByDescending { it.total }
+
     GlassCard(accentColor = NeonPurple) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
@@ -738,11 +835,55 @@ private fun ResultCard(result: CalculatorResult) {
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        hero?.let {
+            Spacer(Modifier.height(12.dp))
+            ShellCreditHero(it)
+        }
 
-        result.groups.forEach { group ->
-            MaterialGroupBlock(group)
-            Spacer(Modifier.height(10.dp))
+        if (rest.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            rest.forEachIndexed { index, group ->
+                if (index > 0) Spacer(Modifier.height(10.dp))
+                MaterialGroupBlock(group)
+            }
+        }
+    }
+}
+
+/** The dominant cost, promoted: coin icon, label, and a single large number. */
+@Composable
+private fun ShellCreditHero(group: MaterialGroup) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(NeonGold.copy(alpha = 0.1f))
+                .border(1.dp, NeonGold.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Default.Paid,
+            contentDescription = null,
+            tint = NeonGold,
+            modifier = Modifier.size(28.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "SHELL CREDIT",
+                style = MaterialTheme.typography.labelSmall,
+                color = NeonGold.copy(alpha = 0.8f),
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+            )
+            Text(
+                formatQty(group.total),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = NeonGold,
+            )
         }
     }
 }
@@ -794,7 +935,7 @@ private fun MaterialGroupBlock(group: MaterialGroup) {
  */
 @Composable
 private fun MaterialRow(
-    item: com.wuwaconfig.app.model.MaterialItem,
+    item: MaterialItem,
     accent: Color,
 ) {
     val context = LocalContext.current
@@ -830,22 +971,51 @@ private fun MaterialRow(
     }
 }
 
-@Preview(name = "Calculator Light", showBackground = true)
+@Preview(name = "Result Card — hero + groups")
 @Composable
-private fun CalculatorScreenLightPreview() {
-    WuWaConfigTheme(themeMode = "light") {
+private fun ResultCardPreview() {
+    val fake =
+        CalculatorResult(
+            characterName = "Jinhsi",
+            totalItems = 27,
+            groups =
+                listOf(
+                    MaterialGroup(
+                        MaterialCalculator.SHELL_CREDIT,
+                        listOf(MaterialItem("Shell Credit", 1_208_000)),
+                    ),
+                    MaterialGroup(
+                        MaterialCalculator.CATEGORY_COMMON,
+                        listOf(
+                            MaterialItem("Resonance Potion", 48),
+                            MaterialItem("Energy Core", 32),
+                        ),
+                    ),
+                    MaterialGroup(
+                        MaterialCalculator.CATEGORY_BOSS,
+                        listOf(MaterialItem("Elegy Tacet Core", 13)),
+                    ),
+                ),
+        )
+    WuWaConfigTheme(themeMode = "dark") {
         GradientBackground {
-            Text("Calculator Preview")
+            Column(Modifier.padding(16.dp)) {
+                ResultCard(fake)
+            }
         }
     }
 }
 
-@Preview(name = "Calculator Dark", showBackground = true)
+@Preview(name = "Picker Cell — 5★ / 4★ / fallback")
 @Composable
-private fun CalculatorScreenDarkPreview() {
-    WuWaConfigTheme(themeMode = "dark") {
+private fun PickerCellPreview() {
+    WuWaConfigTheme(themeMode = "light") {
         GradientBackground {
-            Text("Calculator Preview")
+            Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PickerCell("Jinhsi", 5, weapon = false, onClick = {})
+                PickerCell("Static Mist", 4, weapon = true, onClick = {})
+                PickerCell("Zz", 3, weapon = false, onClick = {})
+            }
         }
     }
 }

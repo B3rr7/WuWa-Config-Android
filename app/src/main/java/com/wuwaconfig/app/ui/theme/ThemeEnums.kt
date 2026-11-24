@@ -15,6 +15,10 @@ import androidx.compose.ui.unit.dp
 // `prefs[uiStyle.ordinal]` silently reassigns them to a different style the next
 // time a constant is inserted. [UiStyle.fromStorageKey] treats an unknown or
 // absent key as absent rather than throwing, so a downgrade cannot brick startup.
+//
+// A rename that ships anyway is a storage migration, not a text edit: the old
+// name stays in [UiStyle.LEGACY_STORAGE_KEYS] so an install that already wrote it
+// resolves to the same style instead of silently falling back to the default.
 
 /**
  * Structural skin. Selects the [ThemeShapeTokens] every card, button, field and
@@ -40,7 +44,12 @@ enum class UiStyle(
                 // that must draw no outline: the tone *is* the edge.
                 surfaceMode = SurfaceMode.TONAL,
                 edgeMode = EdgeMode.NONE,
-                cardCorner = 20.dp,
+                // 24.dp, not 20: `ThemeEngineTest` pins MATERIAL_YOU as the
+                // roundest card style, and GLASSMORPHISM needs 22.dp for its
+                // optical radius. Raising Material's card radius by 4dp keeps
+                // that invariant true without a tie, and 24dp still reads as
+                // the soft, near-superelliptical shape Material 3 specifies.
+                cardCorner = 24.dp,
                 buttonCorner = 16.dp,
                 dialogCorner = 28.dp,
                 fieldCorner = 12.dp,
@@ -51,150 +60,99 @@ enum class UiStyle(
                 glowWidth = 0f,
                 useBlurEffects = false,
                 useCardBorder = false,
-            ),
-    ),
-
-    /** The app's existing glassmorphism layer: translucent fills, hairline glow. */
-    LIQUID_GLASS(
-        displayName = "Liquid Glass",
-        description = "Translucent panels with a specular edge that catches the light.",
-        tokens =
-            ThemeShapeTokens(
-                surfaceMode = SurfaceMode.GLASS,
-                edgeMode = EdgeMode.SPECULAR,
-                cardCorner = 20.dp,
-                buttonCorner = 16.dp,
-                dialogCorner = 28.dp,
-                fieldCorner = 12.dp,
-                borderStrokeWidth = 0.5.dp,
-                cardPadding = 16.dp,
-                dialogPadding = 24.dp,
-                cardSpacing = 16.dp,
-                glowWidth = 0.25f,
-                useBlurEffects = true,
-                useCardBorder = true,
+                blurRadius = 0.dp,
             ),
     ),
 
     /**
-     * Oversized radii and heavier separation between independent panels.
+     * Glassmorphism: a frosted translucent body, a diagonal refraction sheen
+     * and a specular rim that catches the light.
      *
-     * The description used to claim "dense metrics split into separate blocks",
-     * which no code implements. A bento grid is fundamentally a *layout* system —
-     * varied cell sizes where size encodes importance — and this enum only
-     * controls a surface. Making that promise true means relaying out every
-     * screen, which is a separate change from theming; until then the copy says
-     * what the tokens actually do rather than promising a grid.
+     * ## Why this preset carries more than a radius
+     *
+     * The style's first version was a radius plus a 0.5dp hairline: the same
+     * flat translucent rectangle every other style drew, with a 1px outline
+     * pasted on. It read as "slightly rounded and slightly see-through", not
+     * as glass. Real glass is a *layered* material — a translucent body, a
+     * diffuse interior, a hard specular rim, and a directional sheen — and
+     * each of those is a separate visual mechanism. The tokens below name
+     * them so the renderer can build them:
+     *
+     * - [SurfaceMode.GLASS] — the body transmits its backdrop.
+     * - [EdgeMode.SPECULAR] — a three-stop diagonal rim plus an inner
+     *   catchlight, which is what actually separates glass from a pale
+     *   rectangle (Apple's WWDC26 "brighter specular highlights … to
+     *   establish more depth and separation").
+     * - [ThemeShapeTokens.useBlurEffects] — the frosted interior, drawn on an
+     *   isolated layer behind the content so the foreground stays sharp.
+     * - [ThemeShapeTokens.blurRadius] — how wide that interior is diffused.
+     * - [ThemeShapeTokens.glowWidth] — the ambient halo the panel casts on
+     *   the page, which is what lifts it off the backdrop.
+     *
+     * `borderStrokeWidth` is 1.dp rather than a hairline because the rim is
+     * now a *drawn* gradient rather than a stroke: it has to be wide enough
+     * to carry three stops, and `ThemeEngineTest` requires a non-zero width
+     * for any style that declares `useCardBorder`.
+     *
+     * ## Why it is called Glassmorphism and not Liquid Glass
+     *
+     * Everything above is glassmorphism: translucency, a frosted interior and
+     * a drawn rim, all of them static. Apple's Liquid Glass is a different
+     * renderer — it samples and refracts the *backdrop* through a lensing
+     * shader and moves its specular highlight with device tilt, which needs a
+     * backdrop-capture layer and an AGSL `RuntimeShader` (API 33+). Naming this
+     * style after that technique would promise an effect it does not perform,
+     * and would occupy the name the style that eventually performs it needs.
+     * So the constant is `GLASSMORPHISM`, and the retired `LIQUID_GLASS` storage
+     * key is aliased in [LEGACY_STORAGE_KEYS] rather than reused.
      */
-    BENTO_GRID(
-        displayName = "Bento Grid",
-        description = "Extra rounded modular tiles with a clear outline on each panel.",
+    GLASSMORPHISM(
+        displayName = "Glassmorphism",
+        description = "Frosted translucent panels with a refractive interior, a diagonal sheen and a specular rim.",
         tokens =
             ThemeShapeTokens(
-                surfaceMode = SurfaceMode.OUTLINED,
-                edgeMode = EdgeMode.HAIRLINE,
-                cardCorner = 24.dp,
-                buttonCorner = 16.dp,
-                dialogCorner = 32.dp,
-                fieldCorner = 16.dp,
+                surfaceMode = SurfaceMode.GLASS,
+                edgeMode = EdgeMode.SPECULAR,
+                cardCorner = 22.dp,
+                buttonCorner = 14.dp,
+                dialogCorner = 26.dp,
+                fieldCorner = 12.dp,
                 borderStrokeWidth = 1.dp,
-                cardPadding = 18.dp,
-                dialogPadding = 26.dp,
-                cardSpacing = 14.dp,
-                glowWidth = 0f,
-                useBlurEffects = false,
-                useCardBorder = true,
-            ),
-    ),
-
-    /** Hard edges, square everything, thick dividers. Lowest draw cost. */
-    RETRO_HANDHELD(
-        displayName = "Retro Handheld",
-        description = "Hard edges and flat pixel panels. No blur, no shadow, no glow.",
-        tokens =
-            ThemeShapeTokens(
-                surfaceMode = SurfaceMode.OUTLINED,
-                edgeMode = EdgeMode.HARD,
-                cardCorner = 0.dp,
-                buttonCorner = 0.dp,
-                dialogCorner = 0.dp,
-                fieldCorner = 0.dp,
-                borderStrokeWidth = 2.dp,
-                cardPadding = 12.dp,
-                dialogPadding = 16.dp,
-                cardSpacing = 8.dp,
-                glowWidth = 0f,
-                useBlurEffects = false,
-                useCardBorder = true,
-            ),
-    ),
-
-    /** Animated multi-layer gradient backdrop; radii sit between Liquid and Bento. */
-    AURORA_FLUID(
-        displayName = "Aurora Fluid",
-        description = "Slow drifting gradient layers behind soft translucent panels.",
-        tokens =
-            ThemeShapeTokens(
-                // Shares its surface and edge treatment with LIQUID_GLASS, and
-                // deliberately so: the aurora backdrop is animated, so a visible
-                // fill would fight it and no *static* property distinguishes the
-                // two cards. What separates them is the backdrop — see
-                // `GradientBackground`, which branches on this enum directly. The
-                // styles are told apart by what is *behind* them, not what is on
-                // them, so a per-card token would be decoration that duplicates
-                // the backdrop decision.
-                surfaceMode = SurfaceMode.GLASS,
-                edgeMode = EdgeMode.SPECULAR,
-                cardCorner = 18.dp,
-                buttonCorner = 16.dp,
-                dialogCorner = 28.dp,
-                fieldCorner = 12.dp,
-                borderStrokeWidth = 0.5.dp,
                 cardPadding = 16.dp,
                 dialogPadding = 24.dp,
                 cardSpacing = 16.dp,
-                glowWidth = 0.2f,
+                // Ambient halo only. The specular rim does the edge work, so
+                // the glow stays subtle enough not to read as a neon outline.
+                glowWidth = 0.18f,
                 useBlurEffects = true,
                 useCardBorder = true,
+                blurRadius = 20.dp,
             ),
     ),
 
     /**
-     * Restrained flat skin. Deliberately NOT the OLED theme.
-     *
-     * This shares its display name with [ColorPalette.MIDNIGHT_OLED] on
-     * purpose — they are the two halves of that look, and the palette picker
-     * offers it too. But only the *palette* carries `forceDark`, because "does
-     * the app render dark" is a colour question a shape enum cannot answer.
-     *
-     * Verified on device: selecting this from the UI Style list while on any
-     * light palette renders a light UI with 12dp corners. So the description
-     * must not promise darkness, which is why it points at the palette instead.
-     *
-     * The copy says "pair with", not "pair with the palette below". These
-     * descriptions are read in exactly one place today (the Appearance screen),
-     * but they are enum-level strings, and "below" is a layout fact rather than
-     * a property of the style — an agent reading [UiStyle] through AppFunctions
-     * has no list for "below" to point into.
+     * Flat 2.0 — the modern flat (the 2017–2020 "big tech flat" era). Bold
+     * rounding and generous whitespace, otherwise soberly flat and borderless.
      */
-    MIDNIGHT_OLED(
-        displayName = "Midnight OLED",
-        description = "Restrained flat panels with no glow. Pair with the OLED palette for an all-black screen.",
+    FLAT_DESIGN_2(
+        displayName = "Flat 2.0",
+        description = "Clean flat planes, generous whitespace, no borders, no glow. Colour and type do the separating.",
         tokens =
             ThemeShapeTokens(
                 surfaceMode = SurfaceMode.FLAT,
-                edgeMode = EdgeMode.HAIRLINE,
-                cardCorner = 12.dp,
+                edgeMode = EdgeMode.NONE,
+                cardCorner = 14.dp,
                 buttonCorner = 12.dp,
-                dialogCorner = 24.dp,
-                fieldCorner = 8.dp,
-                borderStrokeWidth = 1.dp,
+                dialogCorner = 20.dp,
+                fieldCorner = 10.dp,
+                borderStrokeWidth = 0.dp,
                 cardPadding = 16.dp,
                 dialogPadding = 22.dp,
-                cardSpacing = 12.dp,
+                cardSpacing = 16.dp,
                 glowWidth = 0f,
                 useBlurEffects = false,
-                useCardBorder = true,
+                useCardBorder = false,
+                blurRadius = 0.dp,
             ),
     ),
     ;
@@ -202,6 +160,25 @@ enum class UiStyle(
     companion object {
         /** The global default: the most predictable, least opinionated style. */
         val DEFAULT: UiStyle = MATERIAL_YOU
+
+        /**
+         * Storage names this enum used to write, mapped to their current
+         * constant.
+         *
+         * `GLASSMORPHISM` shipped as `LIQUID_GLASS`, and the preference is
+         * written by name, so an install that already picked the style holds
+         * `"LIQUID_GLASS"` in DataStore. Dropping the old spelling would send
+         * that user back to [DEFAULT] on upgrade — the silent reset the
+         * name-persistence rule above exists to prevent. The mapping is
+         * read-only: the next save writes `GLASSMORPHISM`, so the alias ages
+         * out on its own.
+         *
+         * Deliberately not an enum constant. `LIQUID_GLASS` stays free for a
+         * real backdrop-refracting style later (see the `GLASSMORPHISM` KDoc),
+         * and `ThemeEngineTest` asserts it is *not* a live name today.
+         */
+        private val LEGACY_STORAGE_KEYS: Map<String, UiStyle> =
+            mapOf("LIQUID_GLASS" to GLASSMORPHISM)
 
         /**
          * Resolve a persisted name, or null when it is absent or unrecognised.
@@ -213,9 +190,11 @@ enum class UiStyle(
          * Returning null rather than a silent default matters for the migration
          * path: it lets the repository tell "the user never chose" apart from
          * "the user chose something this build no longer has", and only write
-         * in the former case.
+         * in the former case. A name this build *retired* is neither case — it
+         * resolves through [LEGACY_STORAGE_KEYS] to the constant that replaced
+         * it before null is ever considered.
          */
-        fun fromStorageKey(key: String?): UiStyle? = entries.firstOrNull { it.name == key }
+        fun fromStorageKey(key: String?): UiStyle? = entries.firstOrNull { it.name == key } ?: LEGACY_STORAGE_KEYS[key]
     }
 }
 
@@ -303,6 +282,54 @@ enum class ColorPalette(
         forceDark = true,
         lightColors = OledLight,
         darkColors = OledDark,
+    ),
+
+    /** Warm putty + terracotta, tailored to NEUMORPHIC_SOFT. */
+    SOFT_CLAY(
+        displayName = "Soft Clay",
+        description = "Warm putty greys with terracotta. Made for Soft UI relief.",
+        lightColors = ClayLight,
+        darkColors = ClayDark,
+    ),
+
+    /** Machined steel + copper hardware, tailored to SKEUOMORPHIC. */
+    BRUSHED_COPPER(
+        displayName = "Brushed Copper",
+        description = "Machined steel base with copper hardware accents.",
+        lightColors = CopperLight,
+        darkColors = CopperDark,
+    ),
+
+    /** Poster-flat coral + ink blue, tailored to FLAT_DESIGN_2. */
+    FLAT_POP(
+        displayName = "Flat Pop",
+        description = "Bold poster flat: coral and ink blue on crisp paper.",
+        lightColors = FlatPopLight,
+        darkColors = FlatPopDark,
+    ),
+
+    /** Acid yellow-green + ink, tailored to NEO_BRUTALISM. */
+    ACID_BRUT(
+        displayName = "Neo Brutal Acid",
+        description = "Acid highlighter over raw ink. Made for Neo-Brutalism.",
+        lightColors = AcidBrutLight,
+        darkColors = AcidBrutDark,
+    ),
+
+    /** Near-monochrome ink slates, tailored to MINIMALIST. */
+    PAPER_INK(
+        displayName = "Paper Ink",
+        description = "Paper white, ink slate, one quiet accent family.",
+        lightColors = PaperInkLight,
+        darkColors = PaperInkDark,
+    ),
+
+    /** Synthwave magenta + sunset orange, tailored to RETRO_FUTURISM. */
+    RETROWAVE(
+        displayName = "Retrowave",
+        description = "Synthwave magenta, violet and sunset orange. Made for the neon grid.",
+        lightColors = RetrowaveLight,
+        darkColors = RetrowaveDark,
     ),
     ;
 

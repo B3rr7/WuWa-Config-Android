@@ -9,9 +9,11 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.wuwaconfig.app.ui.BackupViewModel
 import com.wuwaconfig.app.ui.MainViewModel
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
@@ -24,6 +26,7 @@ import com.wuwaconfig.app.ui.theme.*
 @Composable
 fun SetupScreen(
     viewModel: MainViewModel,
+    backupViewModel: BackupViewModel,
     initialBackupDir: String,
     onComplete: () -> Unit,
 ) {
@@ -89,7 +92,15 @@ fun SetupScreen(
                         colors =
                             OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = NeonPurple.copy(alpha = 0.5f),
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                // Branch on luminance like the rest of the app's themed
+                                // controls: 10%-alpha white was invisible on a light
+                                // background (the screen's primary input field).
+                                unfocusedBorderColor =
+                                    if (MaterialTheme.colorScheme.background.luminance() > 0.5f) {
+                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                                    } else {
+                                        Color.White.copy(alpha = 0.1f)
+                                    },
                             ),
                     )
                     Spacer(Modifier.height(4.dp))
@@ -102,7 +113,17 @@ fun SetupScreen(
 
                 GlassButton(
                     onClick = {
-                        viewModel.finishSetup(backupDir)
+                        // Route the directory through BackupViewModel BEFORE marking
+                        // setup done. MainViewModel.finishSetup() only persists the
+                        // pref — BackupViewModel's flow snapshot was already seeded in
+                        // its init and nothing reconciled afterwards, so the whole
+                        // session kept resolving backups against the STALE default dir
+                        // (until a process restart) while deploy history read the new
+                        // one. changeBackupDir() is the owner's write path: it updates
+                        // the flow AND refreshes the list.
+                        val dir = backupDir.ifBlank { backupViewModel.backupStorageDirFlow.value }
+                        backupViewModel.changeBackupDir(dir)
+                        viewModel.finishSetup(dir)
                         onComplete()
                     },
                     modifier = Modifier.fillMaxWidth(),

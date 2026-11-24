@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Density
+import androidx.core.view.WindowCompat
 
 internal fun fontFamilyForName(name: String): FontFamily =
     when (name) {
@@ -75,6 +76,25 @@ private const val MAX_CONTRAST_SHIFT = 0.4f
  * idiom in `GlassCard`, and this is the same test.
  */
 internal fun Color.isLight(): Boolean = luminance() > 0.5f
+
+/**
+ * The colour of one light pool in the glass renderer's frosted interior.
+ *
+ * Dark mode keeps the accent saturated because the near-black glass body is
+ * what gives the coloured pool its glow. Light mode has the opposite problem:
+ * an unchanged dark accent over a white body accumulates into a muddy grey
+ * card. Lifting the pool toward white preserves the hue as a pastel tint and
+ * keeps the light-mode surface luminous.
+ */
+internal fun frostedPoolColor(
+    color: Color,
+    isLight: Boolean,
+): Color =
+    if (isLight) {
+        lerp(color, Color.White, LIGHT_GLASS_FROSTED_TINT)
+    } else {
+        color
+    }
 
 /**
  * Whether the app renders dark.
@@ -338,6 +358,23 @@ fun WuWaConfigTheme(
             window.navigationBarColor = colorScheme.background.toArgb()
         }
     }
+    if (!view.isInEditMode && activity != null) {
+        // Icon polarity follows the APP theme (a light app theme wants light
+        // appearance = dark icons), on every API level: without this,
+        // enableEdgeToEdge() had set it once from the *system* theme at
+        // Activity start, so system-light + app-dark left dark icons on a dark
+        // bar — degraded on API 26-34 (the paint above fixes the bg, not the
+        // icons) and completely unreadable on API 35+ where the paint is a
+        // no-op. Exactly what isAppearanceLightStatusBars exists for. Keyed on
+        // isDark: dragging opacity/colour sliders while staying in the same
+        // mode must not re-run the setter every frame.
+        val window = activity.window
+        val insetsController = remember(view) { WindowCompat.getInsetsController(window, view) }
+        LaunchedEffect(isDark) {
+            insetsController.isAppearanceLightStatusBars = !isDark
+            insetsController.isAppearanceLightNavigationBars = !isDark
+        }
+    }
 
     val family = fontFamilyForName(fontFamilyName)
     // MaterialTheme is the root: rebuilding 18 Typography styles on every
@@ -350,7 +387,12 @@ fun WuWaConfigTheme(
     ) {
         val density = LocalDensity.current
         val scale = fontScale.coerceIn(0.75f, 1.5f)
-        val scaledDensity = remember(density, scale) { Density(density.density, scale) }
+        // MULTIPLY, not replace: FontScale exists per-user in the OS (accessibility
+        // settings), so the app slider scales on top of the system preference.
+        // Passing `scale` alone as the fontScale silently discarded the system
+        // setting — a user navigating at 1.3x got every sp-sized text at the app
+        // slider's default 1.0x.
+        val scaledDensity = remember(density, scale) { Density(density.density, density.fontScale * scale) }
         CompositionLocalProvider(
             LocalThemeShapeTokens provides uiStyle.tokens,
             LocalSpacing provides Spacing(),

@@ -176,6 +176,54 @@ class ConfigGeneratorTest {
     }
 
     @Test
+    fun `a Snapdragon 7-series code maps to the Adreno generation its GPU actually uses`() {
+        // Regression for the device under test: SM7150 (Snapdragon 730G) drives an
+        // Adreno 618, and the game itself selects Android_Adreno6xx_Lowest for it.
+        // The old single `sm7\d{3}` row sent every 7-series code to
+        // Android_Adreno7xx — one tier too high for most of the family.
+        val midTier =
+            generator.generateWithCorePaths(
+                preset = "balanced",
+                opts = defaultOpts,
+                corePaths = emptyList(),
+                logInfo = LogInfo(gpu = "Adreno 618", socName = "SM7150"),
+            )
+        assertTrue(
+            "SM7150 must map to Android_Adreno6xx, got:\n${midTier.ini.deviceProfiles}",
+            midTier.ini.deviceProfiles.contains("+DeviceProfileNameAndTypes=Android_Adreno6xx,Android"),
+        )
+
+        // 7+ Gen 2 (SM7475) really did move to Adreno 725, so it stays on 7xx.
+        val newer =
+            generator.generateWithCorePaths(
+                preset = "balanced",
+                opts = defaultOpts,
+                corePaths = emptyList(),
+                logInfo = LogInfo(gpu = "Adreno 725", socName = "SM7475"),
+            )
+        assertTrue(
+            "SM7475 must stay on Android_Adreno7xx, got:\n${newer.ini.deviceProfiles}",
+            newer.ini.deviceProfiles.contains("+DeviceProfileNameAndTypes=Android_Adreno7xx,Android"),
+        )
+    }
+
+    @Test
+    fun `a filled-in socName drives the profile line and the SoC comment`() {
+        // ChipsetDetector.enrich supplies the SoC the game log never names; the
+        // generated profile must reflect it in both the device profile name and
+        // the human-readable header, otherwise the report and the INI disagree.
+        val result =
+            generator.generateWithCorePaths(
+                preset = "balanced",
+                opts = defaultOpts,
+                corePaths = emptyList(),
+                logInfo = LogInfo(gpu = "Adreno 830", socName = "SM8750"),
+            )
+        assertTrue(result.ini.deviceProfiles.contains("+DeviceProfileNameAndTypes=Android_Adreno830,Android"))
+        assertTrue(result.ini.deviceProfiles.contains("; SoC: SM8750"))
+    }
+
+    @Test
     fun `generateWithCorePaths with high-end GPU sets high-end tier values`() {
         val logInfo = LogInfo(gpu = "Adreno 750")
         val result =

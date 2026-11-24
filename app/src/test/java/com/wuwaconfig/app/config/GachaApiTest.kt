@@ -320,6 +320,99 @@ class GachaApiTest {
     }
 
     @Test
+    fun `fifty fifty win rate is order independent`() {
+        // The guarantee is a state machine over the SEQUENCE: after a loss the next
+        // 5★ cannot lose. `fetchAllRecords` stores records newest-first, so walking
+        // them in that order skipped the wrong draw and produced a plausible but
+        // wrong rate. Both orders must agree.
+        val standard = setOf("StandardHero")
+        val chronological =
+            listOf(
+                GachaRecord(GachaPoolType.CHARACTER_EVENT.type, 5, "StandardHero", 1, "2024-01-01 10:00:00"),
+                GachaRecord(GachaPoolType.CHARACTER_EVENT.type, 5, "UpA", 1, "2024-01-02 10:00:00"),
+                GachaRecord(GachaPoolType.CHARACTER_EVENT.type, 5, "UpB", 1, "2024-01-03 10:00:00"),
+            )
+        // loss -> guaranteed (skipped) -> win  =>  1 win of 2 50/50s
+        assertEquals(0.5, GachaApi.fiftyFiftyWinRate(chronological, standard), 1e-9)
+        assertEquals(
+            "newest-first must yield the same rate as oldest-first",
+            0.5,
+            GachaApi.fiftyFiftyWinRate(chronological.reversed(), standard),
+            1e-9,
+        )
+    }
+
+    @Test
+    fun `pity is one shared counter per family not one per slot`() {
+        // Kuro: the count is shared by every banner of the same type and carried
+        // over until a 5★ drops. 30 pulls on one character banner plus 20 on the
+        // next is 50, exactly as if all 50 were on one banner.
+        GachaApi.setPostRequestForTest { _, body ->
+            when (body["cardPoolType"]) {
+                GachaPoolType.CHARACTER_EVENT.type ->
+                    Result.success(okResponse(records = List(30) { record(body["cardPoolType"]!!, "filler", quality = 3) }))
+                GachaPoolType.CHARACTER_2.type ->
+                    Result.success(okResponse(records = List(20) { record(body["cardPoolType"]!!, "filler", quality = 3) }))
+                else -> Result.success(okResponse())
+            }
+        }
+        try {
+            val data = GachaApi.fetchAllRecords(params()).getOrThrow()
+            assertEquals("one prediction per family, not per slot", 1, data.predictions.size)
+            val pred = data.predictions.single()
+            assertEquals("the shared counter must add both banners", 50, pred.pullsSinceLastFive)
+            assertEquals("Featured Resonator", pred.familyLabel)
+        } finally {
+            GachaApi.setPostRequestForTest(null)
+        }
+    }
+
+    @Test
+    fun `novice banner predicts against its 50 pull ceiling`() {
+        GachaApi.setPostRequestForTest { _, body ->
+            if (body["cardPoolType"] == GachaPoolType.BEGINNER_1.type) {
+                Result.success(okResponse(records = List(12) { record(body["cardPoolType"]!!, "filler", quality = 3) }))
+            } else {
+                Result.success(okResponse())
+            }
+        }
+        try {
+            val pred = GachaApi.fetchAllRecords(params()).getOrThrow().predictions.single()
+            assertEquals("Novice", pred.familyLabel)
+            assertEquals("the novice ceiling is 50, not 80", 50, pred.hardPity)
+            assertEquals(38, pred.pullsUntilGuaranteedFeatured)
+        } finally {
+            GachaApi.setPostRequestForTest(null)
+        }
+    }
+
+    @Test
+    fun `worst case adds a full cycle when the 50 50 is un-won`() {
+        val profile = gameProfile()
+        val pools = com.wuwaconfig.app.model.GachaPoolType.CHARACTER_EVENT
+
+        val unWon =
+            listOf(GachaRecord(pools.type, 5, "UpA", 1, "2024-01-01 10:00:00")) +
+                List(10) { GachaRecord(pools.type, 3, "f", 1, "2024-01-02 10:00:00") }
+        val unWonPred = GachaApi.calcCharacterPrediction(unWon, pools, emptySet())
+        assertEquals("50/50", unWonPred.status)
+        assertFalse(unWonPred.isGuaranteedNext)
+        // 70 to the next 5★, plus a full 80 cycle because the featured unit can take two.
+        assertEquals(70 + profile.hardPity, unWonPred.pullsUntilGuaranteedFeatured)
+
+        val won =
+            listOf(
+                GachaRecord(pools.type, 5, "StandardHero", 1, "2024-01-01 10:00:00"),
+            ) + List(10) { GachaRecord(pools.type, 3, "f", 1, "2024-01-02 10:00:00") }
+        val wonPred = GachaApi.calcCharacterPrediction(won, pools, setOf("StandardHero"))
+        assertEquals("Guaranteed", wonPred.status)
+        assertTrue(wonPred.isGuaranteedNext)
+        // A banked loss costs only the distance to the next 5★.
+        assertEquals(70, wonPred.pullsUntilGuaranteedFeatured)
+        assertEquals(70L * profile.currencyPerPull, wonPred.worstCaseCostAstrite)
+    }
+
+    @Test
     fun `standard pool 5 stars are recognised so the fifty fifty logic works`() {
         // The 50/50 verdict depends on knowing which 5-stars are standard. Deriving
         // that set needs the relabelling too, or a standard 5-star is invisible and

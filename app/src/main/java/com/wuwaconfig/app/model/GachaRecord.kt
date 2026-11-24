@@ -30,18 +30,68 @@ data class GachaRecord(
     val resourceType: String = "",
 )
 
-enum class GachaPoolType(val type: String, val label: String) {
-    CHARACTER_EVENT("1", "Character Event"),
-    WEAPON_EVENT("2", "Weapon Event"),
-    STANDARD("3", "Standard"),
-    BEGINNER_1("4", "Beginner 1"),
-    BEGINNER_2("5", "Beginner 2"),
-    WEAPON_2("6", "Weapon 2"),
-    CHARACTER_2("7", "Character 2"),
-    STANDARD_2("8", "Standard 2"),
-    WEAPON_3("9", "Weapon 3"),
-    CHARACTER_3("10", "Character 3"),
-    STANDARD_3("11", "Standard 3"),
+/**
+ * The pity *counter* a pool belongs to.
+ *
+ * Kuro's Convene rules — the same statement repeated in the launch notice and in
+ * every banner notice up to 3.7 Phase II — make the count **shared by every
+ * banner of the same type and carried over until a 5★ drops**. So the several
+ * `cardPoolType` slots a client can query (1 / 7 / 10, etc.) are concurrent or
+ * successive *banners*, not separate pity counters: 30 pulls on one and 20 on the
+ * next leaves you at 50, exactly as if all 50 had been on one banner.
+ *
+ * The same rule carries the 50/50 loss: if the last 3★…5★ on the character family
+ * was not the featured unit, the next 5★ is guaranteed featured, and that
+ * guarantee does not expire at a version or banner change.
+ *
+ * Grouping keys therefore must be the *family*, not the slot. Grouping by slot
+ * under-reports pity on every banner rotation — the common case.
+ */
+enum class BannerFamily(val label: String) {
+    /** Featured Resonator Convenes: 80 hard pity, 50/50, guarantee carries. */
+    CHARACTER_EVENT("Featured Resonator"),
+
+    /** Featured Weapon Convenes: 80 hard pity, 100% featured, no 50/50. */
+    WEAPON_EVENT("Featured Weapon"),
+
+    /** Permanent pools: Tidal Chorus (characters) / Lustrous Tide (weapons). */
+    STANDARD("Standard"),
+
+    /**
+     * Novice banners. Kuro's novice banner guarantees a 5★ within **50** pulls and
+     * closes once one arrives, so it is the one family whose hard pity is not 80.
+     */
+    BEGINNER("Novice"),
+    ;
+
+    /** True when the family's counter is shared across its slots and carries over. */
+    val isShared: Boolean get() = this == CHARACTER_EVENT || this == WEAPON_EVENT
+
+    /** Hard-pity ceiling for this family, from the game profile. */
+    val hardPity: Int
+        get() = if (this == BEGINNER) BEGINNER_HARD_PITY else com.wuwaconfig.app.config.GameProfile.get().hardPity
+
+    companion object {
+        const val BEGINNER_HARD_PITY = 50
+    }
+}
+
+enum class GachaPoolType(
+    val type: String,
+    val label: String,
+    val family: BannerFamily,
+) {
+    CHARACTER_EVENT("1", "Character Event", BannerFamily.CHARACTER_EVENT),
+    WEAPON_EVENT("2", "Weapon Event", BannerFamily.WEAPON_EVENT),
+    STANDARD("3", "Standard", BannerFamily.STANDARD),
+    BEGINNER_1("4", "Beginner 1", BannerFamily.BEGINNER),
+    BEGINNER_2("5", "Beginner 2", BannerFamily.BEGINNER),
+    WEAPON_2("6", "Weapon 2", BannerFamily.WEAPON_EVENT),
+    CHARACTER_2("7", "Character 2", BannerFamily.CHARACTER_EVENT),
+    STANDARD_2("8", "Standard 2", BannerFamily.STANDARD),
+    WEAPON_3("9", "Weapon 3", BannerFamily.WEAPON_EVENT),
+    CHARACTER_3("10", "Character 3", BannerFamily.CHARACTER_EVENT),
+    STANDARD_3("11", "Standard 3", BannerFamily.STANDARD),
     ;
 
     companion object {
@@ -73,6 +123,31 @@ data class PityPrediction(
     val currentFeaturedKnown: Boolean = false,
     val pullsSinceLastFive: Int,
     val estimatedNextFive: Int,
+    /**
+     * The banner family this prediction covers. Non-empty for a current record
+     * (e.g. `"Featured Resonator"`) and empty for a cache written before
+     * families existed.
+     */
+    val familyLabel: String = "",
+    /**
+     * True when a lost 50/50 is banked: the next 5★ on this family is guaranteed
+     * to be the featured unit. Kuro's rule — the guarantee travels with the pity
+     * count across banner and version changes, so it belongs to the family state,
+     * not to the banner that happened to be running when the loss occurred.
+     */
+    val isGuaranteedNext: Boolean = false,
+    /**
+     * Worst case from now before the *featured* unit is secured, in pulls.
+     *
+     * This is the number a player budgets against, and it is the one figure the
+     * per-pool tracker got wrong. With a banked guarantee it is just the distance
+     * to the next 5★; without one it is that distance plus a full 80-pull cycle,
+     * because losing the 50/50 starts you over on the guarantee. Kuro's published
+     * ceiling for a featured Resonator from a clean slate is 160.
+     */
+    val pullsUntilGuaranteedFeatured: Int = 0,
+    /** [pullsUntilGuaranteedFeatured] at [currencyPerPull], for budgeting. */
+    val worstCaseCostAstrite: Long = 0,
     /**
      * Pity/cost fields default to the values in the game profile rather than to
      * literals. They are deliberately *defaults* and not constants: a

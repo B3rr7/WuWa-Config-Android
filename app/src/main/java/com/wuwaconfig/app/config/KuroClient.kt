@@ -64,6 +64,21 @@ object KuroClient {
     ) : Exception(message)
 
     /**
+     * The guide answered with its own error envelope.
+     *
+     * Kuro's guide server returns **HTTP 200** for failures and puts the verdict in the body
+     * (`{"message":"server error","code":500}`, `{"message":"请登录","code":1000}`). Only the
+     * HTTP status was checked before, so a rejected `x-token` reached the parsers as
+     * "no data" — an empty player list and a null build with no error anywhere. That is why
+     * the Characters screen could sit on "Select a character" forever while every request was
+     * being refused.
+     */
+    class KuroApiException(
+        val apiCode: Int,
+        val apiMessage: String,
+    ) : Exception(if (apiMessage.isBlank()) "guide error $apiCode" else "guide error $apiCode: $apiMessage")
+
+    /**
      * Runs the passport login and returns the bearer session. Returns [Result.failure] (never
      * throws) so the calling screen can render the error without a try/catch.
      */
@@ -272,6 +287,10 @@ object KuroClient {
         return try {
             configure(connection)
             val status = connection.responseCode
+            if (status == 401 || status == 403) {
+                Log.w("KuroLogin", "HTTP $status for $method ${url.substringBefore('?')}")
+                throw KuroApiException(status, "HTTP $status")
+            }
             if (status != 200) {
                 Log.w("KuroLogin", "HTTP $status for $method ${url.substringBefore('?')}")
                 throw KuroLoginException("http", "HTTP $status for $method ${url.substringBefore('?')}")
@@ -290,7 +309,11 @@ object KuroClient {
                     text.append(buffer, 0, read)
                 }
             }
-            text.toString()
+            val body = text.toString()
+            if (url.startsWith(GUIDE_BASE)) {
+                apiErrorCode(body)?.let { (code, message) -> throw KuroApiException(code, message) }
+            }
+            body
         } finally {
             connection.disconnect()
         }
@@ -307,6 +330,54 @@ object KuroClient {
         Log.w("KuroLogin", "$step rejected — ${raw.take(400)}")
         throw KuroLoginException(step, detail)
     }
+
+    // -- guide error envelope ---------------------------------------------------
+
+    /**
+     * The guide's error verdict, or `null` when [json] is a normal answer.
+     *
+     * Only a top-level numeric `code` counts. The passport endpoints use a different envelope
+     * (`codes`, plural) and are never inspected here, so the two cannot be confused. A body
+     * that omits `code` is treated as successful, because the public endpoints answer with
+     * `data` alone.
+     */
+    internal fun apiErrorCode(json: String): Pair<Int, String>? {
+        val root =
+            runCatching { com.google.gson.JsonParser.parseString(json) }
+                .getOrNull()
+                ?.takeIf { it.isJsonObject }
+                ?.asJsonObject
+                ?: return null
+        val codeElement = root.get("code") ?: return null
+        if (!codeElement.isJsonPrimitive || !codeElement.asJsonPrimitive.isNumber) return null
+        val code = codeElement.asInt
+        if (code == 200) return null
+        val message =
+            root.get("message")
+                ?.takeIf { it.isJsonPrimitive }
+                ?.asString
+                .orEmpty()
+        return code to message
+    }
+
+    /**
+     * Codes that mean "this credential was not accepted" rather than "this call was malformed".
+     *
+     * `1000` is the guide's `请登录` (please sign in); `500` is the `server error` it returns
+     * for an `x-token` it no longer honours; `401`/`403` come from the HTTP layer.
+     */
+    private val SESSION_REJECTION_CODES = setOf(401, 403, 500, 1000)
+
+    internal fun isSessionRejection(e: Throwable): Boolean = e is KuroApiException && e.apiCode in SESSION_REJECTION_CODES
+
+    /** A user-facing reason, so a rejected call never renders as "no data". */
+    internal fun describeGuideError(e: Throwable): String =
+        when {
+            isSessionRejection(e) -> "Your Kuro session was rejected. Sign in again."
+            e is KuroApiException ->
+                "The guide returned an error (${e.apiCode}${if (e.apiMessage.isBlank()) "" else ": ${e.apiMessage}"})."
+            else -> e.message?.takeIf { it.isNotBlank() } ?: "unknown error"
+        }
 
     // -- password transform (mirrors Kuro's kr-sdk.js encodePassword) -----------
 

@@ -392,6 +392,7 @@ fun AppNavigation(
             entry<Setup> {
                 SetupScreen(
                     viewModel = viewModel,
+                    backupViewModel = backupViewModel,
                     initialBackupDir = backupViewModel.backupStorageDirFlow.collectAsStateWithLifecycle().value,
                     onComplete = { navigator.replaceAllWith(Home) },
                 )

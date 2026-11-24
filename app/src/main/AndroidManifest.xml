@@ -23,6 +23,14 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
+    <!-- MANAGE_EXTERNAL_STORAGE: justification (F-9). The app still writes backups
+         into the public Downloads/WuWaConfig/ tree (backups/ + logs/) and reads
+         the game's external config dir for hash monitoring; SAF/ADB would force a
+         re-pick on every session and break the one-tap deploy flow. Logs were
+         already moved to app-scoped storage (LogRepository), so this permission now
+         only buys the Downloads/WuWaConfig/ access above. Play policy: this app
+         ships outside Play; if it is ever submitted, gate this permission behind
+         the backup/export feature or replace it with SAF. -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 

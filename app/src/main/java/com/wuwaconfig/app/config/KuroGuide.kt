@@ -1,9 +1,9 @@
 package com.wuwaconfig.app.config
 
 import com.google.gson.JsonParser
+import com.wuwaconfig.app.util.writeAtomic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -35,9 +35,34 @@ import java.net.URL
  * only speaks about what Kuro is featuring.
  */
 object KuroGuide {
+    /**
+     * Kuro's official guide is used ONLY by the My Character feature and the Pity
+     * Tracker — the two places that legitimately need current guide/character data.
+     * Everything else (calculator tables, etc.) is served from our own repo under
+     * `tools/data/`, gathered by a GitHub Action.
+     */
     private const val AVATAR_LIST = "https://guide-server.aki-game.net/role/avatar/list"
+    private const val GUIDE_BASE = "https://guide-server.aki-game.net"
     private const val CONNECT_TIMEOUT_MS = 15_000
     private const val READ_TIMEOUT_MS = 15_000
+
+    /**
+     * On-disk cache of the last avatar list fetched from [AVATAR_LIST], with an
+     * ETag for conditional GET and a timestamp for the TTL window. Mirrors the
+     * calculator-data refresh pattern in [MaterialData] so a page visit does not
+     * re-ping Kuro's guide every time.
+     */
+    private const val CACHE_FILE = "kuro_avatar_list.json"
+    private const val TTL_MS = 6L * 60 * 60 * 1000
+
+    @Volatile
+    private var cachedBody: String? = null
+
+    @Volatile
+    private var cachedEtag: String? = null
+
+    @Volatile
+    private var cachedTimestamp: Long = 0L
 
     /**
      * Bounded so a hostile or truncated response cannot drive an unbounded read into
@@ -55,43 +80,254 @@ object KuroGuide {
     suspend fun fetchCharacters(language: String = "en"): Result<List<OfficialCharacter>> =
         withContext(Dispatchers.IO) {
             try {
-                Result.success(parseAvatarList(readBody(AVATAR_LIST), language))
+                val context = com.wuwaconfig.app.WuWaConfigApp.instance
+                val cacheFile = java.io.File(context.filesDir, CACHE_FILE)
+                val now = System.currentTimeMillis()
+
+                // In-memory fast path.
+                if (cachedBody != null && now - cachedTimestamp < TTL_MS) {
+                    return@withContext Result.success(parseAvatarList(cachedBody!!, language))
+                }
+
+                val disk = readCache(cacheFile)
+                if (disk != null && now - disk.timestamp < TTL_MS) {
+                    cachedBody = disk.body
+                    cachedEtag = disk.etag
+                    cachedTimestamp = disk.timestamp
+                    return@withContext Result.success(parseAvatarList(disk.body, language))
+                }
+
+                val etag = disk?.etag ?: cachedEtag
+                return@withContext when (val result = httpFetch(AVATAR_LIST, etag)) {
+                    is FetchResult.NotModified -> {
+                        val ts = now
+                        val body = disk?.body ?: cachedBody
+                        if (body != null) {
+                            writeCache(cacheFile, body, result.etag ?: disk?.etag, ts)
+                            cachedBody = body
+                            cachedEtag = result.etag ?: disk?.etag
+                            cachedTimestamp = ts
+                            Result.success(parseAvatarList(body, language))
+                        } else {
+                            Result.failure(IllegalStateException("no cached body on 304"))
+                        }
+                    }
+                    is FetchResult.Modified -> {
+                        val parsed = runCatching { parseAvatarList(result.body, language) }.getOrNull()
+                        if (parsed != null) {
+                            writeCache(cacheFile, result.body, result.etag, now)
+                            cachedBody = result.body
+                            cachedEtag = result.etag
+                            cachedTimestamp = now
+                            Result.success(parsed)
+                        } else {
+                            // Keep whatever is current rather than swapping in garbage.
+                            val body = disk?.body ?: cachedBody
+                            if (body != null) {
+                                Result.success(parseAvatarList(body, language))
+                            } else {
+                                Result.failure(IllegalStateException("malformed avatar payload"))
+                            }
+                        }
+                    }
+                    is FetchResult.Failed -> {
+                        val body = disk?.body ?: cachedBody
+                        if (body != null) {
+                            Result.success(parseAvatarList(body, language))
+                        } else {
+                            Result.failure(IllegalStateException(result.error))
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 Result.failure(e)
             }
         }
 
-    private fun readBody(url: String): String {
-        val connection =
-            (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = CONNECT_TIMEOUT_MS
-                readTimeout = READ_TIMEOUT_MS
-                setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", "WuWaConfig/1.0")
+    /**
+     * The guide characters already cached on disk, **without any network request**.
+     *
+     * The Pity tracker uses this so that opening it never talks to a web server; the
+     * cache is written by [fetchCharacters], which only the My Character feature
+     * calls. Returns an empty list when no cache exists yet (the tracker then falls
+     * back to the player's own pull history).
+     */
+    fun cachedCharacters(language: String = "en"): List<OfficialCharacter> =
+        try {
+            val context = com.wuwaconfig.app.WuWaConfigApp.instance
+            val disk = readCache(java.io.File(context.filesDir, CACHE_FILE)) ?: return emptyList()
+            parseAvatarList(disk.body, language)
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+    /** A weapon the guide recommends for a resonator; `status == 1` is the signature one. */
+    data class FeaturedWeapon(
+        val gbId: String,
+        val name: String,
+        val pictureUrl: String,
+        val star: Int,
+    )
+
+    /**
+     * The signature (featured) weapon of [roleGbId], from the guide's build page.
+     *
+     * The page's "Recom m. Weapons" block is `data.weapon.items`: the entry with
+     * `status == 1` is the signature weapon and the rest are alternatives. Kuro's
+     * weapon banner features exactly that weapon. This is a guide-server call, which
+     * is allowed for the Pity Tracker (the tracker is one of the two features
+     * permitted to use Kuro's guide).
+     */
+    suspend fun fetchFeaturedWeapon(roleGbId: String): Result<FeaturedWeapon> =
+        withContext(Dispatchers.IO) {
+            try {
+                val strategyId =
+                    primaryStrategyId(roleGbId)
+                        ?: return@withContext Result.failure(IllegalStateException("no build guide for role $roleGbId"))
+                val info =
+                    getJson("$GUIDE_BASE/introduction/info?id=$strategyId")
+                        ?: return@withContext Result.failure(IllegalStateException("no build info for strategy $strategyId"))
+                val weapon =
+                    JsonParser.parseString(info).asJsonObject["data"]?.asJsonObject?.get("weapon")?.asJsonObject
+                        ?: return@withContext Result.failure(IllegalStateException("no weapon block"))
+                val items =
+                    weapon["items"]?.takeIf { it.isJsonArray }?.asJsonArray
+                        ?: return@withContext Result.failure(IllegalStateException("no weapon list"))
+                if (items.size() == 0) return@withContext Result.failure(IllegalStateException("empty weapon list"))
+                val primary =
+                    items.map { it.asJsonObject }.firstOrNull { it.get("status")?.asInt == 1 }
+                        ?: items[0].asJsonObject
+                val gbId =
+                    primary["gbId"]?.takeIf { !it.isJsonNull }?.asString
+                        ?: return@withContext Result.failure(IllegalStateException("weapon missing gbId"))
+                val star = primary["star"]?.takeIf { !it.isJsonNull }?.asInt ?: 5
+                val picture = primary["pictureUrl"]?.takeIf { !it.isJsonNull }?.asString.orEmpty()
+                val name =
+                    primary["texts"]?.takeIf { it.isJsonArray }?.asJsonArray
+                        ?.firstOrNull()?.asJsonObject?.get("name")?.asString.orEmpty()
+                Result.success(FeaturedWeapon(gbId, name, picture, star))
+            } catch (e: Exception) {
+                Result.failure(e)
             }
+        }
+
+    private fun primaryStrategyId(roleGbId: String): Int? {
+        val body = getJson("$GUIDE_BASE/introduction/list?roleGbId=$roleGbId") ?: return null
+        val arr = JsonParser.parseString(body).asJsonObject["data"]?.takeIf { it.isJsonArray }?.asJsonArray ?: return null
+        return arr.firstOrNull()?.asJsonObject?.get("id")?.asInt
+    }
+
+    /** Small bounded GET (the avatar list has its own ETag path). */
+    private fun getJson(url: String): String? {
+        var connection: HttpURLConnection? = null
         return try {
-            if (connection.responseCode != 200) {
-                throw IllegalStateException("HTTP ${connection.responseCode}")
-            }
-            val text = StringBuilder()
+            connection =
+                (URL(url).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = CONNECT_TIMEOUT_MS
+                    readTimeout = READ_TIMEOUT_MS
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("User-Agent", "WuWaConfig/1.0")
+                }
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
+            val out = StringBuilder()
             val buffer = CharArray(8192)
             var total = 0L
-            connection.inputStream.bufferedReader().use { reader: BufferedReader ->
+            connection.inputStream.bufferedReader().use { reader ->
                 while (true) {
                     val read = reader.read(buffer)
                     if (read == -1) break
                     total += read
-                    if (total > MAX_RESPONSE_BYTES) {
-                        throw IllegalStateException("Response exceeds the $MAX_RESPONSE_BYTES byte cap")
-                    }
-                    text.append(buffer, 0, read)
+                    if (total > MAX_RESPONSE_BYTES) return null
+                    out.append(buffer, 0, read)
                 }
             }
-            text.toString()
+            out.toString()
+        } catch (e: Exception) {
+            null
         } finally {
-            connection.disconnect()
+            connection?.disconnect()
         }
+    }
+
+    private fun httpFetch(
+        url: String,
+        etag: String?,
+    ): FetchResult {
+        var connection: HttpURLConnection? = null
+        return try {
+            connection =
+                (URL(url).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = CONNECT_TIMEOUT_MS
+                    readTimeout = READ_TIMEOUT_MS
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("User-Agent", "WuWaConfig/1.0")
+                    etag?.takeIf { it.isNotEmpty() }?.let { setRequestProperty("If-None-Match", it) }
+                }
+            when (val code = connection.responseCode) {
+                HttpURLConnection.HTTP_NOT_MODIFIED -> FetchResult.NotModified(connection.getHeaderField("ETag"))
+                HttpURLConnection.HTTP_OK -> {
+                    val text = StringBuilder()
+                    val buffer = CharArray(8192)
+                    var total = 0L
+                    connection.inputStream.bufferedReader().use { reader ->
+                        while (true) {
+                            val read = reader.read(buffer)
+                            if (read == -1) break
+                            total += read
+                            if (total > MAX_RESPONSE_BYTES) {
+                                throw IllegalStateException("Response exceeds the $MAX_RESPONSE_BYTES byte cap")
+                            }
+                            text.append(buffer, 0, read)
+                        }
+                    }
+                    FetchResult.Modified(text.toString(), connection.getHeaderField("ETag"))
+                }
+                else -> {
+                    connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    FetchResult.Failed("HTTP $code")
+                }
+            }
+        } catch (e: Exception) {
+            FetchResult.Failed(e.message ?: e.javaClass.simpleName)
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
+    private data class AvatarCache(
+        val body: String,
+        val etag: String?,
+        val timestamp: Long,
+    )
+
+    private fun readCache(file: java.io.File): AvatarCache? {
+        if (!file.exists()) return null
+        return try {
+            val root = com.google.gson.JsonParser.parseReader(file.bufferedReader()).asJsonObject
+            val body = root.get("body")?.asString ?: return null
+            val etag = root.get("etag")?.takeIf { !it.isJsonNull }?.asString
+            val timestamp = root.get("timestamp")?.asLong ?: return null
+            AvatarCache(body, etag, timestamp)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun writeCache(
+        file: java.io.File,
+        body: String,
+        etag: String?,
+        timestamp: Long,
+    ) {
+        val root =
+            com.google.gson.JsonObject().apply {
+                addProperty("body", body)
+                add("etag", etag?.let { com.google.gson.JsonPrimitive(it) } ?: com.google.gson.JsonNull.INSTANCE)
+                addProperty("timestamp", timestamp)
+            }
+        file.writeAtomic(root.toString())
     }
 
     /**
@@ -137,6 +373,7 @@ object KuroGuide {
                     status = OfficialStatus.fromCode(obj.get("roleStatus")?.takeIf { !it.isJsonNull }?.asInt),
                     cardPictureUrl = obj.get("cardPictureUrl")?.takeIf { !it.isJsonNull }?.asString.orEmpty(),
                     illustrationPictureUrl = obj.get("illustrationPictureUrl")?.takeIf { !it.isJsonNull }?.asString.orEmpty(),
+                    elementGbId = obj.getAsJsonObject("element")?.get("gbId")?.takeIf { !it.isJsonNull }?.asString?.trim().orEmpty(),
                 ),
             )
         }
@@ -204,4 +441,9 @@ data class OfficialCharacter(
     val cardPictureUrl: String,
     /** Full-body splash from Kuro's CDN; empty when absent. */
     val illustrationPictureUrl: String,
+    /**
+     * The guide's element id ("1".."6"). The roster API, unlike the build API, does include
+     * it; without it the screen has no way to tint a character by her element.
+     */
+    val elementGbId: String = "",
 )

@@ -87,6 +87,30 @@ class CvarOptimizerTest {
         assertEquals("high", CvarOptimizer.getGPUTier("adreno 750"))
     }
 
+    @Test
+    fun `getGPUTier accepts a generation-only adreno token`() {
+        // Regression for a real device report: LogParser's generic GPU fallback
+        // produced "Adreno6" from the profile string "Android_Adreno6xx_Lowest",
+        // and no pattern accepted a generation without a 3-digit model number,
+        // so a moto g(60) scored `unknown` and took the most conservative tier.
+        assertEquals("mid", CvarOptimizer.getGPUTier("Adreno6"))
+        assertEquals("mid", CvarOptimizer.getGPUTier("Adreno6xx"))
+        assertEquals("mid_high", CvarOptimizer.getGPUTier("Adreno7xx"))
+        assertEquals("high", CvarOptimizer.getGPUTier("Adreno8"))
+        assertEquals("mid_low", CvarOptimizer.getGPUTier("Adreno 5"))
+        assertEquals("low", CvarOptimizer.getGPUTier("adreno4"))
+    }
+
+    @Test
+    fun `generation-only fallbacks never outrank an exact model match`() {
+        // The generation rows are appended last, so a specific 3-digit model in
+        // an earlier bucket still wins. If someone reorders the table, a 750
+        // would degrade to mid_high and a 830 to high.
+        assertEquals("flagship", CvarOptimizer.getGPUTier("Adreno 830"))
+        assertEquals("high", CvarOptimizer.getGPUTier("Adreno 750"))
+        assertEquals("mid_high", CvarOptimizer.getGPUTier("Adreno 690"))
+    }
+
     // ── clean baseline: every tier, no stress, ample RAM ──
 
     @Test

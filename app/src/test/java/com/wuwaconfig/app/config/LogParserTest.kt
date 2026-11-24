@@ -385,6 +385,16 @@ class LogParserTest {
     }
 
     @Test
+    fun `a log with no GPU family row keeps the full profile token`() {
+        // Regression: LogParser's generic GPU fallback used `adreno\s*\d+`, so on
+        // a log that carried only the device-profile line it captured "Adreno6"
+        // out of "Adreno6xx" — half a model name that no GPU-tier pattern
+        // matched, which is why a moto g(60) reported `GPU tier: unknown`.
+        val info = parseLines("Selected Device Profile: [Android_Adreno6xx_Lowest]")
+        assertEquals("Adreno6xx", info.gpu)
+    }
+
+    @Test
     fun `fpsActual stays null because this game logs no FPS line at all`() {
         // Documented as unreachable rather than silently "fixed": there is no
         // AverageFPS line anywhere in a 3.7.0 session, so no pattern can recover

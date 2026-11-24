@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,9 +46,11 @@ fun LogsScreen(
     onBack: () -> Unit,
 ) {
     val logs by LogRepository.entries.collectAsStateWithLifecycle()
-    var filterLevel by remember { mutableStateOf<LogLevel?>(null) }
-    var searchQuery by remember { mutableStateOf("") }
-    var debouncedQuery by remember { mutableStateOf("") }
+    // rememberSaveable: an active query/filter collapsing on rotation while the
+    // user is reading a filtered view is worse than the list resetting.
+    var filterLevel by rememberSaveable { mutableStateOf<LogLevel?>(null) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var debouncedQuery by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(searchQuery) {
         if (searchQuery.isEmpty()) {
@@ -327,7 +330,7 @@ fun LogsScreen(
                                         .clickable {
                                             clipboard.copySensitive(
                                                 "WuWaConfig log",
-                                                "[${log.timestamp}] ${log.message}]",
+                                                "[${log.timestamp}] ${log.message}",
                                             )
                                             scope.launch {
                                                 snackbarHostState.showSnackbar(

@@ -2,6 +2,7 @@ package com.wuwaconfig.app.config
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.wuwaconfig.app.model.BannerFamily
 import com.wuwaconfig.app.model.GachaApiResponse
 import com.wuwaconfig.app.model.GachaData
 import com.wuwaconfig.app.model.GachaPoolType
@@ -26,8 +27,12 @@ object GachaApi {
     // Standard pools are the permanent "Standard" banners; any 5★ pulled there is
     // a standard 5★ (used to decide character-banner soft-pity status).
     private val STANDARD_POOLS = setOf(GachaPoolType.STANDARD, GachaPoolType.STANDARD_2, GachaPoolType.STANDARD_3)
-    private val CHARACTER_POOLS = setOf(GachaPoolType.CHARACTER_EVENT, GachaPoolType.CHARACTER_2, GachaPoolType.CHARACTER_3)
-    private val WEAPON_POOLS = setOf(GachaPoolType.WEAPON_EVENT, GachaPoolType.WEAPON_2, GachaPoolType.WEAPON_3)
+
+    // internal so UI aggregations over [PityPrediction]s (PityScreen's overall
+    // character stats) can filter weapon banners out without re-deriving the
+    // pool list here — that list drifting between this file and the UI was the
+    // bug being fixed.
+    internal val CHARACTER_POOLS = setOf(GachaPoolType.CHARACTER_EVENT, GachaPoolType.CHARACTER_2, GachaPoolType.CHARACTER_3)
 
     // Per-pull probability at the soft-pity threshold (pull 66), derived from the
     // wuwatracker.com empirical distribution (394 125 samples): the conditional
@@ -186,28 +191,7 @@ object GachaApi {
             val pity5 = calculateAvgPity(records, 5)
             val pity4 = calculateAvgPity(records, 4)
 
-            val predictions = mutableListOf<PityPrediction>()
-            val standardFiveStars =
-                records
-                    .filter { it.cardPoolType in STANDARD_POOLS.map { it.type } && it.qualityLevel == 5 }
-                    .map { it.name }
-                    .toSet()
-            for (poolType in GachaPoolType.ALL) {
-                val poolRecords = records.filter { it.cardPoolType == poolType.type }
-                if (poolRecords.isEmpty()) continue
-
-                val isCharacterBanner = poolType in CHARACTER_POOLS
-                val isWeaponBanner = poolType in WEAPON_POOLS
-                val pred =
-                    if (isCharacterBanner) {
-                        calcCharacterPrediction(poolRecords, poolType, standardFiveStars)
-                    } else if (isWeaponBanner) {
-                        calcWeaponPrediction(poolRecords, poolType)
-                    } else {
-                        null
-                    }
-                if (pred != null) predictions.add(pred)
-            }
+            val predictions = buildPredictions(records)
 
             Result.success(
                 GachaData(
@@ -308,6 +292,70 @@ object GachaApi {
         }
     }
 
+    /**
+     * Predictions for [records] — ONE per banner family, never per queried slot.
+     *
+     * Kuro's rule is that the count is shared by every banner of the same type and
+     * carried over until a 5★ drops, so 30 pulls on one banner and 20 on the next
+     * is 50 on the shared counter. Bucketing by `cardPoolType` instead gave each
+     * slot its own counter, which reset the visible pity on every banner rotation —
+     * the exact moment the number matters most — and printed several "character
+     * pity" cards for what the game treats as a single counter.
+     *
+     * The representative pool is the slot holding the family's newest pull: that is
+     * the banner the player is actually on, so its label and id are the right ones
+     * to show.
+     *
+     * Pure function of the record list, which is why the ViewModel can also call it
+     * to re-derive predictions from a cache written by an older build instead of
+     * re-fetching from Kuro's servers.
+     */
+    internal fun buildPredictions(records: List<GachaRecord>): List<PityPrediction> {
+        val predictions = mutableListOf<PityPrediction>()
+        // Permanent-pool names come from BOTH the standard and the beginner banners:
+        // a standard character first drawn from the novice banner is still a standard
+        // character, so its later appearance on a featured banner is a lost 50/50.
+        val standardFiveStars =
+            records
+                .filter {
+                    val family = GachaPoolType.fromType(it.cardPoolType)?.family
+                    (family == BannerFamily.STANDARD || family == BannerFamily.BEGINNER) && it.qualityLevel == 5
+                }
+                .map { it.name }
+                .toSet()
+        val byFamily = records.groupBy { GachaPoolType.fromType(it.cardPoolType)?.family }
+        for (family in listOf(BannerFamily.CHARACTER_EVENT, BannerFamily.WEAPON_EVENT, BannerFamily.BEGINNER)) {
+            val familyRecords = byFamily[family].orEmpty()
+            if (familyRecords.isEmpty()) continue
+            val representativeType = familyRecords.maxByOrNull { it.time }?.cardPoolType ?: continue
+            val poolType =
+                GachaPoolType.fromType(representativeType)
+                    ?: familyRecords.firstNotNullOfOrNull { GachaPoolType.fromType(it.cardPoolType) }
+                    ?: continue
+            val pred =
+                when (family) {
+                    BannerFamily.CHARACTER_EVENT -> calcCharacterPrediction(familyRecords, poolType, standardFiveStars)
+                    BannerFamily.WEAPON_EVENT -> calcWeaponPrediction(familyRecords, poolType)
+                    // The novice guarantee is a one-time 50-pull payout that closes
+                    // the banner once its 5★ arrives. Before that it is a real,
+                    // budgetable ceiling; after it, an ongoing "since ★5" would be
+                    // meaningless (and read as 55/50 once the banner has closed), so
+                    // it is only surfaced while the guarantee is still outstanding.
+                    BannerFamily.BEGINNER ->
+                        if (familyRecords.none { it.qualityLevel == 5 }) {
+                            calcBeginnerPrediction(familyRecords, poolType)
+                        } else {
+                            null
+                        }
+                    // A permanent banner has no featured unit, so there is nothing
+                    // to predict; its pity is surfaced elsewhere.
+                    BannerFamily.STANDARD -> null
+                }
+            if (pred != null) predictions.add(pred)
+        }
+        return predictions
+    }
+
     internal fun calculateAvgPity(
         records: List<GachaRecord>,
         rarity: Int,
@@ -368,11 +416,19 @@ object GachaApi {
     }
 
     /**
-     * Share of 50/50 pulls that were won, over [fiveStarRecords] in any order.
+     * Share of 50/50 pulls that were won, over [fiveStarRecords].
      *
      * The guarantee is what makes this more than a plain off-banner ratio: after a
      * loss the next 5★ cannot lose, so counting it would understate the rate. Such
      * a pull is skipped — it is excluded from the numerator *and* the denominator.
+     *
+     * Because the guarantee is a state machine over the *sequence* of 5★s, the
+     * records are sorted chronologically here rather than trusting the caller's
+     * order. `fetchAllRecords` stores records newest-first (the UI wants that), so
+     * without this sort the walk ran backwards over the history and the "skip the
+     * guaranteed pull" rule attached to the wrong draw — producing a plausible but
+     * wrong rate. Sorting here makes the function correct for any input order and
+     * keeps its old "in any order" contract honest.
      *
      * Named for what it measures, which is the win rate; the field it feeds,
      * `PityPrediction.nonBannerRate`, keeps its original misleading name because
@@ -387,7 +443,7 @@ object GachaApi {
         var isGuaranteedNext = false
         var totalFiftyFifty = 0
         var wonFiftyFifty = 0
-        for (star in fiveStarRecords) {
+        for (star in fiveStarRecords.sortedBy { it.time }) {
             val isUp = !isStandardFive(star.name, standardFiveStars)
             if (isGuaranteedNext) {
                 isGuaranteedNext = false
@@ -492,7 +548,8 @@ object GachaApi {
         pool: GachaPoolType,
         standardFiveStars: Set<String>,
     ): PityPrediction {
-        val HARD_PITY = profile.hardPity
+        val family = pool.family
+        val HARD_PITY = family.hardPity
         val SOFT_PITY_START = profile.softPityStart
         val sorted = records.sortedBy { it.time }
         val fiveStarRecords = sorted.filter { it.qualityLevel == 5 }
@@ -579,9 +636,22 @@ object GachaApi {
         // fiftyFiftyWinRate so the two can never disagree on the same records.
         val nonBannerRateValue = fiftyFiftyWinRate(fiveStarRecords, standardFiveStars)
 
+        // A banked 50/50 loss is a property of the FAMILY, not the banner: the
+        // guarantee travels with the pity count across banner and version changes.
+        val guaranteedNext = fiveStarRecords.isNotEmpty() && isLastFiveStandard
+        val pullsToNextFive = maxOf(HARD_PITY - pullsSinceLastFive, 1)
+        // Worst case to the FEATURED unit: distance to the next 5★, plus a full
+        // cycle if the 50/50 is still un-won. 160 from a clean slate is Kuro's
+        // published ceiling.
+        val pullsUntilGuaranteed = if (guaranteedNext) pullsToNextFive else pullsToNextFive + HARD_PITY
+
         return PityPrediction(
             poolType = pool.type,
             poolLabel = pool.label,
+            familyLabel = family.label,
+            isGuaranteedNext = guaranteedNext,
+            pullsUntilGuaranteedFeatured = pullsUntilGuaranteed,
+            worstCaseCostAstrite = pullsUntilGuaranteed.toLong() * profile.currencyPerPull,
             status = status,
             lastFiveStarName = lastFiveName,
             lastFiveStarTime = lastFiveTime,
@@ -617,7 +687,8 @@ object GachaApi {
         // threshold (66) for *all* banner types — confirmed by the wuwatracker.com
         // dataset (394 125 samples). Weapon Event is "100% guaranteed featured": every
         // ★5 pulled is the rate-up weapon, unlike the character banner's 50/50.
-        val HARD_PITY = profile.hardPity
+        val family = pool.family
+        val HARD_PITY = family.hardPity
         val SOFT_PITY_START = profile.softPityStart
         val sorted = records.sortedBy { it.time }
         val fiveStarRecords = sorted.filter { it.qualityLevel == 5 }
@@ -676,9 +747,17 @@ object GachaApi {
         val (minPity5, maxPity5) = computeMinMaxPity(sorted, 5)
         val (minPity4, maxPity4) = computeMinMaxPity(sorted, 4)
 
+        // No 50/50 on a weapon banner: the next 5★ weapon IS the featured one, so
+        // the worst case is simply the distance to that 5★.
+        val pullsToNextFive = maxOf(HARD_PITY - pullsSinceLastFive, 1)
+
         return PityPrediction(
             poolType = pool.type,
             poolLabel = pool.label,
+            familyLabel = family.label,
+            isGuaranteedNext = true,
+            pullsUntilGuaranteedFeatured = pullsToNextFive,
+            worstCaseCostAstrite = pullsToNextFive.toLong() * profile.currencyPerPull,
             status = "Guaranteed",
             lastFiveStarName = lastFiveName,
             lastFiveStarTime = lastFiveTime,
@@ -701,6 +780,86 @@ object GachaApi {
             lastPullDate = sorted.lastOrNull()?.time ?: "",
             ssrIntervals = ssrIntervals,
             totalCost = totalCost,
+            minPity5 = minPity5,
+            maxPity5 = maxPity5,
+            minPity4 = minPity4,
+            maxPity4 = maxPity4,
+        )
+    }
+
+    /**
+     * Novice banner: a 5★ is guaranteed within **50** pulls, there is no 50/50, and
+     * the banner closes once that 5★ arrives.
+     *
+     * Kept separate from [calcCharacterPrediction] because three of its rules
+     * differ (ceiling, no featured unit, no guarantee state) and folding them into
+     * one `if` chain is how the 80-pull ceiling ended up applied to a 50-pull
+     * banner.
+     */
+    internal fun calcBeginnerPrediction(
+        records: List<GachaRecord>,
+        pool: GachaPoolType,
+    ): PityPrediction {
+        val family = pool.family
+        val HARD_PITY = family.hardPity
+        val SOFT_PITY_START = profile.softPityStart
+        val sorted = records.sortedBy { it.time }
+        val fiveStarRecords = sorted.filter { it.qualityLevel == 5 }
+
+        val pullsSinceLastFive: Int
+        val lastFiveName: String
+        val lastFiveTime: String
+        if (fiveStarRecords.isNotEmpty()) {
+            val lastFive = fiveStarRecords.last()
+            lastFiveName = lastFive.name
+            lastFiveTime = lastFive.time
+            val lastFiveIndex = sorted.indexOfLast { it.qualityLevel == 5 }
+            pullsSinceLastFive = sorted.drop(lastFiveIndex + 1).sumOf { it.count.coerceAtLeast(1) }
+        } else {
+            lastFiveName = ""
+            lastFiveTime = ""
+            pullsSinceLastFive = sorted.sumOf { it.count.coerceAtLeast(1) }
+        }
+
+        val isInSoftPity = pullsSinceLastFive >= SOFT_PITY_START
+        val pullsUntilHardPity = maxOf(HARD_PITY - pullsSinceLastFive, 0)
+        val estimated =
+            if (isInSoftPity) {
+                estimatedSoftPityPulls(pullsSinceLastFive, SOFT_PITY_START, HARD_PITY)
+            } else {
+                maxOf(HARD_PITY - pullsSinceLastFive, 1)
+            }
+        val pulls4 = calcPullsSinceLastFourStar(sorted)
+        val (minPity5, maxPity5) = computeMinMaxPity(sorted, 5)
+        val (minPity4, maxPity4) = computeMinMaxPity(sorted, 4)
+
+        return PityPrediction(
+            poolType = pool.type,
+            poolLabel = pool.label,
+            familyLabel = family.label,
+            isGuaranteedNext = false,
+            pullsUntilGuaranteedFeatured = maxOf(pullsUntilHardPity, 1),
+            worstCaseCostAstrite = maxOf(pullsUntilHardPity, 1).toLong() * profile.currencyPerPull,
+            status = "Novice",
+            lastFiveStarName = lastFiveName,
+            lastFiveStarTime = lastFiveTime,
+            currentFeaturedName = "",
+            currentFeaturedKnown = false,
+            pullsSinceLastFive = pullsSinceLastFive,
+            estimatedNextFive = estimated,
+            hardPity = HARD_PITY,
+            softPityThreshold = SOFT_PITY_START,
+            isInSoftPity = isInSoftPity,
+            pullsUntilHardPity = pullsUntilHardPity,
+            pullsSinceLastFourStar = pulls4,
+            estimatedNextFourStar = maxOf(profile.fourStarGuarantee - pulls4, 1),
+            avgPityThisPool = HARD_PITY.toDouble(),
+            nonBannerRate = 0.0,
+            upRate = 0.0,
+            firstPullDate = sorted.firstOrNull()?.time ?: "",
+            lastPullDate = sorted.lastOrNull()?.time ?: "",
+            ssrIntervals = computeSsrIntervals(sorted),
+            totalCost = computeTotalCost(sorted),
             minPity5 = minPity5,
             maxPity5 = maxPity5,
             minPity4 = minPity4,

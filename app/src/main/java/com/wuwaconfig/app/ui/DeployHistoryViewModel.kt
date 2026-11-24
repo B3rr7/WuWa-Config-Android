@@ -661,53 +661,12 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 }
                 _readingProgress.value = 90
                 if (prefs.getBoolean("deploy_history", true)) {
-                    val cachedLogInfo = LogAnalysisStore.load(getApplication())?.logInfo
-                    val baselinePair: Pair<LogInfo, String> =
-                        if (cachedLogInfo != null) {
-                            cachedLogInfo to ""
-                        } else {
-                            addLog("Reading device log for deploy history baseline...")
-                            val baselineResult = configManager.readClientLogContent()
-                            if (baselineResult.isSuccess) {
-                                val text = baselineResult.getOrThrow()
-                                withContext(Dispatchers.Default) { com.wuwaconfig.app.config.LogParser.parseLog(text) } to text.take(2048)
-                            } else {
-                                LogInfo() to ""
-                            }
-                        }
-                    val baselineLog = baselinePair.first
-                    val baselineSnippet = baselinePair.second
-                    val report = _verificationReport.value
-                    val fileList = mutableListOf<String>()
-                    if (opts.generateEngine) fileList.add("Engine.ini")
-                    if (opts.generateDeviceProfiles) fileList.add("DeviceProfiles.ini")
-                    if (opts.generateGameUserSettings) fileList.add("GameUserSettings.ini")
-                    if (opts.generateScalability) fileList.add("Scalability.ini")
-                    if (opts.generateHardware) fileList.add("Hardware.ini")
-                    val recordId = java.util.UUID.randomUUID().toString()
-                    val record =
-                        DeployRecord(
-                            id = recordId,
-                            timestamp = System.currentTimeMillis(),
-                            presetName = lastActivePreset,
-                            generationMethod = if (opts.useAdvancedGen) "advanced" else "classic",
-                            filesDeployed = fileList,
-                            acceptedCount = report?.recognizedCount ?: 0,
-                            totalCount = report?.totalCount ?: 0,
-                            redundantCount = report?.redundantCount ?: 0,
-                            unknownCount = report?.unknownCount ?: 0,
-                            monitoredCount = report?.monitoredCount ?: 0,
-                            baselineFps = baselineLog.fpsActual,
-                            baselineThermal = baselineLog.thermalEvents,
-                            baselineOom = baselineLog.gpuOom,
-                            baselineDrops = baselineLog.dropFrames,
-                            baselineClientLogSnippet = baselineSnippet,
-                            optimizedProfile = retuneProfile ?: if (opts.useAdvancedGen) com.wuwaconfig.app.config.CvarOptimizer.optimizeProfile(baselineLog) else null,
-                            options = opts,
-                        )
-                    deployHistoryStore.addRecord(record)
-                    _deployRecords.value = deployHistoryStore.getAllRecords()
-                    addLog("Deploy record saved (id: ${recordId.take(8)}...)")
+                    saveDeployRecord(
+                        opts = opts,
+                        lastActivePreset = lastActivePreset,
+                        retuneProfile = retuneProfile,
+                        report = _verificationReport.value,
+                    )
                 }
                 _deployResult.value = DeployResult.Success(result.getOrThrow())
                 _readingProgress.value = 0
@@ -742,6 +701,66 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
+    private suspend fun saveDeployRecord(
+        opts: com.wuwaconfig.app.model.GeneratorOptions,
+        lastActivePreset: String,
+        retuneProfile: com.wuwaconfig.app.config.CvarOptimizer.OptimizedProfile?,
+        report: com.wuwaconfig.app.model.VerificationReport?,
+    ) {
+        val cachedLogInfo = LogAnalysisStore.load(getApplication())?.logInfo
+        val baselinePair: Pair<LogInfo, String> =
+            if (cachedLogInfo != null) {
+                cachedLogInfo to ""
+            } else {
+                addLog("Reading device log for deploy history baseline...")
+                val baselineResult = configManager.readClientLogContent()
+                if (baselineResult.isSuccess) {
+                    val text = baselineResult.getOrThrow()
+                    withContext(Dispatchers.Default) { com.wuwaconfig.app.config.LogParser.parseLog(text) } to text.take(2048)
+                } else {
+                    LogInfo() to ""
+                }
+            }
+        val baselineLog = baselinePair.first
+        val baselineSnippet = baselinePair.second
+        val fileList = mutableListOf<String>()
+        if (opts.generateEngine) fileList.add("Engine.ini")
+        if (opts.generateDeviceProfiles) fileList.add("DeviceProfiles.ini")
+        if (opts.generateGameUserSettings) fileList.add("GameUserSettings.ini")
+        if (opts.generateScalability) fileList.add("Scalability.ini")
+        if (opts.generateHardware) fileList.add("Hardware.ini")
+        val recordId = java.util.UUID.randomUUID().toString()
+        val record =
+            DeployRecord(
+                id = recordId,
+                timestamp = System.currentTimeMillis(),
+                presetName = lastActivePreset,
+                generationMethod = if (opts.useAdvancedGen) "advanced" else "classic",
+                filesDeployed = fileList,
+                acceptedCount = report?.recognizedCount ?: 0,
+                totalCount = report?.totalCount ?: 0,
+                redundantCount = report?.redundantCount ?: 0,
+                unknownCount = report?.unknownCount ?: 0,
+                monitoredCount = report?.monitoredCount ?: 0,
+                baselineFps = baselineLog.fpsActual,
+                baselineThermal = baselineLog.thermalEvents,
+                baselineOom = baselineLog.gpuOom,
+                baselineDrops = baselineLog.dropFrames,
+                baselineClientLogSnippet = baselineSnippet,
+                optimizedProfile = retuneProfile ?: if (opts.useAdvancedGen) com.wuwaconfig.app.config.CvarOptimizer.optimizeProfile(baselineLog) else null,
+                options = opts,
+            )
+        deployHistoryStore.addRecord(record)
+        _deployRecords.value = deployHistoryStore.getAllRecords()
+        addLog("Deploy record saved (id: ${recordId.take(8)}...)")
+    }
+
+    /**
+     * Returns whether the apply actually STARTED: the guards (busy or backend
+     * disconnected) are silent. Callers that only clear their state after a
+     * `true` avoid "the review card flipped back to IDLE and the user's picked
+     * files vanished, with nothing written and no error".
+     */
     fun applyCustomFiles(
         engineIni: String?,
         deviceProfilesIni: String?,
@@ -753,8 +772,8 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
         // the app-wide preference. Hardcoding `true` here would have made the
         // picker's deploy path the one place restricted CVars always got through.
         allowRestrictedCvars: Boolean = app.allowRestrictedCvarsEnabled.value,
-    ) {
-        if (ops.isApplying.value || !app.backendStatusValue.connected) return
+    ): Boolean {
+        if (ops.isApplying.value || !app.backendStatusValue.connected) return false
         ops.setApplying(true)
         ops.launchBackendOp(managesBusyFlag = true) {
             try {
@@ -819,6 +838,7 @@ class DeployHistoryViewModel(application: Application) : AndroidViewModel(applic
                 ops.setApplying(false)
             }
         }
+        return true
     }
 
     fun cleanConfigFiles(selectedFiles: Set<String>? = null) {

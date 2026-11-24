@@ -50,13 +50,13 @@ file cấu hình Unreal Engine cho Wuthering Waves — không cần root, không
 - **System agent surface** — 13 [AppFunctions](#appfunctions) chỉ đọc để trợ lý trên thiết bị có thể truy vấn preset, phân tích log và đọc lịch sử deploy.
 
 <p align="center">
-  <img src="screenshots/screen-01.webp?v=1.1.7" width="180" alt="Man hạc với trạng thái kết nối backend và các tác vụ nhanh">
-  <img src="screenshots/screen-02.webp?v=1.1.7" width="180" alt="Config generator với SmartBrain score và lựa chọn preset">
-  <img src="screenshots/screen-03.webp?v=1.1.7" width="180" alt="Gacha pity tracker với lịch sử pull và phân loại rarity">
-  <img src="screenshots/screen-04.webp?v=1.1.7" width="180" alt="Player profile với cấp độ tài khoản, tiến độ season và thông tin thiết bị">
-  <img src="screenshots/screen-05.webp?v=1.1.7" width="180" alt="Battle stats analyzer với thẻ chiến đấu và khám phá">
-  <img src="screenshots/screen-06.webp?v=1.1.7" width="180" alt="Bảng hiển thị Appearance với UI Style Engine và palette màu">
-  <img src="screenshots/screen-07.webp?v=1.1.7" width="180" alt="Nhân vật với thủ tục Kuro đồng bộ,무장 và resonance">
+  <img src="site/screenshots/screen-01.webp?v=1.1.7" width="180" alt="Man hạc với trạng thái kết nối backend và các tác vụ nhanh">
+  <img src="site/screenshots/screen-02.webp?v=1.1.7" width="180" alt="Config generator với SmartBrain score và lựa chọn preset">
+  <img src="site/screenshots/screen-03.webp?v=1.1.7" width="180" alt="Gacha pity tracker với lịch sử pull và phân loại rarity">
+  <img src="site/screenshots/screen-04.webp?v=1.1.7" width="180" alt="Player profile với cấp độ tài khoản, tiến độ season và thông tin thiết bị">
+  <img src="site/screenshots/screen-05.webp?v=1.1.7" width="180" alt="Battle stats analyzer với thẻ chiến đấu và khám phá">
+  <img src="site/screenshots/screen-06.webp?v=1.1.7" width="180" alt="Bảng hiển thị Appearance với UI Style Engine và palette màu">
+  <img src="site/screenshots/screen-07.webp?v=1.1.7" width="180" alt="Nhân vật với thủ tục Kuro đồng bộ,무장 và resonance">
 </p>
 
 ---

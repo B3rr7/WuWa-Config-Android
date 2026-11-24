@@ -3,7 +3,6 @@ package com.wuwaconfig.app.ui
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -217,9 +216,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val pending = pendingInstall ?: return
         pendingInstall = null
         val context = getApplication<Application>()
-        val stillBlocked =
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                !context.packageManager.canRequestPackageInstalls()
+        val stillBlocked = !context.packageManager.canRequestPackageInstalls()
         if (stillBlocked) {
             _updateState.value = UpdateState.Error("Permission to install apps was not granted")
             return

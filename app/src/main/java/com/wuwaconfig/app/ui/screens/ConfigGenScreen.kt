@@ -5,6 +5,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
@@ -26,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +48,11 @@ import com.wuwaconfig.app.model.VerificationReport
 import com.wuwaconfig.app.ui.DeployHistoryViewModel
 import com.wuwaconfig.app.ui.LogInsightsViewModel
 import com.wuwaconfig.app.ui.MainViewModel
+import com.wuwaconfig.app.ui.anim.GeoLoadingCard
+import com.wuwaconfig.app.ui.anim.GeoLoadingKind
+import com.wuwaconfig.app.ui.anim.LogBrainAnimation
+import com.wuwaconfig.app.ui.anim.LogReadResult
+import com.wuwaconfig.app.ui.anim.toBrainLines
 import com.wuwaconfig.app.ui.components.CancelledBanner
 import com.wuwaconfig.app.ui.components.GlassButton
 import com.wuwaconfig.app.ui.components.GlassCard
@@ -85,6 +94,7 @@ fun ConfigGenScreen(
     val logInfo by insightsViewModel.logAnalysis.collectAsStateWithLifecycle()
     val brain by insightsViewModel.brainRecommendation.collectAsStateWithLifecycle()
     val analysisFromCache by insightsViewModel.analysisFromCache.collectAsStateWithLifecycle()
+    val analysisError by insightsViewModel.analysisError.collectAsStateWithLifecycle()
     val analysisAgeHours by insightsViewModel.analysisAgeHours.collectAsStateWithLifecycle()
     val deployResult by deployHistoryViewModel.deployResult.collectAsStateWithLifecycle()
     val verificationReport by deployHistoryViewModel.verificationReport.collectAsStateWithLifecycle()
@@ -137,6 +147,34 @@ fun ConfigGenScreen(
     var experimentalCvars by rememberSaveable { mutableStateOf(false) }
 
     var gameMode by rememberSaveable { mutableStateOf(GameMode.Overworld) }
+
+    // --- Brain read animation -------------------------------------------------
+    // Plays the client.log -> SmartBrain canvas overlay (ui.anim.LogBrainAnimation)
+    // while the device log is being pulled/parsed, delivers the finished LogInfo as
+    // brain lines, plays the success (or shatter) sequence, then dismisses itself on
+    // settle. Reduced-motion users never see it and keep the glitching percentage
+    // text inside AnalysisPanel. Trigger is insights readingProgress (10..98), never
+    // the shared isApplying flag alone — deploy ops also set that, and a deploy must
+    // not open the brain overlay.
+    val reducedMotion = rememberReducedMotion()
+    var logBrainShown by rememberSaveable { mutableStateOf(false) }
+    var logBrainResult by remember { mutableStateOf<LogReadResult?>(null) }
+    LaunchedEffect(isApplying, analysisProgress, logInfo) {
+        val info = logInfo
+        when {
+            analysisProgress > 0 && info == null -> {
+                if (!reducedMotion && !logBrainShown) {
+                    logBrainResult = null
+                    logBrainShown = true
+                }
+            }
+            logBrainShown && logBrainResult == null && info != null ->
+                logBrainResult = LogReadResult.Success(info.toBrainLines())
+            logBrainShown && logBrainResult == null && info == null && analysisProgress == 0 && !isApplying ->
+                logBrainResult = LogReadResult.Failed(reason = "client.log read failed")
+            else -> {}
+        }
+    }
     // Apply the persisted options once, as soon as the off-main load resolves.
     // The individual states keep their rememberSaveable initialisers, so this
     // effect only re-runs on a fresh entry into the screen.
@@ -170,9 +208,16 @@ fun ConfigGenScreen(
         gameMode = o.mode
     }
 
-    var showDeployDialog by remember { mutableStateOf(false) }
-    var deployDialogResult by remember { mutableStateOf<DeployHistoryViewModel.DeployResult?>(null) }
-    var deployHashSyncMessage by remember { mutableStateOf("") }
+    var showDeployDialog by rememberSaveable { mutableStateOf(false) }
+    // Primitives, not the DeployResult object: the dialog must also survive a
+    // configuration change, and rememberSaveable cannot Bundle a plain data
+    // class. The VM's own result state was already consumed by
+    // clearDeployResult() when this fired, so a plain `remember` made the
+    // vanish on rotation unrecoverable. The two fields carry everything the
+    // dialog renders.
+    var deployDialogSucceeded by rememberSaveable { mutableStateOf(false) }
+    var deployDialogMessage by rememberSaveable { mutableStateOf("") }
+    var deployHashSyncMessage by rememberSaveable { mutableStateOf("") }
 
     val scope = rememberCoroutineScope()
     var isGenerating by remember { mutableStateOf(false) }
@@ -209,10 +254,11 @@ fun ConfigGenScreen(
 
     LaunchedEffect(deployResult) {
         deployResult?.let {
-            deployDialogResult = it
             // Only a SUCCESS has a hash-sync result to show. Reading it for a
             // failure produced the "KuroConfigMonitor hash refreshed" line on a
             // dialog whose body said the deploy had failed.
+            deployDialogSucceeded = it is DeployHistoryViewModel.DeployResult.Success
+            deployDialogMessage = it.message
             deployHashSyncMessage =
                 if (it is DeployHistoryViewModel.DeployResult.Success) {
                     deployHistoryViewModel.deployHashSync.value ?: ""
@@ -267,6 +313,8 @@ fun ConfigGenScreen(
                         brain = brain,
                         analysisFromCache = analysisFromCache,
                         analysisAgeHours = analysisAgeHours,
+                        analysisError = analysisError,
+                        onDismissError = { insightsViewModel.clearAnalysisError() },
                         allowRestrictedCvars = allowRestrictedCvars,
                         onAnalyzeDevice = { insightsViewModel.analyzeClientLog(allowRestrictedCvars) },
                         onImportLog = { logPickerLauncher.launch(arrayOf("*/*")) },
@@ -280,33 +328,14 @@ fun ConfigGenScreen(
                 }
 
                 item(key = "preset") {
-                    GlassCard(accentColor = tint(NeonPurple)) {
-                        GlassCardHeader("Preset", tint(NeonPurple))
-                        Spacer(Modifier.height(10.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(
-                                "potato" to "Dead low-end",
-                                "endurance" to "Long sessions on mid-tier",
-                                "performance" to "Stability first",
-                                "competitive" to "Max clarity, no clutter",
-                                "balanced" to "Daily default",
-                                "high" to "Sharper visuals",
-                                "ultra" to "Flagship devices",
-                                "cinematic" to "Above ultra, flagship only",
-                            ).forEach { (preset, description) ->
-                                PresetRow(
-                                    name = preset,
-                                    description = description,
-                                    selected = selectedPreset == preset,
-                                    accent = tint(presetColor(preset)),
-                                    onClick = {
-                                        selectedPreset = preset
-                                        userChangedPreset = true
-                                    },
-                                )
-                            }
-                        }
-                    }
+                    PresetSection(
+                        selectedPreset = selectedPreset,
+                        tint = ::tint,
+                        onPresetSelected = { preset ->
+                            selectedPreset = preset
+                            userChangedPreset = true
+                        },
+                    )
                 }
 
                 item(key = "tuning") {
@@ -464,7 +493,20 @@ fun ConfigGenScreen(
                                             // into a fresh Engine.ini. Both were gated on
                                             // `logInfo != null`, which the cache satisfies.
                                             importFromLog = !analysisFromCache && !userChangedPreset && selectedPreset == brain?.preset,
-                                            useAdvancedGen = useAdvancedGen || (!analysisFromCache && logInfo != null && !userChangedPreset && selectedPreset == brain?.preset),
+                                            // The switch value is the contract: an
+                                            // explicit OFF must be honoured. The old
+                                            // `useAdvancedGen || (...)` forcibly
+                                            // re-enabled advanced tuning whenever a
+                                            // fresh analysis was present with the
+                                            // brain's preset selected — showing the
+                                            // switch OFF while generating advanced,
+                                            // and saveGeneratorOptions() then
+                                            // persisted the forced `true` so the
+                                            // switch flipped itself ON on the next
+                                            // visit. If the user wants advanced
+                                            // tuning with a live analysis, they
+                                            // switch it on; the switch stays as-is.
+                                            useAdvancedGen = useAdvancedGen,
                                             optimizeWithCvarDb = optimizeWithCvarDb,
                                             disableAutoAdjust = disableAutoAdjust,
                                             enableGSR = enableGSR,
@@ -519,6 +561,12 @@ fun ConfigGenScreen(
                             }
                         }
                         if (isApplying) {
+                            GeoLoadingCard(
+                                kind = GeoLoadingKind.DEPLOY,
+                                text = "Deploying configuration — writing INIs and verifying hashes on device...",
+                                accentColor = NeonCyan,
+                            )
+                            Spacer(Modifier.height(8.dp))
                             GlassOutlinedButton(
                                 onClick = { deployHistoryViewModel.cancelOperation() },
                                 modifier = Modifier.fillMaxWidth(),
@@ -537,11 +585,48 @@ fun ConfigGenScreen(
         }
     }
 
+    // The brain overlay is a sibling of the Scaffold inside the same
+    // GradientBackground, so it covers the top bar too and needs no scrim
+    // dialog plumbing. Dismisses itself via onSettled.
+    if (logBrainShown) {
+        // pointerInput consumes the taps: a plain `background()` scrim is
+        // visually opaque but passes every touch THROUGH to the content below,
+        // so preset rows/chips/switches were silently being toggled behind the
+        // analysis (setting userChangedPreset with no visual feedback).
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color(0xE6060A12))
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        do {
+                            val event = awaitPointerEvent()
+                            event.changes.forEach { it.consume() }
+                        } while (event.changes.any { it.pressed })
+                    }
+                },
+        ) {
+            LogBrainAnimation(
+                result = logBrainResult,
+                // Both inputs are the app's real state: the device-reported read
+                // percentage while the pull runs, and the actual SmartBrain
+                // recommendation for the epilogue once scoring completes.
+                readProgress = analysisProgress.takeIf { it > 0 && logBrainResult == null },
+                recommendation = brain,
+                modifier = Modifier.fillMaxSize().padding(10.dp),
+                onSettled = {
+                    logBrainShown = false
+                    logBrainResult = null
+                },
+            )
+        }
+    }
+
     // Success and failure are rendered from a typed result. A failure must never
     // be able to reuse the success chrome (green accent, check mark, "Config
     // Deployed" title, hash-refreshed panel) — that combination is what told the
     // user a deploy had worked while its own body said it had not.
-    val deployDialogSucceeded = deployDialogResult is DeployHistoryViewModel.DeployResult.Success
     val deployDialogAccent = if (deployDialogSucceeded) NeonGreen else NeonRed
     if (showDeployDialog) {
         GlassDialog(
@@ -565,7 +650,7 @@ fun ConfigGenScreen(
                 Column {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        deployDialogResult?.message.orEmpty(),
+                        deployDialogMessage,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     if (deployDialogSucceeded) {
@@ -616,13 +701,48 @@ fun ConfigGenScreen(
                     onClick = { showDeployDialog = false },
                     // Follows the same success/failure split as the dialog chrome.
                     // Hardcoding green here put the success colour on the confirm
-                    // button of "✗ Deploy Failed".
+                    // button of "✗ Deploy Failed". contentColor must stay the
+                    // GlassButton default: GlassButton only respects it in DARK
+                    // mode (light mode resolves the label to `accentColor`), where
+                    // the container is 12%-alpha accent over near-black glass —
+                    // the former success-branch Color.Black was unreadable there.
                     accentColor = deployDialogAccent,
-                    contentColor = if (deployDialogSucceeded) Color.Black else Color.White,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 ) { Text("OK", fontWeight = FontWeight.Bold) }
             },
         )
+    }
+}
+
+@Composable
+private fun PresetSection(
+    selectedPreset: String,
+    tint: (Color) -> Color,
+    onPresetSelected: (String) -> Unit,
+) {
+    GlassCard(accentColor = tint(NeonPurple)) {
+        GlassCardHeader("Preset", tint(NeonPurple))
+        Spacer(Modifier.height(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                "potato" to "Dead low-end",
+                "endurance" to "Long sessions on mid-tier",
+                "performance" to "Stability first",
+                "competitive" to "Max clarity, no clutter",
+                "balanced" to "Daily default",
+                "high" to "Sharper visuals",
+                "ultra" to "Flagship devices",
+                "cinematic" to "Above ultra, flagship only",
+            ).forEach { (preset, description) ->
+                PresetRow(
+                    name = preset,
+                    description = description,
+                    selected = selectedPreset == preset,
+                    accent = tint(presetColor(preset)),
+                    onClick = { onPresetSelected(preset) },
+                )
+            }
+        }
     }
 }
 
@@ -735,11 +855,28 @@ private fun AnalysisPanel(
     brain: com.wuwaconfig.app.config.BrainRecommendation?,
     analysisFromCache: Boolean,
     analysisAgeHours: Long?,
+    analysisError: String?,
+    onDismissError: () -> Unit,
     allowRestrictedCvars: Boolean = true,
     onAnalyzeDevice: () -> Unit,
     onImportLog: () -> Unit,
 ) {
     GlassCard(accentColor = if (isConnected) NeonGreen else NeonAmber) {
+        // Failure line: the only previously reachable signal was the app-wide
+        // terminal on Home — this screen reverting to neutral copy with the
+        // previous analysis erased looked like success with no results.
+        if (analysisError != null) {
+            Text(
+                "✗ $analysisError",
+                style = MaterialTheme.typography.bodySmall,
+                color = NeonRed,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onDismissError)
+                        .padding(bottom = 8.dp),
+            )
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Analytics, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(12.dp))

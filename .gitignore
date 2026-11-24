@@ -1,3 +1,4 @@
+# ── Build / Gradle / IDE ────────────────────────────────────────────────────
 *.iml
 *.apk
 .gradle
@@ -10,8 +11,8 @@
 .cxx
 /app/build
 /app/release
-release.jks
-keystore.properties
+.vscode/
+__pycache__/
 *.log
 app.md
 new-app.md
@@ -21,11 +22,23 @@ ue4_commands.txt
 *.md5
 *.b64
 
-# Tooling / generated artifacts
-.codebase-memory/
-.vscode/
-graphify-out/
-__pycache__/
+# ── Signing material ────────────────────────────────────────────────────────
+# Never committed: a pushed keystore cannot be un-pushed.
+keystore.properties
+release.jks
+*.jks
+*.keystore
 
-.poolside/
-screenshots/
+# ── Local datamining scratch and run logs ───────────────────────────────────
+# Several GB of extracted APK trees plus their run logs. Analysis material,
+# never part of the shipped project.
+apk_extract/
+apk_extract_381/
+logs/
+
+# ── Local analysis helpers ──────────────────────────────────────────────────
+analyze_cvars.py
+decrypt_log.py
+
+# ── Site: sprite-sync report, not a source file ─────────────────────────────
+site/mall/.matched_files.tsv

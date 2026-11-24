@@ -137,9 +137,16 @@ class WuWaConfigApp : Application() {
         // from game_profile.properties because it is not flat.
         TuningProfile.load(assets)
         MaterialData.load(assets)
-        // Refresh the calculator tables from the remote JSON in the background.
-        // Silent and non-blocking: the calculator shows the bundled asset until a
-        // newer payload lands. See MaterialData.refresh for the failure contract.
+        // Prefer the last fetched remote payload over the bundled asset: it is
+        // newer by construction, and WITHOUT this a character added remotely
+        // disappears from the calculator on every cold start (see
+        // MaterialData.applyCached). Must run before refresh(), which only swaps
+        // in a NEW modified payload.
+        MaterialData.applyCached(this)
+        // Data refresh comes from OUR repo only (calculatorDataUrl points at
+        // tools/data/calculator_materials.json on B3rr7/WuWa-Config-Android). Silent
+        // and non-blocking; the calculator shows the bundled asset until a newer
+        // payload lands. See MaterialData.refresh for the failure contract.
         MaterialData.refresh(this, appScope)
         cvarDatabase = CvarDatabase(assets)
         configGenerator = ConfigGenerator(cvarDatabase)

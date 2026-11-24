@@ -83,11 +83,8 @@ class ThemeEngineTest {
         assertEquals("duplicate ColorPalette name", paletteNames.size, paletteNames.toSet().size)
         // Spelled out so a rename fails loudly here rather than in production.
         assertTrue("MATERIAL_YOU" in styleNames)
-        assertTrue("LIQUID_GLASS" in styleNames)
-        assertTrue("BENTO_GRID" in styleNames)
-        assertTrue("RETRO_HANDHELD" in styleNames)
-        assertTrue("AURORA_FLUID" in styleNames)
-        assertTrue("MIDNIGHT_OLED" in styleNames)
+        assertTrue("GLASSMORPHISM" in styleNames)
+        assertTrue("FLAT_DESIGN_2" in styleNames)
         assertTrue("SYSTEM_DEFAULT" in paletteNames)
         assertTrue("WUTHERING_GOLD" in paletteNames)
         assertTrue("CYBER_PUNK" in paletteNames)
@@ -107,6 +104,27 @@ class ThemeEngineTest {
         // Case-sensitive on purpose: the stored key is written by this same
         // build, so a mismatch means corruption rather than a rename.
         assertNull(UiStyle.fromStorageKey("material_you"))
+    }
+
+    /**
+     * The one rename that *is* a storage migration.
+     *
+     * The glass style shipped as `LIQUID_GLASS` and the preference is stored by
+     * name, so an install that already picked it holds the old spelling. Without
+     * the alias it would resolve to null and the user would be reset to
+     * [UiStyle.DEFAULT] on upgrade — silently, with no way to tell it from
+     * having never chosen.
+     *
+     * The second assertion is the reason the alias is a map rather than a
+     * constant: the retired name has to stay free for a real backdrop-refracting
+     * Liquid Glass, so a live constant carrying it again would collide with the
+     * alias instead of failing here first.
+     */
+    @Test
+    fun `the retired glass storage key still resolves to glassmorphism`() {
+        assertEquals(UiStyle.GLASSMORPHISM, UiStyle.fromStorageKey("LIQUID_GLASS"))
+        val liveNames = UiStyle.entries.map { it.name }
+        assertTrue("LIQUID_GLASS is a live constant again; it now collides with the alias", "LIQUID_GLASS" !in liveNames)
     }
 
     @Test
@@ -475,11 +493,9 @@ class ThemeEngineTest {
     fun `every style declares a distinct surface and edge treatment`() {
         // Radius is included, because it is the one property every style can
         // always differ on and a duplicate here really is indistinguishable. The
-        // glass pair is a known, deliberate exception: AURORA_FLUID and
-        // LIQUID_GLASS differ only by backdrop, which `GradientBackground` reads
-        // off the enum directly. Asserting they diverge as *cards* would mean
-        // inventing a token that duplicates the backdrop decision.
-        val knownSharedTreatment = setOf(UiStyle.LIQUID_GLASS to UiStyle.AURORA_FLUID)
+        // former glass exception (the glass style vs AURORA_FLUID) is gone with
+        // AURORA_FLUID, so any duplicate now is a genuine collision.
+        val knownSharedTreatment: Set<Pair<UiStyle, UiStyle>> = emptySet()
         val treatments =
             UiStyle.entries.map { style ->
                 style.name to Triple(style.tokens.surfaceMode, style.tokens.edgeMode, style.tokens.cardCorner)
@@ -676,19 +692,15 @@ class ThemeEngineTest {
             )
         assertEquals(UiStyle.DEFAULT.tokens.surfaceMode, defaults.surfaceMode)
         assertEquals(UiStyle.DEFAULT.tokens.edgeMode, defaults.edgeMode)
+        assertEquals(UiStyle.DEFAULT.tokens.blurRadius, defaults.blurRadius)
     }
 
     @Test
-    fun `retro handheld is the only fully square style`() {
+    fun `no remaining style is fully square`() {
+        // The two square styles (RETRO_HANDHELD, NEO_BRUTALISM) were removed
+        // from the engine; none of the remaining seven use 0dp corners.
         val squared = UiStyle.entries.filter { it.tokens.cardCorner == 0.dp }
-        assertEquals(
-            "more than one style is fully square; RETRO_HANDHELD's identity is the hard edge",
-            listOf(UiStyle.RETRO_HANDHELD),
-            squared,
-        )
-        assertEquals(0.dp, UiStyle.RETRO_HANDHELD.tokens.buttonCorner)
-        assertEquals(0.dp, UiStyle.RETRO_HANDHELD.tokens.dialogCorner)
-        assertEquals(0.dp, UiStyle.RETRO_HANDHELD.tokens.fieldCorner)
+        assertEquals("unexpected square styles", emptyList<UiStyle>(), squared)
     }
 
     /**
@@ -710,15 +722,105 @@ class ThemeEngineTest {
     fun `blur styles are exactly the translucent ones`() {
         val blurred = UiStyle.entries.filter { it.tokens.useBlurEffects }
         assertEquals(
-            listOf(UiStyle.LIQUID_GLASS, UiStyle.AURORA_FLUID),
+            listOf(UiStyle.GLASSMORPHISM),
             blurred,
         )
     }
 
+    /**
+     * The optical preset the glass style is built from.
+     *
+     * GLASSMORPHISM's identity is a *stack* of mechanisms — a transmissive body,
+     * a frosted interior, a diagonal sheen and a specular rim — and each one
+     * is a token. If any of them silently dropped out of the preset the style
+     * would still render; it would just render as the flat translucent
+     * rectangle it used to be, which is the failure this whole change exists
+     * to prevent.
+     *
+     * The radii are pinned too, because they are part of the style's identity:
+     * a style that quietly changes its own shape has drifted.
+     */
     @Test
-    fun `bento is the roundest card style`() {
+    fun `glassmorphism declares the full optical preset`() {
+        val tokens = UiStyle.GLASSMORPHISM.tokens
+        assertEquals(SurfaceMode.GLASS, tokens.surfaceMode)
+        assertEquals(EdgeMode.SPECULAR, tokens.edgeMode)
+        assertEquals(22.dp, tokens.cardCorner)
+        assertEquals(14.dp, tokens.buttonCorner)
+        assertTrue("glass must diffuse its interior", tokens.useBlurEffects)
+        assertTrue("glass must draw an edge", tokens.useCardBorder)
+        assertEquals(20.dp, tokens.blurRadius)
+        assertTrue("glass glow must stay subtle", tokens.glowWidth in 0f..0.35f)
+    }
+
+    /**
+     * A blur radius without a blur is dead data, and a blur without a radius
+     * is a no-op. The two travel together, so the engine can read the pair
+     * without having to reconcile two independent flags.
+     */
+    @Test
+    fun `the blur radius is set exactly for the styles that blur`() {
+        for (style in UiStyle.entries) {
+            if (style.tokens.useBlurEffects) {
+                assertTrue(
+                    "${style.name} blurs but has no radius",
+                    style.tokens.blurRadius > 0.dp,
+                )
+            } else {
+                assertEquals(
+                    "${style.name} does not blur but carries a radius",
+                    0.dp,
+                    style.tokens.blurRadius,
+                )
+            }
+        }
+    }
+
+    /**
+     * The glass body has to stay transmissive in *both* modes.
+     *
+     * The dark value and the light value are different — light mode needs a
+     * denser body or the panel vanishes into a near-white page — but both must
+     * remain below opaque. An opaque "glass" card is just a card, and the
+     * distinction the whole style axis rests on disappears.
+     */
+    @Test
+    fun `the glass body transmits in both modes`() {
+        for (isDark in listOf(true, false)) {
+            val scheme = ColorPalette.SYSTEM_DEFAULT.colorsForResolved(isDark).toColorScheme()
+            val fill = surfaceFillFor(SurfaceMode.GLASS, 0, scheme)
+            assertTrue("dark=$isDark glass fill was opaque", fill.alpha < 1f)
+            assertTrue("dark=$isDark glass fill was invisible", fill.alpha > 0f)
+        }
+    }
+
+    /**
+     * The frosted interior needs different pigment in the two modes.
+     *
+     * Saturated accents are correct over a dark glass body. Reusing them over
+     * a white body made the three overlapping pools accumulate into a muddy
+     * slate card, which is the light-mode SurfaceCard defect captured on the
+     * device. Light mode must lift each pool toward white while dark mode
+     * leaves it untouched.
+     */
+    @Test
+    fun `light frosted pools are lifted toward white while dark pools stay saturated`() {
+        val accent = Color(0xFF0E7490)
+        val light = frostedPoolColor(accent, isLight = true)
+        val dark = frostedPoolColor(accent, isLight = false)
+
+        assertEquals(accent, dark)
+        assertTrue("light pool did not get lighter", light.luminance() > accent.luminance())
+        assertTrue("light pool did not get lighter", light.luminance() > 0.5f)
+        assertTrue("light pool lost its red tint", light.red > accent.red)
+        assertTrue("light pool lost its green tint", light.green > accent.green)
+        assertTrue("light pool lost its blue tint", light.blue > accent.blue)
+    }
+
+    @Test
+    fun `material you is the roundest card style`() {
         val roundest = UiStyle.entries.maxByOrNull { it.tokens.cardCorner }
-        assertEquals(UiStyle.BENTO_GRID, roundest)
+        assertEquals(UiStyle.MATERIAL_YOU, roundest)
     }
 
     /**

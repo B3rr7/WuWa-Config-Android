@@ -236,9 +236,14 @@ fun ReviewTuneScreen(
                     viewMode = viewMode,
                     onToggleView = { viewMode = if (viewMode == "editor") "diff" else "editor" },
                     onResetGenerated = {
-                        available.forEach { f ->
-                            viewModel.updateReviewTuneFile(f, payloadText(payload, f))
-                        }
+                        // Reset only the CURRENT tab's file. The chip is enabled
+                        // by `dirty`, which reflects exactly this file — a
+                        // reset-all-five-files loop here silently discarded the
+                        // user's per-tab edits behind an affordance that said
+                        // "revert this one", with no confirmation, right next
+                        // to Deploy. The back arrow's "Discard changes?" dialog
+                        // already covers the losing-everything case.
+                        viewModel.updateReviewTuneFile(currentFile, payloadText(payload, currentFile))
                     },
                     onDeploy = { showSummary = true },
                 )

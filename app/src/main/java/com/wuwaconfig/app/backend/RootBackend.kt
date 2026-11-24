@@ -63,8 +63,16 @@ class RootBackend : AccessBackend {
                     LogRepository.add("Root access granted", LogLevel.SUCCESS)
                     Result.success(Unit)
                 } else {
+                    // Magisk v31.1+ no longer shows a reactive su prompt: root must be
+                    // pre-granted to this app in Magisk's Superuser tab. Surface that
+                    // so the failure reads as a configuration step, not a crash.
                     LogRepository.add("Root access denied: $output", LogLevel.ERROR)
-                    Result.failure(Exception(output.ifBlank { "Root access denied" }))
+                    Result.failure(
+                        Exception(
+                            (output.ifBlank { "Root access denied" }) +
+                                " — on Magisk v31.1+ grant this app root in the Superuser tab first",
+                        ),
+                    )
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e

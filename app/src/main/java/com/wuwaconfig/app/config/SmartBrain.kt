@@ -252,82 +252,11 @@ object SmartBrain {
         // scoring pass (the old hasCvar/cvarValue did cvars.any { equals(key, ignoreCase) }).
         val lcCvars = cvars.mapKeys { it.key.lowercase() }
         if (cvars.isNotEmpty()) {
-            val known = cvars.keys.count { cvarDatabase.isKnown(it) }
-            val unknown = cvars.keys.size - known
-            val monitored = cvars.keys.count { cvarDatabase.isMonitored(it) }
-            val differFromDefault =
-                cvars.count { (k, v) ->
-                    cvarDatabase.differsFromDefault(k, v)
-                }
-            if (unknown > 5) {
-                score -= 5
-                signals.add("$unknown unknown CVars in log: -5")
-            }
-            if (monitored > 10) {
-                score += 3
-                signals.add("$monitored monitored CVars tracked: +3")
-            }
-            if (differFromDefault > 20) {
-                score += 5
-                signals.add("$differFromDefault CVars differ from defaults (optimized): +5")
-            }
-            if (differFromDefault < 5 && cvars.size > 10) {
-                score -= 8
-                signals.add("Most CVars match game defaults (room to optimize): -8")
-            }
+            score += scoreCvarsSummary(signals, cvars, cvarDatabase)
         }
 
         if (cvars.isNotEmpty()) {
-            val shadowQ = cvarValue(lcCvars, "sg.ShadowQuality")?.toIntOrNull()
-            val texQ = cvarValue(lcCvars, "sg.TextureQuality")?.toIntOrNull()
-            val resScale = cvarValue(lcCvars, "r.ScreenPercentage")?.toFloatOrNull()
-            val fpsLimit = cvarValue(lcCvars, "r.FramePace")?.toIntOrNull()
-            val ssao = hasCvar(lcCvars, "r.Mobile.SSAO")
-            val fsr = hasCvar(lcCvars, "r.FidelityFX.FSR.RCAS")
-            val bloom = cvarValue(lcCvars, "r.BloomQuality")?.toIntOrNull()
-
-            if (shadowQ != null) {
-                when {
-                    shadowQ >= 3 && (tier == "mid_low" || tier == "low") -> {
-                        score -= 6
-                        signals.add("High shadows on low GPU: -6")
-                    }
-                    shadowQ >= 3 && ram < 6000 -> {
-                        score -= 4
-                        signals.add("High shadows + <6GB RAM: -4")
-                    }
-                }
-            }
-            if (texQ != null && texQ >= 3 && ram < 6000) {
-                score -= 5
-                signals.add("High textures + <6GB RAM: -5")
-                if (info.textureErrors > 0) {
-                    score -= 4
-                    signals.add("High textures + texture errors: -4")
-                }
-            }
-            if (resScale != null && resScale > 100f) {
-                val overScale = ((resScale - 100) / 10).toInt()
-                score -= minOf(overScale, 8)
-                signals.add("Render scale >100%: -${minOf(overScale, 8)}")
-            }
-            if (fpsLimit != null && fpsLimit >= 90 && info.thermalEvents >= 3) {
-                score -= 6
-                signals.add("High FPS target + thermal: -6")
-                warnings.add("High FPS target (${fpsLimit}fps) on thermally throttled device")
-            }
-            if (fsr) {
-                score -= 8
-                signals.add("FSR RCAS enabled: -8")
-            }
-            if (ssao && (tier == "mid_low" || tier == "low")) {
-                score -= 5
-                signals.add("SSAO on low GPU: -5")
-            }
-            if (bloom != null && bloom >= 3 && info.thermalEvents >= 3) {
-                score -= 3
-                signals.add("High bloom + thermal: -3")
-            }
+            score += scoreCvarsDetail(signals, warnings, info, tier, ram, lcCvars)
         }
 
         val isLowRam = ram < 6000
@@ -439,6 +368,98 @@ object SmartBrain {
         sb.appendLine(" End of SmartBrain report")
         sb.appendLine("=================================================================")
         return sb.toString()
+    }
+
+    private fun scoreCvarsSummary(
+        signals: MutableList<String>,
+        cvars: Map<String, String>,
+        cvarDatabase: CvarDatabase,
+    ): Int {
+        var delta = 0
+        val known = cvars.keys.count { cvarDatabase.isKnown(it) }
+        val unknown = cvars.keys.size - known
+        val monitored = cvars.keys.count { cvarDatabase.isMonitored(it) }
+        val differFromDefault = cvars.count { (k, v) -> cvarDatabase.differsFromDefault(k, v) }
+        if (unknown > 5) {
+            delta -= 5
+            signals.add("$unknown unknown CVars in log: -5")
+        }
+        if (monitored > 10) {
+            delta += 3
+            signals.add("$monitored monitored CVars tracked: +3")
+        }
+        if (differFromDefault > 20) {
+            delta += 5
+            signals.add("$differFromDefault CVars differ from defaults (optimized): +5")
+        }
+        if (differFromDefault < 5 && cvars.size > 10) {
+            delta -= 8
+            signals.add("Most CVars match game defaults (room to optimize): -8")
+        }
+        return delta
+    }
+
+    private fun scoreCvarsDetail(
+        signals: MutableList<String>,
+        warnings: MutableList<String>,
+        info: LogInfo,
+        tier: String,
+        ram: Int,
+        lcCvars: Map<String, String>,
+    ): Int {
+        var delta = 0
+        val shadowQ = cvarValue(lcCvars, "sg.ShadowQuality")?.toIntOrNull()
+        val texQ = cvarValue(lcCvars, "sg.TextureQuality")?.toIntOrNull()
+        val resScale = cvarValue(lcCvars, "r.ScreenPercentage")?.toFloatOrNull()
+        val fpsLimit = cvarValue(lcCvars, "r.FramePace")?.toIntOrNull()
+        val ssao = hasCvar(lcCvars, "r.Mobile.SSAO")
+        val fsr = hasCvar(lcCvars, "r.FidelityFX.FSR.RCAS")
+        val bloom = cvarValue(lcCvars, "r.BloomQuality")?.toIntOrNull()
+
+        if (shadowQ != null) {
+            when {
+                shadowQ >= 3 && (tier == "mid_low" || tier == "low") -> {
+                    delta -= 6
+                    signals.add("High shadows on low GPU: -6")
+                }
+                shadowQ >= 3 && ram < 6000 -> {
+                    delta -= 4
+                    signals.add("High shadows + <6GB RAM: -4")
+                }
+            }
+        }
+        if (texQ != null && texQ >= 3 && ram < 6000) {
+            delta -= 5
+            signals.add("High textures + <6GB RAM: -5")
+            if (info.textureErrors > 0) {
+                delta -= 4
+                signals.add("High textures + texture errors: -4")
+            }
+        }
+        if (resScale != null && resScale > 100f) {
+            val overScale = ((resScale - 100) / 10).toInt()
+            val pen = minOf(overScale, 8)
+            delta -= pen
+            signals.add("Render scale >100%: -$pen")
+        }
+        if (fpsLimit != null && fpsLimit >= 90 && info.thermalEvents >= 3) {
+            delta -= 6
+            signals.add("High FPS target + thermal: -6")
+            warnings.add("High FPS target (${fpsLimit}fps) on thermally throttled device")
+        }
+        if (fsr) {
+            delta -= 8
+            signals.add("FSR RCAS enabled: -8")
+        }
+        if (ssao && (tier == "mid_low" || tier == "low")) {
+            delta -= 5
+            signals.add("SSAO on low GPU: -5")
+        }
+        if (bloom != null && bloom >= 3 && info.thermalEvents >= 3) {
+            delta -= 3
+            signals.add("High bloom + thermal: -3")
+        }
+        return delta
     }
 
     private fun recommendPreset(

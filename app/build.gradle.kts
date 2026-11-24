@@ -100,8 +100,8 @@ android {
         applicationId = "com.wuwaconfig.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
-        versionName = "1.1.7"
+        versionCode = 19
+        versionName = "1.1.8"
     }
 
     androidResources {
@@ -255,6 +255,12 @@ dependencies {
 
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
+    // `@Preview` lives in ui-tooling-preview, not in ui-tooling: the former is
+    // the annotation artifact and belongs on the release classpath because the
+    // screens declare previews in src/main. Only `ui-tooling` (the interactive
+    // preview renderer) is debug-only. Omitting this line made `assembleRelease`
+    // fail to compile every screen while `assembleDebug` stayed green.
+    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.animation)
@@ -279,6 +285,7 @@ dependencies {
     implementation(libs.androidx.security.crypto)
     implementation(libs.gson)
     implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
 

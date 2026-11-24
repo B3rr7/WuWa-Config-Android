@@ -63,6 +63,8 @@ data class CharacterRole(
     val elementImageUrl: String,
     val cardPictureUrl: String,
     val illustrationPictureUrl: String,
+    /** The guide's element id ("1".."6"); the `element.texts[].name` field is absent in live data. */
+    val elementGbId: String = "",
 )
 
 data class SkillInfo(
@@ -204,6 +206,7 @@ object CharacterBuildParser {
             elementImageUrl = element?.get("pictureUrl")?.asStringOrNull().orEmpty(),
             cardPictureUrl = obj.get("cardPictureUrl")?.asStringOrNull().orEmpty(),
             illustrationPictureUrl = obj.get("illustrationPictureUrl")?.asStringOrNull().orEmpty(),
+            elementGbId = element?.get("gbId")?.asStringOrNull().orEmpty(),
         )
     }
 

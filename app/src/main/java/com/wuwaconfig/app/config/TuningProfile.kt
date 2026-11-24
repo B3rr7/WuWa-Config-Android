@@ -444,6 +444,19 @@ class TuningProfile internal constructor(
                 Regex("""apple\s*a1[23]""") to "mid",
                 Regex("""adreno.*5\d\d|mali-g5\d?""") to "mid_low",
                 Regex("""adreno.*[34]\d\d|mali-g[34]""") to "low",
+                // Generation-only forms. The game's own profile string is
+                // `Android_Adreno6xx_Lowest`, and LogParser's generic fallback can
+                // surface `Adreno6` or `Adreno 6xx` when the log omits the
+                // `K#GPUFamily` row — both matched nothing above, so a moto g(60)
+                // (Adreno 618) scored as `unknown` and silently took the most
+                // conservative tier. Each generation maps to the FLOOR of its
+                // range (6xx spans 600-699, i.e. mid..mid_high), so a device that
+                // cannot be identified is never tuned up on a guess.
+                Regex("""adreno\s*8""") to "high",
+                Regex("""adreno\s*7""") to "mid_high",
+                Regex("""adreno\s*6""") to "mid",
+                Regex("""adreno\s*5""") to "mid_low",
+                Regex("""adreno\s*[34]""") to "low",
             )
 
         val DEFAULT_CHIPSET_PROFILES: List<Pair<Regex, String>> =
@@ -452,7 +465,15 @@ class TuningProfile internal constructor(
                 Regex("""snapdragon\s*8\s*gen\s*3|sm8650|adreno\s*750""", RegexOption.IGNORE_CASE) to "Android_Adreno750",
                 Regex("""snapdragon\s*8\s*gen\s*2|sm8550|adreno\s*740""", RegexOption.IGNORE_CASE) to "Android_Adreno740",
                 Regex("""snapdragon\s*8\s*\+?\s*gen\s*1|sm8475|sm8450|adreno\s*730""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
-                Regex("""snapdragon\s*7|sm7\d{3}|adreno\s*7""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
+                // 7-series codes are NOT uniformly Adreno 6xx: the 700-tier parts
+                // (SM7150/7250/7350) use Adreno 618/620/642L, while only 7+ Gen 2
+                // and 7 Gen 3 moved to Adreno 725/720. A single `sm7\d{3}` row
+                // mapped every one of them to Android_Adreno7xx, which is a tier
+                // too high for the majority of the family — including a moto g(60)
+                // (SM7150, Adreno 618), whose game-selected profile is
+                // Android_Adreno6xx_Lowest. Split so the exceptions are named.
+                Regex("""snapdragon\s*7\s*\+?\s*gen\s*[23]|sm7475|sm7550|adreno\s*7""", RegexOption.IGNORE_CASE) to "Android_Adreno7xx",
+                Regex("""snapdragon\s*7|sm7\d{3}|adreno\s*6""", RegexOption.IGNORE_CASE) to "Android_Adreno6xx",
                 Regex("""snapdragon\s*6|snapdragon\s*695|snapdragon\s*680|sm6\d{3}|adreno\s*6""", RegexOption.IGNORE_CASE) to "Android_Adreno6xx",
                 Regex("""adreno\s*5""", RegexOption.IGNORE_CASE) to "Android_Adreno5xx",
                 Regex("""adreno\s*4""", RegexOption.IGNORE_CASE) to "Android_Adreno4xx",

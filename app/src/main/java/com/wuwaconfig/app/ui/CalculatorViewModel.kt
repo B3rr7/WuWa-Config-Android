@@ -16,6 +16,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class CalculatorViewModel(application: Application) : AndroidViewModel(application) {
+    init {
+        // MaterialData can swap its instance in the background (remote refresh)
+        // after this ViewModel has already loaded its lists. Re-load whenever the
+        // live instance changes so newly added characters/weapons show up without
+        // a manual restart.
+        viewModelScope.launch {
+            MaterialData.dataFlow.collect { data ->
+                if (data != null) loadLists()
+            }
+        }
+    }
+
     private val _characters = MutableStateFlow<List<CalculatorCharacter>>(emptyList())
     val characters: StateFlow<List<CalculatorCharacter>> = _characters.asStateFlow()
 
