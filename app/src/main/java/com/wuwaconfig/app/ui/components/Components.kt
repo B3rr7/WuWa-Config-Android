@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,12 +59,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
@@ -73,6 +78,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -654,12 +660,54 @@ private const val GLASS_SHEEN_TAIL_ALPHA = 0.04f
 private const val CARD_BORDER_ALPHA = 0.28f
 
 /**
- * Opacity of the scrim behind [GlassTopBar].
+ * Opacity of the [GlassTopBar] scrim, as a top-to-bottom ramp.
  *
- * High enough to hide scrolled content passing underneath the bar and the status-bar
- * inset, low enough that the gradient background still reads through as "glass".
+ * The bar is made of the same material as a card, so under GLASSMORPHISM it has
+ * to transmit the page instead of painting a slab over it — the old flat 0.94
+ * of `background` is exactly why the header read as a white band while every
+ * panel below it was translucent.
+ *
+ * A single value cannot do both of the bar's jobs, though. The status-bar strip
+ * sits behind the system icons and has to stay light enough for them, while the
+ * rest of the bar should be as transmissive as the panels below it. So the ramp
+ * stays dense for the height of the inset and then drops to a card's own body
+ * alpha for the title row — see [TOP_BAR_STATUS_STRIP].
+ *
+ * The body stop sits a hair above [GLASS_FILL_ALPHA_LIGHT] /
+ * [GLASS_FILL_ALPHA_DARK] on purpose: rows scroll *under* this bar, and at a
+ * card's exact alpha their labels ghost through the title.
  */
-private const val SCRIM_ALPHA = 0.94f
+private const val TOP_BAR_SCRIM_TOP_LIGHT = 0.94f
+
+private const val TOP_BAR_SCRIM_TOP_DARK = 0.86f
+
+/** Body alpha over the bar's own copy of the wallpaper. */
+private const val TOP_BAR_SCRIM_BODY_LIGHT = 0.62f
+
+private const val TOP_BAR_SCRIM_BODY_DARK = 0.42f
+
+/**
+ * Body alpha when there is no backdrop copy for the bar to be made of.
+ *
+ * That is the static-gradient page and every video wallpaper (a video is played
+ * by an AndroidView, so there is no painter to re-draw). Denser than the image
+ * case by necessity, not by taste: with nothing opaque behind the scrim, rows
+ * scrolling under the bar show through it, and at card-level alpha they ghost
+ * across the title. Still short of fully opaque, so a dark page does not gain a
+ * hard band at the top.
+ */
+private const val TOP_BAR_SCRIM_BODY_NO_BACKDROP_LIGHT = 0.95f
+
+private const val TOP_BAR_SCRIM_BODY_NO_BACKDROP_DARK = 0.90f
+
+/**
+ * Where the status-bar strip ends, as a fraction of the bar's height.
+ *
+ * The strip is the one part of the bar that cannot be as transmissive as a
+ * card: it sits behind dark system icons, and over a dark wallpaper a 0.66 body
+ * would leave them unreadable. Roughly 24dp of an 80dp bar.
+ */
+private const val TOP_BAR_STATUS_STRIP = 0.30f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -686,27 +734,90 @@ fun GlassTopBar(
         )
     }
 
-    // One branch for both modes. Scaffold's contentPadding only offsets the list
-    // at rest; once scrolled, items pass under the bar, so the bar itself has to
-    // occlude them. 0.94 still reads as glass against the gradient background
-    // while hiding text behind it.
-    Box(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background.copy(alpha = SCRIM_ALPHA))
-                .background(
-                    brush =
-                        Brush.verticalGradient(
-                            colors =
-                                listOf(
-                                    accentColor.copy(alpha = 0.10f),
-                                    Color.White.copy(alpha = 0.02f),
-                                    Color.Transparent,
-                                ),
-                        ),
-                ),
-    ) {
+    // The bar wears the active style's material, exactly like a card.
+    //
+    // It used to hard-code `background` at a fixed alpha, which meant it read
+    // the *theme mode* but not the *style*: choosing Glassmorphism changed
+    // every panel on the screen except the one at the top of it, and the header
+    // stayed a flat opaque band over the wallpaper. Now a glass style gets the
+    // translucent surface ramp and every other style gets the opaque fill
+    // [surfaceFillFor] resolves for it — the tonal step, the flat surface, the
+    // page tone for RELIEF.
+    //
+    // Scaffold's contentPadding only offsets the list at rest; once scrolled,
+    // rows pass under the bar. That is why the glass bar re-draws the backdrop
+    // itself (see [LocalBackdropPainter]) instead of relying on what is behind
+    // it: at card-level alpha the title would otherwise sit on a ghost of the
+    // rows sliding underneath. The scrim over that copy is then free to be as
+    // thin as a card's.
+    val tokens = LocalThemeShapeTokens.current
+    val scheme = MaterialTheme.colorScheme
+    val isLight = scheme.background.luminance() > 0.5f
+    val isGlass = tokens.surfaceMode == SurfaceMode.GLASS
+    val backdrop = LocalBackdropPainter.current
+    val backdropSize = LocalBackdropSize.current
+    val wallpaperAlpha = LocalBackgroundSettings.current.opacity
+    val hasBackdrop =
+        isGlass &&
+            backdrop != null &&
+            backdropSize.width > 0f &&
+            backdropSize.height > 0f
+    val bodyLight = if (hasBackdrop) TOP_BAR_SCRIM_BODY_LIGHT else TOP_BAR_SCRIM_BODY_NO_BACKDROP_LIGHT
+    val bodyDark = if (hasBackdrop) TOP_BAR_SCRIM_BODY_DARK else TOP_BAR_SCRIM_BODY_NO_BACKDROP_DARK
+    val body =
+        if (isGlass) {
+            val top = scheme.surface.copy(alpha = if (isLight) TOP_BAR_SCRIM_TOP_LIGHT else TOP_BAR_SCRIM_TOP_DARK)
+            val rest = scheme.surface.copy(alpha = if (isLight) bodyLight else bodyDark)
+            Brush.verticalGradient(
+                colorStops = arrayOf(0f to top, TOP_BAR_STATUS_STRIP to rest, 1f to rest),
+            )
+        } else {
+            SolidColor(surfaceFillFor(tokens.surfaceMode, 0, scheme))
+        }
+    Box(modifier = modifier.fillMaxWidth()) {
+        if (hasBackdrop && backdrop != null) {
+            Canvas(
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        // No-op below API 31, where the copy is simply drawn
+                        // sharp — still opaque, so still hides the rows.
+                        .blur(tokens.blurRadius, BlurredEdgeTreatment.Rectangle),
+            ) {
+                drawRect(scheme.background)
+                val intrinsic = backdrop.intrinsicSize
+                if (intrinsic.width > 0f && intrinsic.height > 0f) {
+                    // Reproduce ContentScale.Crop against the *screen*, then let
+                    // the bar's own bounds clip it to the top slice.
+                    val scale = maxOf(backdropSize.width / intrinsic.width, backdropSize.height / intrinsic.height)
+                    val drawn = Size(intrinsic.width * scale, intrinsic.height * scale)
+                    translate((backdropSize.width - drawn.width) / 2f, (backdropSize.height - drawn.height) / 2f) {
+                        with(backdrop) { draw(size = drawn, alpha = wallpaperAlpha) }
+                    }
+                }
+            }
+        }
+        Box(
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .background(brush = body)
+                    .background(
+                        brush =
+                            Brush.verticalGradient(
+                                colors =
+                                    listOf(
+                                        // The accent wash is a touch stronger on a
+                                        // glass bar: the surface behind it is now
+                                        // partly transparent, so the tint is the
+                                        // main thing tying the bar to the cards.
+                                        accentColor.copy(alpha = if (isGlass) 0.14f else 0.10f),
+                                        Color.White.copy(alpha = 0.02f),
+                                        Color.Transparent,
+                                    ),
+                            ),
+                    ),
+        )
         bar()
         Box(
             modifier =
@@ -1437,6 +1548,32 @@ data class BackgroundSettings(
 val LocalBackgroundSettings = staticCompositionLocalOf { BackgroundSettings(null, null, 1f) }
 
 /**
+ * The wallpaper image currently painted by [GradientBackground], or null when
+ * the backdrop is the static gradient (or a video).
+ *
+ * Published so [GlassTopBar] can paint its own copy of the same image inside
+ * itself. Compose cannot sample the pixels behind a node, so a bar translucent
+ * enough to read as glass would otherwise let the rows scrolling underneath it
+ * ghost through its own title. Re-drawing the backdrop, opaque, gives the bar
+ * something to be made *of* — and gives the blur something to blur — while the
+ * rows stay hidden behind it.
+ *
+ * Held as the painter rather than the URI because the bar needs the decoded
+ * image to reproduce its crop; it never needs to know where it came from.
+ */
+val LocalBackdropPainter = compositionLocalOf<Painter?> { null }
+
+/**
+ * Pixel size of the backdrop, published with [LocalBackdropPainter].
+ *
+ * The bar has to reproduce the backdrop's `ContentScale.Crop` transform, and
+ * that transform is defined against the *screen*, not against the bar's own
+ * bounds — drawing the painter into the bar's box directly would crop it to the
+ * bar and show a different part of the image than the one behind it.
+ */
+val LocalBackdropSize = compositionLocalOf { Size.Zero }
+
+/**
  * The legibility layer over a wallpaper.
  *
  * Scrim only. Applied just when the user has chosen a wallpaper — the default
@@ -1469,16 +1606,14 @@ fun GradientBackground(content: @Composable () -> Unit) {
     val hasVideo = videoUri != null
     val hasImage = !hasVideo && imageUri != null
 
-    Box(modifier = Modifier.fillMaxSize().background(themeBg)) {
-        if (hasVideo) {
-            VideoBackground(
-                videoUri = videoUri!!,
-                alpha = bgAlpha,
-                // Video and image are treated identically now: a scrim carries
-                // the contrast and neither is blurred.
-                modifier = Modifier.fillMaxSize().wallpaperTreatment(),
-            )
-        } else if (hasImage) {
+    // Measured rather than assumed: the bar reproduces this node's crop, and it
+    // needs the real pixel size (which also covers multi-window and rotation).
+    var backdropPx by remember { mutableStateOf(IntSize.Zero) }
+
+    // Built above the branches, not inside the image one, because the bar has to
+    // be given the same painter through [LocalBackdropPainter].
+    val backdropPainter =
+        if (hasImage) {
             val bgImageContext = LocalContext.current
             // LocalResources, not LocalContext: reading a resource through the
             // Context does not invalidate this composition when the Configuration
@@ -1502,9 +1637,29 @@ fun GradientBackground(content: @Composable () -> Unit) {
                         )
                         .build()
                 }
-            val painter = rememberAsyncImagePainter(imageRequest)
+            rememberAsyncImagePainter(imageRequest)
+        } else {
+            null
+        }
+
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(themeBg)
+                .onSizeChanged { backdropPx = it },
+    ) {
+        if (hasVideo) {
+            VideoBackground(
+                videoUri = videoUri!!,
+                alpha = bgAlpha,
+                // Video and image are treated identically now: a scrim carries
+                // the contrast and neither is blurred.
+                modifier = Modifier.fillMaxSize().wallpaperTreatment(),
+            )
+        } else if (backdropPainter != null) {
             Image(
-                painter = painter,
+                painter = backdropPainter,
                 contentDescription = null,
                 // The scrim is applied by `wallpaperTreatment`; `bgAlpha` is the
                 // user's own "how much wallpaper" slider and still applies.
@@ -1563,7 +1718,12 @@ fun GradientBackground(content: @Composable () -> Unit) {
                 Box(modifier = Modifier.fillMaxSize().background(brush = backdropBrush))
             }
         }
-        Box(modifier = Modifier.fillMaxSize()) { content() }
+        CompositionLocalProvider(
+            LocalBackdropPainter provides backdropPainter,
+            LocalBackdropSize provides Size(backdropPx.width.toFloat(), backdropPx.height.toFloat()),
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) { content() }
+        }
     }
 }
 
