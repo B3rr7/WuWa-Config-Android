@@ -83,6 +83,31 @@ class ThemePersistenceTest {
         assertEquals(ColorPalette.DEFAULT, c.colorPalette)
     }
 
+    /**
+     * The rename path, exercised through the same function the repository uses.
+     *
+     * `ThemeEngineTest` pins `fromStorageKey` in isolation; this pins the
+     * consequence a user would actually notice. An install that picked the glass
+     * style before it was renamed holds `"LIQUID_GLASS"`, and it must come back
+     * as the same style — not as the default, which is indistinguishable from
+     * never having chosen.
+     */
+    @Test
+    fun `a style renamed in this build keeps the user's choice`() {
+        val c =
+            buildThemeConfig(
+                uiStyleName = "LIQUID_GLASS",
+                colorPaletteName = null,
+                themeMode = null,
+                textOpacity = null,
+                fontFamilyName = null,
+                fontScale = null,
+                colorSaturation = null,
+                dynamicColor = null,
+            )
+        assertEquals(UiStyle.GLASSMORPHISM, c.uiStyle)
+    }
+
     @Test
     fun `an unrecognised themeMode is passed through for the theme to resolve`() {
         // themeMode is a free string, not an enum, so it is NOT validated here.

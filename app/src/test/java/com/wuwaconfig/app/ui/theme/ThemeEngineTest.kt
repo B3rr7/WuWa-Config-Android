@@ -83,7 +83,7 @@ class ThemeEngineTest {
         assertEquals("duplicate ColorPalette name", paletteNames.size, paletteNames.toSet().size)
         // Spelled out so a rename fails loudly here rather than in production.
         assertTrue("MATERIAL_YOU" in styleNames)
-        assertTrue("LIQUID_GLASS" in styleNames)
+        assertTrue("GLASSMORPHISM" in styleNames)
         assertTrue("FLAT_DESIGN_2" in styleNames)
         assertTrue("SYSTEM_DEFAULT" in paletteNames)
         assertTrue("WUTHERING_GOLD" in paletteNames)
@@ -104,6 +104,27 @@ class ThemeEngineTest {
         // Case-sensitive on purpose: the stored key is written by this same
         // build, so a mismatch means corruption rather than a rename.
         assertNull(UiStyle.fromStorageKey("material_you"))
+    }
+
+    /**
+     * The one rename that *is* a storage migration.
+     *
+     * The glass style shipped as `LIQUID_GLASS` and the preference is stored by
+     * name, so an install that already picked it holds the old spelling. Without
+     * the alias it would resolve to null and the user would be reset to
+     * [UiStyle.DEFAULT] on upgrade — silently, with no way to tell it from
+     * having never chosen.
+     *
+     * The second assertion is the reason the alias is a map rather than a
+     * constant: the retired name has to stay free for a real backdrop-refracting
+     * Liquid Glass, so a live constant carrying it again would collide with the
+     * alias instead of failing here first.
+     */
+    @Test
+    fun `the retired glass storage key still resolves to glassmorphism`() {
+        assertEquals(UiStyle.GLASSMORPHISM, UiStyle.fromStorageKey("LIQUID_GLASS"))
+        val liveNames = UiStyle.entries.map { it.name }
+        assertTrue("LIQUID_GLASS is a live constant again; it now collides with the alias", "LIQUID_GLASS" !in liveNames)
     }
 
     @Test
@@ -472,7 +493,7 @@ class ThemeEngineTest {
     fun `every style declares a distinct surface and edge treatment`() {
         // Radius is included, because it is the one property every style can
         // always differ on and a duplicate here really is indistinguishable. The
-        // former glass exception (LIQUID_GLASS vs AURORA_FLUID) is gone with
+        // former glass exception (the glass style vs AURORA_FLUID) is gone with
         // AURORA_FLUID, so any duplicate now is a genuine collision.
         val knownSharedTreatment: Set<Pair<UiStyle, UiStyle>> = emptySet()
         val treatments =
@@ -701,7 +722,7 @@ class ThemeEngineTest {
     fun `blur styles are exactly the translucent ones`() {
         val blurred = UiStyle.entries.filter { it.tokens.useBlurEffects }
         assertEquals(
-            listOf(UiStyle.LIQUID_GLASS),
+            listOf(UiStyle.GLASSMORPHISM),
             blurred,
         )
     }
@@ -709,7 +730,7 @@ class ThemeEngineTest {
     /**
      * The optical preset the glass style is built from.
      *
-     * LIQUID_GLASS's identity is a *stack* of mechanisms — a transmissive body,
+     * GLASSMORPHISM's identity is a *stack* of mechanisms — a transmissive body,
      * a frosted interior, a diagonal sheen and a specular rim — and each one
      * is a token. If any of them silently dropped out of the preset the style
      * would still render; it would just render as the flat translucent
@@ -720,8 +741,8 @@ class ThemeEngineTest {
      * a style that quietly changes its own shape has drifted.
      */
     @Test
-    fun `liquid glass declares the full optical preset`() {
-        val tokens = UiStyle.LIQUID_GLASS.tokens
+    fun `glassmorphism declares the full optical preset`() {
+        val tokens = UiStyle.GLASSMORPHISM.tokens
         assertEquals(SurfaceMode.GLASS, tokens.surfaceMode)
         assertEquals(EdgeMode.SPECULAR, tokens.edgeMode)
         assertEquals(22.dp, tokens.cardCorner)

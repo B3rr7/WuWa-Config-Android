@@ -167,7 +167,7 @@ fun GlassCard(
  * An earlier version of this function read [ThemeShapeTokens] but used only
  * `cardPadding`, ignoring `useBlurEffects` and `useCardBorder` and never drawing
  * the accent tint at all. Every style then rendered as the same flat opaque
- * rectangle, so selecting LIQUID_GLASS in light mode visibly did nothing — the
+ * rectangle, so selecting GLASSMORPHISM in light mode visibly did nothing — the
  * picker entry and the result disagreed. If you add a token-driven property,
  * wire it; if you remove one, say why in the enum.
  */
@@ -1525,7 +1525,7 @@ fun GradientBackground(content: @Composable () -> Unit) {
                 // The chromatic backdrop. A glass panel can only refract colour
                 // that is actually on the page, and the default ramp is a single
                 // accent at 4% — nowhere near enough for the refraction to
-                // register. Under LIQUID_GLASS the ramp is deepened with the
+                // register. Under GLASSMORPHISM the ramp is deepened with the
                 // palette's own violet and cyan so the glass cards above have
                 // something to bend.
                 //
@@ -1538,7 +1538,7 @@ fun GradientBackground(content: @Composable () -> Unit) {
                 val backdropBrush =
                     remember(themeBg, surface, accent, uiStyle, violet, aqua) {
                         val mid = lerp(themeBg, surface, 0.45f)
-                        if (uiStyle == UiStyle.LIQUID_GLASS) {
+                        if (uiStyle == UiStyle.GLASSMORPHISM) {
                             Brush.verticalGradient(
                                 colorStops =
                                     arrayOf(

@@ -15,6 +15,10 @@ import androidx.compose.ui.unit.dp
 // `prefs[uiStyle.ordinal]` silently reassigns them to a different style the next
 // time a constant is inserted. [UiStyle.fromStorageKey] treats an unknown or
 // absent key as absent rather than throwing, so a downgrade cannot brick startup.
+//
+// A rename that ships anyway is a storage migration, not a text edit: the old
+// name stays in [UiStyle.LEGACY_STORAGE_KEYS] so an install that already wrote it
+// resolves to the same style instead of silently falling back to the default.
 
 /**
  * Structural skin. Selects the [ThemeShapeTokens] every card, button, field and
@@ -41,7 +45,7 @@ enum class UiStyle(
                 surfaceMode = SurfaceMode.TONAL,
                 edgeMode = EdgeMode.NONE,
                 // 24.dp, not 20: `ThemeEngineTest` pins MATERIAL_YOU as the
-                // roundest card style, and LIQUID_GLASS needs 22.dp for its
+                // roundest card style, and GLASSMORPHISM needs 22.dp for its
                 // optical radius. Raising Material's card radius by 4dp keeps
                 // that invariant true without a tie, and 24dp still reads as
                 // the soft, near-superelliptical shape Material 3 specifies.
@@ -61,12 +65,12 @@ enum class UiStyle(
     ),
 
     /**
-     * The app's optical glass layer: a frosted refractive core, a diagonal
-     * refraction sheen and a specular rim that catches the light.
+     * Glassmorphism: a frosted translucent body, a diagonal refraction sheen
+     * and a specular rim that catches the light.
      *
      * ## Why this preset carries more than a radius
      *
-     * The earlier LIQUID_GLASS was a radius plus a 0.5dp hairline: the same
+     * The style's first version was a radius plus a 0.5dp hairline: the same
      * flat translucent rectangle every other style drew, with a 1px outline
      * pasted on. It read as "slightly rounded and slightly see-through", not
      * as glass. Real glass is a *layered* material — a translucent body, a
@@ -89,9 +93,21 @@ enum class UiStyle(
      * now a *drawn* gradient rather than a stroke: it has to be wide enough
      * to carry three stops, and `ThemeEngineTest` requires a non-zero width
      * for any style that declares `useCardBorder`.
+     *
+     * ## Why it is called Glassmorphism and not Liquid Glass
+     *
+     * Everything above is glassmorphism: translucency, a frosted interior and
+     * a drawn rim, all of them static. Apple's Liquid Glass is a different
+     * renderer — it samples and refracts the *backdrop* through a lensing
+     * shader and moves its specular highlight with device tilt, which needs a
+     * backdrop-capture layer and an AGSL `RuntimeShader` (API 33+). Naming this
+     * style after that technique would promise an effect it does not perform,
+     * and would occupy the name the style that eventually performs it needs.
+     * So the constant is `GLASSMORPHISM`, and the retired `LIQUID_GLASS` storage
+     * key is aliased in [LEGACY_STORAGE_KEYS] rather than reused.
      */
-    LIQUID_GLASS(
-        displayName = "Liquid Glass",
+    GLASSMORPHISM(
+        displayName = "Glassmorphism",
         description = "Frosted translucent panels with a refractive interior, a diagonal sheen and a specular rim.",
         tokens =
             ThemeShapeTokens(
@@ -146,6 +162,25 @@ enum class UiStyle(
         val DEFAULT: UiStyle = MATERIAL_YOU
 
         /**
+         * Storage names this enum used to write, mapped to their current
+         * constant.
+         *
+         * `GLASSMORPHISM` shipped as `LIQUID_GLASS`, and the preference is
+         * written by name, so an install that already picked the style holds
+         * `"LIQUID_GLASS"` in DataStore. Dropping the old spelling would send
+         * that user back to [DEFAULT] on upgrade — the silent reset the
+         * name-persistence rule above exists to prevent. The mapping is
+         * read-only: the next save writes `GLASSMORPHISM`, so the alias ages
+         * out on its own.
+         *
+         * Deliberately not an enum constant. `LIQUID_GLASS` stays free for a
+         * real backdrop-refracting style later (see the `GLASSMORPHISM` KDoc),
+         * and `ThemeEngineTest` asserts it is *not* a live name today.
+         */
+        private val LEGACY_STORAGE_KEYS: Map<String, UiStyle> =
+            mapOf("LIQUID_GLASS" to GLASSMORPHISM)
+
+        /**
          * Resolve a persisted name, or null when it is absent or unrecognised.
          *
          * In the companion, not on the enum body, because the call site is
@@ -155,9 +190,11 @@ enum class UiStyle(
          * Returning null rather than a silent default matters for the migration
          * path: it lets the repository tell "the user never chose" apart from
          * "the user chose something this build no longer has", and only write
-         * in the former case.
+         * in the former case. A name this build *retired* is neither case — it
+         * resolves through [LEGACY_STORAGE_KEYS] to the constant that replaced
+         * it before null is ever considered.
          */
-        fun fromStorageKey(key: String?): UiStyle? = entries.firstOrNull { it.name == key }
+        fun fromStorageKey(key: String?): UiStyle? = entries.firstOrNull { it.name == key } ?: LEGACY_STORAGE_KEYS[key]
     }
 }
 

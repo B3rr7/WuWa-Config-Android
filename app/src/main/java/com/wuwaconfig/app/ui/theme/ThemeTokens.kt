@@ -153,7 +153,7 @@ data class ThemeShapeTokens(
      * classic "glass card with unreadable labels" failure. Because the
      * radius is a *style* decision (how diffuse the material is, not how
      * large the card is), it belongs with the rest of the structural
-     * tokens: switching to LIQUID_GLASS then diffuses the interior in one
+     * tokens: switching to GLASSMORPHISM then diffuses the interior in one
      * assignment, exactly like the corner radii.
      *
      * Honoured only on API 31+, where `Modifier.blur` has a RenderEffect to
