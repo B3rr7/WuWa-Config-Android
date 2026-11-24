@@ -255,6 +255,12 @@ dependencies {
 
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
+    // `@Preview` lives in ui-tooling-preview, not in ui-tooling: the former is
+    // the annotation artifact and belongs on the release classpath because the
+    // screens declare previews in src/main. Only `ui-tooling` (the interactive
+    // preview renderer) is debug-only. Omitting this line made `assembleRelease`
+    // fail to compile every screen while `assembleDebug` stayed green.
+    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.animation)
