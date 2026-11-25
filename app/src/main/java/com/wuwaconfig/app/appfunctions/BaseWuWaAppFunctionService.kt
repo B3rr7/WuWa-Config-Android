@@ -6,7 +6,7 @@ import android.os.Build
 import android.os.Environment
 import android.util.DisplayMetrics
 import androidx.annotation.RequiresApi
-import androidx.appfunctions.AppFunction
+import androidx.appfunctions.AppFunctionDeclaration
 import androidx.appfunctions.AppFunctionElementNotFoundException
 import androidx.appfunctions.AppFunctionInvalidArgumentException
 import androidx.appfunctions.AppFunctionService
@@ -72,7 +72,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      *
      * @return Every preset, ordered from lowest to highest quality.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun listPresets(): List<PresetInfo> =
         withContext(Dispatchers.Default) {
             // The config screen keeps its own hardcoded copy of this table and it has already
@@ -116,7 +116,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      * @throws AppFunctionInvalidArgumentException If a frame cap or game mode is outside the supported set.
      * @throws AppFunctionSystemUnknownException If generation fails unexpectedly; suggest retrying, and if it persists, having the user generate the configuration in the app instead.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun generateConfig(
         preset: String,
         options: ConfigOptions? = null,
@@ -157,7 +157,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      *
      * @return The cached profile, with empty strings and zeroes for fields never captured.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun getDeviceProfile(): DeviceProfileInfo =
         withContext(Dispatchers.IO) {
             val profile = app.profileStore.load()
@@ -195,7 +195,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      * @param useLogAnalysis Set false to ignore the cached analysis and score only the hardware this app can read directly. Defaults to true.
      * @return The recommended preset, its 0-100 score, and the reasons behind it.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun recommendPreset(useLogAnalysis: Boolean = true): PresetRecommendation =
         withContext(Dispatchers.IO) {
             val cached = if (useLogAnalysis) LogAnalysisStore.load(applicationContext) else null
@@ -243,7 +243,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      * @throws AppFunctionInvalidArgumentException If the log is empty or holds no readable text.
      * @throws AppFunctionSystemUnknownException If the log cannot be parsed; suggest asking the user for a log from the current game version.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun analyzeGameLog(logBytes: ByteArray): GameLogAnalysis =
         withContext(Dispatchers.IO) {
             if (logBytes.isEmpty()) {
@@ -306,7 +306,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      *
      * @return The cached counters and the preset that was recommended at the time.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun getCachedLogAnalysis(): CachedLogAnalysisInfo =
         withContext(Dispatchers.IO) {
             val cached = LogAnalysisStore.load(applicationContext)
@@ -332,7 +332,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      *
      * @return The cached battle statistics. The account identifier is withheld.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun getCachedBattleStats(): BattleStatsInfo =
         withContext(Dispatchers.IO) {
             // BattleStats.playerId is an account identifier, deliberately not exposed here; the
@@ -350,7 +350,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      * @return Deployments with their measured frame rate, thermal and memory deltas.
      * @throws AppFunctionInvalidArgumentException If limit is below 1.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun getDeployHistory(limit: Int = 5): List<DeployOutcome> =
         withContext(Dispatchers.IO) {
             if (limit < 1) {
@@ -371,7 +371,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      * @return That deployment and its measured outcome.
      * @throws AppFunctionElementNotFoundException If no deployment has that identifier; suggest calling "getDeployHistory" for the current list of identifiers.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun getDeployOutcome(deployId: String): DeployOutcome =
         withContext(Dispatchers.IO) {
             val record =
@@ -393,7 +393,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      *
      * @return Per-pool pity status. The account identifier and the raw gacha URL are withheld.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun getGachaPrediction(): List<GachaPredictionInfo> =
         withContext(Dispatchers.IO) {
             val entry = GachaHistoryStore.load(applicationContext) ?: return@withContext emptyList()
@@ -420,7 +420,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      *
      * @return Lifetime aggregates, or zeroes when no history has ever been fetched.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun getGachaStats(): GachaStatsInfo =
         withContext(Dispatchers.IO) {
             val entry =
@@ -447,7 +447,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      * @param name CVar name as the engine spells it, for example "r.Shadow.MaxResolution". Case-insensitive.
      * @return The lookup result. An unrecognised name returns isKnown=false rather than throwing.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun lookupCvar(name: String): CvarInfo =
         withContext(Dispatchers.IO) {
             app.cvarDatabase.load()
@@ -470,7 +470,7 @@ abstract class BaseWuWaAppFunctionService : AppFunctionService() {
      *
      * @return Backups with their contained files, newest first. Empty when no backups exist.
      */
-    @AppFunction(isDescribedByKDoc = true)
+    @AppFunctionDeclaration(isDescribedByKDoc = true)
     suspend fun listBackups(): List<BackupInfo> =
         withContext(Dispatchers.IO) {
             val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
