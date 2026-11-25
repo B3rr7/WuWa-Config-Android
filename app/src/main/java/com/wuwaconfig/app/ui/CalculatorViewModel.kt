@@ -16,18 +16,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class CalculatorViewModel(application: Application) : AndroidViewModel(application) {
-    init {
-        // MaterialData can swap its instance in the background (remote refresh)
-        // after this ViewModel has already loaded its lists. Re-load whenever the
-        // live instance changes so newly added characters/weapons show up without
-        // a manual restart.
-        viewModelScope.launch {
-            MaterialData.dataFlow.collect { data ->
-                if (data != null) loadLists()
-            }
-        }
-    }
-
     private val _characters = MutableStateFlow<List<CalculatorCharacter>>(emptyList())
     val characters: StateFlow<List<CalculatorCharacter>> = _characters.asStateFlow()
 
@@ -45,6 +33,24 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _weaponResult = MutableStateFlow<CalculatorResult?>(null)
     val weaponResult: StateFlow<CalculatorResult?> = _weaponResult.asStateFlow()
+
+    // This block must stay *after* the StateFlow properties above. MaterialData.dataFlow
+    // is a StateFlow, so collecting it emits the current value immediately, and
+    // viewModelScope runs on Dispatchers.Main.immediate: the first emission can reach
+    // loadLists() before the constructor has finished. With this block first, that meant
+    // loadLists() wrote to a null _characters and crashed every CalculatorViewModel
+    // creation made after MaterialData had finished loading.
+    init {
+        // MaterialData can swap its instance in the background (remote refresh)
+        // after this ViewModel has already loaded its lists. Re-load whenever the
+        // live instance changes so newly added characters/weapons show up without
+        // a manual restart.
+        viewModelScope.launch {
+            MaterialData.dataFlow.collect { data ->
+                if (data != null) loadLists()
+            }
+        }
+    }
 
     /**
      * MaterialData is loaded in `WuWaConfigApp.onCreate`, so this only sorts two
