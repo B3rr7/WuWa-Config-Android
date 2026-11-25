@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="app_icon.png" width="120" alt="WuWaConfig logo">
+<img src="site/app_icon.png" width="120" alt="WuWaConfig logo">
 
 # WuWaConfig
 
