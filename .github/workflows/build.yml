@@ -18,21 +18,19 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
+      # setup-gradle caches ~/.gradle itself, keyed on the build inputs. This
+      # job used to also run actions/cache with `restore-keys: Linux-gradle-`,
+      # which restores the newest cache from any earlier run. After a dependency
+      # bump that hands Gradle a module-metadata cache claiming the new plugin
+      # version does not exist: the first run after the Kotlin 2.4.20 bump died
+      # in 23s with "Plugin [id: 'org.jetbrains.kotlin.plugin.compose',
+      # version: '2.4.20'] was not found" while the identical CI job passed on
+      # the same commit. One cache owner, not two.
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
 
       - name: Run ktlintCheck
         run: ./gradlew ktlintCheck
